@@ -381,6 +381,7 @@ SHORT: dict[str, str] = {
     "enable_banking": "Bank accounts from the EU and UK, under PSD2.",
     "gocardless": "EU and UK bank accounts, for an existing GoCardless Bank Account Data login.",
     "yodlee": "Bank and card accounts, worldwide.",
+    "binance": "Dedicated Spot wallet for reviewed trading workspaces",
     "alpaca": "Read-only: imports your Alpaca positions and cash",
     "ibkr": "Read-only: daily import of IBKR positions, trades, cash",
     "yahoo_finance": "Prices for stocks, ETFs and supported major crypto — no key needed.",
@@ -493,6 +494,10 @@ LONG: dict[str, str] = {
         "Yodlee covers banks and cards in the US, Canada and many international markets. You "
         "need two things: a set of API credentials, and a Yodlee user account for the bank logins "
         "themselves."
+    ),
+    "binance": (
+        "Connect an exclusively allocated Spot account or subaccount. Testnet uses virtual funds; "
+        "live execution requires an explicitly reviewed mandate and restricted API permissions."
     ),
     "alpaca": (
         "Your open positions and cash are read into your portfolio and kept up to date. Pick "

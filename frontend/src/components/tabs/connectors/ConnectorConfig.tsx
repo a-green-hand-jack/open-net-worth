@@ -32,6 +32,7 @@ import { WebSearchSection } from './WebSearchSection'
 import { EnableBankingSection } from './EnableBankingSection'
 import { GoCardlessSection } from './GoCardlessSection'
 import { YodleeSection } from './YodleeSection'
+import { BinanceSection } from './BinanceSection'
 import { AlpacaSection } from './AlpacaSection'
 import { IbkrSection } from './IbkrSection'
 import { YahooFinanceSection } from './YahooFinanceSection'
@@ -57,6 +58,7 @@ const CONFIGURABLE_KINDS = new Set([
   'enable_banking',
   'gocardless',
   'yodlee',
+  'binance',
   'alpaca',
   'ibkr',
   'yahoo_finance',
@@ -116,6 +118,8 @@ function configForm(connector: Connector, initialCountry?: string): JSX.Element 
       return <GoCardlessSection initialCountry={initialCountry} />
     case 'yodlee':
       return <YodleeSection />
+    case 'binance':
+      return <BinanceSection />
     case 'alpaca':
       return <AlpacaSection />
     case 'ibkr':

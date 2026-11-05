@@ -56,9 +56,10 @@ it with `DELETE` at the same path. The issue response contains the grant once an
 This capability is being built in stages. The Binance Spot adapter is under review; a dedicated
 wallet, matching account identity and appropriately restricted API permissions are required.
 Testnet activity cannot be linked to the real book. An authenticated owner can configure the
-connector using `PUT /api/binance/config` and check it with `POST /api/binance/test`; status never
-returns the saved key or secret. Production broker validation is not included in this stage, and
-the adapter has not been validated against a funded broker account.
+connector in **Connectors → Binance Spot**, or using `PUT /api/binance/config`, and check it with
+`POST /api/binance/test`. Saved keys cannot be retrieved from the settings screen. Production
+broker validation is not included in this stage, and the adapter has not been validated against
+a funded broker account.
 
 An Alpaca MCP adapter is also under review; a configured
 connector alone does not authorize a funded run. Account identity, dedicated allocation, broker
