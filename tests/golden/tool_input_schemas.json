@@ -11032,5 +11032,19 @@
       "payload"
     ],
     "additionalProperties": false
+  },
+  "run_trading_strategy": {
+    "type": "object",
+    "properties": {
+      "source": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 64000
+      }
+    },
+    "required": [
+      "source"
+    ],
+    "additionalProperties": false
   }
 }

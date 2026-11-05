@@ -145,3 +145,21 @@ async def list_trading_fills(input_data: dict):
 )
 async def record_trading_decision(input_data: dict):
     return _result(trading.record_decision(_run_id(), input_data))
+
+
+@tool(
+    "run_trading_strategy",
+    description="Execute your Python strategy in an isolated container using the current run snapshot; emit a JSON orders list and summary. Read input JSON from stdin: environment, accounts.items, observations.items. Orders use the submit_trading_order schema.",
+    input_schema={
+        "type": "object",
+        "properties": {"source": {"type": "string", "minLength": 1, "maxLength": 64000}},
+        "required": ["source"],
+        "additionalProperties": False,
+    },
+    mutates=("trading",),
+    external_effect=True,
+)
+async def run_trading_strategy(input_data: dict):
+    from backend.services.trading_scripts import execute_strategy
+
+    return _result(await execute_strategy(_run_id(), input_data["source"]))
