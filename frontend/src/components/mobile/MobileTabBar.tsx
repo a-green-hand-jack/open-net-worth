@@ -31,7 +31,9 @@ import {
   NAV_ICON_PROPS,
 } from '../../ui/icons'
 import { openReportProblem } from '../../state/reportProblem'
-import { CONFIG_TABS, TAB_LABELS, type MobileNavTarget, type TabId } from '../../tabs'
+import { CONFIG_TABS, type MobileNavTarget, type TabId } from '../../tabs'
+import { useAppIntl } from '../../i18n/useAppIntl'
+import { tabLabel } from '../../i18n/navigation'
 import { useLuciusChat } from '../../state/luciusChat'
 import { Spark } from '../../lucius/identity'
 import { ConfirmDialog } from '../ui/ConfirmDialog'
@@ -101,6 +103,7 @@ export function MobileTabBar({
   gateway,
   stamp,
 }: Props) {
+  const intl = useAppIntl()
   const luciusOpen = selected === 'lucius'
   const inSheet = !luciusOpen && !TAB_SLOTS.some((s) => s.id === selected)
   const sheetBadgeTotal = [...SHEET_SECTIONS, ...CONFIG_TABS].reduce(
@@ -148,7 +151,7 @@ export function MobileTabBar({
     >
       <span className="mb-tab-indicator" aria-hidden="true" />
       <span className="mb-tab-icon">{icon}</span>
-      <span className="mb-tab-label">{TAB_LABELS[id]}</span>
+      <span className="mb-tab-label">{tabLabel(intl, id)}</span>
     </button>
   )
 
@@ -258,6 +261,7 @@ function MobileMoreSheet({
   gateway?: GatewayIdentity | null
   stamp: { asOf: string; prices: PriceStatus }
 }) {
+  const intl = useAppIntl()
   const sheetRef = useRef<HTMLDivElement>(null)
   const overlayRef = useRef<HTMLDivElement>(null)
   const [confirmingLogout, setConfirmingLogout] = useState<SignOutScope | null>(null)
@@ -278,7 +282,7 @@ function MobileMoreSheet({
     >
       <span className="mb-nav-row-icon">{icons[t]}</span>
       <span className="mb-nav-row-copy">
-        <span className="mb-nav-row-label">{TAB_LABELS[t]}</span>
+        <span className="mb-nav-row-label">{tabLabel(intl, t)}</span>
       </span>
       {(badges[t] ?? 0) > 0 && (
         <span className="mb-nav-row-badge">{(badges[t] ?? 0) > 9 ? '9+' : badges[t]}</span>

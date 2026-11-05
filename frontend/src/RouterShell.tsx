@@ -129,6 +129,8 @@ import { BootUnreachable } from './components/BootUnreachable'
 import { useBrand } from './brand-context'
 import { fDateTime, setBaseCurrency, setDisplayFormats } from './utils/format'
 import { useSetLocalePreference } from './i18n/localeContext'
+import { useAppIntl } from './i18n/useAppIntl'
+import { tabLabel } from './i18n/navigation'
 import {
   TABS,
   type TabId,
@@ -327,6 +329,7 @@ export function RouterShell() {
 }
 
 function RouterShellInner() {
+  const intl = useAppIntl()
   useWarmLazyTabs()
   const { auth, onLogout, onAuthChanged } = useRouteContext({ from: '__root__' })
   const gatewayIdentity = useGatewayIdentity(auth.mode === 'gateway')
@@ -1191,7 +1194,7 @@ function RouterShellInner() {
     )
 
   const renderNavItem = (t: TabId) => (
-    <Fragment key={t}>{railTip(navItemButton(t), TAB_LABELS[t])}</Fragment>
+    <Fragment key={t}>{railTip(navItemButton(t), tabLabel(intl, t))}</Fragment>
   )
 
   const navItemButton = (t: TabId) => (
@@ -1228,7 +1231,7 @@ function RouterShellInner() {
           />
         )}
       </span>
-      <span className="sidebar-label">{TAB_LABELS[t]}</span>
+      <span className="sidebar-label">{tabLabel(intl, t)}</span>
     </button>
   )
 
@@ -1522,7 +1525,11 @@ function RouterShellInner() {
                   >
                     {!SELF_HEADER_TABS.has(tabToRender) && !isSingleAssetRoute && !phoneLucius && (
                       <div className="tab-header">
-                        <h1 className="tab-title">{TAB_DISPLAY_NAMES[tabToRender]}</h1>
+                        <h1 className="tab-title">
+                          {intl.locale === 'en'
+                            ? TAB_DISPLAY_NAMES[tabToRender]
+                            : tabLabel(intl, tabToRender)}
+                        </h1>
                         <div className="tab-subtitle">{TAB_SUBTITLES[tabToRender]}</div>
                       </div>
                     )}

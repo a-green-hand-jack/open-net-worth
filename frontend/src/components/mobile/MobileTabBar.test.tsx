@@ -20,6 +20,8 @@
 import { describe, it, expect, vi, afterEach } from 'vitest'
 import { render, within, fireEvent, cleanup } from '@testing-library/react'
 import type { ReactElement } from 'react'
+import { IntlProvider } from 'react-intl'
+import { catalogs } from '../../i18n/catalogs'
 import { MobileTabBar } from './MobileTabBar'
 import { TABS, type MobileNavTarget, type TabId } from '../../tabs'
 
@@ -44,28 +46,33 @@ const ICONS = Object.fromEntries(
   TABS.map((t) => [t, <span key={t} data-testid={`icon-${t}`} />]),
 ) as Record<TabId, ReactElement>
 
-function setup(over: Partial<Parameters<typeof MobileTabBar>[0]> = {}) {
+function setup(
+  over: Partial<Parameters<typeof MobileTabBar>[0]> = {},
+  locale: 'en' | 'zh-CN' = 'en',
+) {
   const onSelect = vi.fn()
   const onMoreOpenChange = vi.fn()
   const onOpenSearch = vi.fn()
   const onTogglePrivacy = vi.fn()
   const onLogout = vi.fn(() => Promise.resolve())
   const utils = render(
-    <MobileTabBar
-      selected="dashboard"
-      onSelect={onSelect}
-      badges={{}}
-      icons={ICONS}
-      moreOpen={false}
-      onMoreOpenChange={onMoreOpenChange}
-      onOpenSearch={onOpenSearch}
-      onTogglePrivacy={onTogglePrivacy}
-      amountsHidden={false}
-      authRequired={false}
-      onLogout={onLogout}
-      stamp={{ asOf: '6 August 2026, 09:41', prices: 'live' }}
-      {...over}
-    />,
+    <IntlProvider locale={locale} defaultLocale="en" messages={catalogs[locale]}>
+      <MobileTabBar
+        selected="dashboard"
+        onSelect={onSelect}
+        badges={{}}
+        icons={ICONS}
+        moreOpen={false}
+        onMoreOpenChange={onMoreOpenChange}
+        onOpenSearch={onOpenSearch}
+        onTogglePrivacy={onTogglePrivacy}
+        amountsHidden={false}
+        authRequired={false}
+        onLogout={onLogout}
+        stamp={{ asOf: '6 August 2026, 09:41', prices: 'live' }}
+        {...over}
+      />
+    </IntlProvider>,
   )
   return {
     onSelect,
@@ -83,6 +90,14 @@ afterEach(() => {
   mockChatState.conversations = []
   mockChatState.streamingIds = new Set()
   mockChatState.statusFor = () => 'idle'
+})
+
+it('renders translated phone destinations for the selected locale', () => {
+  const { getByText, onSelect } = setup({}, 'zh-CN')
+  fireEvent.click(getByText('账户'))
+  expect(onSelect).toHaveBeenCalledWith('accounts')
+  expect(getByText('投资')).toBeTruthy()
+  expect(getByText('概览')).toBeTruthy()
 })
 
 // No global auto-cleanup in this project's vitest setup — unmount between cases so

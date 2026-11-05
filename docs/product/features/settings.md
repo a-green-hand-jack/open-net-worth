@@ -20,7 +20,8 @@ On a phone the sections are a grouped list — tap one to open it, and use the b
 
 Interface translations are being added in stages. Open **Settings → Interface language** to
 choose English, Simplified Chinese, or **Follow browser** for this profile. A saved choice applies
-on other devices. Messages not yet translated continue to display in English.
+on other devices. Navigation labels follow the chosen language; messages not yet translated
+continue to display in English.
 
 ## Common tasks
 
