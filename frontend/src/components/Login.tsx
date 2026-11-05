@@ -3,6 +3,7 @@ import { authFetch } from '../api/client'
 import { tooManyAttemptsMessage } from '../api/rateLimit'
 import { useBrand } from '../brand-context'
 import { PasswordField } from './ui'
+import { useAppIntl } from '../i18n/useAppIntl'
 
 // Full-screen pre-app gate (P3-AUTH S3). Rendered by App.tsx INSTEAD of the
 // tabs/sidebar/chat when auth is required and this request isn't authenticated.
@@ -10,6 +11,7 @@ import { PasswordField } from './ui'
 // App.tsx to re-check GET /api/auth/status and render the app.
 
 export function Login({ onAuthenticated }: { onAuthenticated: () => void }) {
+  const intl = useAppIntl()
   const brand = useBrand()
   const [password, setPassword] = useState('')
   const [submitting, setSubmitting] = useState(false)
@@ -32,7 +34,7 @@ export function Login({ onAuthenticated }: { onAuthenticated: () => void }) {
         return
       }
       if (res.status === 429) {
-        setError(tooManyAttemptsMessage(res))
+        setError(tooManyAttemptsMessage(res, intl))
         setSubmitting(false)
         return
       }

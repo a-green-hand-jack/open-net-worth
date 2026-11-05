@@ -69,7 +69,7 @@ export function PasswordPanel({
       })
       if (!res.ok) {
         if (res.status === 429) {
-          toast(tooManyAttemptsMessage(res))
+          toast(tooManyAttemptsMessage(res, intl))
           return false
         }
         const problem = await res.json().catch(() => null)

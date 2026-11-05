@@ -24,6 +24,7 @@ export const catalogs: Record<Locale, Record<string, string> | undefined> = {
     ...intelSettingsZh,
     ...securityZh,
     'auth.signingBackIn': '正在重新登录…',
+    'auth.rateLimit': '尝试次数过多。请在 {minutes, plural, other {# 分钟}}后重试。',
     'settings.section.language': '界面语言',
     'settings.section.profile': '个人资料',
     'settings.section.model': 'AI',

@@ -25,6 +25,7 @@ follow the chosen language; messages not yet translated continue to display in E
 payee names are preserved.
 Help controls, currency and format settings, security, terminal and Intel controls, memory editing and forget-confirmation controls also follow the selected interface language;
 saved memory text and user-created topic names remain as entered.
+Authentication retry messages use the active interface language when available.
 
 ## Common tasks
 
