@@ -23,7 +23,7 @@ choose English, Simplified Chinese, or **Follow browser** for this profile. A sa
 on other devices. Navigation, settings section labels, profile, chat, memory, appearance and duplicate-detection settings
 follow the chosen language; messages not yet translated continue to display in English. User-entered
 payee names are preserved.
-Help controls, memory editing and forget-confirmation controls also follow the selected interface language;
+Help controls, currency and format settings, memory editing and forget-confirmation controls also follow the selected interface language;
 saved memory text and user-created topic names remain as entered.
 
 ## Common tasks

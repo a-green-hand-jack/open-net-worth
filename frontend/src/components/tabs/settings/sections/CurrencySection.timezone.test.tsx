@@ -2,6 +2,8 @@
 
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { IntlProvider } from 'react-intl'
+import { catalogs } from '../../../../i18n/catalogs'
 import * as client from '../../../../api/client'
 import { clearQueryCache } from '../../../../state/queryCache'
 import { CurrencySection } from './CurrencySection'
@@ -31,6 +33,18 @@ afterEach(() => {
 })
 
 describe('Settings time zone', () => {
+  it('saves a time zone from the Chinese interface', async () => {
+    const spy = respond({ base_currency: 'SGD', timezone: 'Asia/Singapore', timezone_source: 'auto' })
+    const toast = vi.fn()
+    render(<IntlProvider locale="zh-CN" messages={catalogs['zh-CN']}><CurrencySection toast={toast} /></IntlProvider>)
+    await screen.findByText('从此浏览器检测到；如有错误请更改')
+    fireEvent.change(screen.getByDisplayValue('Asia/Singapore'), { target: { value: 'Europe/Paris' } })
+    await waitFor(() => expect(toast).toHaveBeenCalledWith('时区已更新'))
+    expect(spy).toHaveBeenCalledWith('/api/profile/timezone', expect.objectContaining({
+      method: 'PUT', body: JSON.stringify({ timezone: 'Europe/Paris' }),
+    }))
+  })
+
   it("shows the stored zone and saves a pick as the owner's choice", async () => {
     const spy = respond({
       base_currency: 'SGD',

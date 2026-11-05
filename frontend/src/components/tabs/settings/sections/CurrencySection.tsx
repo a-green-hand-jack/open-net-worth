@@ -6,6 +6,7 @@
 // not — the same numbers are simply re-read as the new currency. The confirm modal names
 // exactly which ones and where each lives.
 import { useState } from 'react'
+import { useAppIntl } from '../../../../i18n/useAppIntl'
 import { authFetch } from '../../../../api/client'
 import { PROFILE_KEY, fetchJson } from '../../../../hooks/serverState'
 import {
@@ -56,6 +57,7 @@ function timeZoneOptions(extra: Array<string | null | undefined>): string[] {
 }
 
 export function CurrencySection({ toast }: SectionProps) {
+  const intl = useAppIntl()
   const {
     data: profile,
     initialLoading,
@@ -80,14 +82,27 @@ export function CurrencySection({ toast }: SectionProps) {
       })
       if (!res.ok) {
         const body = (await res.json().catch(() => null)) as { detail?: string } | null
-        toast(body?.detail || `Could not save (HTTP ${res.status})`)
+        toast(
+          body?.detail ||
+            intl.formatMessage(
+              { id: 'settings.saveFailed', defaultMessage: 'Could not save (HTTP {status})' },
+              { status: res.status },
+            ),
+        )
         return
       }
       const state = (await res.json()) as Pick<ProfileShape, 'timezone' | 'timezone_source'>
       setCachedQueryData<ProfileShape>(PROFILE_KEY, (prev) => ({ ...(prev ?? {}), ...state }))
-      toast('Time zone updated')
+      toast(
+        intl.formatMessage({ id: 'currency.timezoneSaved', defaultMessage: 'Time zone updated' }),
+      )
     } catch {
-      toast('Could not reach the server. Try again.')
+      toast(
+        intl.formatMessage({
+          id: 'currency.unreachable',
+          defaultMessage: 'Could not reach the server. Try again.',
+        }),
+      )
       void refresh()
     }
   }
@@ -101,7 +116,13 @@ export function CurrencySection({ toast }: SectionProps) {
       })
       if (!res.ok) {
         const body = (await res.json().catch(() => null)) as { detail?: string } | null
-        toast(body?.detail || `Could not save (HTTP ${res.status})`)
+        toast(
+          body?.detail ||
+            intl.formatMessage(
+              { id: 'settings.saveFailed', defaultMessage: 'Could not save (HTTP {status})' },
+              { status: res.status },
+            ),
+        )
         return
       }
       // PUT /api/profile answers with an envelope, not the bare profile.
@@ -112,7 +133,12 @@ export function CurrencySection({ toast }: SectionProps) {
       invalidateQueryCache('/api/fire')
       toast(message)
     } catch {
-      toast('Could not reach the server. Try again.')
+      toast(
+        intl.formatMessage({
+          id: 'currency.unreachable',
+          defaultMessage: 'Could not reach the server. Try again.',
+        }),
+      )
       void refresh()
     }
   }
@@ -135,13 +161,20 @@ export function CurrencySection({ toast }: SectionProps) {
   return (
     <>
       <Panel
-        title="Base currency"
-        sub="Every balance and total is converted to this and displayed in it"
+        title={intl.formatMessage({ id: 'currency.base', defaultMessage: 'Base currency' })}
+        sub={intl.formatMessage({
+          id: 'currency.baseHelp',
+          defaultMessage: 'Every balance and total is converted to this and displayed in it',
+        })}
       >
         <div className="rd-formgrid">
           <Field
-            label="Base currency"
-            help="Accounts keep their own native currency — this is the display and reporting unit"
+            label={intl.formatMessage({ id: 'currency.base', defaultMessage: 'Base currency' })}
+            help={intl.formatMessage({
+              id: 'currency.nativeHelp',
+              defaultMessage:
+                'Accounts keep their own native currency — this is the display and reporting unit',
+            })}
           >
             <Select
               value={ccy}
@@ -154,7 +187,7 @@ export function CurrencySection({ toast }: SectionProps) {
                 : [{ value: ccy, label: ccy }, ...CURRENCY_OPTIONS]
               ).map((o) => (
                 <option key={o.value} value={o.value}>
-                  {o.label}
+                  {o.value} — {new Intl.DisplayNames([intl.locale], { type: 'currency' }).of(o.value) || o.value}
                 </option>
               ))}
             </Select>
@@ -163,29 +196,66 @@ export function CurrencySection({ toast }: SectionProps) {
       </Panel>
 
       <Panel
-        title="Number & date format"
-        sub="How amounts and dates are written throughout the app"
+        title={intl.formatMessage({
+          id: 'currency.formats',
+          defaultMessage: 'Number & date format',
+        })}
+        sub={intl.formatMessage({
+          id: 'currency.formatsHelp',
+          defaultMessage: 'How amounts and dates are written throughout the app',
+        })}
       >
         <div className="rd-formgrid">
-          <Field label="Date format">
+          <Field
+            label={intl.formatMessage({ id: 'currency.dateFormat', defaultMessage: 'Date format' })}
+          >
             <Select
               value={(profile?.date_format as string) || ''}
-              onChange={(e) => void save({ date_format: e.target.value }, 'Date format updated')}
+              onChange={(e) =>
+                void save(
+                  { date_format: e.target.value },
+                  intl.formatMessage({
+                    id: 'currency.dateSaved',
+                    defaultMessage: 'Date format updated',
+                  }),
+                )
+              }
             >
-              <option value="">Browser default</option>
+              <option value="">
+                {intl.formatMessage({
+                  id: 'currency.browserDefault',
+                  defaultMessage: 'Browser default',
+                })}
+              </option>
               <option value="dmy">31/12/2026</option>
               <option value="mdy">12/31/2026</option>
               <option value="iso">2026-12-31</option>
             </Select>
           </Field>
-          <Field label="Number format">
+          <Field
+            label={intl.formatMessage({
+              id: 'currency.numberFormat',
+              defaultMessage: 'Number format',
+            })}
+          >
             <Select
               value={(profile?.number_format as string) || ''}
               onChange={(e) =>
-                void save({ number_format: e.target.value }, 'Number format updated')
+                void save(
+                  { number_format: e.target.value },
+                  intl.formatMessage({
+                    id: 'currency.numberSaved',
+                    defaultMessage: 'Number format updated',
+                  }),
+                )
               }
             >
-              <option value="">Browser default</option>
+              <option value="">
+                {intl.formatMessage({
+                  id: 'currency.browserDefault',
+                  defaultMessage: 'Browser default',
+                })}
+              </option>
               <option value="comma">1,234,567.89</option>
               <option value="space">1 234 567,89</option>
               <option value="dot">1.234.567,89</option>
@@ -195,25 +265,45 @@ export function CurrencySection({ toast }: SectionProps) {
       </Panel>
 
       <Panel
-        title="Time zone"
-        sub="Decides what 'today' is and what time Lucius thinks it is — and when daily digests arrive"
+        title={intl.formatMessage({ id: 'currency.timezone', defaultMessage: 'Time zone' })}
+        sub={intl.formatMessage({
+          id: 'currency.timezoneHelp',
+          defaultMessage:
+            "Decides what 'today' is and what time Lucius thinks it is — and when daily digests arrive",
+        })}
       >
         <div className="rd-formgrid">
           <Field
-            label="Time zone"
+            label={intl.formatMessage({ id: 'currency.timezone', defaultMessage: 'Time zone' })}
             help={
               <>
                 <span>
                   {profile?.timezone_source === 'user'
-                    ? 'Set by you'
+                    ? intl.formatMessage({
+                        id: 'currency.timezoneUser',
+                        defaultMessage: 'Set by you',
+                      })
                     : profile?.timezone
-                      ? 'Detected from this browser — change it if that is wrong'
-                      : 'Not set yet — the server clock is used until one is saved'}
+                      ? intl.formatMessage({
+                          id: 'currency.timezoneDetected',
+                          defaultMessage: 'Detected from this browser — change it if that is wrong',
+                        })
+                      : intl.formatMessage({
+                          id: 'currency.timezoneUnset',
+                          defaultMessage:
+                            'Not set yet — the server clock is used until one is saved',
+                        })}
                 </span>
                 {browserZone && profile?.timezone && profile.timezone !== browserZone && (
                   <span className="rd-help-action">
                     <Btn size="xs" onClick={() => void saveTimezone(browserZone)}>
-                      Use this browser's ({browserZone})
+                      {intl.formatMessage(
+                        {
+                          id: 'currency.useBrowserZone',
+                          defaultMessage: "Use this browser's ({zone})",
+                        },
+                        { zone: browserZone },
+                      )}
                     </Btn>
                   </span>
                 )}
@@ -233,11 +323,16 @@ export function CurrencySection({ toast }: SectionProps) {
 
       {pending && (
         <Modal
-          title={`Switch base currency to ${pending}?`}
+          title={intl.formatMessage(
+            { id: 'currency.switchTitle', defaultMessage: 'Switch base currency to {currency}?' },
+            { currency: pending },
+          )}
           onClose={() => setPending(null)}
           footer={
             <>
-              <Btn onClick={() => setPending(null)}>Cancel</Btn>
+              <Btn onClick={() => setPending(null)}>
+                {intl.formatMessage({ id: 'common.cancel', defaultMessage: 'Cancel' })}
+              </Btn>
               <Btn
                 variant="primary"
                 onClick={() => {
@@ -245,22 +340,42 @@ export function CurrencySection({ toast }: SectionProps) {
                   setPending(null)
                   void save(
                     { base_currency: next },
-                    'Base currency is now ' + next + ' — re-check your manual amounts',
+                    intl.formatMessage(
+                      {
+                        id: 'currency.switched',
+                        defaultMessage:
+                          'Base currency is now {currency} — re-check your manual amounts',
+                      },
+                      { currency: next },
+                    ),
                   )
                 }}
               >
-                Switch to {pending}
+                {intl.formatMessage(
+                  { id: 'currency.switchTo', defaultMessage: 'Switch to {currency}' },
+                  { currency: pending },
+                )}
               </Btn>
             </>
           }
         >
           <p style={{ margin: 0 }}>
-            Account balances and transactions <b>do</b> convert — they carry a native currency.
-            Amounts you typed in by hand will <b>not</b>: the same numbers will simply be read as{' '}
-            {pending}. You'll want to re-enter these afterwards.
+            {intl.formatMessage(
+              {
+                id: 'currency.switchWarning',
+                defaultMessage:
+                  'Account balances and transactions <b>do</b> convert — they carry a native currency. Amounts you typed in by hand will <b>not</b>: the same numbers will simply be read as {currency}. You’ll want to re-enter these afterwards.',
+              },
+              { currency: pending, b: (chunks) => <b>{chunks}</b> },
+            )}
           </p>
           {preview === null ? (
-            <span className="rd-help">Checking which amounts are affected…</span>
+            <span className="rd-help">
+              {intl.formatMessage({
+                id: 'currency.checkingAmounts',
+                defaultMessage: 'Checking which amounts are affected…',
+              })}
+            </span>
           ) : preview.length ? (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
               {preview.map((f) => (
@@ -277,14 +392,23 @@ export function CurrencySection({ toast }: SectionProps) {
             </div>
           ) : (
             <span className="rd-help">
-              You have no hand-typed amounts, so nothing needs re-entering.
+              {intl.formatMessage({
+                id: 'currency.noManualAmounts',
+                defaultMessage: 'You have no hand-typed amounts, so nothing needs re-entering.',
+              })}
             </span>
           )}
           {preview?.some((f) => whereItLives(f.label) === 'profile') ||
           preview?.some((f) => whereItLives(f.label) === 'plan') ? (
             <span className="rd-help">
-              Income, expenses and the low-balance threshold live on <b>Profile</b>; retirement
-              spend lives in <b>Plan → FIRE Settings</b>.
+              {intl.formatMessage(
+                {
+                  id: 'currency.amountLocations',
+                  defaultMessage:
+                    'Income, expenses and the low-balance threshold live on <b>Profile</b>; retirement spend lives in <b>Plan → FIRE Settings</b>.',
+                },
+                { b: (chunks) => <b>{chunks}</b> },
+              )}
             </span>
           ) : null}
         </Modal>
