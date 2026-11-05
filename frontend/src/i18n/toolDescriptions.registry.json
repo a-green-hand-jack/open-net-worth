@@ -95,10 +95,6 @@
     "english": "Delete a MISTAKEN option entry (open only, unless force=true).",
     "sha256": "b916c11f766cfc798d9463b17140413f70253c9ec3bd4310451dc78d64d58704"
   },
-  "cancel_trading_order": {
-    "english": "Request cancellation of an order owned by this run.",
-    "sha256": "30403d6ac4e509d3dc584e6cf7899ff1d13c9957120e3a8dfd8c7d7cfb0be6a0"
-  },
   "check_duplicates": {
     "english": "Checks transactions you have NOT written yet against the ledger — the pre-write twin of find_duplicates (which scans rows already booked).",
     "sha256": "28dcc651ff4a2da329328ae9f9637d76a2e8dc756eda261213de970b7a61c82d"
@@ -339,10 +335,6 @@
     "english": "List the Enable Banking accounts (balance, suggested account_type, linked_account_id or null) — no transactions.",
     "sha256": "24ec8b95ec0d6f7d829e9d8d28d25bb49492289cb5d21a4a60658e0f593203b9"
   },
-  "fetch_trading_research": {
-    "english": "Read an explicitly supplied public research URL in Paper/Live.",
-    "sha256": "be6559f19e443840a42e72236638790668f8dbd17f2d313845bd24b7bfb49d56"
-  },
   "find_duplicates": {
     "english": "Scan the ledger for likely DUPLICATE transactions and TRANSFER PAIRS (the same charge entered via two sources, or the two legs of one transfer like a bank→wa…",
     "sha256": "894402009de9d680f0ac880a1fa74ba2c9a6e1ed778259442d4e8f3f7b02bbae"
@@ -386,6 +378,14 @@
   "get_asset_context": {
     "english": "Everything relevant to give a genuinely informed answer about ONE held or watched instrument, in a single call: position (qty, cost basis, market value, weig…",
     "sha256": "443e9025594159bbd8bd40f8007e88980680b5f9ffa2f97f35a1e598db672510"
+  },
+  "get_asset_fundamentals": {
+    "english": "Fundamentals for ONE stock: the Analysis tab's own rows, so quote these rather than computing or searching for them.",
+    "sha256": "6fdabec1198f1c58f77d0d81ba26aa65d9bf92ec0275130fcca239ea5f96112e"
+  },
+  "get_asset_technicals": {
+    "english": "Technical indicators for ONE instrument: the Analysis tab's own rows, so quote these rather than computing or searching for them.",
+    "sha256": "1a1525d6b3c037f0ce7b439bc20fad3c12a32a4ce67cd09bcb1e368aaa976626"
   },
   "get_budget_month": {
     "english": "Zero-Based's envelope budget for a month (default: current) — for 50/30/20 use get_budget_view.",
@@ -583,18 +583,6 @@
     "english": "Retrieve a previously uploaded bank statement by its statement_id.",
     "sha256": "f39251dd512a06042d84d3f05eaa6094dad793b694d25f99cd28bcb39e46e544"
   },
-  "get_trading_account": {
-    "english": "Read this run's accounts, cash and positions.",
-    "sha256": "89ef40e712c1597d803cd8e00aa895f7527c08c4a996196d6c0c043f1271d6c7"
-  },
-  "get_trading_environment": {
-    "english": "Read this run's clock, mandate and trading capabilities.",
-    "sha256": "8429806eef964ace06bbeabffa5d99799bcc7801dcd7480d7aee1c8610c50b89"
-  },
-  "get_trading_market_data": {
-    "english": "Read the latest observations available at this run's current time, with bounded history pagination.",
-    "sha256": "9782cd08b8514fe55339d29f4596af3e30b6dbe8329cf34ebd0a9374691ce025"
-  },
   "get_transactions": {
     "english": "List ledger entries — every money movement (expense, income, transfer, investment, tax).",
     "sha256": "b598e37c71de90dcddf0283b363cfa4e54ce527caa6485368f197b49b478940c"
@@ -719,18 +707,6 @@
     "english": "List previously uploaded bank statement files — filtered and paged, never an unbounded dump.",
     "sha256": "db9ba114612e07c09d4ec740c95c3c9d9c18552b46f1b05e9493c2c10382c20f"
   },
-  "list_trading_fills": {
-    "english": "Read actual or simulated fills recorded for this run.",
-    "sha256": "bd976a0ab5bf4a1e5c43fcf167f15c12ea70f97347465d0a32543d2a02b95dbf"
-  },
-  "list_trading_orders": {
-    "english": "Read this run's orders and their known execution states.",
-    "sha256": "734a6613586bf99d3d0b82231153f76ef986e437f8129c022f7d858d5c3a7019"
-  },
-  "list_trading_workspaces": {
-    "english": "Read the user's delegated trading workspaces before proposing a new one.",
-    "sha256": "fafc8e6c8502c365c626baf482c5e13629d73f249e62af4a713a295143df0ef6"
-  },
   "list_watchlists": {
     "english": "List all named watchlists the user has created.",
     "sha256": "dc893ca540e7b174bee3e9e2d6d4d6bff4d4a6b8a29c8eda11a1d88d36d3b735"
@@ -815,10 +791,6 @@
     "english": "Validate and normalize an Automation draft without creating it — including a reminder or a categorization rule, both of which are Automations.",
     "sha256": "468ef07ba5f8432afbb25bfece1e3697184a69cc812bf0f973efaf132f57bbb1"
   },
-  "preview_trading_workspace": {
-    "english": "Validate an UNSAVED trading delegation for human review.",
-    "sha256": "08e7ec20e27f30c15dc2f53fcd6b7fade90f3a753b871697f992b2fcc8759fbd"
-  },
   "read_attachments": {
     "english": "Read an OLDER or on-demand stored attachment that is NOT already part of this turn's own message (an image just attached this turn is read automatically befo…",
     "sha256": "71d71881b4e570a7ec94fa491b55dca8ffedfa23a55485c5f433c5441a433b59"
@@ -839,13 +811,13 @@
     "english": "Actually LOOK AT one or more receipts' contents — the merchant, line items, amounts, dates — not just that they're attached (get_transactions' `receipts` arr…",
     "sha256": "74349689bf25e955c52f7056816ec7f225a00912b91e93798e033cf33c2aa3a4"
   },
+  "read_screen": {
+    "english": "Read what the user has on screen in the app right now.",
+    "sha256": "9a5157e5f2a00a407c6556bde6d7dadc3f941bac5e0c1647e148dd611438549a"
+  },
   "read_skill_file": {
     "english": "Read a reference/support file from the CURRENTLY-RUNNING skill's bundle (e.g.",
     "sha256": "fbc49e2aa1d30189bdfc84c28f5f75e814876de81e50768d8a09b0a9c1716e78"
-  },
-  "read_trading_files": {
-    "english": "List workspace files, or read an exact saved version by name/version.",
-    "sha256": "4a09ba0d3131e2764f7ef354dfc79dfa8e6d4f1d660a9948ba644520b1cddc40"
   },
   "recall_memory": {
     "english": "Search EVERYTHING you have remembered about the user, not just the facts shown in your prompt, which may leave out older facts not yet sorted.",
@@ -866,14 +838,6 @@
   "record_release": {
     "english": "Record that a vest's shares were DELIVERED.",
     "sha256": "3d2e511897a14f953246fd27c3d102ae26c318f84f4c5167cdc1c7e9c63d924a"
-  },
-  "record_trading_decision": {
-    "english": "Record a concise decision summary; model cost is measured by the runtime, not this tool.",
-    "sha256": "6f39a6f12f217f6c1baef8d80e6a25b6eb88215e4db6a6f62488a3a6483c11b0"
-  },
-  "record_trading_work": {
-    "english": "Publish actual executor output, analysis, actor activity, tool evidence or wait state.",
-    "sha256": "e5576724736753413d142de17846023472211c857b7e68f24e7edf7cc3a6d6af"
   },
   "record_vest": {
     "english": "Record a vest event for a specific tranche.",
@@ -947,10 +911,6 @@
     "english": "Reorder the envelopes WITHIN one Planning group: envelope_ids = ALL of that group's envelopes in the new order — same set, just reordered (move_envelopes_to_…",
     "sha256": "8ca0141bcb08e6ab82066e14e39482e309eb419ed3ea348a53ebe52ff0cf21e5"
   },
-  "request_trading_market_data": {
-    "english": "Choose current instruments for a Paper/Live workspace's reviewed Yahoo feed.",
-    "sha256": "fceecf76081816252f1fa7ffac2723307a592aa913a0275ff471330d597310db"
-  },
   "resolve_instruments": {
     "english": "Resolve a user-typed ticker or coin to a canonical instrument with a live price source — the FETCH-FACTS half of the instrument pair (update_instruments edit…",
     "sha256": "2c60d42961f0517733776828e2048c4031929b4e3a24eec359904e723fc1a1e8"
@@ -991,10 +951,6 @@
     "english": "Run ONE read-only SQL SELECT against this app's own database, for questions the other tools cannot express (joins, distributions, 'which X appears in both A…",
     "sha256": "30ab2520a4ad0a10dc8d59f613bb3448b870ecad4e105bb09e42b79a87f0054c"
   },
-  "run_trading_strategy": {
-    "english": "Execute your Python strategy in an isolated container using the current run snapshot; emit a JSON orders list and summary.",
-    "sha256": "0d9874fdc0d5245cf153a448d89cc306a22a6ab17258df11afccd595bd95f04c"
-  },
   "save_code_as_skill": {
     "english": "Propose saving a script as a reusable SCRIPT-SKILL — use this when the user will want the SAME computation again, or it belongs in a named playbook (the 'wri…",
     "sha256": "9c6bb76b63ed3552763fbd1de384993b37a2fe15d689f9c48bd8b5b7577d318a"
@@ -1022,10 +978,6 @@
   "search_past_conversations": {
     "english": "Search the user's earlier conversations with you by keyword, when they refer to a previous chat and neither this conversation nor your memory covers it.",
     "sha256": "f235a31f33904ec89beb563710685747251b26d6723aaba6fc024615471688c2"
-  },
-  "search_trading_research": {
-    "english": "Search public current research for this Paper/Live mandate.",
-    "sha256": "9a1f9b2cd2e61d7f2d6a5e42143cbf7bbfda1250aad8d7be8fa9f08a278497ac"
   },
   "serper_fetch_page": {
     "english": "Fetch and read the full text of a URL via Serper specifically — bypasses the active-provider selection.",
@@ -1138,10 +1090,6 @@
   "simulate_retirement": {
     "english": "Run the retirement simulation: the SAME engine and random paths as Plan > Outlook, so the user's plan has ONE answer.",
     "sha256": "b93246d33716cc85979c5c0cfa0bdd386ae6be5244412d479dfe8a8df788d92a"
-  },
-  "submit_trading_order": {
-    "english": "Submit an order intent to this run's execution environment; acknowledgement is not a fill.",
-    "sha256": "9fab034532feac21cd02d2126e790fb7bf9944908be85529034b90d300e50a09"
   },
   "swap_review_canonical": {
     "english": "Swap a pending match-review's canonical to one of its tied alternatives (F20).",
@@ -1286,10 +1234,6 @@
   "webhook_send_message": {
     "english": "Send a message to the user's configured webhook right now.",
     "sha256": "0a6aaa4b8df2b679469157b6bc8d8d943625944b772e1bb079bb0fcbb4cc48d3"
-  },
-  "write_trading_file": {
-    "english": "Save an immutable version of a relative workspace research/code/test file.",
-    "sha256": "8c98fdbb2134820a1754843febe51c034af53772e5d86d5a30f85f4886fac42a"
   },
   "x_search": {
     "english": "Search X (formerly Twitter) for social posts and chatter.",

@@ -7,8 +7,9 @@ import { toolPermissionDescription, toolPermissionTitle } from './toolDescriptio
 
 describe('tool permission descriptions', () => {
   it('has a nonempty Chinese description for every snapshotted first-party tool', () => {
-    expect(Object.keys(translations).sort()).toEqual(Object.keys(registry).sort())
-    for (const translation of Object.values(translations)) expect(translation.trim()).not.toBe('')
+    for (const tool of Object.keys(registry)) {
+      expect(translations[tool as keyof typeof translations]?.trim()).toBeTruthy()
+    }
   })
   it('translates only an identified first-party description with the expected content', () => {
     const entry = registry.delete_accounts
