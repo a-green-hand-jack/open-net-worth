@@ -14,6 +14,11 @@ accepts only that grant and offers run-scoped trading tools; it cannot use gener
 or choose a different run in its arguments. An owner can revoke or rotate the grant, and the
 owner's tool permissions still apply.
 
+An authenticated owner can review a proposed delegation at
+`POST /api/trading/delegations/review` before creating it with `POST /api/trading/delegations`.
+The workspace endpoints provide an overview, pause or resume actions, and reviewed mandate
+amendments. A participant grant does not authorize those owner controls.
+
 When allowed by the owner, a participant can write versioned research or code files, read saved
 versions, and record the work it actually performed. These files are workspace records rather
 than host filesystem paths; credential filtering is defensive and cannot detect every secret.
