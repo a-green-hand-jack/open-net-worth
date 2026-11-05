@@ -1,12 +1,16 @@
 import { describe, expect, it } from 'vitest'
 import { createIntl } from 'react-intl'
+import contract from '../../../../../../backend/core/model_config_message_contract.json'
 import messages from './model-settings.zh-CN.json'
-import { modelError } from './modelError'
+import { MODEL_ERROR_PARAMS, modelError } from './modelError'
 
 const zh = createIntl({ locale: 'zh-CN', messages })
 const en = createIntl({ locale: 'en' })
 
 describe('model error translation', () => {
+  it('covers the backend message contract and its parameters', () => {
+    expect(Object.fromEntries(Object.entries(MODEL_ERROR_PARAMS).map(([id, param]) => [id, [param]]))).toEqual(contract)
+  })
   it('translates trusted messages and preserves unknown or malformed errors', () => {
     const body = {
       detail: 'original',

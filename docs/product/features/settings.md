@@ -34,6 +34,7 @@ Data management and reset confirmation controls follow the interface language.
 Developer settings and experimental controls follow the interface language.
 Model performance and turn-time limit controls follow the interface language.
 AI model and provider settings follow the interface language.
+Known model configuration errors are displayed in the interface language; other server errors remain unchanged.
 The original and feature-flagged permissions settings controls follow the interface language.
 Before a profile is available at sign-in, the sign-in screen follows the browser language.
 
