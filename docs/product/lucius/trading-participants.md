@@ -35,5 +35,8 @@ An authenticated owner can issue a grant with `POST /api/trading/runs/{run_id}/a
 it with `DELETE` at the same path. The issue response contains the grant once and is marked
 `no-store`; rotation invalidates the prior grant. A participant grant cannot issue or revoke grants.
 
-This capability is being built in stages. Workspace controls and production
-broker integrations are not included in this stage.
+This capability is being built in stages. The Binance Spot adapter is under review; a dedicated
+wallet, matching account identity and appropriately restricted API permissions are required.
+Testnet activity cannot be linked to the real book. The connector setup and production broker
+validation are not included in this stage, and the adapter has not been validated against a
+funded broker account.
