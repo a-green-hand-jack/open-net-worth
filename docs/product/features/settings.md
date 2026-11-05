@@ -42,6 +42,7 @@ The first-run backup restore controls follow the browser language; unknown serve
 First-run AI provider configuration controls also follow the browser language.
 Shared dialog, menu and password visibility controls follow the interface language.
 The shared model picker follows the interface language while retaining provider and model names.
+The permission mode selector and its skip-approval warning follow the interface language.
 
 ## Common tasks
 

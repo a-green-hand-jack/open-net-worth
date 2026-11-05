@@ -1,0 +1,12 @@
+{
+  "permissionMode.auto": "自动审批",
+  "permissionMode.autoDescription": "Lucius 会自行运行，遇到可能不安全的操作时暂停询问。",
+  "permissionMode.autoShort": "自动",
+  "permissionMode.manual": "手动审批",
+  "permissionMode.manualDescription": "Lucius 会暂停，让您审批每项操作。",
+  "permissionMode.manualShort": "手动",
+  "permissionMode.skip": "跳过所有审批",
+  "permissionMode.skipShort": "跳过",
+  "permissionMode.skipWarning": "Lucius 不会暂停，即使操作不安全。",
+  "permissionMode.subject": "审批模式"
+}
