@@ -279,7 +279,9 @@ def test_total_tool_schemas_size_under_budget(tool_schemas):
     # 2026-11-05: 477_000 -> 479_000. get_asset_technicals / get_asset_fundamentals
     # (ai/tools/asset_analysis.py) — the ticker Analysis tab's rows for Lucius. ~1.6K chars after
     # trimming; discoverable, not CORE, so the default offer is unchanged.
-    budget = 479_000
+    # Eight run-scoped trading tools add about 3k registry characters; the separate
+    # default-offer budget remains unchanged.
+    budget = 483_000
     assert total < budget, (
         f"TOOL_SCHEMAS json.dumps size is {total:,} chars — over the {budget:,}-char budget. "
         "Shorten a tool description or raise the budget intentionally (with a comment)."

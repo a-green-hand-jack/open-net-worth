@@ -206,6 +206,7 @@ from backend.api.ynab_api import router as ynab_router
 from backend.api.yodlee_api import router as yodlee_router
 from backend.core.redact import redact_secrets
 from backend.mcp.server import router as mcp_router
+from backend.mcp.trading_gateway import router as trading_gateway_router
 
 
 def _headless_user_messages(prompt: str) -> list[dict]:
@@ -1172,6 +1173,7 @@ app.include_router(artifacts_router)
 app.include_router(vault_router)
 app.include_router(assets_router)
 app.include_router(automations_router)
+app.include_router(trading_gateway_router)
 app.include_router(ibkr_router)
 app.include_router(yodlee_router)
 app.include_router(lunch_money_router)
