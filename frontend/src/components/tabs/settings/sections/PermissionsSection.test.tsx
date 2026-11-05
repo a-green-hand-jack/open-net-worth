@@ -2,6 +2,8 @@
 
 import { cleanup, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { IntlProvider } from 'react-intl'
+import { catalogs } from '../../../../i18n/catalogs'
 import { clearQueryCache } from '../../../../state/queryCache'
 import { PermissionsSection } from './PermissionsSection'
 
@@ -72,5 +74,13 @@ describe('PermissionsSection', () => {
     await waitFor(() => {
       expect(container.querySelector('.rd-panel-title .rd-badge')?.textContent).toBe('1')
     })
+  })
+
+  it('shows the permission level in Chinese without including connector decisions', async () => {
+    render(<IntlProvider locale="zh-CN" messages={catalogs['zh-CN']}><PermissionsSection toast={vi.fn()} /></IntlProvider>)
+    await screen.findByText('add_transaction')
+    expect(screen.getByText('内置')).toBeTruthy()
+    expect(screen.getByText('始终允许')).toBeTruthy()
+    expect(screen.queryByText('browser_click')).toBeNull()
   })
 })
