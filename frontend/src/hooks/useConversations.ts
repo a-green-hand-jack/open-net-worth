@@ -4,6 +4,7 @@ import { deleteMessages } from '../utils/chatStore'
 import { authFetch } from '../api/client'
 import { isStandalonePwa } from '../utils/pwa'
 import { conversationTitleFromFirstMessage } from '../utils/conversationTitle'
+import { isOnboardingInit } from '../utils/onboardingSentinel'
 import { laterIso } from '../utils/isoTime'
 
 export interface ConversationMeta {
@@ -229,6 +230,7 @@ function makeConversation(): ConversationMeta {
   return {
     id: uuid(),
     title: 'New conversation',
+    titleSource: 'placeholder',
     createdAt: now,
     updatedAt: now,
     messageCount: 0,
@@ -374,6 +376,7 @@ export function mergeServerRows(
         ...withRead,
         messageCount: local.messageCount,
         title: serverOwnsTitle ? row.title : local.title,
+        titleSource: serverOwnsTitle ? row.titleSource : local.titleSource,
       }
     }
     return withRead
@@ -389,12 +392,21 @@ export function mergeServerRows(
 async function apiPatchSession(
   id: string,
   title: string,
-  opts?: { auto?: boolean },
+  opts?: { auto?: boolean; placeholder?: boolean; onboarding?: boolean },
 ): Promise<void> {
   await authFetch(`/api/sessions/${id}`, {
     method: 'PATCH',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(opts?.auto ? { title, auto: true } : { title }),
+    body: JSON.stringify(
+      opts?.auto
+        ? {
+            title,
+            auto: true,
+            ...(opts.placeholder && { placeholder: true }),
+            ...(opts.onboarding && { onboarding: true }),
+          }
+        : { title },
+    ),
   })
 }
 
@@ -472,7 +484,7 @@ export function useConversations() {
         return
       }
       const c = makeConversation()
-      apiPatchSession(c.id, c.title, { auto: true }).catch(() => {})
+      apiPatchSession(c.id, c.title, { auto: true, placeholder: true }).catch(() => {})
       setConversations([c, ...serverRows])
       activeIdRef.current = c.id
       setActiveIdState(c.id)
@@ -597,10 +609,15 @@ export function useConversations() {
         const updated = prev.map((c) => {
           if (c.id !== id) return c
           const title =
-            firstUserMessage && (c.title === 'New conversation' || c.title.includes('[skill:'))
+            firstUserMessage &&
+            (c.titleSource === 'placeholder' || c.titleSource === 'auto') &&
+            (c.title === 'New conversation' || c.title.includes('[skill:'))
               ? conversationTitleFromFirstMessage(firstUserMessage)
               : c.title
-          if (title !== c.title) apiPatchSession(id, title, { auto: true }).catch(() => {})
+          const derived =
+            title !== c.title || (c.titleSource === 'placeholder' && !!firstUserMessage)
+          const onboarding = derived && !!firstUserMessage && isOnboardingInit(firstUserMessage)
+          if (derived) apiPatchSession(id, title, { auto: true, onboarding }).catch(() => {})
           // Only a conversation that GREW has been updated. This fires on every hydration
           // too — opening a conversation reports the count it already had — and stamping
           // `now` there made "last updated" mean "last looked at": a conversation you
@@ -608,8 +625,14 @@ export function useConversations() {
           // reload, because the server was never told. The server's own updated_at moves
           // when a turn happens, which is the same rule.
           const grew = messageCount > c.messageCount
-          if (!grew && title === c.title && messageCount === c.messageCount) return c
-          return { ...c, title, messageCount, updatedAt: grew ? now : c.updatedAt }
+          if (!grew && !derived && messageCount === c.messageCount) return c
+          return {
+            ...c,
+            title,
+            titleSource: derived ? (onboarding ? 'onboarding' : 'auto') : c.titleSource,
+            messageCount,
+            updatedAt: grew ? now : c.updatedAt,
+          }
         })
         // Identity-stable when nothing actually moved. This fires on every messages change —
         // i.e. every streamed token — and a fresh array each time re-rendered every chat
@@ -652,7 +675,9 @@ export function useConversations() {
 
   const renameConversation = useCallback((id: string, title: string) => {
     const normalized = normalizeConversationTitle(title)
-    setConversations((prev) => prev.map((c) => (c.id === id ? { ...c, title: normalized } : c)))
+    setConversations((prev) =>
+      prev.map((c) => (c.id === id ? { ...c, title: normalized, titleSource: 'user' } : c)),
+    )
     apiPatchSession(id, normalized).catch(() => {})
   }, [])
 
@@ -673,7 +698,7 @@ export function useConversations() {
         setActiveId(c.id)
         return c.id
       }
-      apiPatchSession(c.id, c.title, { auto: true }).catch(() => {})
+      apiPatchSession(c.id, c.title, { auto: true, placeholder: true }).catch(() => {})
       // NOT capped here — same reasoning as switchConversation below: MAX_CONVS bounds the
       // localStorage BOOT CACHE (writeCachedList), not the live in-memory list.
       // ConversationBrowser searches/renders directly off this array with no independent
@@ -695,8 +720,10 @@ export function useConversations() {
     if (!pending) return
     pendingConvsRef.current.delete(id)
     writePendingConversation(null)
-    apiPatchSession(pending.id, pending.title, { auto: true }).catch(() => {})
-    setConversations((prev) => (prev.some((c) => c.id === id) ? prev : [pending, ...prev]))
+    apiPatchSession(pending.id, pending.title, { auto: true, placeholder: true }).catch(() => {})
+    setConversations((prev) =>
+      prev.some((c) => c.id === id) ? prev : [{ ...pending, titleSource: 'placeholder' }, ...prev],
+    )
   }, [])
 
   const switchConversation = useCallback(
@@ -763,7 +790,7 @@ export function useConversations() {
           let next = updated.find((c) => !isBackgroundConversation(c))
           if (!next) {
             next = makeConversation()
-            apiPatchSession(next.id, next.title, { auto: true }).catch(() => {})
+            apiPatchSession(next.id, next.title, { auto: true, placeholder: true }).catch(() => {})
             updated = [next]
           }
           setActiveId(next.id)

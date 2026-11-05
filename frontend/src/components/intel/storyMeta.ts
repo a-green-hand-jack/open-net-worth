@@ -71,6 +71,17 @@ export interface StoryArc {
   // A deterministic price-signal story on a watched ticker (services/watch_signals.py) — it
   // restates the ticker's pulse flags, so a ticker row shows it as "Price signal", not its headline.
   watch?: boolean
+  watch_presentation?: {
+    version: number
+    headline_source: string
+    summary_source: string
+    impact_source: string
+    ticker: string
+    name: string
+    headline_findings: import('../../types/watchPulse').WatchFinding[]
+    extra_findings: import('../../types/watchPulse').WatchFinding[]
+    fit_message?: { id: string; params: { state: string; percent: string; sector: string } } | null
+  } | null
   watch_kinds?: string[]
   // The explained watch alert (monitoring/watch_analyst.py): only for a material trigger, only
   // with a sourced "why". Never advice — "worth weighing" is considerations, not instructions.

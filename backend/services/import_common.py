@@ -42,6 +42,10 @@ class ImportError_(ValueError):
     (Named with a trailing underscore so it never shadows the builtin ``ImportError``;
     the format modules re-export it under their own ``CsvImportError`` etc. aliases.)"""
 
+    def __init__(self, message: str, *, message_id: str | None = None, params: dict | None = None):
+        super().__init__(message)
+        self.skip_message = {"id": message_id, "params": params or {}} if message_id else None
+
 
 class ImportTooLarge(ImportError_):
     """The fetched body exceeded ``MAX_FETCH_BYTES`` (→ HTTP 413, distinct from a 422)."""
@@ -198,6 +202,7 @@ class RowResult:
     # Advisory anomaly/near-duplicate flags (L2) — populated by import_anomalies.detect_anomalies
     # on the PREVIEW path only; each is {type, reason, existing_id?, line?}. Empty = clean row.
     flags: list[dict] = field(default_factory=list)
+    skip_message: dict | None = None
 
 
 @dataclass
@@ -382,9 +387,15 @@ def build_preview(columns: list[str], total_rows: int, results: list[RowResult])
     sample = [display_draft(r.draft, r.flags) for r in results if r.draft and not r.duplicate][
         :PREVIEW_LIMIT
     ]
-    skip_samples = [{"line": r.line, "reason": r.skip_reason} for r in results if r.draft is None][
-        :10
-    ]
+    skip_samples = [
+        {
+            "line": r.line,
+            "reason": r.skip_reason,
+            **({"reason_message": r.skip_message} if r.skip_message else {}),
+        }
+        for r in results
+        if r.draft is None
+    ][:10]
     return PreviewResult(
         columns=columns,
         total_rows=total_rows,

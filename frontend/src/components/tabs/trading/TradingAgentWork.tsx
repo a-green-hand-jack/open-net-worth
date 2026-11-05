@@ -1,3 +1,4 @@
+import { useTradingErrorText } from './useTradingErrorText'
 import { useEffect, useRef, useState } from 'react'
 import { tradingApi, tradingRoot } from '../../../api/trading'
 import { useQueryCache } from '../../../state/queryCache'
@@ -15,11 +16,16 @@ import {
   Text,
 } from '../../ui'
 import { CodeBlock } from '../../chat/CodeBlock'
-import { errorText, readable, tradingMoney, tradingTime } from './presentation'
+import { tradingMoney, tradingTime } from './presentation'
 import { RunTools } from './RunTools'
 import { TradingFiles } from './TradingFiles'
+import { useAppIntl } from '../../../i18n/useAppIntl'
+import { useTradingLabel } from './useTradingLabel'
+import { asTradingNotice, useTradingNotices } from './useTradingNotices'
 
 export function EventPayload({ event, runId }: { event: TradingEvent; runId?: string }) {
+  const { formatMessage } = useAppIntl()
+  const errorText = useTradingErrorText()
   const [expanded, setExpanded] = useState(false)
   const chunked = event.payload.availability === 'chunked'
   const query = useQueryCache(
@@ -31,10 +37,20 @@ export function EventPayload({ event, runId }: { event: TradingEvent; runId?: st
     <Stack gap="--space-3">
       {chunked && runId && (
         <Button size="sm" onClick={() => setExpanded(true)}>
-          Load complete record
+          {formatMessage({
+            id: 'trading.loadCompleteRecord',
+            defaultMessage: 'Load complete record',
+          })}
         </Button>
       )}
-      {query.initialLoading && expanded && <Loading label="Loading complete record…" />}
+      {query.initialLoading && expanded && (
+        <Loading
+          label={formatMessage({
+            id: 'trading.loadingCompleteRecord',
+            defaultMessage: 'Loading complete record…',
+          })}
+        />
+      )}
       {!!query.error && (
         <ErrorState message={errorText(query.error)} onRetry={() => void query.refresh()} />
       )}
@@ -47,13 +63,19 @@ export function EventPayload({ event, runId }: { event: TradingEvent; runId?: st
 const displayText = (event: TradingEvent) => {
   if (event.kind === 'agent_input') return undefined
   const payload = event.payload
-  return ['summary', 'content', 'text', 'message']
+  return [
+    'summary',
+    'content',
+    'text',
+    'message',
+    ...(event.kind === 'book_projection' ? ['reason'] : []),
+  ]
     .map((key) => payload[key])
     .find((value): value is string => typeof value === 'string')
 }
-function eventName(event: TradingEvent) {
+function eventName(event: TradingEvent, label: (value: string) => string) {
   const name = event.payload.name ?? event.payload.tool_name
-  return `${readable(event.kind)}${typeof name === 'string' ? ` · ${name}` : ''}`
+  return `${label(event.kind)}${typeof name === 'string' ? ` · ${name}` : ''}`
 }
 
 export function TradingAgentWork({
@@ -67,6 +89,10 @@ export function TradingAgentWork({
   highlightedEvent?: TradingEvent | null
   onSelect: (selection: EvidenceSelection) => void
 }) {
+  const { formatMessage } = useAppIntl()
+  const errorText = useTradingErrorText()
+  const label = useTradingLabel()
+  const notices = useTradingNotices()
   const [tab, setTab] = useState('work-timeline')
   const [manualOffset, setOffset] = useState(0)
   const [follow, setFollow] = useState(true)
@@ -111,31 +137,65 @@ export function TradingAgentWork({
     else if (follow && stream.current) stream.current.scrollTop = stream.current.scrollHeight
   }, [follow, events.length, offset, selectedPage])
   return (
-    <Panel title="Agent work" className="trading-observation-panel">
+    <Panel
+      title={formatMessage({ id: 'trading.agentWork', defaultMessage: 'Agent work' })}
+      className="trading-observation-panel"
+    >
       <Stack gap="--space-4">
         <Cluster justify="between">
           <Text weight={600}>{run.workspace_snapshot.agent_label}</Text>
-          <Badge>{readable(run.agent_state)}</Badge>
+          <Badge>{label(run.agent_state)}</Badge>
         </Cluster>
         <Text size="sm" tone="muted">
-          Agent cost {tradingMoney(run.model_cost_usd, 'USD')} · Separate from trading P&amp;L
+          {formatMessage(
+            {
+              id: 'trading.agentCostSummary',
+              defaultMessage: 'Agent cost {amount} · Separate from trading P&L',
+            },
+            { amount: tradingMoney(run.model_cost_usd, 'USD') },
+          )}
         </Text>
         <PageTabs
-          ariaLabel="Agent work sections"
+          ariaLabel={formatMessage({
+            id: 'trading.agentWorkSections',
+            defaultMessage: 'Agent work sections',
+          })}
           value={tab}
           onChange={setTab}
           tabs={[
-            { key: 'work-timeline', label: 'Timeline' },
-            { key: 'work-files', label: 'Files' },
-            { key: 'work-execution', label: 'Execution' },
+            {
+              key: 'work-timeline',
+              label: formatMessage({ id: 'trading.timeline', defaultMessage: 'Timeline' }),
+            },
+            {
+              key: 'work-files',
+              label: formatMessage({ id: 'trading.files', defaultMessage: 'Files' }),
+            },
+            {
+              key: 'work-execution',
+              label: formatMessage({ id: 'trading.execution', defaultMessage: 'Execution' }),
+            },
           ]}
         />
         <div role="tabpanel" aria-labelledby={`ui-page-tab-${tab}`}>
           <Stack gap="--space-4">
-            {query.initialLoading && <Loading label="Loading agent work…" />}
+            {query.initialLoading && (
+              <Loading
+                label={formatMessage({
+                  id: 'trading.loadingAgentWork',
+                  defaultMessage: 'Loading agent work…',
+                })}
+              />
+            )}
             {!!query.error && (
               <ErrorState
-                message={`Updates interrupted. ${errorText(query.error)}`}
+                message={formatMessage(
+                  {
+                    id: 'trading.updatesInterrupted',
+                    defaultMessage: 'Updates interrupted. {error}',
+                  },
+                  { error: errorText(query.error) },
+                )}
                 onRetry={() => void query.refresh()}
               />
             )}
@@ -143,29 +203,48 @@ export function TradingAgentWork({
               <EmptyState
                 title={
                   tab === 'work-files'
-                    ? 'No recorded files on this page'
-                    : 'No reported work on this page'
+                    ? formatMessage({
+                        id: 'trading.noFilesOnPage',
+                        defaultMessage: 'No recorded files on this page',
+                      })
+                    : formatMessage({
+                        id: 'trading.noWorkOnPage',
+                        defaultMessage: 'No reported work on this page',
+                      })
                 }
-                body="The workspace shows actual emitted records. This executor has not reported matching details here."
+                body={formatMessage({
+                  id: 'trading.noReportedDetails',
+                  defaultMessage:
+                    'The workspace shows actual emitted records. This executor has not reported matching details here.',
+                })}
               />
             )}
             {tab === 'work-timeline' && !hasReasoning && (
               <Text size="sm" tone="muted">
-                Provider reasoning was not supplied on this page. Recorded analysis and outputs
-                appear below when available.
+                {formatMessage({
+                  id: 'trading.noProviderReasoning',
+                  defaultMessage:
+                    'Provider reasoning was not supplied on this page. Recorded analysis and outputs appear below when available.',
+                })}
               </Text>
             )}
             {tab === 'work-execution' && (
               <Text size="sm" tone="muted">
-                Only reported actor and execution records appear here. A child-agent hierarchy is
-                unavailable unless the executor reports it.
+                {formatMessage({
+                  id: 'trading.reportedActorsOnly',
+                  defaultMessage:
+                    'Only reported actor and execution records appear here. A child-agent hierarchy is unavailable unless the executor reports it.',
+                })}
               </Text>
             )}
             {tab === 'work-files' && <TradingFiles runId={run.id} onSelect={onSelect} />}
             <div
               ref={stream}
               className="trading-work-stream"
-              aria-label="Recorded agent work"
+              aria-label={formatMessage({
+                id: 'trading.recordedAgentWork',
+                defaultMessage: 'Recorded agent work',
+              })}
               onScroll={(event) => {
                 const element = event.currentTarget
                 if (
@@ -189,7 +268,7 @@ export function TradingAgentWork({
                 >
                   <Cluster justify="between">
                     <Text size="sm" weight={600}>
-                      {eventName(event)}
+                      {eventName(event, label)}
                     </Text>
                     <Text size="xs" tone="muted">
                       {tradingTime(event.environment_time ?? event.created_at)}
@@ -197,23 +276,58 @@ export function TradingAgentWork({
                   </Cluster>
                   {displayText(event) && (
                     <Text as="p" className="trading-mandate-text">
-                      {displayText(event)}
+                      {(event.kind === 'environment_update_failed' ||
+                        event.kind === 'agent_recovery') &&
+                      typeof event.payload.message === 'string'
+                        ? notices(
+                            asTradingNotice(event.payload.message_localized)
+                              ? [asTradingNotice(event.payload.message_localized)!]
+                              : undefined,
+                            [event.payload.message],
+                          )[0]
+                        : event.kind === 'book_projection' &&
+                            typeof event.payload.reason === 'string'
+                          ? notices(
+                              asTradingNotice(event.payload.reason_message)
+                                ? [asTradingNotice(event.payload.reason_message)!]
+                                : undefined,
+                              [event.payload.reason],
+                            )[0]
+                          : displayText(event)}
                     </Text>
                   )}
                   {event.kind === 'agent_input' && (
                     <Text size="sm" tone="muted">
-                      Recorded input. Expand the record to inspect the exact instructions and
-                      environment supplied to the executor.
+                      {formatMessage({
+                        id: 'trading.recordedInput',
+                        defaultMessage:
+                          'Recorded input. Expand the record to inspect the exact instructions and environment supplied to the executor.',
+                      })}
                     </Text>
                   )}
                   {event.kind === 'agent_reasoning' && (
                     <Text size="xs" tone="muted">
-                      Provider-reported reasoning or summary ·{' '}
-                      {String(event.payload.source ?? 'executor')}
+                      {formatMessage(
+                        {
+                          id: 'trading.reasoningSource',
+                          defaultMessage: 'Provider-reported reasoning or summary · {source}',
+                        },
+                        {
+                          source: String(
+                            event.payload.source ??
+                              formatMessage({ id: 'trading.executor', defaultMessage: 'executor' }),
+                          ),
+                        },
+                      )}
                     </Text>
                   )}
                   <details>
-                    <summary>Inputs, outputs and recorded details</summary>
+                    <summary>
+                      {formatMessage({
+                        id: 'trading.inputsOutputs',
+                        defaultMessage: 'Inputs, outputs and recorded details',
+                      })}
+                    </summary>
                     <EventPayload event={event} runId={run.id} />
                   </details>
                   <Button
@@ -221,7 +335,10 @@ export function TradingAgentWork({
                     size="sm"
                     onClick={() => onSelect({ kind: 'event', id: event.id })}
                   >
-                    Inspect linked evidence
+                    {formatMessage({
+                      id: 'trading.inspectLinkedEvidence',
+                      defaultMessage: 'Inspect linked evidence',
+                    })}
                   </Button>
                 </article>
               ))}
@@ -238,10 +355,15 @@ export function TradingAgentWork({
               setOffset(Math.max(0, offset - 50))
             }}
           >
-            Earlier work
+            {formatMessage({ id: 'trading.earlierWork', defaultMessage: 'Earlier work' })}
           </Button>
           <Text size="xs" tone="muted">
-            {total ? `${offset + 1}–${Math.min(offset + 50, total)} of ${total}` : '0 records'}
+            {total
+              ? formatMessage(
+                  { id: 'trading.recordRange', defaultMessage: '{start}–{end} of {total}' },
+                  { start: offset + 1, end: Math.min(offset + 50, total), total },
+                )
+              : formatMessage({ id: 'trading.noRecords', defaultMessage: '0 records' })}
           </Text>
           <Button
             size="sm"
@@ -252,7 +374,7 @@ export function TradingAgentWork({
               setOffset(offset + 50)
             }}
           >
-            Later work
+            {formatMessage({ id: 'trading.laterWork', defaultMessage: 'Later work' })}
           </Button>
           {(!follow || selectedPage != null) && (
             <Button
@@ -262,12 +384,17 @@ export function TradingAgentWork({
                 setIgnoredSelection(highlightedEvent?.id ?? null)
               }}
             >
-              Follow latest
+              {formatMessage({ id: 'trading.followLatest', defaultMessage: 'Follow latest' })}
             </Button>
           )}
         </Cluster>
         <details>
-          <summary>Executor connection and manual diagnostics</summary>
+          <summary>
+            {formatMessage({
+              id: 'trading.executorDiagnostics',
+              defaultMessage: 'Executor connection and manual diagnostics',
+            })}
+          </summary>
           <RunTools run={run} />
         </details>
       </Stack>

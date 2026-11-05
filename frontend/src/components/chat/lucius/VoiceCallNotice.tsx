@@ -1,3 +1,5 @@
+import { defineMessages, type MessageDescriptor } from 'react-intl'
+import { useAppIntl } from '../../../i18n/useAppIntl'
 import { useEffect, useState } from 'react'
 import { useNavigate } from '@tanstack/react-router'
 import { AlertCircle, X } from 'lucide-react'
@@ -12,6 +14,18 @@ import { dismissProblem, startCall, useVoiceCall } from './voiceCall'
 
 const LIVEKIT_CLOUD = 'https://cloud.livekit.io'
 
+const problemMessages = defineMessages({
+  micMac: { id: 'chat.voice.micMac', defaultMessage: "Open Net Worth isn't allowed to use the microphone. Turn it on in System Settings → Privacy & Security → Microphone, then try again." },
+  micSystem: { id: 'chat.voice.micSystem', defaultMessage: "Open Net Worth isn't allowed to use the microphone. Turn it on in your system's privacy settings, then try again." },
+  micBrowser: { id: 'chat.voice.micBrowser', defaultMessage: "The microphone is blocked. Allow it for this site (the browser's address bar, or your system's privacy settings), then try again." },
+  micMissing: { id: 'chat.voice.micMissing', defaultMessage: 'No microphone was found. Connect one, then try again.' },
+  insecure: { id: 'chat.voice.insecure', defaultMessage: 'Calls need a secure address: open the app on localhost or over HTTPS.' },
+  left: { id: 'chat.voice.left', defaultMessage: 'Lucius left the call. Call again to keep going.' },
+  dropped: { id: 'chat.voice.dropped', defaultMessage: 'The call dropped.' },
+  noPickup: { id: 'chat.voice.noPickup', defaultMessage: "Lucius didn't pick up." },
+  startFailed: { id: 'chat.voice.startFailed', defaultMessage: 'The call could not start.' },
+})
+
 export function VoiceCallNotice({
   sessionId,
   busy = false,
@@ -20,6 +34,7 @@ export function VoiceCallNotice({
   /** Lucius is answering something: a call's problem has been moved on from. */
   busy?: boolean
 }) {
+  const intl = useAppIntl()
   const call = useVoiceCall()
   const readiness = useVoiceReadiness()
   const openSetup = useOpenVoiceSetup()
@@ -38,12 +53,12 @@ export function VoiceCallNotice({
   // Set up, but the worker can't take calls right now — say so before anyone presses Call.
   const workerReason =
     readiness?.ready && !readiness.worker.running
-      ? readiness.worker.error || 'Voice calls are set up but not ready to take a call yet.'
+      ? readiness.worker.error || intl.formatMessage({ id: 'chat.voice.notReady', defaultMessage: 'Voice calls are set up but not ready to take a call yet.' })
       : null
   const showWorker = !problem && workerReason && workerReason !== dismissedReason
   if (!problem && !showWorker) return null
 
-  const message = problem?.message ?? workerReason
+  const message = problem?.messageCode ? intl.formatMessage(problemMessages[problem.messageCode] as MessageDescriptor) : problem?.message ?? workerReason
   const dismiss = () => (problem ? dismissProblem() : setDismissedReason(workerReason))
   const micSettings = desktopClientBridge()?.openMicrophoneSettings
   const openLogs = () => void navigate({ to: '/settings', search: { sub: 'developer' } } as never)
@@ -51,7 +66,7 @@ export function VoiceCallNotice({
     <div className="lx-call-notice" role="alert">
       <AlertCircle size={14} aria-hidden="true" />
       <span className="lx-call-notice-text">{message}</span>
-      <button type="button" className="lx-call-notice-close" aria-label="Dismiss" onClick={dismiss}>
+      <button type="button" className="lx-call-notice-close" aria-label={intl.formatMessage({ id: 'chat.voice.dismiss', defaultMessage: 'Dismiss' })} onClick={dismiss}>
         <X size={14} />
       </button>
       {/* The ways out sit on a row of their own under the words: beside them, a long reason was
@@ -59,7 +74,7 @@ export function VoiceCallNotice({
       <div className="lx-call-notice-actions">
         {problem?.kind === 'setup' && (
           <button type="button" className="lx-call-notice-action" onClick={openSetup}>
-            Voice calls settings
+            {intl.formatMessage({ id: 'chat.voice.settings', defaultMessage: 'Voice calls settings' })}
           </button>
         )}
         {problem?.kind === 'mic' && micSettings && (
@@ -69,7 +84,7 @@ export function VoiceCallNotice({
             className="lx-call-notice-action"
             onClick={() => void micSettings()}
           >
-            Open System Settings
+            {intl.formatMessage({ id: 'chat.voice.systemSettings', defaultMessage: 'Open System Settings' })}
           </button>
         )}
         {problem?.kind === 'service' && (
@@ -80,7 +95,7 @@ export function VoiceCallNotice({
             target="_blank"
             rel="noopener noreferrer"
           >
-            Open LiveKit
+            {intl.formatMessage({ id: 'chat.voice.openLiveKit', defaultMessage: 'Open LiveKit' })}
           </a>
         )}
         {problem && problem.kind !== 'insecure' ? (
@@ -89,11 +104,11 @@ export function VoiceCallNotice({
             className="lx-call-notice-action"
             onClick={() => void startCall(sessionId)}
           >
-            {problem.kind === 'dropped' ? 'Call again' : 'Try again'}
+            {problem.kind === 'dropped' ? intl.formatMessage({ id: 'chat.voice.callAgain', defaultMessage: 'Call again' }) : intl.formatMessage({ id: 'chat.voice.tryAgain', defaultMessage: 'Try again' })}
           </button>
         ) : showWorker ? (
           <button type="button" className="lx-call-notice-action" onClick={openLogs}>
-            View logs
+            {intl.formatMessage({ id: 'chat.voice.logs', defaultMessage: 'View logs' })}
           </button>
         ) : null}
         {problem?.detail && (
@@ -103,7 +118,7 @@ export function VoiceCallNotice({
             aria-expanded={detailOpen}
             onClick={() => setDetailOpen((v) => !v)}
           >
-            {detailOpen ? 'Hide details' : 'Details'}
+            {detailOpen ? intl.formatMessage({ id: 'chat.voice.hideDetails', defaultMessage: 'Hide details' }) : intl.formatMessage({ id: 'chat.voice.details', defaultMessage: 'Details' })}
           </button>
         )}
       </div>

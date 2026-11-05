@@ -1,3 +1,4 @@
+import { fFixed } from '../../../utils/format'
 /**
  * importHelpers.ts — Pure parsing and display utilities for ImportModal.
  * No React. No API calls. Safe to import in tests.
@@ -8,6 +9,7 @@
  * is gone; the mapping is sent to the server as a teach instead).
  */
 
+import { defineMessages, type IntlShape, type MessageDescriptor } from 'react-intl'
 import { fCur } from './format'
 
 // ── Format detection ──────────────────────────────────────────────────────
@@ -257,6 +259,7 @@ export interface ImportPreviewResult {
     description?: string
     line?: number
     reason: string
+    reason_message?: { id: string; params?: Record<string, string | number> } | null
     amount?: number
     currency?: string
     failed?: boolean
@@ -422,6 +425,7 @@ export function mapServerPreview(data: Record<string, unknown>): ImportPreviewRe
           .map((r) => ({
             line: (r.index as number) + 1,
             reason: (r.skip_reason as string) || 'skipped',
+            reason_message: r.skip_reason_message as ImportPreviewResult['skipped'][number]['reason_message'],
             description: r.description as string | undefined,
             amount: r.amount as number | undefined,
             currency: r.currency as string | undefined,
@@ -735,11 +739,18 @@ export const FLAG_LABEL: Record<string, string> = {
  * `_existing_summary` → core.txn_sources.display_source), so every raw feed variant
  * (csv_import/qif_import/api/bank syncs/reconcile/...) has already collapsed onto the handful
  * this switches on. */
-export function existingSourcePhrase(source?: string | null): string {
-  if (source === 'ai') return 'via Lucius'
-  if (source === 'agent') return 'via agent'
-  if (source === 'import') return 'from an earlier import'
-  return 'added by you'
+const importLineMessages = defineMessages({
+  lucius: { id: 'accounts.importLine.lucius', defaultMessage: 'via Lucius' },
+  agent: { id: 'accounts.importLine.agent', defaultMessage: 'via agent' },
+  imported: { id: 'accounts.importLine.imported', defaultMessage: 'from an earlier import' },
+  manual: { id: 'accounts.importLine.manual', defaultMessage: 'added by you' },
+  transfer: { id: 'accounts.importLine.transfer', defaultMessage: 'Transfer' },
+  uncategorized: { id: 'accounts.importLine.uncategorized', defaultMessage: 'Uncategorized' },
+})
+
+export function existingSourcePhrase(source?: string | null, intl?: IntlShape): string {
+  const key = source === 'ai' ? 'lucius' : source === 'agent' ? 'agent' : source === 'import' ? 'imported' : 'manual'
+  return intl ? intl.formatMessage(importLineMessages[key]) : importLineMessages[key].defaultMessage
 }
 
 // ── Transfer identity (owner complaint 2026-07-17) ────────────────────────────────────
@@ -790,8 +801,9 @@ export function transferLine(
   subject: TransferLineSubject,
   accounts: Array<{ id: string; name: string }>,
   catMap: Record<string, { label: string }>,
-  opts: { anchorAccountId?: string; counterHint?: string; compact?: boolean } = {},
+  opts: { anchorAccountId?: string; counterHint?: string; compact?: boolean; intl?: IntlShape } = {},
 ): string | null {
+  const transfer = opts.intl ? opts.intl.formatMessage(importLineMessages.transfer) : 'Transfer'
   const withCat = (head: string) =>
     subject.category ? `${head} • ${catMap[subject.category]?.label || subject.category}` : head
   const r = subject.routed
@@ -801,11 +813,11 @@ export function transferLine(
       const counter = out
         ? accountName(r.to_account_id, r.to_account_name, accounts)
         : accountName(r.from_account_id, r.from_account_name, accounts)
-      return withCat(counter ? `Transfer ${out ? '→' : '←'} ${counter}` : 'Transfer')
+      return withCat(counter ? `${transfer} ${out ? '→' : '←'} ${counter}` : transfer)
     }
     const from = accountName(r.from_account_id, r.from_account_name, accounts)
     const to = accountName(r.to_account_id, r.to_account_name, accounts)
-    return withCat(from && to ? `Transfer • ${from} → ${to}` : 'Transfer')
+    return withCat(from && to ? `${transfer} • ${from} → ${to}` : transfer)
   }
   if (subject.kind !== 'transfer') return null
   const from = accountName(subject.account_id, null, accounts)
@@ -825,9 +837,9 @@ export function transferLine(
     // — which is always nameable. Same "never fabricate an arrow" honesty as the legs form.
     const anchorIsFrom = !!opts.anchorAccountId && subject.account_id === opts.anchorAccountId
     const counter = anchorIsFrom ? to : from
-    return withCat(counter ? `Transfer ${anchorIsFrom ? '→' : '←'} ${counter}` : 'Transfer')
+    return withCat(counter ? `${transfer} ${anchorIsFrom ? '→' : '←'} ${counter}` : transfer)
   }
-  return withCat(from && to ? `Transfer • ${from} → ${to}` : 'Transfer')
+  return withCat(from && to ? `${transfer} • ${from} → ${to}` : transfer)
 }
 
 /** The existing transaction's own quiet, one-line summary rendered under a match headline
@@ -858,7 +870,7 @@ export function existingTxnLine(
   accounts: Array<{ id: string; name: string }>,
   catMap: Record<string, { label: string }>,
   fallbackCurrency: string,
-  transferCtx?: { anchorAccountId?: string; counterHint?: string; omitFacts?: boolean },
+  transferCtx?: { anchorAccountId?: string; counterHint?: string; omitFacts?: boolean; intl?: IntlShape },
 ): string {
   const parts: string[] = []
   // Cmp's own callers already show a date + amount footer (imp3-cmp-facts) right below this
@@ -875,10 +887,10 @@ export function existingTxnLine(
   } else {
     if (acct) parts.push(acct.name)
     parts.push(
-      existing.category ? catMap[existing.category]?.label || existing.category : 'Uncategorized',
+      existing.category ? catMap[existing.category]?.label || existing.category : (transferCtx?.intl ? transferCtx.intl.formatMessage(importLineMessages.uncategorized) : 'Uncategorized'),
     )
   }
-  parts.push(existingSourcePhrase(existing.source))
+  parts.push(existingSourcePhrase(existing.source, transferCtx?.intl))
   // Show the leg on the STATEMENT's own account, not the raw from-leg magnitude: a
   // ₫1,600,000 credit linked to a TransferQuick SGD→VinaBank transfer must read ₫1,600,000,
   // never the from-leg "S$79.30" (reported case, 2026-07-18). anchorPerspectiveAmount picks
@@ -955,13 +967,21 @@ export function sameFigure(a?: number | null, b?: number | null): boolean {
  * (review); unique pairing in a complete statement window") and is never rendered anywhere
  * (owner, 2026-07-29). ONE implementation feeds both the weak suggestion line and the match
  * picker's option lines, so the two can never quote different drift for the same pair. */
+const importDriftMessages = defineMessages({
+  same: { id: 'accounts.importDrift.same', defaultMessage: 'same amount' },
+  off: { id: 'accounts.importDrift.off', defaultMessage: '{percent}% off' },
+  skipped: { id: 'accounts.importDrift.skipped', defaultMessage: 'Skipped — yours stays {yours}; the statement’s {statement} is not adopted.' },
+  merged: { id: 'accounts.importDrift.merged', defaultMessage: 'Statement settled {statement} • yours says {yours} — this merge links them but keeps your figure (its legs/kind stay as booked).' },
+})
+
 export function driftPhrase(
   statementAmount?: number | null,
   ledgerAmount?: number | null,
+  intl?: IntlShape,
 ): string | null {
   const pct = driftPct(statementAmount, ledgerAmount)
   if (pct == null) return null
-  return sameFigure(statementAmount, ledgerAmount) ? 'same amount' : `${pct.toFixed(1)}% off`
+  return sameFigure(statementAmount, ledgerAmount) ? (intl ? intl.formatMessage(importDriftMessages.same) : 'same amount') : (intl ? intl.formatMessage(importDriftMessages.off as MessageDescriptor, { percent: fFixed(pct, 1) }) : `${fFixed(pct, 1)}% off`)
 }
 
 /** One match-picker option line: `MM-DD · note · amount (same amount | X.X% off)`.
@@ -973,6 +993,7 @@ export function matchOptionLine(
   >,
   draftAmount: number,
   fallbackCurrency: string,
+  intl?: IntlShape,
 ): string {
   const bits: string[] = []
   if (row.date) bits.push(row.date.slice(5))
@@ -984,7 +1005,7 @@ export function matchOptionLine(
     const original = originalCharge(row, ccy)
     bits.push(fCur(row.amount, ccy, { cents: true }) + (original ? ` (${original})` : ''))
   }
-  const drift = driftPhrase(draftAmount, row.amount)
+  const drift = driftPhrase(draftAmount, row.amount, intl)
   return bits.join(' • ') + (drift ? ` (${drift})` : '')
 }
 
@@ -1183,7 +1204,7 @@ export function linkedAmountDrift(
  * honestly per effect: a skip adopts nothing; a merge that reaches this marker is one the
  * kind gate keeps at your figures (an adopting merge projects the settled amount — no
  * drift, no marker). Null when the row carries no drift. */
-export function offByTitle(r: VerdictRowInput): string | null {
+export function offByTitle(r: VerdictRowInput, intl?: IntlShape): string | null {
   const drift = linkedAmountDrift(r)
   if (!drift) return null
   const stmt = fCur(drift.statement, r.currency, { cents: true })
@@ -1195,8 +1216,8 @@ export function offByTitle(r: VerdictRowInput): string | null {
     { cents: true },
   )
   if (r.effect === 'skip')
-    return `Skipped — yours stays ${yours}; the statement’s ${stmt} is not adopted.`
-  return `Statement settled ${stmt} • yours says ${yours} — this merge links them but keeps your figure (its legs/kind stay as booked).`
+    return intl ? intl.formatMessage(importDriftMessages.skipped as MessageDescriptor, { yours, statement: stmt }) : `Skipped — yours stays ${yours}; the statement’s ${stmt} is not adopted.`
+  return intl ? intl.formatMessage(importDriftMessages.merged as MessageDescriptor, { yours, statement: stmt }) : `Statement settled ${stmt} • yours says ${yours} — this merge links them but keeps your figure (its legs/kind stay as booked).`
 }
 
 /** Question 2 — "would the amounts match?" Projects each REPRESENTED row's post-commit
@@ -1279,7 +1300,19 @@ export interface AfterProjection {
  *   unchanged plus the statement row booked as its own transaction.
  *
  * Pure — unit-testable without React; the caller resolves category labels via `catMap`. */
+const projectionMessages = defineMessages({
+  uncategorized: { id: 'accounts.importProjection.uncategorized', defaultMessage: 'Uncategorized' },
+  stays: { id: 'accounts.importProjection.stays', defaultMessage: 'yours stays as-is' },
+  two: { id: 'accounts.importProjection.two', defaultMessage: '2 records' },
+  linked: { id: 'accounts.importProjection.linked', defaultMessage: 'linked ✓' },
+  transfer: { id: 'accounts.importProjection.transfer', defaultMessage: 'becomes a transfer' },
+  cleared: { id: 'accounts.importProjection.cleared', defaultMessage: 'cleared ✓' },
+  referenceLinked: { id: 'accounts.importProjection.referenceLinked', defaultMessage: 'reference linked' },
+  referenceAttached: { id: 'accounts.importProjection.referenceAttached', defaultMessage: 'reference attached' },
+})
+
 export function afterImportProjection(args: {
+  intl?: IntlShape
   action: 'skip' | 'merge' | 'new'
   draft: Pick<
     ImportPreviewDraft,
@@ -1307,15 +1340,17 @@ export function afterImportProjection(args: {
   accounts?: Array<{ id: string; name: string }>
   anchorAccountId?: string
 }): AfterProjection {
-  const { action, draft, existing, flagType, catMap, accounts = [], anchorAccountId } = args
+  const { action, draft, existing, flagType, catMap, accounts = [], anchorAccountId, intl } = args
+  const text = (key: keyof typeof projectionMessages) => intl ? intl.formatMessage(projectionMessages[key]) : projectionMessages[key].defaultMessage
   const fmt = (v: number, ccy?: string | null) => fCur(v, ccy || draft.currency, { cents: true })
-  const catLabel = (key?: string | null) => (key ? catMap[key]?.label || key : 'Uncategorized')
+  const catLabel = (key?: string | null) => (key ? catMap[key]?.label || key : text('uncategorized'))
   // Transfer identity for the category slot: an existing kind=transfer record (the routed
   // draft's own to-leg is the counter hint when the from-leg IS the anchor) and a routed
   // draft's NEW record both name their legs; "Uncategorized" never applies to a transfer.
   const exTransfer = transferLine(existing, accounts, catMap, {
     anchorAccountId,
     counterHint: draft.routed?.to_account_id,
+    intl,
   })
   const existingAmount =
     existing.kind === 'transfer'
@@ -1338,7 +1373,7 @@ export function afterImportProjection(args: {
     badges: [],
   }
   if (action === 'skip')
-    return { records: [{ ...existingRecord, badges: ['yours stays as-is'] }], count: null }
+    return { records: [{ ...existingRecord, badges: [text('stays')] }], count: null }
   if (action === 'new') {
     const oa = draft.original_amount ?? draft.origAmount
     const oc = draft.original_currency ?? draft.origCurrency
@@ -1346,14 +1381,14 @@ export function afterImportProjection(args: {
       tag: 'new',
       title: draft.payee || draft.description,
       date: { value: draft.date.slice(5) },
-      category: transferLine(draft, accounts, catMap) ?? catLabel(draft.category),
+      category: transferLine(draft, accounts, catMap, { intl }) ?? catLabel(draft.category),
       amount: { value: fmt(draft.amount) },
       ...(oa != null && oc && oc !== draft.currency
         ? { original: { value: fCur(oa, oc, { cents: true }), added: false } }
         : {}),
       badges: [],
     }
-    return { records: [existingRecord, newRecord], count: '2 records' }
+    return { records: [existingRecord, newRecord], count: text('two') }
   }
   // merge — kind-gate mirror of apply_import_merge: a transfer target keeps its legs whole.
   if (flagType === 'transfer_leg_echo' || existing.kind === 'transfer') {
@@ -1380,7 +1415,7 @@ export function afterImportProjection(args: {
           },
         }
       : existingRecord
-    return { records: [{ ...record, badges: ['linked ✓'] }], count: null }
+    return { records: [{ ...record, badges: [text('linked')] }], count: null }
   }
   // transfer_pair: NEITHER side is a transfer yet — apply_import_transfer_pair_merge builds
   // ONE, direction-aware (backend/services/ledger.py). Mirror that here rather than falling
@@ -1425,7 +1460,7 @@ export function afterImportProjection(args: {
               ? fmt(debitAmt, debitCcy)
               : `${fmt(debitAmt, debitCcy)} → ${fmt(creditAmt, creditCcy)}`,
           },
-          badges: ['becomes a transfer', 'cleared ✓'],
+          badges: [text('transfer'), text('cleared')],
         },
       ],
       count: null,
@@ -1439,7 +1474,7 @@ export function afterImportProjection(args: {
     : {}
   if (!mergeAdoptsStatementFacts(draft.kind, existing.kind, flagType)) {
     return {
-      records: [{ ...existingRecord, ...gapFilled, badges: ['cleared ✓', 'reference linked'] }],
+      records: [{ ...existingRecord, ...gapFilled, badges: [text('cleared'), text('referenceLinked')] }],
       count: null,
     }
   }
@@ -1461,7 +1496,7 @@ export function afterImportProjection(args: {
           ...(amountChanged ? { old: fmt(existing.amount!, existing.currency) } : {}),
         },
         ...(addsOriginal ? gapFilled : exOriginal ? { original: exOriginal } : {}),
-        badges: ['cleared ✓', 'reference attached'],
+        badges: [text('cleared'), text('referenceAttached')],
       },
     ],
     count: null,
@@ -1582,30 +1617,29 @@ export function mapPreviewProgress(data: unknown): PreviewProgress | null {
 
 /** The phase line's own copy — deliberately NOT the server's generic `label` field, which
  *  exists for logs/other consumers: this is the polished narrative wording for the modal. */
+const progressMessages = defineMessages({
+  render: { id: 'accounts.importProgress.render', defaultMessage: 'Rendering the pages' },
+  read: { id: 'accounts.importProgress.read', defaultMessage: 'Reading the statement' },
+  readPage: { id: 'accounts.importProgress.readPage', defaultMessage: 'Reading page {page} of {pages}' },
+  reconcile: { id: 'accounts.importProgress.reconcile', defaultMessage: 'Checking the statement against its own balances' },
+  match: { id: 'accounts.importProgress.match', defaultMessage: 'Checking every row against your ledger' },
+  lucius: { id: 'accounts.importProgress.lucius', defaultMessage: 'Lucius is reviewing the read' },
+  categorise: { id: 'accounts.importProgress.categorise', defaultMessage: 'Sorting rows into categories' },
+  ledger_check: { id: 'accounts.importProgress.ledgerCheck', defaultMessage: 'Comparing against what’s already booked' },
+})
+
 export function progressPhaseLabel(
   stage: string,
   page: number | null | undefined,
   pages: number | null | undefined,
   fallbackLabel?: string,
+  intl?: IntlShape,
 ): string {
-  switch (stage as ProgressStage) {
-    case 'render':
-      return 'Rendering the pages'
-    case 'read':
-      return page && pages ? `Reading page ${page} of ${pages}` : 'Reading the statement'
-    case 'reconcile':
-      return 'Checking the statement against its own balances'
-    case 'match':
-      return 'Checking every row against your ledger'
-    case 'lucius':
-      return 'Lucius is reviewing the read'
-    case 'categorise':
-      return 'Sorting rows into categories'
-    case 'ledger_check':
-      return 'Comparing against what’s already booked'
-    default:
-      return fallbackLabel || 'Reading the statement'
-  }
+  if (stage === 'read' && page && pages) return intl ? intl.formatMessage(progressMessages.readPage as MessageDescriptor, { page, pages }) : `Reading page ${page} of ${pages}`
+  const key = stage as keyof typeof progressMessages
+  if (key === 'readPage' || !Object.hasOwn(progressMessages, key)) return fallbackLabel || (intl ? intl.formatMessage(progressMessages.read) : 'Reading the statement')
+  const descriptor = progressMessages[key]
+  return intl ? intl.formatMessage(descriptor) : descriptor.defaultMessage
 }
 
 export function formatElapsed(totalSeconds: number): string {

@@ -1,3 +1,4 @@
+import { useAppIntl } from '../../../i18n/useAppIntl'
 // "Needs your attention" triage lane — ported verbatim from the design handoff's app.jsx
 // `NeedsLane`: overdue installments, "looks paid" ledger-match suggestions, and due-soon
 // actions, all in one consolidated, capped, expandable lane.
@@ -18,7 +19,7 @@ export interface NeedItem {
   iid?: string
   aid?: string
   amt?: number
-  payLabel?: string
+  payKind?: 'done' | 'paid'
   sug?: { commitment_id: string; installment_id: string; txn_id: string }
   fundingId?: string | null
 }
@@ -49,6 +50,7 @@ export function NeedsLane({
   onPay,
   onOpenC,
 }: NeedsLaneProps) {
+  const { formatMessage } = useAppIntl()
   const [showAll, setShowAll] = useState(false)
   if (!items.length) return null
   const CAP = cap === 'All' ? Infinity : cap
@@ -59,11 +61,16 @@ export function NeedsLane({
     <section className="c2-needs">
       <div className="c2-needs-head">
         <BellIcon />
-        <span className="c2-needs-title">Needs your attention</span>
+        <span className="c2-needs-title">
+          {formatMessage({ id: 'commitments.needs.title', defaultMessage: 'Needs your attention' })}
+        </span>
         <span className="c2-needs-count">{items.length}</span>
         {overdue && (
           <span className="c2-needs-overdue">
-            {overdue.count} overdue
+            {formatMessage(
+              { id: 'commitments.needs.overdue', defaultMessage: '{count} overdue' },
+              { count: overdue.count },
+            )}
             {overdue.total > 0 && (
               <>
                 {' • '}
@@ -79,7 +86,11 @@ export function NeedsLane({
           key={it.key}
           role={it.cid ? 'button' : undefined}
           tabIndex={it.cid ? 0 : undefined}
-          title={it.cid ? 'Open commitment' : undefined}
+          title={
+            it.cid
+              ? formatMessage({ id: 'commitments.needs.open', defaultMessage: 'Open commitment' })
+              : undefined
+          }
           onClick={
             it.cid
               ? (e) => {
@@ -106,17 +117,40 @@ export function NeedsLane({
             {it.kind === 'confirm' ? (
               <>
                 <Button variant="secondary" size="sm" onClick={() => onConfirm(it)}>
-                  Confirm paid
+                  {formatMessage({
+                    id: 'commitments.needs.confirm',
+                    defaultMessage: 'Confirm paid',
+                  })}
                 </Button>
                 <Button variant="ghost" size="sm" onClick={() => onDismiss(it)}>
-                  Not this
+                  {formatMessage({ id: 'commitments.needs.notThis', defaultMessage: 'Not this' })}
                 </Button>
               </>
             ) : it.kind === 'overdue' ? (
               <button
                 className="c2-need-icon-btn pay"
-                aria-label={it.payLabel || 'Mark paid'}
-                title={it.payLabel || 'Mark paid'}
+                aria-label={
+                  it.payKind === 'done'
+                    ? formatMessage({
+                        id: 'commitments.needs.markDone',
+                        defaultMessage: 'Mark done',
+                      })
+                    : formatMessage({
+                        id: 'commitments.needs.markPaid',
+                        defaultMessage: 'Mark paid',
+                      })
+                }
+                title={
+                  it.payKind === 'done'
+                    ? formatMessage({
+                        id: 'commitments.needs.markDone',
+                        defaultMessage: 'Mark done',
+                      })
+                    : formatMessage({
+                        id: 'commitments.needs.markPaid',
+                        defaultMessage: 'Mark paid',
+                      })
+                }
                 onClick={() => onPay(it)}
               >
                 <CheckIcon />
@@ -124,10 +158,13 @@ export function NeedsLane({
             ) : (
               <>
                 <Button variant="secondary" size="sm" onClick={() => onAction(it)}>
-                  Mark done
+                  {formatMessage({ id: 'commitments.needs.markDone', defaultMessage: 'Mark done' })}
                 </Button>
                 <Button variant="ghost" size="sm" onClick={() => onMiss(it)}>
-                  Not happening
+                  {formatMessage({
+                    id: 'commitments.needs.notHappening',
+                    defaultMessage: 'Not happening',
+                  })}
                 </Button>
               </>
             )}
@@ -137,10 +174,14 @@ export function NeedsLane({
       {many && (
         <button className="c3-need-more" onClick={() => setShowAll((v) => !v)}>
           {showAll ? (
-            'Show less'
+            formatMessage({ id: 'commitments.needs.showLess', defaultMessage: 'Show less' })
           ) : (
             <>
-              Show {items.length - CAP} more <ArrowDown size={12} aria-hidden="true" />
+              {formatMessage(
+                { id: 'commitments.needs.showMore', defaultMessage: 'Show {count} more' },
+                { count: items.length - CAP },
+              )}{' '}
+              <ArrowDown size={12} aria-hidden="true" />
             </>
           )}
         </button>

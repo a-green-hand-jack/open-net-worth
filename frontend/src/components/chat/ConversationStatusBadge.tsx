@@ -1,3 +1,4 @@
+import { defineMessages, type IntlShape } from 'react-intl'
 // ConversationStatusBadge.tsx — the per-row status glyph in the sidebar (ConversationMenu)
 // and the full list (ConversationBrowser).
 //
@@ -24,6 +25,14 @@ const LABELS: Record<Exclude<ConvRowStatus, 'idle'>, string> = {
   run_failed: 'Failed',
 }
 
+const STATUS_MESSAGES = defineMessages({
+  needs_you: { id: 'chat.status.needsYou', defaultMessage: 'Needs you' },
+  working: { id: 'chat.status.working', defaultMessage: 'Working…' },
+  done: { id: 'chat.status.done', defaultMessage: 'New reply' },
+  failed: { id: 'chat.status.failed', defaultMessage: 'Failed' },
+  run_failed: { id: 'chat.status.failed', defaultMessage: 'Failed' },
+})
+
 const VARIANT_CLASS: Record<Exclude<ConvRowStatus, 'idle'>, string> = {
   needs_you: 'conv-row-status--needs-you',
   working: 'conv-row-status--working',
@@ -34,8 +43,8 @@ const VARIANT_CLASS: Record<Exclude<ConvRowStatus, 'idle'>, string> = {
 
 /** The word a row's trailing slot shows in place of its timestamp — `null` for idle, so
  *  every caller can fall straight back to the timestamp with one `??`. */
-export function conversationStatusLabel(status: ConvRowStatus): string | null {
-  return status === 'idle' ? null : LABELS[status]
+export function conversationStatusLabel(status: ConvRowStatus, intl?: IntlShape | number): string | null {
+  return status === 'idle' ? null : typeof intl === 'object' ? intl.formatMessage(STATUS_MESSAGES[status]) : LABELS[status]
 }
 
 export function ConversationStatusBadge({ status }: { status: ConvRowStatus }) {

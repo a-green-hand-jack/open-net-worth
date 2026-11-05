@@ -13,6 +13,7 @@ export interface Installment {
   id: string
   label: string
   description: string
+  description_source?: { original: string; moves: Array<{ date: string; rendered: string }> }
   due_date: string
   amount: number // native currency (commitment.currency)
   status: InstallmentStatus
@@ -55,6 +56,9 @@ export interface FundingSource {
 export interface CommitmentAction {
   id: string
   label: string
+  label_source?:
+    | { kind: 'draw_down' | 'sell' | 'receive'; label: string }
+    | { kind: 'sell_units'; label: string; count: string }
   category: string
   due_date: string
   start_by: string | null

@@ -430,3 +430,14 @@ describe('staged delete — failures surface', () => {
     expect(screen.queryByText(/could not be deleted/)).toBeNull()
   })
 })
+
+it('requires the separate destructive confirmation before committing marked deletions', async () => {
+  const { onDecisionCommit } = await openWith()
+  mark('Grab ride A')
+  await screen.findByText('Will delete')
+  fireEvent.click(screen.getByRole('button', { name: 'Confirm' }))
+  expect(onDecisionCommit).not.toHaveBeenCalled()
+  fireEvent.click(screen.getByRole('button', { name: 'Delete and import' }))
+  await waitFor(() => expect(onDecisionCommit).toHaveBeenCalledTimes(1))
+  expect(onDecisionCommit.mock.calls[0]![3]).toEqual(['ride-1'])
+})

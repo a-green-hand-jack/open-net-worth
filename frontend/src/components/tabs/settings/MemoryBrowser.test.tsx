@@ -8,6 +8,26 @@ const authFetch = vi.fn()
 vi.mock('../../../api/client', () => ({ authFetch: (...a: unknown[]) => authFetch(...a) }))
 
 import { MemoryBrowser } from './MemoryBrowser'
+import { ForgetConfirm } from './MemoryParts'
+import { IntlProvider } from 'react-intl'
+import zh from '../../../i18n/zh-CN.json'
+
+it('shows the irreversible topic deletion warning in Chinese without changing its name', () => {
+  const confirm = vi.fn()
+  render(
+    <IntlProvider locale="zh-CN" defaultLocale="en" messages={zh}>
+      <ForgetConfirm
+        pending={{ kind: 'topic', name: 'My Topic', section: 'you', ids: ['1', '2'], named: true }}
+        onCancel={vi.fn()}
+        onConfirm={confirm}
+      />
+    </IntlProvider>,
+  )
+  const dialog = screen.getByRole('alertdialog', { name: '忘记My Topic？' })
+  expect(dialog.textContent).toContain('2 条信息')
+  expect(dialog.textContent).toContain('无法撤销')
+  expect(confirm).not.toHaveBeenCalled()
+})
 
 const json = (body: unknown, status = 200) =>
   Promise.resolve(new Response(JSON.stringify(body), { status }))

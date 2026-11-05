@@ -4,6 +4,7 @@
 // and Left on one line, a bar of spend against its cap, then its cap and activity — the same leaf
 // cells the desktop row uses (propCells.tsx), so a cap is edited and activity opened the same way.
 import { useState } from 'react'
+import { useAppIntl } from '../../../../../i18n/useAppIntl'
 import { entityRefProps } from '../../../../../utils/mentionable'
 import { ColorIcon, InlineEdit } from '../../budgetParts'
 import { Chevron, Plus } from '../../icons'
@@ -24,6 +25,7 @@ import { openOnRowClick } from './rowClick'
 import type { PropEnvelope } from './propApi'
 
 export function PropCard({ e, h }: { e: PropEnvelope; h: RowHandlers }) {
+  const { formatMessage } = useAppIntl()
   return (
     <div
       className="pt-mrow"
@@ -35,22 +37,29 @@ export function PropCard({ e, h }: { e: PropEnvelope; h: RowHandlers }) {
         <button
           type="button"
           className="pt-ename"
-          aria-label={'Edit ' + e.label}
+          aria-label={formatMessage(
+            { id: 'plan.editNamed', defaultMessage: 'Edit {name}' },
+            { name: e.label },
+          )}
           onClick={() => h.onEdit(e.id)}
         >
           {e.label}
         </button>
         <CatsChip e={e} h={h} />
         <span className="pt-mrow-left">
-          <span className="pt-mk">Left</span>
+          <span className="pt-mk">
+            {formatMessage({ id: 'plan.left', defaultMessage: 'Left' })}
+          </span>
           <LeftCell e={e} />
         </span>
       </div>
       <CapBar e={e} />
       <div className="pt-mrow-sub">
-        <span className="pt-mk">Cap</span>
+        <span className="pt-mk">{formatMessage({ id: 'plan.cap', defaultMessage: 'Cap' })}</span>
         <CapCell e={e} h={h} />
-        <span className="pt-mk">Activity</span>
+        <span className="pt-mk">
+          {formatMessage({ id: 'plan.activity', defaultMessage: 'Activity' })}
+        </span>
         <ActivityFor e={e} h={h} />
       </div>
     </div>
@@ -72,6 +81,7 @@ export function PropCardGroup({
   actions: GroupActions
   h: RowHandlers
 }) {
+  const { formatMessage } = useAppIntl()
   const [naming, setNaming] = useState(false)
   const { g, rows: list } = f
   const { ct, hasCaps, left } = groupFigures(list)
@@ -110,8 +120,11 @@ export function PropCardGroup({
             <button
               type="button"
               className="pl-gadd"
-              title={'Add an envelope to ' + g.name}
-              aria-label="Add envelope"
+              title={formatMessage(
+                { id: 'plan.addEnvelopeTo', defaultMessage: 'Add an envelope to {name}' },
+                { name: g.name },
+              )}
+              aria-label={formatMessage({ id: 'plan.addEnvelope', defaultMessage: 'Add envelope' })}
               onClick={() => actions.onAddEnvelope(g.id, g.name)}
             >
               <Plus />
@@ -121,15 +134,15 @@ export function PropCardGroup({
         </div>
         <div className="pt-mgstats">
           <span>
-            <em>Cap</em>
+            <em>{formatMessage({ id: 'plan.cap', defaultMessage: 'Cap' })}</em>
             <b className="mask">{ct ? fBase(ct) : '—'}</b>
           </span>
           <span>
-            <em>Activity</em>
+            <em>{formatMessage({ id: 'plan.activity', defaultMessage: 'Activity' })}</em>
             <b className="mask">{fBase(f.spent ? -f.spent : 0)}</b>
           </span>
           <span>
-            <em>Left</em>
+            <em>{formatMessage({ id: 'plan.left', defaultMessage: 'Left' })}</em>
             <b className={'mask' + (hasCaps ? (left < 0 ? ' bad' : left > 0 ? ' good' : '') : '')}>
               {hasCaps ? fBase(left) : '—'}
             </b>

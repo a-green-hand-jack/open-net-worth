@@ -21,18 +21,32 @@ import { entityRefProps } from '../../utils/mentionable'
 import { buildCtxFields } from '../../lucius/ctxFields'
 import { filterByDescriptor } from '../../lucius/entityRegistry'
 import { X } from '../../ui/icons'
+import { useAppIntl } from '../../i18n/useAppIntl'
+import { defineMessages, type IntlShape } from 'react-intl'
+import { inboxMessage } from './inboxMessages'
 
 // ── Display helpers ───────────────────────────────────────────────────────────
 
-function relative(iso: string | null | undefined): string {
+function relative(iso: string | null | undefined, intl: IntlShape): string {
   if (!iso) return ''
   const d = new Date(iso)
   if (isNaN(d.getTime())) return iso
   const mins = Math.max(0, Math.round((Date.now() - d.getTime()) / 60000))
-  if (mins < 1) return 'just now'
-  if (mins < 60) return `${mins}m ago`
-  if (mins < 1440) return `${Math.round(mins / 60)}h ago`
-  return `${Math.round(mins / 1440)}d ago`
+  if (mins < 1) return intl.formatMessage({ id: 'inbox.justNow', defaultMessage: 'just now' })
+  if (mins < 60)
+    return intl.formatMessage(
+      { id: 'inbox.minutesAgo', defaultMessage: '{count}m ago' },
+      { count: mins },
+    )
+  if (mins < 1440)
+    return intl.formatMessage(
+      { id: 'inbox.hoursAgo', defaultMessage: '{count}h ago' },
+      { count: Math.round(mins / 60) },
+    )
+  return intl.formatMessage(
+    { id: 'inbox.daysAgo', defaultMessage: '{count}d ago' },
+    { count: Math.round(mins / 1440) },
+  )
 }
 
 type ExtendedKind = InboxItem['kind'] | 'dedup_review'
@@ -56,6 +70,16 @@ const KIND_META: Record<
 const TAB_LABEL: Record<string, string> = {
   intel: 'Intel',
 }
+const sourceLabels = defineMessages({
+  intel: { id: 'inbox.source.intel', defaultMessage: 'intel' },
+  notification: { id: 'inbox.source.notification', defaultMessage: 'notification' },
+  price_alert: { id: 'inbox.source.priceAlert', defaultMessage: 'price_alert' },
+  alert: { id: 'inbox.source.alert', defaultMessage: 'alert' },
+  news: { id: 'inbox.source.news', defaultMessage: 'news' },
+  macro: { id: 'inbox.source.macro', defaultMessage: 'macro' },
+  opportunity: { id: 'inbox.source.opportunity', defaultMessage: 'opportunity' },
+  review: { id: 'inbox.source.review', defaultMessage: 'review' },
+})
 
 /** Kinds rendered in display order — actionable kinds first. */
 const KIND_ORDER: ExtendedKind[] = ['dedup_review', 'intel', 'signal']
@@ -70,12 +94,6 @@ function isActionable(item: InboxItem): boolean {
 }
 
 type Filter = 'unread' | 'all' | 'pending_approvals'
-
-const FILTER_OPTIONS: { value: Filter; label: string }[] = [
-  { value: 'unread', label: 'Unread' },
-  { value: 'all', label: 'All' },
-  { value: 'pending_approvals', label: 'Pending Approvals' },
-]
 
 /** An item needs approval if it has a proposed_change waiting for a human to apply.
  *  STUB: hard-coded false, so the `pending_approvals` filter matches nothing today. Left as-is
@@ -100,6 +118,7 @@ function KindSection({
   onNavigate: (tab: string) => void
   onDismiss: (item: InboxItem) => void
 }) {
+  const { formatMessage } = useAppIntl()
   const [expanded, setExpanded] = useState(false)
   if (items.length === 0) return null
 
@@ -117,7 +136,9 @@ function KindSection({
           <span className="inbox-section__icon" aria-hidden="true">
             {meta.icon}
           </span>
-          {meta.sectionTitle}
+          {kind === 'signal'
+            ? formatMessage({ id: 'inbox.signals', defaultMessage: 'Signals' })
+            : formatMessage({ id: 'inbox.intel', defaultMessage: 'Intel' })}
         </span>
       }
       badge={sectionBadge}
@@ -134,7 +155,12 @@ function KindSection({
             onClick={() => setExpanded((e) => !e)}
             className="inbox-section__show-more"
           >
-            {expanded ? 'Show less' : `Show ${overflow} more`}
+            {expanded
+              ? formatMessage({ id: 'inbox.showLess', defaultMessage: 'Show less' })
+              : formatMessage(
+                  { id: 'inbox.showMore', defaultMessage: 'Show {count} more' },
+                  { count: overflow },
+                )}
           </Button>
         )}
       </Stack>
@@ -145,6 +171,7 @@ function KindSection({
 // ── Tab ───────────────────────────────────────────────────────────────────────
 
 export function Inbox({ onNavigate }: { onNavigate: (tab: string) => void }) {
+  const { formatMessage } = useAppIntl()
   const [filter, setFilter] = useState<Filter>('unread')
   const { items, loading, error, reload, dismiss, dismissAll, markAllRead } = useInbox(
     filter === 'all',
@@ -158,7 +185,10 @@ export function Inbox({ onNavigate }: { onNavigate: (tab: string) => void }) {
   if (loading)
     return (
       <Container size="wide">
-        <TabSkeleton variant="inbox" label="Loading inbox…" />
+        <TabSkeleton
+          variant="inbox"
+          label={formatMessage({ id: 'inbox.loading', defaultMessage: 'Loading inbox…' })}
+        />
       </Container>
     )
   if (error)
@@ -193,8 +223,11 @@ export function Inbox({ onNavigate }: { onNavigate: (tab: string) => void }) {
     <Container size="wide" data-ctx-region="content" data-ctx-title="Inbox">
       <Stack gap="--space-6">
         <PageHeader
-          title="Inbox"
-          subtitle="Everything that needs your attention, in one place"
+          title={formatMessage({ id: 'inbox.title', defaultMessage: 'Inbox' })}
+          subtitle={formatMessage({
+            id: 'inbox.subtitle',
+            defaultMessage: 'Everything that needs your attention, in one place',
+          })}
           actions={
             <Cluster gap="--space-3" align="center">
               {unreadCount > 0 && (
@@ -202,9 +235,12 @@ export function Inbox({ onNavigate }: { onNavigate: (tab: string) => void }) {
                   variant="ghost"
                   size="sm"
                   onClick={() => void markAllRead()}
-                  title="Mark all unread items as read"
+                  title={formatMessage({
+                    id: 'inbox.markReadTitle',
+                    defaultMessage: 'Mark all unread items as read',
+                  })}
                 >
-                  Mark all read
+                  {formatMessage({ id: 'inbox.markRead', defaultMessage: 'Mark all read' })}
                 </Button>
               )}
               {dismissableCount > 0 && (
@@ -214,20 +250,49 @@ export function Inbox({ onNavigate }: { onNavigate: (tab: string) => void }) {
                   onClick={() => {
                     if (
                       confirm(
-                        `Dismiss all ${dismissableCount} item${dismissableCount === 1 ? '' : 's'}? This removes intel alerts and notifications — not your transactions or portfolio data.`,
+                        formatMessage(
+                          {
+                            id: 'inbox.dismissAllConfirm',
+                            defaultMessage:
+                              'Dismiss all {count, plural, one {# item} other {# items}}? This removes intel alerts and notifications — not your transactions or portfolio data.',
+                          },
+                          { count: dismissableCount },
+                        ),
                       )
                     )
                       void dismissAll()
                   }}
                 >
-                  Dismiss all ({dismissableCount})
+                  {formatMessage(
+                    { id: 'inbox.dismissAll', defaultMessage: 'Dismiss all ({count})' },
+                    { count: dismissableCount },
+                  )}
                 </Button>
               )}
-              <SegmentedControl
-                options={FILTER_OPTIONS}
+              <SegmentedControl<Filter>
+                options={[
+                  {
+                    value: 'unread',
+                    label: formatMessage({ id: 'inbox.unread', defaultMessage: 'Unread' }),
+                  },
+                  {
+                    value: 'all',
+                    label: formatMessage({ id: 'inbox.all', defaultMessage: 'All' }),
+                  },
+                  {
+                    value: 'pending_approvals',
+                    label: formatMessage({
+                      id: 'inbox.pending',
+                      defaultMessage: 'Pending Approvals',
+                    }),
+                  },
+                ]}
                 value={filter}
                 onChange={setFilter}
-                ariaLabel="Filter inbox items"
+                ariaLabel={formatMessage({
+                  id: 'inbox.filter',
+                  defaultMessage: 'Filter inbox items',
+                })}
               />
             </Cluster>
           }
@@ -238,8 +303,11 @@ export function Inbox({ onNavigate }: { onNavigate: (tab: string) => void }) {
             filter — the unread/all filters always render the dedup section instead. */}
         {totalSections === 0 && !dedupVisible ? (
           <EmptyState
-            title="No pending approvals"
-            body="Nothing is waiting for your approval right now."
+            title={formatMessage({ id: 'inbox.noPending', defaultMessage: 'No pending approvals' })}
+            body={formatMessage({
+              id: 'inbox.noPendingBody',
+              defaultMessage: 'Nothing is waiting for your approval right now.',
+            })}
           />
         ) : (
           <Stack gap="--space-5">
@@ -266,12 +334,6 @@ export function Inbox({ onNavigate }: { onNavigate: (tab: string) => void }) {
 
 // ── Item row ────────────────────────────────────────────────────────────────
 
-// What the × does, per kind — shown as the button's tooltip so the action is honest.
-const DISMISS_TITLE: Record<InboxItem['kind'], string> = {
-  signal: 'Dismiss notification',
-  intel: 'Remove this alert from the inbox',
-}
-
 function InboxRow({
   item,
   onNavigate,
@@ -281,16 +343,33 @@ function InboxRow({
   onNavigate: (tab: string) => void
   onDismiss: (item: InboxItem) => void
 }) {
+  const intl = useAppIntl()
+  const { formatMessage } = intl
+  const displayTitle = inboxMessage(intl, item.title_message, item.title)
+  const displaySummary = inboxMessage(intl, item.summary_message, item.summary)
+  const source = Object.hasOwn(sourceLabels, item.source)
+    ? formatMessage(sourceLabels[item.source as keyof typeof sourceLabels])
+    : item.source
   const meta = KIND_META[item.kind]
   const actionable = isActionable(item)
   const destTab = item.ref.tab
-  const destLabel = TAB_LABEL[destTab] ?? destTab
+  const destLabel =
+    destTab === 'intel'
+      ? formatMessage({ id: 'inbox.intel', defaultMessage: 'Intel' })
+      : (TAB_LABEL[destTab] ?? destTab)
+  const dismissTitle =
+    item.kind === 'signal'
+      ? formatMessage({ id: 'inbox.dismissNotification', defaultMessage: 'Dismiss notification' })
+      : formatMessage({
+          id: 'inbox.removeAlert',
+          defaultMessage: 'Remove this alert from the inbox',
+        })
 
   // Every row is clearable from the inbox (signal → read, intel → delete;
   // see useInbox.dismissRequest). A row with a source tab also gets an
   // "Open in …" link to act there; the × just clears it from this list.
   const hasDest = Boolean(destTab)
-  const when = relative(item.created_at)
+  const when = relative(item.created_at, intl)
 
   // Only `signal` rows are a registered mention type: they come from NotificationLogStore
   // (GET /api/inbox folds several sources; the dismiss route for this kind is
@@ -329,41 +408,52 @@ function InboxRow({
         <Cluster justify="between" align="start" gap="--space-3">
           <Stack gap="--space-2">
             <Cluster gap="--space-2" align="center">
-              <Badge tone={meta.tone}>{meta.label}</Badge>
-              {actionable && <Badge tone="neg">Needs attention</Badge>}
+              <Badge tone={meta.tone}>
+                {item.kind === 'signal'
+                  ? formatMessage({ id: 'inbox.signal', defaultMessage: 'Signal' })
+                  : formatMessage({ id: 'inbox.intel', defaultMessage: 'Intel' })}
+              </Badge>
+              {actionable && (
+                <Badge tone="neg">
+                  {formatMessage({ id: 'inbox.needsAttention', defaultMessage: 'Needs attention' })}
+                </Badge>
+              )}
             </Cluster>
             <Text as="h3" size="md" weight={600} className="inbox-item__title">
-              {item.title}
+              {displayTitle}
             </Text>
           </Stack>
           <Cluster gap="--space-2" align="center">
             {hasDest && (
               <Button variant="secondary" size="sm" onClick={() => onNavigate(destTab)}>
-                Open in {destLabel}
+                {formatMessage(
+                  { id: 'inbox.openIn', defaultMessage: 'Open in {destination}' },
+                  { destination: destLabel },
+                )}
               </Button>
             )}
             <Button
               variant="ghost"
               size="sm"
               onClick={() => onDismiss(item)}
-              aria-label={DISMISS_TITLE[item.kind]}
-              title={DISMISS_TITLE[item.kind]}
+              aria-label={dismissTitle}
+              title={dismissTitle}
             >
               <X size={14} aria-hidden="true" />
             </Button>
           </Cluster>
         </Cluster>
 
-        {item.summary && (
+        {displaySummary && (
           <Text tone="muted" size="sm" className="inbox-item__summary">
-            {item.summary}
+            {displaySummary}
           </Text>
         )}
 
         <Cluster gap="--space-2" align="center">
           {item.source && (
             <Text tone="faint" size="xs">
-              {item.source}
+              {source}
             </Text>
           )}
           {item.source && when && (

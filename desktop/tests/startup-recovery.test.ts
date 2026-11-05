@@ -4,7 +4,7 @@ import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { bookFolderMissing, startupRecoveryKind } from '../src/main/startup-decision';
-import { BookInUseError, failureReason } from '../src/main/runtime';
+import { BookInUseError, DatabaseAheadError, failureReason } from '../src/main/runtime';
 import { recoveryPage } from '../src/main/recovery-page';
 import { welcomePage } from '../src/main/welcome-page';
 import { InitialBookChoice } from '../src/main/initial-book-choice';
@@ -42,7 +42,7 @@ test('the unreachable-server page counts down to its next check; a local failure
   const html = recoveryPage(false, null, '', 'dark', 'opening', 'http://localhost:8080');
   assert.match(html, /id="reconnect"/);
   assert.match(html, /onReconnectIn/);
-  assert.ok(html.includes('Trying again in ${left}s…') && html.includes('Checking…'));
+  assert.ok(html.includes('Trying again in __seconds__s…') && html.includes('Checking…'));
   const local = recoveryPage(false, null, '/Users/example/Book', 'dark');
   assert.doesNotMatch(local, /id="reconnect"|onReconnectIn/);
 });
@@ -100,7 +100,7 @@ test('the first-launch server page is a page in the main window: one Connect, Ba
   assert.doesNotMatch(html, /onwNativeConnection/);
   assert.match(html, /window\.onwDesktop\.connectInitialServer\(input\.value\)/);
   assert.match(html, /window\.onwDesktop\.initialBookAction\('back'\)/);
-  assert.match(html, /'Connecting…'/);
+  assert.match(html, /["']Connecting…["']/);
   assert.match(html, /<form>/);
   assert.match(html, /<p id="error" role="alert"><\/p><p class="helper">/);
 });
@@ -128,7 +128,7 @@ test('a failed local start shows its reason and the ways out, escaped', () => {
   for (const label of ['Try again', 'Choose another folder', 'Open logs folder']) assert.ok(html.includes(`>${label}</button>`), label);
   assert.match(html, /id="logs" class="link"/);
   assert.match(html, /onwDesktop\.openLogs\(\)/);
-  const newer = recoveryPage(false, null, '/b', 'dark', 'opening', null, 'This book was last opened by a newer version of Open Net Worth. Update the app to open it.');
+  const newer = recoveryPage(false, new DatabaseAheadError(), '/b');
   assert.ok(newer.includes('id="updates" class="primary">Check for updates</button>') && newer.includes('>Choose another folder</button>'));
   assert.doesNotMatch(newer, /id="retry"/);
   assert.match(newer, /onwDesktop\.checkForUpdates\(\)/);
@@ -144,9 +144,9 @@ test('a retry that is refused is written into the page instead of being swallowe
   }
 });
 
-test('failureReason says to update when the book is newer than the app, else the last stderr line', () => {
+test('failureReason preserves unknown stderr rather than classifying prose', () => {
   const newer = 'Traceback...\nMigrationError: database is at revision \'x\', which this checkout does not recognize — it was migrated by NEWER code than this build.\n';
-  assert.match(failureReason(newer), /Update the app/);
+  assert.match(failureReason(newer), /NEWER code/);
   assert.equal(failureReason('a\n\nValueError: bad thing  \n'), 'ValueError: bad thing');
   assert.equal(failureReason('', 'Startup timed out.'), 'Startup timed out.');
   assert.equal(failureReason('x'.repeat(500)).length, 241);

@@ -1,3 +1,4 @@
+import { useAppIntl } from '../../i18n/useAppIntl'
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from '@tanstack/react-router'
 import { AssetDetailView } from '../intel/AssetDetailView'
@@ -105,6 +106,7 @@ function IntelFeed({
   subTabRequest?: string
   backdrop?: boolean
 }) {
+  const intl = useAppIntl()
   const navigate = useNavigate()
   const data = useIntelData()
   const { stories, alerts, watchlist, items, watchlists, tickerMeta, loadWatchlist } = data
@@ -234,7 +236,7 @@ function IntelFeed({
   if (data.loading) {
     return (
       <Container size="wide" className="intel-tab">
-        <TabSkeleton variant="intel" label="Loading intelligence…" />
+        <TabSkeleton variant="intel" label={intl.formatMessage({ id: 'intel.loading', defaultMessage: 'Loading intelligence…' })} />
       </Container>
     )
   }
@@ -260,15 +262,15 @@ function IntelFeed({
 
         {/* My holdings · your ticker watchlists · Topics & macro. */}
         <div className="intel-tabs-row">
-          <PageTabs ariaLabel="Intelligence view" value={tab} onChange={nav.setTab} tabs={tabs} />
+          <PageTabs ariaLabel={intl.formatMessage({ id: 'intel.view', defaultMessage: 'Intelligence view' })} value={tab} onChange={nav.setTab} tabs={tabs.map((item) => ({ ...item, label: item.key === 'holdings' ? intl.formatMessage({ id: 'intel.myHoldings', defaultMessage: 'My holdings' }) : item.key === 'macro' ? intl.formatMessage({ id: 'intel.topicsMacro', defaultMessage: 'Topics & macro' }) : item.label }))} />
           <button
             type="button"
             className="intel-tabs-new"
             onClick={openManage}
-            title="Create or manage watchlists"
+            title={intl.formatMessage({ id: 'intel.manageWatchlists', defaultMessage: 'Create or manage watchlists' })}
           >
             <Plus size={13} aria-hidden="true" />
-            New list
+            {intl.formatMessage({ id: 'intel.newList', defaultMessage: 'New list' })}
           </button>
         </div>
 
@@ -294,12 +296,12 @@ function IntelFeed({
                     empty={
                       <EmptyState
                         icon={<Radar size={28} strokeWidth={1.5} aria-hidden="true" />}
-                        title="No priced holdings yet"
-                        body="News, risk flags and price moves on what you own land here."
+                        title={intl.formatMessage({ id: 'intel.noPricedHoldings', defaultMessage: 'No priced holdings yet' })}
+                        body={intl.formatMessage({ id: 'intel.holdingsEmpty', defaultMessage: 'News, risk flags and price moves on what you own land here.' })}
                         action={
                           <Cluster gap="--space-3" justify="center">
                             <LuciusCta
-                              label="Add with Lucius"
+                              label={intl.formatMessage({ id: 'intel.addWithLucius', defaultMessage: 'Add with Lucius' })}
                               message={HOLDINGS_MESSAGE}
                               onAskLucius={onChatSuggest}
                             />
@@ -336,7 +338,7 @@ function IntelFeed({
                       noun={{ one: 'ticker', many: 'tickers' }}
                       sortKey={PULSE_SORT_KEYS.lists}
                       markOwned
-                      empty={<div className="intel-feed-empty">Nothing on this list yet.</div>}
+                      empty={<div className="intel-feed-empty">{intl.formatMessage({ id: 'intel.listEmpty', defaultMessage: 'Nothing on this list yet.' })}</div>}
                       feed={feedByTab[tab] ?? []}
                       archive={archiveByTab[tab] ?? []}
                     />
@@ -362,7 +364,7 @@ function IntelFeed({
                       archive={archiveByTab.macro}
                       filter={nav.filter}
                       onFilter={nav.setFilter}
-                      emptyText="No macro or topic stories right now."
+                      emptyText={intl.formatMessage({ id: 'intel.macroEmpty', defaultMessage: 'No macro or topic stories right now.' })}
                     />
                   )}
                 </>
@@ -404,7 +406,7 @@ function IntelFeed({
           ccy={tickerCcy[assetItem.value] || getBaseCurrency()}
           luciusCtx={luciusCtx}
           canRemove={!!assetItem.id && assetItem.added_by !== 'auto' && !activeList?.is_auto_sync}
-          backLabel="Back to watchlist"
+          backLabel={intl.formatMessage({ id: 'intel.backWatchlist', defaultMessage: 'Back to watchlist' })}
           onClose={() => setEditAsset(null)}
           onSaved={() => {
             void loadWatchlist()

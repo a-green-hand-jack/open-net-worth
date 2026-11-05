@@ -1,60 +1,7 @@
-// Fresh-start copy — the labels the kebab item, the state line and the undo pill share. Pure,
-// so the menu can never disagree with the line under the hero about which month is the floor.
 import { describe, it, expect, vi, afterEach } from 'vitest'
-import {
-  freshStartConsequencesLabel,
-  freshStartLedger,
-  freshStartMenuLabel,
-  freshStartToastLabel,
-  monthName,
-  resumeHistoryLabel,
-  shortMonthLabel,
-  type FreshStartPreview,
-} from './freshStart'
+import { freshStartLedger, type FreshStartPreview } from './freshStart'
 
 afterEach(() => vi.restoreAllMocks())
-
-describe('freshStartMenuLabel', () => {
-  it('offers the CURRENT month, formatted like the month nav', () => {
-    expect(freshStartMenuLabel('2026-09', null)).toBe('Start fresh from September 2026…')
-  })
-
-  it('reads past tense (no ellipsis) once THIS month is already the floor', () => {
-    expect(freshStartMenuLabel('2026-09', '2026-09')).toBe('Started fresh from September 2026')
-  })
-
-  it('still offers a fresh start when the floor is an EARLIER month', () => {
-    expect(freshStartMenuLabel('2026-09', '2026-06')).toBe('Start fresh from September 2026…')
-  })
-})
-
-describe('the state line + dialog copy', () => {
-  it('abbreviates the month for the muted one-liner', () => {
-    expect(shortMonthLabel('2026-09')).toBe('Sep 2026')
-  })
-
-  it("names the month for the dialog's copy", () => {
-    expect(monthName('2026-09')).toBe('September')
-  })
-
-  it('states every consequence of confirming in one closing paragraph', () => {
-    expect(freshStartConsequencesLabel('2026-09')).toBe(
-      "Envelopes start over from September — this month's assignments are cleared. This month's " +
-        'spending still shows in its envelopes. Earlier months hide until you resume history. ' +
-        'No transactions change — undo any time.',
-    )
-  })
-
-  // Resume restores the FLOOR only. Undo (7s after confirming) is what brings cleared
-  // assignments back — a user who resumes a week later must not expect them.
-  it('warns that resuming history does NOT bring cleared assignments back', () => {
-    expect(resumeHistoryLabel('2026-09')).toBe(
-      'Envelopes carry their balances from before September 2026 again and Ready to Assign is ' +
-        'recomputed — no transactions change. Assignments cleared by the fresh start are not ' +
-        'restored.',
-    )
-  })
-})
 
 // The owner report of 2026-09-08: the OLD dialog promised a figure S$207.68 below the cash line
 // it printed, and nothing on screen accounted for the gap. The fix — kept when the YNAB identity
@@ -192,19 +139,5 @@ describe('freshStartLedger', () => {
     })
     expect(rows.reduce((s, r) => s + r.value, 0)).toBeCloseTo(44764.13, 2)
     expect(warn).toHaveBeenCalledOnce()
-  })
-})
-
-describe('freshStartToastLabel', () => {
-  // Full month name, both directions: the pill widens on a phone (`.pl-undo` @ ≤640px) rather
-  // than the sentence being abbreviated to fit — owner decision.
-  it('names the month a fresh start begins', () => {
-    expect(freshStartToastLabel('2026-09', '2026-09')).toBe(
-      'Budget starts fresh from September 2026',
-    )
-  })
-
-  it('reports the inverse write plainly — clearing the floor is not "fresh from null"', () => {
-    expect(freshStartToastLabel('2026-09', null)).toBe('Carrying earlier history again')
   })
 })

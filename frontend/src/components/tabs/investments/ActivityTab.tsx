@@ -1,4 +1,6 @@
 import { useMemo, useState } from 'react'
+import { defineMessages, type IntlShape } from 'react-intl'
+import { useAppIntl } from '../../../i18n/useAppIntl'
 import './activity.css'
 import { fCurrency } from '../../../utils/format'
 import { SummaryBar, Stack, ErrorState, TabSkeleton, Button } from '../../ui'
@@ -11,6 +13,58 @@ import { FilterGroupList, FilterSheet } from './FilterSheet'
 import { ActivityCards, ActivityRows } from './ActivityRows'
 import { useActivityView } from './useActivityView'
 import type { ActivityRow } from './useActivityView'
+
+const rangeMessages = defineMessages({
+  today: { id: 'activityRange.today', defaultMessage: 'Today' },
+  '7d': { id: 'activityRange.7d', defaultMessage: 'Past 7 days' },
+  '30d': { id: 'activityRange.30d', defaultMessage: 'Past 30 days' },
+  '60d': { id: 'activityRange.60d', defaultMessage: 'Past 60 days' },
+  '90d': { id: 'activityRange.90d', defaultMessage: 'Past 90 days' },
+  mtd: { id: 'activityRange.mtd', defaultMessage: 'Month-to-date' },
+  ytd: { id: 'activityRange.ytd', defaultMessage: 'Year-to-date' },
+})
+const shortRangeMessages = defineMessages({
+  today: { id: 'activityRange.short.today', defaultMessage: 'Today' },
+  '7d': { id: 'activityRange.short.7d', defaultMessage: 'Past 7d' },
+  '30d': { id: 'activityRange.short.30d', defaultMessage: 'Past 30d' },
+  '60d': { id: 'activityRange.short.60d', defaultMessage: 'Past 60d' },
+  '90d': { id: 'activityRange.short.90d', defaultMessage: 'Past 90d' },
+  mtd: { id: 'activityRange.short.mtd', defaultMessage: 'MTD' },
+  ytd: { id: 'activityRange.short.ytd', defaultMessage: 'YTD' },
+})
+const filterMessages = defineMessages({
+  all: { id: 'activityFilter.all', defaultMessage: 'All' },
+  buy: { id: 'activityFilter.buy', defaultMessage: 'Buys' },
+  sell: { id: 'activityFilter.sell', defaultMessage: 'Sells' },
+  income: { id: 'activityFilter.income', defaultMessage: 'Income' },
+  transfers: { id: 'activityFilter.transfers', defaultMessage: 'Transfers' },
+  vest: { id: 'activityFilter.vest', defaultMessage: 'Vests' },
+  fee: { id: 'activityFilter.fee', defaultMessage: 'Fees' },
+})
+
+function rangeText(key: string, intl: IntlShape, short = false): string {
+  const messages = short ? shortRangeMessages : rangeMessages
+  const descriptor = messages[key as keyof typeof messages]
+  if (descriptor) return intl.formatMessage(descriptor)
+  const quarter = /^q([1-4])-(\d{4})$/.exec(key)
+  if (!quarter) return key
+  const q = Number(quarter[1])
+  const year = Number(quarter[2])
+  const quarterText = intl.formatMessage(
+    { id: 'activityRange.quarter', defaultMessage: 'Q{quarter} {year}' },
+    { quarter: q, year },
+  )
+  if (short) return quarterText
+  const month = new Intl.DateTimeFormat(intl.locale, { month: 'short', timeZone: 'UTC' })
+  return intl.formatMessage(
+    { id: 'activityRange.quarterFull', defaultMessage: '{quarter} • {start}–{end}' },
+    {
+      quarter: quarterText,
+      start: month.format(new Date(Date.UTC(year, (q - 1) * 3))),
+      end: month.format(new Date(Date.UTC(year, (q - 1) * 3 + 2))),
+    },
+  )
+}
 
 // ── Date-range options & bounds ───────────────────────────────────────────────
 
@@ -109,10 +163,6 @@ export function actRangeBounds(k: string, todayISO: string = TODAY): [string, st
   }
 }
 
-function shortLabel(rangeKey: string): string {
-  return ACT_RANGES.find((r) => r.k === rangeKey)?.short ?? rangeKey
-}
-
 // ── Type filter ───────────────────────────────────────────────────────────────
 
 // Filter group → type set membership (null = show all)
@@ -166,17 +216,22 @@ function RangeDropdown({
   onSelect,
   onClose,
 }: RangeDropdownProps) {
+  const intl = useAppIntl()
+  const { formatMessage } = intl
   return (
     <div className="act-dd-wrap">
       <button
         className="act-dd-btn"
         type="button"
         onClick={onToggle}
-        aria-label={`Date range: ${shortLabel(range)}`}
+        aria-label={formatMessage(
+          { id: 'investmentActivity.dateRangeLabel', defaultMessage: 'Date range: {range}' },
+          { range: rangeText(range, intl, true) },
+        )}
         aria-haspopup={presentation === 'sheet' ? 'dialog' : 'menu'}
         aria-expanded={open}
       >
-        {shortLabel(range)}
+        {rangeText(range, intl, true)}
         <span className="cv">
           <ChevronDown size={12} strokeWidth={2} aria-hidden="true" />
         </span>
@@ -195,7 +250,7 @@ function RangeDropdown({
                   onClose()
                 }}
               >
-                {rg.label}
+                {rangeText(rg.k, intl)}
                 {range === rg.k && <Check className="ck" size={14} aria-hidden="true" />}
               </button>
             ))}
@@ -203,12 +258,18 @@ function RangeDropdown({
         </>
       )}
       {open && presentation === 'sheet' && (
-        <BottomSheet title="Date range" onClose={onClose}>
+        <BottomSheet
+          title={formatMessage({
+            id: 'investmentActivity.dateRange',
+            defaultMessage: 'Date range',
+          })}
+          onClose={onClose}
+        >
           <FilterGroupList
             groups={[
               {
-                title: 'Range',
-                options: ACT_RANGES.map((rg) => ({ id: rg.k, label: rg.label })),
+                title: formatMessage({ id: 'investmentActivity.range', defaultMessage: 'Range' }),
+                options: ACT_RANGES.map((rg) => ({ id: rg.k, label: rangeText(rg.k, intl) })),
                 value: range,
                 onChange: onSelect,
               },
@@ -246,6 +307,8 @@ function ActivityTable({
   onRangeClose,
   onAskLucius,
 }: ActivityTableProps) {
+  const intl = useAppIntl()
+  const { formatMessage } = intl
   const isMobile = useIsMobile()
   const [filter, setFilter] = useState<string>('all')
   const [q, setQ] = useState('')
@@ -281,14 +344,14 @@ function ActivityTable({
           the same merged-filter toolbar Holdings uses (owner, 2026-09-04). */}
       <div className="act-filter-row">
         <div className="act-filter">
-          {FILTER_LABELS.map(([k, l]) => (
+          {FILTER_LABELS.map(([k]) => (
             <button
               key={k}
               type="button"
               className={'act-chip' + (filter === k ? ' on' : '')}
               onClick={() => setFilter(k)}
             >
-              {l}
+              {formatMessage(filterMessages[k as keyof typeof filterMessages]!)}
             </button>
           ))}
         </div>
@@ -304,20 +367,35 @@ function ActivityTable({
           <input
             className="act-search-c"
             type="search"
-            placeholder="Search…"
+            placeholder={formatMessage({
+              id: 'investmentActivity.searchPlaceholder',
+              defaultMessage: 'Search…',
+            })}
             value={q}
             onChange={(e) => setQ(e.target.value)}
-            aria-label="Search activity"
+            aria-label={formatMessage({
+              id: 'investmentActivity.search',
+              defaultMessage: 'Search activity',
+            })}
           />
           <FilterSheet
             className="act-type-filter"
             presentation={isMobile ? 'sheet' : 'popover'}
-            title="Filter activity"
+            title={formatMessage({
+              id: 'investmentActivity.filter',
+              defaultMessage: 'Filter activity',
+            })}
             active={filter !== 'all'}
             groups={[
               {
-                title: 'Type',
-                options: FILTER_LABELS.map(([id, label]) => ({ id, label })),
+                title: formatMessage({
+                  id: 'investmentActivity.filterType',
+                  defaultMessage: 'Type',
+                }),
+                options: FILTER_LABELS.map(([id]) => ({
+                  id,
+                  label: formatMessage(filterMessages[id as keyof typeof filterMessages]!),
+                })),
                 value: filter,
                 onChange: setFilter,
               },
@@ -344,7 +422,14 @@ function ActivityTable({
           className="ui-text--sm ui-text--faint"
           style={{ flex: 1, minWidth: 220, fontSize: 11, color: 'var(--faint)' }}
         >
-          Showing {shown.length} of {total} transactions. Vests add shares without a cash movement.
+          {formatMessage(
+            {
+              id: 'investmentActivity.showing',
+              defaultMessage:
+                'Showing {shown} of {total} transactions. Vests add shares without a cash movement.',
+            },
+            { shown: shown.length, total },
+          )}
         </span>
         {onAskLucius && (
           <Button
@@ -354,7 +439,10 @@ function ActivityTable({
             iconLeft={<Spark size={15} ariaHidden />}
             onClick={() => onAskLucius('Summarize my investment activity this month.')}
           >
-            Ask Lucius about activity
+            {formatMessage({
+              id: 'investmentActivity.ask',
+              defaultMessage: 'Ask Lucius about activity',
+            })}
           </Button>
         )}
       </div>
@@ -370,25 +458,44 @@ function buildSummaryCards(
   income30d: number,
   fees30d: number,
   baseCurrency: string,
+  intl: IntlShape,
 ): StatCard[] {
   const fAmt = (n: number) => fCurrency(Math.abs(n), baseCurrency)
   const sign = (n: number) => (n >= 0 ? '+' : '−')
   return [
-    { label: 'Activity • 30d', value: String(count30d) },
+    {
+      label: intl.formatMessage({
+        id: 'investmentActivity.summary.activity',
+        defaultMessage: 'Activity • 30d',
+      }),
+      value: String(count30d),
+    },
     {
       // Positive = money moved INTO investments; negative = net divestment.
       // No red tone either way — divesting is a direction, not a loss.
-      label: 'Net invested • 30d',
+      label: intl.formatMessage({
+        id: 'investmentActivity.summary.netInvested',
+        defaultMessage: 'Net invested • 30d',
+      }),
       value: sign(netInvested30d) + fAmt(netInvested30d),
     },
     {
-      label: 'Income • 30d',
+      label: intl.formatMessage({
+        id: 'investmentActivity.summary.income',
+        defaultMessage: 'Income • 30d',
+      }),
       value: '+' + fAmt(income30d),
       tone: income30d > 0 ? 'pos' : undefined,
     },
     // Fees have no direction (always a cost) — plain number, no forced sign
     // (owner call 2026-07-12: signs are for values that can go either way).
-    { label: 'Fees • 30d', value: fAmt(fees30d) },
+    {
+      label: intl.formatMessage({
+        id: 'investmentActivity.summary.fees',
+        defaultMessage: 'Fees • 30d',
+      }),
+      value: fAmt(fees30d),
+    },
   ]
 }
 
@@ -400,6 +507,8 @@ export interface ActivityTabProps {
 }
 
 export function ActivityTab({ onAskLucius }: ActivityTabProps) {
+  const intl = useAppIntl()
+  const { formatMessage } = intl
   // Range state lives here so it drives the API fetch
   const [range, setRange] = useState('90d')
   const [rangeOpen, setRangeOpen] = useState(false)
@@ -407,8 +516,27 @@ export function ActivityTab({ onAskLucius }: ActivityTabProps) {
   const [dateFrom, dateTo] = actRangeBounds(range)
   const { data, loading, error, retry } = useActivityView(dateFrom, dateTo)
 
-  if (loading) return <TabSkeleton variant="activity" label="Loading activity…" header={false} />
-  if (error) return <ErrorState message="Could not load activity." onRetry={retry} />
+  if (loading)
+    return (
+      <TabSkeleton
+        variant="activity"
+        label={formatMessage({
+          id: 'investmentActivity.loading',
+          defaultMessage: 'Loading activity…',
+        })}
+        header={false}
+      />
+    )
+  if (error)
+    return (
+      <ErrorState
+        message={formatMessage({
+          id: 'investmentActivity.error',
+          defaultMessage: 'Could not load activity.',
+        })}
+        onRetry={retry}
+      />
+    )
   if (!data) return null
 
   const { rows, total, summary } = data
@@ -423,6 +551,7 @@ export function ActivityTab({ onAskLucius }: ActivityTabProps) {
     summary.income30d,
     summary.fees30d,
     summary.baseCurrency,
+    intl,
   )
 
   return (

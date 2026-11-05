@@ -1,3 +1,5 @@
+import { useAppIntl } from '../../../i18n/useAppIntl'
+import { toolPermissionDescription, toolPermissionTitle } from '../../../i18n/toolDescriptions'
 import { useEffect, useRef, useState } from 'react'
 import { ChevronDown, Plus, Trash2 } from 'lucide-react'
 import type { Automation } from '../../../api/automations'
@@ -20,11 +22,6 @@ import {
 } from './toolPermissions'
 import type { AutomationToolValue, ToolLists } from './toolPermissions'
 
-const VALUE_OPTIONS = [
-  { value: 'always_allow', label: LEVEL_LABELS.always_allow },
-  { value: 'blocked', label: LEVEL_LABELS.blocked },
-]
-
 /** The most picker rows drawn at once — the catalogue is a few hundred tools, so narrow it by
  *  typing rather than render them all. */
 const PICKER_LIMIT = 80
@@ -45,6 +42,20 @@ export function AutomationToolPermissions({
   modeLabel: string
   onSave: (lists: ToolLists) => void
 }) {
+  const intl = useAppIntl()
+  const { formatMessage, locale } = intl
+  const levelLabels: Record<PermissionLevel, string> = {
+    always_allow: formatMessage({
+      id: 'automations.permission.always',
+      defaultMessage: 'Always allow',
+    }),
+    needs_approval: formatMessage({ id: 'automations.permission.ask', defaultMessage: 'Ask' }),
+    blocked: formatMessage({ id: 'automations.permission.block', defaultMessage: 'Block' }),
+  }
+  const valueOptions = [
+    { value: 'always_allow', label: levelLabels.always_allow },
+    { value: 'blocked', label: levelLabels.blocked },
+  ]
   const { data } = useCachedFetchState<ToolPermissionsResponse>(
     TOOL_PERMISSIONS_KEY,
     listToolPermissions,
@@ -59,6 +70,11 @@ export function AutomationToolPermissions({
   }
   const rows = toolRows(lists)
   const listed = new Set(rows.flatMap((row) => (row.tool ? [row.tool] : [])))
+  const titleFor = (tool: string) => {
+    const fallback = listedTitle(tool)
+    const row = data?.permissions.find((item) => listedName(item) === tool)
+    return row ? toolPermissionTitle(row, intl, fallback) : fallback
+  }
 
   useEffect(() => {
     if (!open) return
@@ -82,14 +98,19 @@ export function AutomationToolPermissions({
       row.tool_exists &&
       !listed.has(listedName(row)) &&
       (!needle ||
-        [listedTitle(listedName(row)), row.tool, row.description, ownerLabel(row.connector_id)]
+        [
+          titleFor(listedName(row)),
+          row.tool,
+          toolPermissionDescription(row, locale),
+          ownerLabel(row.connector_id),
+        ]
           .join(' ')
           .toLowerCase()
           .includes(needle)),
   )
   const globalLabel = (tool: string) => {
     const level = data?.permissions.find((row) => listedName(row) === tool)?.level
-    return level && level in LEVEL_LABELS ? LEVEL_LABELS[level as PermissionLevel] : null
+    return level && level in LEVEL_LABELS ? levelLabels[level as PermissionLevel] : null
   }
 
   const choose = (tool: string, value: AutomationToolValue) => {
@@ -101,13 +122,27 @@ export function AutomationToolPermissions({
   return (
     <>
       {rows.length > 0 && (
-        <div className="a3-perm" role="table" aria-label="Tool permissions in this Automation">
+        <div
+          className="a3-perm"
+          role="table"
+          aria-label={formatMessage({
+            id: 'automations.permission.table',
+            defaultMessage: 'Tool permissions in this Automation',
+          })}
+        >
           <div className="a3-perm-row head" role="row">
-            <span>Tool</span>
-            <span className="a3-perm-head-value">In this Automation</span>
+            <span>
+              {formatMessage({ id: 'automations.permission.tool', defaultMessage: 'Tool' })}
+            </span>
+            <span className="a3-perm-head-value">
+              {formatMessage({
+                id: 'automations.permission.inAutomation',
+                defaultMessage: 'In this Automation',
+              })}
+            </span>
           </div>
           {rows.map((row) => {
-            const title = row.tool ? listedTitle(row.tool) : row.label
+            const title = row.tool ? titleFor(row.tool) : row.label
             return (
               <div
                 className="a3-perm-row"
@@ -121,10 +156,16 @@ export function AutomationToolPermissions({
                   <span className="a3-perm-select">
                     <Select
                       dense
-                      aria-label={`Permission for ${title} in this Automation`}
+                      aria-label={formatMessage(
+                        {
+                          id: 'automations.permission.forTool',
+                          defaultMessage: 'Permission for {title} in this Automation',
+                        },
+                        { title },
+                      )}
                       value={row.value}
                       disabled={busy}
-                      options={VALUE_OPTIONS}
+                      options={valueOptions}
                       onChange={(event) =>
                         onSave(setTool(lists, row.tool!, event.target.value as AutomationToolValue))
                       }
@@ -132,13 +173,19 @@ export function AutomationToolPermissions({
                     <ChevronDown size={13} className="a3-perm-select-chev" aria-hidden="true" />
                   </span>
                 ) : (
-                  <span className="a3-perm-fixed">{LEVEL_LABELS.always_allow}</span>
+                  <span className="a3-perm-fixed">{levelLabels.always_allow}</span>
                 )}
                 <button
                   type="button"
                   className="a3-iconbtn danger"
-                  aria-label={`Remove ${title}`}
-                  title="Remove"
+                  aria-label={formatMessage(
+                    { id: 'automations.permission.removeTool', defaultMessage: 'Remove {title}' },
+                    { title },
+                  )}
+                  title={formatMessage({
+                    id: 'automations.permission.remove',
+                    defaultMessage: 'Remove',
+                  })}
                   disabled={busy}
                   onClick={() =>
                     onSave(
@@ -163,62 +210,118 @@ export function AutomationToolPermissions({
           disabled={busy}
           onClick={() => setOpen((on) => !on)}
         >
-          <Plus size={12} aria-hidden="true" /> Add tool
+          <Plus size={12} aria-hidden="true" />{' '}
+          {formatMessage({ id: 'automations.permission.add', defaultMessage: 'Add tool' })}
         </button>
         {open && (
-          <div className="a3-perm-picker" role="dialog" aria-label="Add a tool">
+          <div
+            className="a3-perm-picker"
+            role="dialog"
+            aria-label={formatMessage({
+              id: 'automations.permission.addDialog',
+              defaultMessage: 'Add a tool',
+            })}
+          >
             <input
               type="search"
               autoFocus
               value={query}
-              placeholder="Search every tool…"
-              aria-label="Search tools"
+              placeholder={formatMessage({
+                id: 'automations.permission.searchPlaceholder',
+                defaultMessage: 'Search every tool…',
+              })}
+              aria-label={formatMessage({
+                id: 'automations.permission.search',
+                defaultMessage: 'Search tools',
+              })}
               onChange={(event) => setQuery(event.target.value)}
             />
             <div className="a3-perm-list">
               {candidates.slice(0, PICKER_LIMIT).map((row) => (
                 <div className="a3-perm-cand" key={`${row.connector_id}:${row.tool}`}>
                   <span className="a3-perm-cand-main">
-                    <b title={listedName(row)}>{listedTitle(listedName(row))}</b>
+                    <b title={listedName(row)}>{titleFor(listedName(row))}</b>
                     <span className="a3-perm-cand-sub">
                       {ownerLabel(row.connector_id)}
                       {globalLabel(listedName(row))
-                        ? ` · Globally: ${globalLabel(listedName(row))}`
+                        ? formatMessage(
+                            {
+                              id: 'automations.permission.globally',
+                              defaultMessage: ' · Globally: {level}',
+                            },
+                            { level: globalLabel(listedName(row)) ?? '' },
+                          )
                         : ''}
-                      {row.description ? ` — ${row.description}` : ''}
+                      {row.description ? ` — ${toolPermissionDescription(row, locale)}` : ''}
                     </span>
                   </span>
                   <button
                     type="button"
                     className="a3-perm-pick"
-                    aria-label={`Always allow ${listedTitle(listedName(row))} in this Automation`}
+                    aria-label={formatMessage(
+                      {
+                        id: 'automations.permission.allowTool',
+                        defaultMessage: 'Always allow {title} in this Automation',
+                      },
+                      { title: titleFor(listedName(row)) },
+                    )}
                     onClick={() => choose(listedName(row), 'always_allow')}
                   >
-                    {LEVEL_LABELS.always_allow}
+                    {levelLabels.always_allow}
                   </button>
                   <button
                     type="button"
                     className="a3-perm-pick danger"
-                    aria-label={`Block ${listedTitle(listedName(row))} in this Automation`}
+                    aria-label={formatMessage(
+                      {
+                        id: 'automations.permission.blockTool',
+                        defaultMessage: 'Block {title} in this Automation',
+                      },
+                      { title: titleFor(listedName(row)) },
+                    )}
                     onClick={() => choose(listedName(row), 'blocked')}
                   >
-                    {LEVEL_LABELS.blocked}
+                    {levelLabels.blocked}
                   </button>
                 </div>
               ))}
               {candidates.length === 0 && (
-                <div className="a3-block-note">{data ? 'No tool matches.' : 'Loading tools…'}</div>
+                <div className="a3-block-note">
+                  {data
+                    ? formatMessage({
+                        id: 'automations.permission.noMatches',
+                        defaultMessage: 'No tool matches.',
+                      })
+                    : formatMessage({
+                        id: 'automations.permission.loading',
+                        defaultMessage: 'Loading tools…',
+                      })}
+                </div>
               )}
               {candidates.length > PICKER_LIMIT && (
                 <div className="a3-block-note">
-                  {candidates.length - PICKER_LIMIT} more — keep typing to narrow the list.
+                  {formatMessage(
+                    {
+                      id: 'automations.permission.more',
+                      defaultMessage: '{count} more — keep typing to narrow the list.',
+                    },
+                    { count: candidates.length - PICKER_LIMIT },
+                  )}
                 </div>
               )}
             </div>
           </div>
         )}
       </div>
-      <div className="a3-block-note">Everything else: global setting · {modeLabel} mode</div>
+      <div className="a3-block-note">
+        {formatMessage(
+          {
+            id: 'automations.permission.else',
+            defaultMessage: 'Everything else: global setting · {mode} mode',
+          },
+          { mode: modeLabel },
+        )}
+      </div>
     </>
   )
 }

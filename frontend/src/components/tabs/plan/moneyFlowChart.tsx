@@ -15,6 +15,7 @@ import {
 } from '../../shared/moneyFlowLayout'
 import { fBase } from './planData'
 import { useElementSize } from '../../../hooks/useElementWidth'
+import { useAppIntl } from '../../../i18n/useAppIntl'
 
 const MIN_WIDTH = 300
 const TOUCH = typeof window !== 'undefined' && !!window.matchMedia?.('(hover: none)').matches
@@ -46,6 +47,7 @@ export function MoneyFlowChart({
   /** Grow to the height the parent gives it (a flex column), never below the content minimum. */
   fill?: boolean
 }) {
+  const { formatMessage } = useAppIntl()
   const [wrapRef, box] = useElementSize<HTMLDivElement>()
   const measured = box.w
   const [hover, setHover] = useState<string | null>(null)
@@ -116,11 +118,25 @@ export function MoneyFlowChart({
     body:
       n.column === 0 && graph.columns === 2
         ? fBase(n.amount)
-        : `${fBase(n.amount)} · ${n.pct}% of ${shareOf}`,
+        : formatMessage(
+            { id: 'plan.flow.tipShare', defaultMessage: '{amount} · {percent}% of {shareOf}' },
+            { amount: fBase(n.amount), percent: n.pct, shareOf },
+          ),
     hint: clickable(n)
-      ? `${TOUCH ? 'Tap' : 'Click'} to see transactions`
+      ? TOUCH
+        ? formatMessage({
+            id: 'plan.flow.tapTransactions',
+            defaultMessage: 'Tap to see transactions',
+          })
+        : formatMessage({
+            id: 'plan.flow.clickTransactions',
+            defaultMessage: 'Click to see transactions',
+          })
       : drillable(n)
-        ? 'Tap to see its categories'
+        ? formatMessage({
+            id: 'plan.flow.tapCategories',
+            defaultMessage: 'Tap to see its categories',
+          })
         : undefined,
   })
   const clear = () => {

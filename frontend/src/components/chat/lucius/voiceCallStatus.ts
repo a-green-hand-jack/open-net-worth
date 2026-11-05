@@ -1,3 +1,4 @@
+import { defineMessages, type IntlShape } from 'react-intl'
 import { useEffect, useState } from 'react'
 import type { CallState } from './voiceCall'
 import type { OrbState } from './VoiceOrb'
@@ -24,36 +25,27 @@ export interface CallStatus {
   time: string
 }
 
-export function callStatus(call: CallState, now: number, busy: boolean): CallStatus {
+const STATUS = defineMessages({
+  calling: { id: 'chat.voice.calling', defaultMessage: 'Calling…' },
+  ringing: { id: 'chat.voice.ringing', defaultMessage: 'Ringing…' },
+  reconnecting: { id: 'chat.voice.reconnecting', defaultMessage: 'Reconnecting…' },
+  ended: { id: 'chat.voice.ended', defaultMessage: 'Call ended' },
+  working: { id: 'chat.voice.working', defaultMessage: 'Lucius is working…' },
+  shortWorking: { id: 'chat.voice.shortWorking', defaultMessage: 'Working…' },
+  connected: { id: 'chat.voice.connected', defaultMessage: 'Connected' },
+})
+
+export function callStatus(call: CallState, now: number, busy: boolean, intl?: IntlShape): CallStatus {
+  const label = (key: keyof typeof STATUS) => intl ? intl.formatMessage(STATUS[key]) : STATUS[key].defaultMessage
   switch (call.phase) {
-    case 'connecting':
-      return { text: 'Calling…', dot: 'wait', line: 'Calling…', short: 'Calling…', time: '' }
-    case 'ringing':
-      return { text: 'Ringing…', dot: 'wait', line: 'Ringing…', short: 'Ringing…', time: '' }
-    case 'reconnecting':
-      return {
-        text: 'Reconnecting…',
-        dot: 'warn',
-        line: 'Reconnecting…',
-        short: 'Reconnecting…',
-        time: '',
-      }
-    case 'ended': {
-      const t = clock(call.endedSeconds ?? 0)
-      // The top already says it ("Call ended · 2:14"): once is enough.
-      return { text: `Call ended · ${t}`, dot: 'wait', line: '', short: 'Call ended', time: '' }
-    }
+    case 'connecting': { const text = label('calling'); return { text, dot: 'wait', line: text, short: text, time: '' } }
+    case 'ringing': { const text = label('ringing'); return { text, dot: 'wait', line: text, short: text, time: '' } }
+    case 'reconnecting': { const text = label('reconnecting'); return { text, dot: 'warn', line: text, short: text, time: '' } }
+    case 'ended': return { text: `${label('ended')} · ${clock(call.endedSeconds ?? 0)}`, dot: 'wait', line: '', short: label('ended'), time: '' }
     default: {
       const secs = call.connectedAt ? Math.max(0, Math.round((now - call.connectedAt) / 1000)) : 0
-      // Muted needs no words: the pressed Unmute button already says it (owner, 2026-11-03).
-      const line = busy ? 'Lucius is working…' : ''
-      return {
-        text: busy ? 'Lucius is working…' : `Connected · ${clock(secs)}`,
-        dot: 'live',
-        line,
-        short: busy ? 'Working…' : clock(secs),
-        time: clock(secs),
-      }
+      const line = busy ? label('working') : ''
+      return { text: busy ? line : `${label('connected')} · ${clock(secs)}`, dot: 'live', line, short: busy ? label('shortWorking') : clock(secs), time: clock(secs) }
     }
   }
 }

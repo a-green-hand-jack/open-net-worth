@@ -1,0 +1,132 @@
+{
+  "balance-mismatch-tracer": {
+    "description": {
+      "english": "Use this skill when the user says an account's balance in the app doesn't match what their bank, card or broker shows, and wants to know why — 'my balance is wrong', 'the app says 1,240 but my bank says 1,180', 'it doesn't reconcile', 'I'm off by 60', 'my card shows a different amount owed'. It gets the bank's side as rows (a screenshot, a statement, or rows the user pastes), matches them against the ledger row by row, and names the rows that make up the gap. Not for reading a balance ('what's in my checking?' — answer directly), importing a statement (statement-import), a general tidy-up of the books (catch-up), or whether a card bill has been paid.",
+      "sha256": "31e5ad4510acb37584cf68e0374252987f3cc4b37ffcb390404e4854ca89126f"
+    },
+    "name": {
+      "english": "balance-mismatch-tracer",
+      "sha256": "eb3b45f509f74066eec6bae028d3debb3a5eeabccf41e8414ef228b727464983"
+    }
+  },
+  "budget-review": {
+    "description": {
+      "english": "Use this skill to set or review the amounts on the user's budget envelopes against what they really spend — Zero-Based targets or 50/30/20 caps, in whichever method they budget with. Use it for 'review my budget', 'am I over budget?', 'adjust my targets', 'set my caps', 'use my targets as caps', or 'my budget doesn't fit any more', even when they never say 'envelope'. Not for tidying the books or covering this month's overspending (catch-up), whether a new cost fits (can-i-afford-it), or how last month went (monthly-report).",
+      "sha256": "f14aeb05dd528479e2adee83eff66a01e798af1be36d72a6f06efd8bc7b14101"
+    },
+    "name": {
+      "english": "budget-review",
+      "sha256": "408616897a72dc871f8c1593211e2efb21959733fbb9c2b7358f01ff1c0729de"
+    }
+  },
+  "can-i-afford-it": {
+    "description": {
+      "english": "Use this skill when the user asks whether a purchase or a change fits their money — a big buy, a trip, a new monthly cost, a pay cut, losing their job, how long their cash would last. Use it for 'can I afford X', 'should I wait on the car', 'how many months of runway do I have', even when no price is given yet. Not for progress toward savings goals or retirement (on-track), not for which investment to buy, not for setting budget targets (budget-review).",
+      "sha256": "16356ffea8b6b93e8c0e108f4036aaed63ee6da31b60135768a8de9c38981715"
+    },
+    "name": {
+      "english": "can-i-afford-it",
+      "sha256": "79aafd7d97a8e37eb0f3faad8401bc1ae7550c49c212e544c25089bf4da1effe"
+    }
+  },
+  "catch-up": {
+    "description": {
+      "english": "Use this skill when the user wants their books brought up to date — new transactions in, duplicates merged, unsorted transactions labelled, balances checked against the bank, and the budget settled before the month rolls. Use it for 'catch me up', 'tidy my books', a month-end close, or 'I've been away for a few weeks', even if they never say 'reconcile'. Not for importing one statement on its own (statement-import), not for how the month went (monthly-report), not for changing budget targets (budget-review).",
+      "sha256": "978f077d7d0eceab3ba3631469d99d5f50d75d74db7e5979307024a7ae28f110"
+    },
+    "name": {
+      "english": "catch-up",
+      "sha256": "42f0f7b59b83948fe75422cf0e9beee8257bca2861c3a6cb2a1e20de0bc4539c"
+    }
+  },
+  "daily-briefing": {
+    "description": {
+      "english": "Use this skill for the user's daily briefing — a short, friendly message on yesterday: money in and out, trades, how the portfolio moved, a card statement or bill that needs them, and anything to review. Use it for a morning briefing, 'how did yesterday go', 'anything I should know today?', or a scheduled daily briefing, even when they don't say 'briefing'. Not for a week or a month (use weekly-report or monthly-report), or for one question about a transaction.",
+      "sha256": "41c6b72ce52ae7970f9df8fe51b50681f7073ce3e772e10384ffb64dafba325d"
+    },
+    "name": {
+      "english": "daily-briefing",
+      "sha256": "a67a464e56ffd7d38761864c5183a5b946e9da11c9985f964a53172a8370268a"
+    }
+  },
+  "investment-checkup": {
+    "description": {
+      "english": "Use this skill when the user wants a read-out of how their investments are doing — returns against the benchmark, drift from their target mix, what their ETFs actually hold, and what fees have cost. Use it for 'how's my portfolio', 'am I too concentrated', 'how much am I paying in fees', or a periodic investment review, even if they only name one holding. Not for a single price or quote (answer directly), not for pace toward retirement (on-track), not for what to buy or sell.",
+      "sha256": "7e743fdc616de064fe4d1ac2d35e8ef84bd3b52a303e6064ccfdb859cfaf7792"
+    },
+    "name": {
+      "english": "investment-checkup",
+      "sha256": "552fded50267d2153bf094b5567e6f5b1033d87fcab3de201bdc3501c138da33"
+    }
+  },
+  "log-transactions-from-email": {
+    "description": {
+      "english": "Use this skill to log transactions from the user's email into their books — bank, card and wallet alerts and brokerage or crypto trade confirmations — with payees resolved and nothing booked twice. Use it for a scheduled email-logging Automation, or a request like 'log my transactions from email', 'pick up my card alerts' or 'add what my bank emailed me', even when they don't say 'log'. Not for importing a statement file (statement-import), or for reading or answering one email.",
+      "sha256": "762cda78a5b38af515bae5bd594325f79156776189361747c6c05953d46fb2b4"
+    },
+    "name": {
+      "english": "log-transactions-from-email",
+      "sha256": "ac862247a5bbd76d287fd9468fb2c0481e0b62cae3e30db88d60ec5921c8fc87"
+    }
+  },
+  "monthly-report": {
+    "description": {
+      "english": "Use this skill for the user's monthly money report — a designed page on what they earned and kept, spending against a normal month, bills, budget overruns, net worth and investments. Use it for a monthly report or recap, 'how did September go', 'where did my money go last month', or a scheduled monthly report, even when they don't say 'report'. Not for one question about a category or transaction, for tidying the books (catch-up), or for a week (use weekly-report).",
+      "sha256": "2b22835f2d2f4ad5b0a430ea08437ee8c5731bf7745c7c0b7fc3fc9c580ebd56"
+    },
+    "name": {
+      "english": "monthly-report",
+      "sha256": "53dadc1e32dc6485a501f79421a602ffcba2df9579c262d5f3a3e186c9179880"
+    }
+  },
+  "on-track": {
+    "description": {
+      "english": "Use this skill when the user wants to know whether they are on pace for what they are working toward — each savings goal against its deadline, and financial independence or retirement against their plan — and what to change if they are behind. Use it for 'am I on track', 'will I hit my house deposit', 'when can I retire', 'how far am I from FI', even if they never say 'goal'. Not for whether one purchase fits (can-i-afford-it), not for how the investments performed (investment-checkup).",
+      "sha256": "dd87ef2d5359be4a84e787b18a0d5516d372359632e81cb079165b1fd7204266"
+    },
+    "name": {
+      "english": "on-track",
+      "sha256": "e5b033ccfe0b95bb542ce552ba7ff74bd0465c8f7a46df9a8b238087daa99cac"
+    }
+  },
+  "onboarding-new-user": {
+    "description": {
+      "english": "Use this skill to welcome a brand-new user and set up their book: their name, what they want to do first, their main accounts at today's balances, and what that unlocks. It runs on its own the moment first-run setup hands off to an empty book. Also use it whenever the book is still empty and the user says things like 'help me get started', 'set up my accounts', 'where do I begin', 'add my bank' or 'what should I do first'. Not for importing a statement into a book that already has accounts (statement-import), adding one more account later, or explaining how a screen works to someone already set up.",
+      "sha256": "2585603cfebc36a98ee3def454a7d3c0cd1cf1ee455092344b25c2c685c280d3"
+    },
+    "name": {
+      "english": "onboarding-new-user",
+      "sha256": "c51579508c77ed15d31f74f7a57e30a338fb4c5f8398f2132a9411452ed713fa"
+    }
+  },
+  "skill-creator": {
+    "description": {
+      "english": "Author a new Lucius skill the right way — capture intent, draft instructions, draft it, then test and iteratively improve it with you. Use whenever the user wants to create, edit, improve, or test a skill: 'make a skill for X', 'turn this into a skill', 'my skill isn't triggering', 'can Lucius learn to do X'.",
+      "sha256": "aa013b7b471b55577b430996ce94244d2b551188e9667c68c577a976cb2e9939"
+    },
+    "name": {
+      "english": "skill-creator",
+      "sha256": "39f2ccd563ab3c6a683b33bba406f9631b1a83aad065ce4ab3ace9d8524e8738"
+    }
+  },
+  "subscription-audit": {
+    "description": {
+      "english": "Use this skill when the user wants to see everything they pay for on repeat — subscriptions, memberships and bills — what each costs a month and a year, what went up, and what looks forgotten. Use it for 'what am I subscribed to', 'what can I cancel', 'my bills keep creeping up', or 'where does my money go every month', even if they never say 'subscription'. Not for one specific charge (answer directly), not for setting budget targets (budget-review), not for whether a new cost fits (can-i-afford-it).",
+      "sha256": "22d6ba346e8f9eb234c5c5a40822d2ca0cdddaa2a560c693c1df04df6ac7bec2"
+    },
+    "name": {
+      "english": "subscription-audit",
+      "sha256": "7815621737971181243eea8655e2fe2e44a485638367f9e77b8b152da31e8ca4"
+    }
+  },
+  "weekly-report": {
+    "description": {
+      "english": "Use this skill for the user's weekly money report — a designed page on last week's spending against a normal week, bills, income, net worth, investments and unusual charges. Use it for a weekly report or recap, 'how did last week go', 'was last week normal?', or a scheduled weekly report, even when they don't say 'report'. Not for one question about a category or transaction, for yesterday (daily-briefing), or for a month (use monthly-report).",
+      "sha256": "f325caa8d76889c1e07158d099fb18fb54716cccc084d0c71b11844f07412037"
+    },
+    "name": {
+      "english": "weekly-report",
+      "sha256": "94cc4e792f0afb79ca0b1fb67ae656e581efd449bd9ea339a8627606904d1535"
+    }
+  }
+}

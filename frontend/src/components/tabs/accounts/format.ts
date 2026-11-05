@@ -1,3 +1,4 @@
+import { getNumberLocale } from '../../../utils/format'
 /**
  * format.ts — Money/FX formatting helpers for the Accounts tab.
  *
@@ -63,7 +64,7 @@ export function toBase(amount: number, ccy: string, rates: FxRates): number {
 
 /** Thousands-grouped integer or decimal number. `cents` = true → 2dp. */
 export function grp(n: number, cents: boolean): string {
-  return Math.abs(n).toLocaleString('en-US', {
+  return Math.abs(n).toLocaleString(getNumberLocale(), {
     minimumFractionDigits: cents ? 2 : 0,
     maximumFractionDigits: cents ? 2 : 0,
   })
@@ -115,7 +116,7 @@ export function fxInfo(
 
   if (ccy !== base) {
     const rate = appToBase(1, ccy, rates, base)
-    r.est = `1 ${ccy} ≈ ${sym(base)}${rate < 0.1 ? rate.toPrecision(3) : grp(rate, true)}`
+    r.est = `1 ${ccy} ≈ ${sym(base)}${rate < 0.1 ? rate.toLocaleString(getNumberLocale(), { minimumSignificantDigits: 3, maximumSignificantDigits: 3, useGrouping: false }) : grp(rate, true)}`
   }
 
   return r

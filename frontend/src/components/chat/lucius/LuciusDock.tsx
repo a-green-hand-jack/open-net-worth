@@ -12,6 +12,7 @@
 // transition (the dock unmounts while the panel is open).
 
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { useAppIntl } from '../../../i18n/useAppIntl'
 import type { RefObject } from 'react'
 import { useLuciusChat } from '../../../state/luciusChat'
 import { useModels, noVisionLabel } from '../../../hooks/useModels'
@@ -74,6 +75,7 @@ function LuciusLabel({ size = 14 }: { size?: number }) {
 // ── Component ────────────────────────────────────────────────────────────────
 
 export function LuciusDock({ onExpand, onSetUpAi }: Props) {
+  const intl = useAppIntl()
   // "Ask Lucius" on an instance with no provider is a promise the app cannot keep — a dead end
   // for anyone who declined the model step during first run. Hiding it would be worse: it is
   // the only visible route back to configuring him. So the pill stays and tells the truth.
@@ -343,7 +345,7 @@ export function LuciusDock({ onExpand, onSetUpAi }: Props) {
       className={'lx-dock' + (open ? '' : ' lx-collapsed')}
       data-dropzone="dock"
       role="complementary"
-      aria-label="Ask Lucius"
+      aria-label={intl.formatMessage({ id: 'chat.dock.ask', defaultMessage: 'Ask Lucius' })}
     >
       {/* Collapsed pill — with voice calls on, Call sits in it and the call happens there. */}
       {voiceOn && !needsSetup ? (
@@ -374,10 +376,10 @@ export function LuciusDock({ onExpand, onSetUpAi }: Props) {
             setOpen(true)
             requestAnimationFrame(() => composerRef.current?.focus())
           }}
-          aria-label={needsSetup ? 'Set up Lucius' : 'Ask Lucius'}
+          aria-label={needsSetup ? intl.formatMessage({ id: 'scan2.setupLucius', defaultMessage: 'Set up Lucius' }) : intl.formatMessage({ id: 'scan2.askLucius', defaultMessage: 'Ask Lucius' })}
         >
           <Spark size={13} />
-          {needsSetup ? 'Set up Lucius' : 'Ask Lucius'}
+          {needsSetup ? intl.formatMessage({ id: 'scan2.setupLucius', defaultMessage: 'Set up Lucius' }) : intl.formatMessage({ id: 'scan2.askLucius', defaultMessage: 'Ask Lucius' })}
         </button>
       )}
 
@@ -410,8 +412,14 @@ export function LuciusDock({ onExpand, onSetUpAi }: Props) {
                   // messages.length > 0, so the conversation being left is always a real one.
                   createConversation()
                 }}
-                aria-label="New conversation"
-                title="New conversation"
+                aria-label={intl.formatMessage({
+                  id: 'chat.newConversation',
+                  defaultMessage: 'New conversation',
+                })}
+                title={intl.formatMessage({
+                  id: 'chat.newConversation',
+                  defaultMessage: 'New conversation',
+                })}
               >
                 <SquarePen size={14} />
               </button>
@@ -419,16 +427,16 @@ export function LuciusDock({ onExpand, onSetUpAi }: Props) {
             <button
               className="lx-dock-collapse"
               onClick={handleExpand}
-              aria-label="Open in side panel"
-              title="Open in side panel"
+              aria-label={intl.formatMessage({ id: 'chat.dock.openSide', defaultMessage: 'Open in side panel' })}
+              title={intl.formatMessage({ id: 'chat.dock.openSide', defaultMessage: 'Open in side panel' })}
             >
               <PanelRight size={15} />
             </button>
             <button
               className="lx-dock-collapse"
               onClick={() => setOpen(false)}
-              aria-label="Collapse"
-              title="Collapse"
+              aria-label={intl.formatMessage({ id: 'chat.collapse', defaultMessage: 'Collapse' })}
+              title={intl.formatMessage({ id: 'chat.collapse', defaultMessage: 'Collapse' })}
             >
               <ChevronDown size={15} />
             </button>
@@ -543,7 +551,7 @@ export function LuciusDock({ onExpand, onSetUpAi }: Props) {
               sendBlocked={((streaming && !following) || sending) && !multiTurnEnabled}
               onStop={stopStreaming}
               onSend={handleSend}
-              placeholder="Ask Lucius — type @ to mention, / for skills…"
+              placeholder={intl.formatMessage({ id: 'chat.dock.placeholder', defaultMessage: 'Ask Lucius — type @ to mention, / for skills…' })}
               visibleIds={visibleIds}
               screenBar="compact"
               screenId="lucius-dock"

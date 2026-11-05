@@ -1,3 +1,4 @@
+import { message as t } from './native-messages';
 // Where a problem report goes: the one place the destination is written down. Nothing is sent
 // unless the user presses Send on a previewed report. ONW_REPORTS_URL points a report at another
 // portal (a test stack, a self-hosted one); backend/core/problem_report.py keeps the same
@@ -16,7 +17,7 @@ function loopbackHost(host: string): boolean {
 export function reportsEndpoint(env: NodeJS.ProcessEnv = process.env): string {
   const value = env[REPORTS_URL_ENV]?.trim() || REPORTS_ENDPOINT;
   let url: URL;
-  try { url = new URL(value); } catch { throw new Error('The report address is not a valid URL.'); }
-  if (url.username || url.password || (url.protocol !== 'https:' && !(url.protocol === 'http:' && loopbackHost(url.hostname)))) throw new Error('The report address must be an https URL without credentials.');
+  try { url = new URL(value); } catch { throw new Error(t("The report address is not a valid URL.")); }
+  if (url.username || url.password || (url.protocol !== 'https:' && !(url.protocol === 'http:' && loopbackHost(url.hostname)))) throw new Error(t("The report address must be an https URL without credentials."));
   return url.toString();
 }

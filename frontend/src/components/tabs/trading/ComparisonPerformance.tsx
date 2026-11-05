@@ -3,22 +3,34 @@ import { EmptyState, Panel, Stack, Text } from '../../ui'
 import { OvChart } from '../overview/charts'
 import { cssToken } from '../../../utils/chartTheme'
 import { tradingTime } from './presentation'
+import { useAppIntl } from '../../../i18n/useAppIntl'
+import { useTradingLabel } from './useTradingLabel'
 
 export function ComparisonPerformance({
   results,
 }: {
   results: NonNullable<TradingComparison['results']>
 }) {
+  const { formatMessage } = useAppIntl()
+  const label = useTradingLabel()
   const timestamps = [
     ...new Set(results.flatMap((result) => (result.history ?? []).map((point) => point.timestamp))),
   ].sort((a, b) => new Date(a).getTime() - new Date(b).getTime())
   const colors = ['--good', '--apt', '--warn', '--bad', '--ink']
   return (
-    <Panel title="Performance comparison">
+    <Panel
+      title={formatMessage({
+        id: 'trading.performanceComparison',
+        defaultMessage: 'Performance comparison',
+      })}
+    >
       <Stack gap="--space-4">
         <Text tone="muted">
-          Account equity in the shared reporting currency. Missing observations remain gaps; agent
-          usage costs are shown separately.
+          {formatMessage({
+            id: 'trading.performanceComparisonBody',
+            defaultMessage:
+              'Account equity in the shared reporting currency. Missing observations remain gaps; agent usage costs are shown separately.',
+          })}
         </Text>
         {timestamps.length ? (
           <OvChart
@@ -32,7 +44,7 @@ export function ComparisonPerformance({
                     (result.history ?? []).map((point) => [point.timestamp, point.equity]),
                   )
                   return {
-                    label: `${result.agent_label ?? 'Agent'} · ${result.mode ?? 'run'} · ${result.run_id.slice(-12)}`,
+                    label: `${result.agent_label ?? formatMessage({ id: 'trading.agent', defaultMessage: 'Agent' })} · ${result.mode ? label(result.mode) : formatMessage({ id: 'trading.run', defaultMessage: 'run' })} · ${result.run_id.slice(-12)}`,
                     data: timestamps.map((timestamp) => {
                       const value = points.get(timestamp)
                       return value == null ? null : Number(value)
@@ -54,8 +66,14 @@ export function ComparisonPerformance({
           />
         ) : (
           <EmptyState
-            title="No comparison history yet"
-            body="Recorded backend valuations will appear as each run advances."
+            title={formatMessage({
+              id: 'trading.noComparisonHistory',
+              defaultMessage: 'No comparison history yet',
+            })}
+            body={formatMessage({
+              id: 'trading.noComparisonHistoryBody',
+              defaultMessage: 'Recorded backend valuations will appear as each run advances.',
+            })}
           />
         )}
       </Stack>

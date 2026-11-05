@@ -1,8 +1,10 @@
 import { useEffect, useRef, useState } from 'react'
+import { useAppIntl } from '../../i18n/useAppIntl'
 import { authFetch } from '../../api/client'
 import { PROFILE_KEY, fetchJson } from '../../hooks/serverState'
 import { fetchCachedQuery } from '../../state/queryCache'
 import { fDateTime } from '../../utils/format'
+import { briefingError } from './briefingMessages'
 import { BRIEFING_REGENERATE_EVENT } from './briefingFocus'
 import { Settings, RefreshCw, ChevronDown, ChevronUp } from '../../ui/icons'
 
@@ -15,6 +17,7 @@ interface BriefingData {
   // True when the backend generated a failure placeholder (AI unreachable / unparseable
   // reply). The `note` then carries a user-facing reason; render it as an error, not content.
   error?: boolean
+  note_message?: unknown
 }
 
 interface BriefingPrefs {
@@ -35,18 +38,6 @@ const DEFAULT_PREFS: BriefingPrefs = {
   custom_focus: '',
 }
 
-const SECTION_TOGGLES: { key: keyof BriefingPrefs; label: string; hint: string }[] = [
-  {
-    key: 'holdings_news',
-    label: 'Holdings & news',
-    hint: 'News affecting the stocks/assets you hold',
-  },
-  { key: 'spending', label: 'Spending pulse', hint: 'Over-budget, large charges, recently logged' },
-  { key: 'accounts', label: 'Cash & debt', hint: 'Account balances, card utilisation' },
-  { key: 'fx', label: 'FX moves', hint: 'Currency rates for your foreign holdings' },
-  { key: 'upcoming_actions', label: 'Upcoming actions', hint: 'Items due in the next two weeks' },
-]
-
 interface Props {
   onChatSuggest?: (text: string) => void
   /** Embed inside a shell (Overview's WidgetShell) that already renders this
@@ -62,9 +53,55 @@ interface Props {
 }
 
 export function WealthBriefing({ onChatSuggest, hideTitle }: Props) {
+  const intl = useAppIntl()
+  const { formatMessage } = intl
+  const SECTION_TOGGLES: { key: keyof BriefingPrefs; label: string; hint: string }[] = [
+    {
+      key: 'holdings_news',
+      label: formatMessage({ id: 'shared.briefing.toggle0', defaultMessage: 'Holdings & news' }),
+      hint: formatMessage({
+        id: 'shared.briefing.toggle1',
+        defaultMessage: 'News affecting the stocks/assets you hold',
+      }),
+    },
+    {
+      key: 'spending',
+      label: formatMessage({ id: 'shared.briefing.toggle2', defaultMessage: 'Spending pulse' }),
+      hint: formatMessage({
+        id: 'shared.briefing.toggle3',
+        defaultMessage: 'Over-budget, large charges, recently logged',
+      }),
+    },
+    {
+      key: 'accounts',
+      label: formatMessage({ id: 'shared.briefing.toggle4', defaultMessage: 'Cash & debt' }),
+      hint: formatMessage({
+        id: 'shared.briefing.toggle5',
+        defaultMessage: 'Account balances, card utilisation',
+      }),
+    },
+    {
+      key: 'fx',
+      label: formatMessage({ id: 'shared.briefing.toggle6', defaultMessage: 'FX moves' }),
+      hint: formatMessage({
+        id: 'shared.briefing.toggle7',
+        defaultMessage: 'Currency rates for your foreign holdings',
+      }),
+    },
+    {
+      key: 'upcoming_actions',
+      label: formatMessage({ id: 'shared.briefing.toggle8', defaultMessage: 'Upcoming actions' }),
+      hint: formatMessage({
+        id: 'shared.briefing.toggle9',
+        defaultMessage: 'Items due in the next two weeks',
+      }),
+    },
+  ]
+
   const [data, setData] = useState<BriefingData | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [errorMessage, setErrorMessage] = useState<unknown>(null)
   const [collapsed, setCollapsed] = useState(false)
   const [refreshing, setRefreshing] = useState(false)
 
@@ -77,6 +114,7 @@ export function WealthBriefing({ onChatSuggest, hideTitle }: Props) {
     if (forceRefresh) setRefreshing(true)
     else setLoading(true)
     setError(null)
+    setErrorMessage(null)
     try {
       const res = await authFetch(forceRefresh ? '/api/briefing?refresh=true' : '/api/briefing')
       if (!res.ok) throw new Error(`HTTP ${res.status}`)
@@ -85,13 +123,24 @@ export function WealthBriefing({ onChatSuggest, hideTitle }: Props) {
       // error:true and a reason in `note` — surface it via the error state (with retry)
       // rather than rendering it as briefing content.
       if (json.error) {
-        setError(json.note || 'Could not generate your briefing.')
+        setErrorMessage(json.note_message)
+        setError(
+          json.note ||
+            formatMessage({
+              id: 'shared.briefing.generateFailed',
+              defaultMessage: 'Could not generate your briefing.',
+            }),
+        )
         setData(null)
       } else {
         setData(json)
       }
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Failed to load')
+      setError(
+        e instanceof Error
+          ? e.message
+          : formatMessage({ id: 'shared.briefing.loadFailed', defaultMessage: 'Failed to load' }),
+      )
     } finally {
       setLoading(false)
       setRefreshing(false)
@@ -146,7 +195,13 @@ export function WealthBriefing({ onChatSuggest, hideTitle }: Props) {
       // Preferences changed → regenerate the note so it reflects the new sections
       await fetchBriefing(true)
     } catch {
-      setError('Failed to save preferences')
+      setErrorMessage(null)
+      setError(
+        formatMessage({
+          id: 'shared.briefing.saveFailed',
+          defaultMessage: 'Failed to save preferences',
+        }),
+      )
     } finally {
       setSaving(false)
     }
@@ -174,14 +229,25 @@ export function WealthBriefing({ onChatSuggest, hideTitle }: Props) {
               <button
                 className={`briefing-settings-btn${settingsOpen ? ' active' : ''}`}
                 onClick={() => setSettingsOpen((o) => !o)}
-                title="Customise this briefing"
-                aria-label="Customise this briefing"
+                title={formatMessage({
+                  id: 'shared.briefing.customise',
+                  defaultMessage: 'Customise this briefing',
+                })}
+                aria-label={formatMessage({
+                  id: 'shared.briefing.customise',
+                  defaultMessage: 'Customise this briefing',
+                })}
               >
                 <Settings size={14} aria-hidden="true" />
               </button>
               {settingsOpen && (
                 <div className="briefing-settings-pop">
-                  <div className="briefing-settings-title">What Lucius covers</div>
+                  <div className="briefing-settings-title">
+                    {formatMessage({
+                      id: 'shared.briefing.covers',
+                      defaultMessage: 'What Lucius covers',
+                    })}
+                  </div>
                   <div className="briefing-settings-list">
                     {SECTION_TOGGLES.map(({ key, label, hint }) => (
                       <label className="briefing-toggle" key={key}>
@@ -198,17 +264,33 @@ export function WealthBriefing({ onChatSuggest, hideTitle }: Props) {
                       </label>
                     ))}
                   </div>
-                  <div className="briefing-settings-title">Tell Lucius what to focus on</div>
+                  <div className="briefing-settings-title">
+                    {formatMessage({
+                      id: 'shared.briefing.focus',
+                      defaultMessage: 'Tell Lucius what to focus on',
+                    })}
+                  </div>
                   <textarea
                     className="briefing-focus-input"
-                    placeholder="e.g. Watch my ONWAI Inc exit timing; flag any big spending."
+                    placeholder={formatMessage({
+                      id: 'shared.briefing.focusPlaceholder',
+                      defaultMessage: 'e.g. Watch my ONWAI Inc exit timing; flag any big spending.',
+                    })}
                     value={prefs.custom_focus}
                     onChange={(e) => setPrefs({ ...prefs, custom_focus: e.target.value })}
                     onBlur={() => savePrefs(prefs)}
                     rows={3}
                   />
                   <div className="briefing-settings-foot">
-                    {saving ? 'Saving & regenerating…' : 'Changes regenerate the note'}
+                    {saving
+                      ? formatMessage({
+                          id: 'shared.briefing.saving',
+                          defaultMessage: 'Saving & regenerating…',
+                        })
+                      : formatMessage({
+                          id: 'shared.briefing.saveHelp',
+                          defaultMessage: 'Changes regenerate the note',
+                        })}
                   </div>
                 </div>
               )}
@@ -217,14 +299,35 @@ export function WealthBriefing({ onChatSuggest, hideTitle }: Props) {
               className="briefing-refresh-btn"
               onClick={() => fetchBriefing(true)}
               disabled={refreshing || loading}
-              aria-label={refreshing ? undefined : 'Refresh briefing'}
+              aria-label={
+                refreshing
+                  ? undefined
+                  : formatMessage({
+                      id: 'shared.briefing.refresh',
+                      defaultMessage: 'Refresh briefing',
+                    })
+              }
             >
-              {refreshing ? 'Generating…' : <RefreshCw size={14} aria-hidden="true" />}
+              {refreshing ? (
+                formatMessage({ id: 'shared.briefing.generating', defaultMessage: 'Generating…' })
+              ) : (
+                <RefreshCw size={14} aria-hidden="true" />
+              )}
             </button>
             <button
               className="briefing-collapse-btn"
               onClick={() => setCollapsed((c) => !c)}
-              aria-label={collapsed ? 'Expand briefing' : 'Collapse briefing'}
+              aria-label={
+                collapsed
+                  ? formatMessage({
+                      id: 'shared.briefing.expand',
+                      defaultMessage: 'Expand briefing',
+                    })
+                  : formatMessage({
+                      id: 'shared.briefing.collapse',
+                      defaultMessage: 'Collapse briefing',
+                    })
+              }
               aria-expanded={!collapsed}
             >
               {collapsed ? (
@@ -245,13 +348,21 @@ export function WealthBriefing({ onChatSuggest, hideTitle }: Props) {
               <div className="briefing-skeleton" style={{ width: '88%' }} />
               <div className="briefing-skeleton" style={{ width: '92%' }} />
               <div className="briefing-skeleton" style={{ width: '76%' }} />
-              <p className="briefing-loading-label">Searching news and generating note…</p>
+              <p className="briefing-loading-label">
+                {formatMessage({
+                  id: 'shared.briefing.loading',
+                  defaultMessage: 'Searching news and generating note…',
+                })}
+              </p>
             </div>
           )}
 
           {error && !loading && (
             <p className="briefing-error">
-              {error} • <button onClick={() => fetchBriefing()}>retry</button>
+              {briefingError(error, errorMessage, intl)} •{' '}
+              <button onClick={() => fetchBriefing()}>
+                {formatMessage({ id: 'shared.briefing.retry', defaultMessage: 'retry' })}
+              </button>
             </p>
           )}
 
@@ -269,8 +380,15 @@ export function WealthBriefing({ onChatSuggest, hideTitle }: Props) {
                     <button
                       key={`a${i}`}
                       className="briefing-chip"
-                      onClick={() => onChatSuggest?.(`${data.note}\n\nHelp me with this: ${a}`)}
-                      title="Ask Lucius to help with this"
+                      onClick={() =>
+                        onChatSuggest?.(
+                          `${data.note}\n\n${formatMessage({ id: 'shared.briefing.askPrompt', defaultMessage: 'Help me with this: {action}' }, { action: a })}`,
+                        )
+                      }
+                      title={formatMessage({
+                        id: 'shared.briefing.askHelp',
+                        defaultMessage: 'Ask Lucius to help with this',
+                      })}
                     >
                       {a}
                     </button>

@@ -155,6 +155,59 @@ def test_stacked_remainder_is_not_labelled_other():
     assert labels.count("Other") == 1
 
 
+def test_generated_uncategorized_labels_keep_provenance_across_reports(monkeypatch):
+    monkeypatch.setattr(
+        reports_rollup.planning_service,
+        "budget_month",
+        lambda _: {
+            "groups": [
+                {
+                    "id": "__unsorted__",
+                    "unsorted": True,
+                    "categories": [
+                        {"key": "__unsorted__", "label": "Uncategorized", "activity": -20}
+                    ],
+                },
+                {
+                    "id": "custom",
+                    "categories": [{"key": "cat-user", "label": "Uncategorized", "activity": -10}],
+                },
+            ]
+        },
+    )
+    monkeypatch.setattr(
+        reports_rollup.planning_service, "income_view", lambda _: {"categories": []}
+    )
+    monkeypatch.setattr(
+        reports_rollup.planning_service, "history_activity_by_category", lambda _: {}
+    )
+    monkeypatch.setattr(reports_rollup, "_uncategorized_income", lambda _: 30.0)
+    from backend.services import categories
+
+    monkeypatch.setattr(categories, "get_all_categories", lambda **_: [])
+    point = reports_rollup.month_summary("2026-10")
+    generated, custom = point["expense_rows"]
+    assert generated["label_message"]["id"] == "reports.label.uncategorized"
+    assert custom["label"] == "Uncategorized" and "label_message" not in custom
+    assert point["income_rows"][0]["label_message"]["id"] == "reports.label.uncategorizedIncome"
+    series = reports_rollup._stacked_series([point], "expense_rows", 5)
+    table = reports_rollup._table([point], "expense_rows")
+    assert series[0]["label_message"] == generated["label_message"]
+    assert table[0]["label_message"] == generated["label_message"]
+    assert "label_message" not in series[1] and "label_message" not in table[1]
+
+
+def test_report_label_ids_are_consumed_by_frontend():
+    import re
+    from pathlib import Path
+
+    root = Path(__file__).resolve().parents[1]
+    backend = (root / "backend/services/reports_rollup.py").read_text()
+    frontend = (root / "frontend/src/components/tabs/overview/widgets/reports.tsx").read_text()
+    ids = set(re.findall(r'"(reports\.label\.[a-zA-Z0-9_]+)"', backend))
+    assert ids and all(message_id in frontend for message_id in ids)
+
+
 def test_merchant_share_is_of_the_whole_month_not_the_top_n(monkeypatch):
     """Top merchants shows each payee's share of the MONTH's spend. A cut top-N must not
     inflate the shares: three payees of 50/30/20 shown as a top two still read 50% and 30%."""

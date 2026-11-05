@@ -889,10 +889,11 @@ def list_sessions(request: Request):
 
 class SessionMetaUpdate(BaseModel):
     title: Optional[str] = None
-    # True when the CLIENT derived this title itself (first message, "New conversation",
-    # normalization) rather than the person typing it — it then yields to an AI title and
-    # to a rename instead of overwriting them. See `SessionStore.write_title`.
+    # Automatic titles yield to AI titles and renames; a placeholder additionally yields
+    # to a first-message title. See `SessionStore.write_title`.
     auto: bool = False
+    placeholder: bool = False
+    onboarding: bool = False
 
 
 @router.patch("/api/sessions/{session_id}")
@@ -900,7 +901,13 @@ def update_session_meta(session_id: str, body: SessionMetaUpdate):
     if body.title is None:
         assistant.upsert_session_meta(session_id)
     else:
-        session_titles.set_title(session_id, body.title, auto=body.auto)
+        session_titles.set_title(
+            session_id,
+            body.title,
+            auto=body.auto,
+            placeholder=body.placeholder,
+            onboarding=body.onboarding,
+        )
     return {"ok": True}
 
 

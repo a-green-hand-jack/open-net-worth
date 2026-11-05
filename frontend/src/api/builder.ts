@@ -4,6 +4,10 @@ export type BuilderEngineId = 'codex' | 'claude'
 export type BuilderMode = 'plan' | 'build'
 export type BuilderRunStatus = 'queued' | 'running' | 'succeeded' | 'failed' | 'cancelled'
 export type BuilderEventKind = 'status' | 'assistant' | 'tool' | 'output' | 'error'
+export interface BuilderMessage {
+  id: string
+  params: Record<string, unknown>
+}
 
 export interface BuilderEngineStatus {
   id: BuilderEngineId
@@ -13,6 +17,7 @@ export interface BuilderEngineStatus {
   command: string
   build_is_sandboxed: boolean
   guidance: string
+  guidance_message?: BuilderMessage
 }
 
 export interface BuilderStatus {
@@ -20,6 +25,7 @@ export interface BuilderStatus {
   workspace_name: string
   workspace_valid: boolean
   error: string
+  error_message?: BuilderMessage | null
   engines: BuilderEngineStatus[]
   active_run_id: string | null
 }
@@ -28,6 +34,7 @@ export interface BuilderEvent {
   seq: number
   kind: BuilderEventKind
   text: string
+  text_message?: BuilderMessage
   created_at: string
 }
 
@@ -41,7 +48,16 @@ export interface BuilderRun {
   started_at: string | null
   finished_at: string | null
   error: string
+  error_message?: BuilderMessage | null
   workspace_changes: string[]
+}
+
+export class BuilderRequestError extends Error {
+  readonly messageInfo?: BuilderMessage
+  constructor(message: string, messageInfo?: BuilderMessage) {
+    super(message)
+    this.messageInfo = messageInfo
+  }
 }
 
 async function readJson<T>(response: Response): Promise<T> {
@@ -49,7 +65,11 @@ async function readJson<T>(response: Response): Promise<T> {
   if (!response.ok) {
     const detail =
       typeof data?.detail === 'string' ? data.detail : `Request failed (${response.status}).`
-    throw new Error(detail)
+    const params = data?.message_params
+    const messageInfo = typeof data?.message_id === 'string' && params && typeof params === 'object' && !Array.isArray(params)
+      ? { id: data.message_id as string, params: params as Record<string, unknown> }
+      : undefined
+    throw new BuilderRequestError(detail, messageInfo)
   }
   return data as T
 }

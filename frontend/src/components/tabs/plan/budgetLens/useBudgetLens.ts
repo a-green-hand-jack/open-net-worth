@@ -8,10 +8,17 @@
 // read-only modal.
 import { useEffect, useState } from 'react'
 import { rememberBudgetMethod } from '../../../../utils/budgetMethodMemory'
-import { dismissBudgetLensIntro, saveMonthlyNetIncome, setHomeEngine } from './api'
+import {
+  dismissBudgetLensIntro,
+  saveMonthlyNetIncome,
+  setHomeEngine,
+  IncomeSaveError,
+  BudgetVerbRequestError,
+} from './api'
 import { configure } from './proportional/propApi'
 import { useBudgetEngines } from './useBudgetEngines'
 import type { BudgetEngineDescriptor, ProportionalTargets } from './types'
+import { useAppIntl } from '../../../../i18n/useAppIntl'
 
 export interface BudgetLensState {
   engines: BudgetEngineDescriptor[]
@@ -57,6 +64,7 @@ export interface BudgetLensState {
 }
 
 export function useBudgetLens(): BudgetLensState {
+  const { formatMessage } = useAppIntl()
   const engineQuery = useBudgetEngines()
   const engines = engineQuery.data?.engines ?? []
   // Fallback only for the brief pre-load window — matches the backend's own stated default
@@ -124,7 +132,24 @@ export function useBudgetLens(): BudgetLensState {
       setOnboarding(null)
       engineQuery.refresh()
     } catch (e) {
-      setOnboardError(e instanceof Error ? e.message : 'Could not set up 50/30/20 — try again.')
+      setOnboardError(
+        e instanceof BudgetVerbRequestError
+          ? formatMessage(
+              { id: 'plan.model.requestFailed', defaultMessage: 'Request failed ({status})' },
+              { status: e.status },
+            )
+          : e instanceof IncomeSaveError
+            ? formatMessage({
+                id: 'plan.incomeSaveFailed',
+                defaultMessage: 'Could not save your income — try again.',
+              })
+            : e instanceof Error
+              ? e.message
+              : formatMessage({
+                  id: 'plan.proportional.setupFailed',
+                  defaultMessage: 'Could not set up 50/30/20 — try again.',
+                }),
+      )
     } finally {
       setSwitching(false)
     }

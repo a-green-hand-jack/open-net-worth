@@ -11,6 +11,9 @@
 
 import { describe, it, expect, afterEach, vi } from 'vitest'
 import { render, cleanup, screen, fireEvent, waitFor, within } from '@testing-library/react'
+import { IntlProvider } from 'react-intl'
+import messages from './zh-CN.messages.json'
+import commonMessages from '../../../i18n/zh-CN.json'
 import TxnDetail from './TxnDetail'
 import type { Account, Category, Txn, SourceEntry } from './types'
 
@@ -636,4 +639,13 @@ describe('TxnDetail — Source section, kind: email (multi-source-email drawer, 
     )
     expect(screen.queryByText(/Source \(/)).toBeNull()
   })
+})
+
+it('uses structured audit labels while preserving named actors in Chinese', async () => {
+  const info = { source: 'bank', addedBy: 'Bank feed', addedByMessage: { id: 'audit.source.bank', params: {} }, via: 'Statement import', viaMessage: { id: 'audit.via.statement_import', params: {} }, createdAt: '2026-07-01', updatedAt: '2026-07-01', activity: [{ action: 'created', actor: 'agent', actorName: 'Named Agent', actorNameMessage: null, via: 'Schedule', viaMessage: { id: 'audit.via.schedule', params: {} }, at: '2026-07-01' }] }
+  render(<IntlProvider locale="zh-CN" messages={{ ...commonMessages, ...messages }}><TxnDetail txn={makeTxn()} accounts={[makeAccount()]} categories={[]} payeeOptions={[]} baseCurrency="SGD" rates={{}} onClose={() => {}} onSave={() => {}} onDelete={() => {}} onMarkReviewed={() => {}} onManagePayees={() => {}} onCreateCategory={() => {}} onLoadActivity={() => Promise.resolve(info)} onLoadSourceEntries={() => Promise.resolve(null)} onDetachSourceRef={() => Promise.resolve()} /></IntlProvider>)
+  expect(await screen.findByText(/Named Agent/)).toBeTruthy()
+  expect(screen.getByText(/银行同步/)).toBeTruthy()
+  expect(screen.getByText(/账单导入/)).toBeTruthy()
+  expect(screen.getByText(/计划任务/)).toBeTruthy()
 })

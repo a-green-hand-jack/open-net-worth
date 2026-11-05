@@ -1,0 +1,22 @@
+{
+  "watchlist.error.intentObject": [],
+  "watchlist.error.thesisLength": ["limit"],
+  "watchlist.error.intentNumber": ["field"],
+  "watchlist.error.intentPositive": ["field"],
+  "watchlist.error.zoneMissing": [],
+  "watchlist.error.zoneOrder": [],
+  "watchlist.error.blankName": [],
+  "watchlist.error.duplicateName": ["name"],
+  "watchlist.error.listNotFound": ["id"],
+  "watchlist.error.deleteManaged": [],
+  "watchlist.error.chooseList": [],
+  "watchlist.error.topicNoList": [],
+  "watchlist.error.alreadyFollowing": ["value"],
+  "watchlist.error.managedAdd": [],
+  "watchlist.error.symbolNotFound": ["symbol"],
+  "watchlist.error.alreadyInList": [],
+  "watchlist.error.namedListNotFound": ["name"],
+  "watchlist.error.managedEdit": [],
+  "watchlist.error.holdingsRemove": [],
+  "watchlist.error.itemNotFound": []
+}

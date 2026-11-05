@@ -1,3 +1,4 @@
+import { useAppIntl } from '../../i18n/useAppIntl'
 // CompactingActivity — the "compacting conversation" progress line, pinned above the
 // composer in the exact slot TurnActivity occupies once the fold finishes.
 //
@@ -26,6 +27,7 @@ export interface CompactingActivityProps {
 }
 
 export function CompactingActivity({ percent, outputTokens, startedAt }: CompactingActivityProps) {
+  const { formatMessage } = useAppIntl()
   const [elapsed, setElapsed] = useState(() =>
     startedAt ? Math.max(0, Date.now() - startedAt) : 0,
   )
@@ -66,11 +68,11 @@ export function CompactingActivity({ percent, outputTokens, startedAt }: Compact
     <div className="lx-compacting">
       <div className="lx-activity" role="status" aria-live="polite">
         <span className="lx-activity-dot" aria-hidden="true" />
-        <span className="lx-activity-word">Compacting conversation…</span>
+        <span className="lx-activity-word">{formatMessage({ id: 'chat.compacting', defaultMessage: 'Compacting conversation…' })}</span>
         <span className="lx-activity-meta">
           ({formatElapsed(elapsed)}
           {typeof tickedTokens === 'number' && tickedTokens > 0
-            ? ` • ↓ ${tickedTokens >= 1000 ? `${(tickedTokens / 1000).toFixed(1)}k` : tickedTokens} tokens`
+            ? formatMessage({ id: 'chat.tokens', defaultMessage: ' • ↓ {count} tokens' }, { count: tickedTokens >= 1000 ? `${(tickedTokens / 1000).toFixed(1)}k` : tickedTokens })
             : ''}
           )
         </span>
@@ -80,7 +82,7 @@ export function CompactingActivity({ percent, outputTokens, startedAt }: Compact
         size="sm"
         value={percent}
         color="var(--lucius)"
-        ariaLabel="Compacting conversation progress"
+        ariaLabel={formatMessage({ id: 'chat.compactingProgress', defaultMessage: 'Compacting conversation progress' })}
         valueText={`${Math.round(percent)}%`}
         className="lx-compact-bar"
       />

@@ -24,6 +24,7 @@ test('the entry starts the app quietly with the login flag', () => {
   assert.match(entry, /^\[Desktop Entry\]\nType=Application\n/);
   assert.match(entry, /^Exec="\/opt\/Open Net Worth\/open-net-worth" --onw-login$/m);
   assert.match(entry, /^Terminal=false$/m);
+  assert.match(entry, /^Comment\[zh_CN\]=登录时在后台启动 Open Net Worth$/m);
 });
 
 test('enabling writes the file atomically, disabling removes it, and both are idempotent', { skip: process.platform === 'win32' && 'POSIX file modes; Linux-only behaviour' }, async () => {

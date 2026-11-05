@@ -10,6 +10,9 @@ export type Fact = [label: string, value: string]
 export interface GuidedFact {
   prompt: FactPrompt
   value: string
+  /** Preserve a legacy label's exact spelling when it matched a guided prompt. */
+  savedLabel?: string
+  originalValue?: string
 }
 
 export interface SplitFacts {
@@ -27,15 +30,32 @@ export function splitFacts(category: string, facts: Fact[]): SplitFacts {
     const i = facts.findIndex(([k], at) => !used.has(at) && labelKey(k) === labelKey(prompt[0]))
     if (i < 0) return { prompt, value: '' }
     used.add(i)
-    return { prompt, value: facts[i]![1] }
+    const [storedLabel, value] = facts[i]!
+    return {
+      prompt,
+      value,
+      ...(storedLabel === prompt[0] ? {} : { savedLabel: storedLabel }),
+      ...(value === value.trim() ? {} : { originalValue: value }),
+    }
   })
   return { guided, other: facts.filter((_, at) => !used.has(at)) }
 }
 
 /** What to save: guided values under their prompts' own labels, in the category's order,
  *  then the other details — blank rows dropped. */
-export function joinFacts(guided: GuidedFact[], other: Fact[]): Fact[] {
-  return sanitizeFacts([...guided.map((g): Fact => [g.prompt[0], g.value]), ...other])
+export function joinFacts(guided: GuidedFact[], other: Fact[], originalOther: Fact[] = []): Fact[] {
+  const rows = guided
+    .filter((g) => g.value.trim() !== '')
+    .map(
+      (g): Fact => [
+        g.savedLabel ?? g.prompt[0],
+        g.originalValue === g.value ? g.value : g.value.trim(),
+      ],
+    )
+  const otherRows = other.flatMap((row) =>
+    originalOther.includes(row) && row[0].trim() && row[1].trim() ? [row] : sanitizeFacts([row]),
+  )
+  return [...rows, ...otherRows]
 }
 
 /** "plate number, COE expires and 1 more" — at most two labels, each lowered for a sentence

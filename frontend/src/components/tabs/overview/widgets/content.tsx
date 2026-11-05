@@ -35,21 +35,29 @@ import type { WidgetContentProps } from '../types'
 import { WidgetShell } from '../WidgetShell'
 import { WidgetPlaceholder } from '../WidgetPlaceholder'
 import { Spark } from '../../../../lucius/identity'
+import { useAppIntl } from '../../../../i18n/useAppIntl'
 
 // ── Text (Markdown note) ─────────────────────────────────────────────────────
 
 const TextNote: ComponentType<WidgetContentProps> = ({ instance, def, onPatch }) => {
+  const { formatMessage } = useAppIntl()
   const markdown = (instance.config?.markdown as string) || ''
   const [mode, setMode] = useState<'edit' | 'preview'>(markdown ? 'preview' : 'edit')
 
   const toggle = (
     <SegmentedControl
-      ariaLabel="Edit or preview"
+      ariaLabel={formatMessage({
+        id: 'overview.content.editPreview',
+        defaultMessage: 'Edit or preview',
+      })}
       value={mode}
       onChange={setMode}
       options={[
-        { value: 'edit', label: 'Edit' },
-        { value: 'preview', label: 'Preview' },
+        { value: 'edit', label: formatMessage({ id: 'overview.edit', defaultMessage: 'Edit' }) },
+        {
+          value: 'preview',
+          label: formatMessage({ id: 'overview.content.preview', defaultMessage: 'Preview' }),
+        },
       ]}
     />
   )
@@ -62,10 +70,21 @@ const TextNote: ComponentType<WidgetContentProps> = ({ instance, def, onPatch })
           rows={6}
           value={markdown}
           onChange={(e) => onPatch({ config: { ...instance.config, markdown: e.target.value } })}
-          placeholder="Write in Markdown — # heading, **bold**, *italic*, - list, [link](url)…"
+          placeholder={formatMessage({
+            id: 'overview.content.markdown',
+            defaultMessage:
+              'Write in Markdown — # heading, **bold**, *italic*, - list, [link](url)…',
+          })}
         />
       ) : markdown ? (
-        <div className="ov-note-md" onClick={() => setMode('edit')} title="Click to edit">
+        <div
+          className="ov-note-md"
+          onClick={() => setMode('edit')}
+          title={formatMessage({
+            id: 'overview.content.clickEdit',
+            defaultMessage: 'Click to edit',
+          })}
+        >
           <ReactMarkdown
             remarkPlugins={[[remarkGfm, { singleTilde: false }]]}
             components={SAFE_MARKDOWN_COMPONENTS}
@@ -75,7 +94,12 @@ const TextNote: ComponentType<WidgetContentProps> = ({ instance, def, onPatch })
         </div>
       ) : (
         <div className="ov-note-md ov-note-empty" onClick={() => setMode('edit')}>
-          <WidgetPlaceholder detail="Click Edit to write a note." />
+          <WidgetPlaceholder
+            detail={formatMessage({
+              id: 'overview.content.emptyNote',
+              defaultMessage: 'Click Edit to write a note.',
+            })}
+          />
         </div>
       )}
     </WidgetShell>
@@ -90,6 +114,7 @@ function normalizeUrl(raw: string): string {
 }
 
 const ImageWidget: ComponentType<WidgetContentProps> = ({ instance, def, onPatch }) => {
+  const { formatMessage } = useAppIntl()
   const url = (instance.config?.url as string) || ''
   const [draft, setDraft] = useState(url)
   const [broken, setBroken] = useState(false)
@@ -110,7 +135,10 @@ const ImageWidget: ComponentType<WidgetContentProps> = ({ instance, def, onPatch
       <WidgetShell title={instance.title} base={def.title}>
         <div className="ov-image-setup">
           <Text as="p" size="xs" tone="faint">
-            A picture — your goal, a chart screenshot, a family photo.
+            {formatMessage({
+              id: 'overview.content.imageHelp',
+              defaultMessage: 'A picture — your goal, a chart screenshot, a family photo.',
+            })}
           </Text>
           <div className="ov-image-setup-row">
             <TextField
@@ -123,7 +151,7 @@ const ImageWidget: ComponentType<WidgetContentProps> = ({ instance, def, onPatch
               }}
             />
             <Button size="sm" variant="primary" onClick={save} disabled={!draft.trim()}>
-              Add image
+              {formatMessage({ id: 'overview.content.addImage', defaultMessage: 'Add image' })}
             </Button>
           </div>
         </div>
@@ -136,10 +164,13 @@ const ImageWidget: ComponentType<WidgetContentProps> = ({ instance, def, onPatch
       {broken ? (
         <div className="ov-image-broken">
           <Text as="p" size="xs" tone="faint">
-            Couldn&rsquo;t load this image.
+            {formatMessage({
+              id: 'overview.content.imageFailed',
+              defaultMessage: 'Couldn’t load this image.',
+            })}
           </Text>
           <Button size="sm" variant="secondary" onClick={clear}>
-            Change URL
+            {formatMessage({ id: 'overview.content.changeUrl', defaultMessage: 'Change URL' })}
           </Button>
         </div>
       ) : (
@@ -147,11 +178,15 @@ const ImageWidget: ComponentType<WidgetContentProps> = ({ instance, def, onPatch
           <img
             className="ov-image-img"
             src={url}
-            alt={instance.title || def.title || 'Widget image'}
+            alt={
+              instance.title ||
+              def.title ||
+              formatMessage({ id: 'overview.content.widgetImage', defaultMessage: 'Widget image' })
+            }
             onError={() => setBroken(true)}
           />
           <button type="button" className="ov-image-change" onClick={clear}>
-            Change
+            {formatMessage({ id: 'overview.content.change', defaultMessage: 'Change' })}
           </button>
         </>
       )}
@@ -162,6 +197,7 @@ const ImageWidget: ComponentType<WidgetContentProps> = ({ instance, def, onPatch
 // ── Embed ─────────────────────────────────────────────────────────────────────
 
 const EmbedWidget: ComponentType<WidgetContentProps> = ({ instance, def, onPatch }) => {
+  const { formatMessage } = useAppIntl()
   const url = (instance.config?.url as string) || ''
   const [draft, setDraft] = useState(url)
 
@@ -178,7 +214,11 @@ const EmbedWidget: ComponentType<WidgetContentProps> = ({ instance, def, onPatch
       <WidgetShell title={instance.title} base={def.title}>
         <div className="ov-embed-setup">
           <Text as="p" size="xs" tone="faint">
-            Show an external page here — a Google Sheet, a TradingView chart, a Notion doc.
+            {formatMessage({
+              id: 'overview.content.embedHelp',
+              defaultMessage:
+                'Show an external page here — a Google Sheet, a TradingView chart, a Notion doc.',
+            })}
           </Text>
           <div className="ov-embed-setup-row">
             <TextField
@@ -191,11 +231,14 @@ const EmbedWidget: ComponentType<WidgetContentProps> = ({ instance, def, onPatch
               }}
             />
             <Button size="sm" variant="primary" onClick={save} disabled={!draft.trim()}>
-              Embed
+              {formatMessage({ id: 'overview.content.embed', defaultMessage: 'Embed' })}
             </Button>
           </div>
           <Text as="p" size="xs" tone="faint">
-            Note: some sites refuse to be embedded (X-Frame-Options).
+            {formatMessage({
+              id: 'overview.content.embedNotice',
+              defaultMessage: 'Note: some sites refuse to be embedded (X-Frame-Options).',
+            })}
           </Text>
         </div>
       </WidgetShell>
@@ -220,11 +263,15 @@ const EmbedWidget: ComponentType<WidgetContentProps> = ({ instance, def, onPatch
       <iframe
         className="ov-embed-frame"
         src={url}
-        title={instance.title || def.title || 'Embed'}
+        title={
+          instance.title ||
+          def.title ||
+          formatMessage({ id: 'overview.content.embed', defaultMessage: 'Embed' })
+        }
         sandbox="allow-scripts allow-popups"
       />
       <button type="button" className="ov-embed-change" onClick={clear}>
-        Change URL
+        {formatMessage({ id: 'overview.content.changeUrl', defaultMessage: 'Change URL' })}
       </button>
     </WidgetShell>
   )
@@ -242,6 +289,7 @@ const DEFAULT_LUX_HTML_PROMPT =
   'Create a dashboard widget artifact via create_artifact — a small, self-contained HTML card I can pin to my Overview dashboard.'
 
 const LuxHtml: ComponentType<WidgetContentProps> = ({ instance, def, onPatch, onAskLucius }) => {
+  const { formatMessage } = useAppIntl()
   const cfg = (instance.config || {}) as LuxHtmlConfig
   const [recent, setRecent] = useState<RecentArtifact[] | null>(null)
   const [listError, setListError] = useState(false)
@@ -302,7 +350,10 @@ const LuxHtml: ComponentType<WidgetContentProps> = ({ instance, def, onPatch, on
         lead={spark}
         actions={
           <button type="button" className="ov-lux-chip" onClick={clearPick}>
-            Change artifact
+            {formatMessage({
+              id: 'overview.content.changeArtifact',
+              defaultMessage: 'Change artifact',
+            })}
           </button>
         }
       >
@@ -315,36 +366,52 @@ const LuxHtml: ComponentType<WidgetContentProps> = ({ instance, def, onPatch, on
     <WidgetShell title={instance.title} base={def.title} lead={spark}>
       <div className="ov-luxhtml-setup">
         <Text as="p" size="xs" tone="faint">
-          Pin a Lucius-generated artifact — a chart, a card, a mini dashboard — to this widget.
+          {formatMessage({
+            id: 'overview.content.artifactHelp',
+            defaultMessage:
+              'Pin a Lucius-generated artifact — a chart, a card, a mini dashboard — to this widget.',
+          })}
         </Text>
         {recent && recent.length > 0 && (
           <div className="ov-luxhtml-pick-row">
             <Select
               options={recent.map((r) => ({ value: r.id, label: r.title || r.filename }))}
-              placeholder="Pick a recent artifact…"
+              placeholder={formatMessage({
+                id: 'overview.content.pickArtifact',
+                defaultMessage: 'Pick a recent artifact…',
+              })}
               value=""
               onChange={(e) => pick(e.target.value)}
             />
             <Button size="sm" variant="ghost" onClick={loadRecent} disabled={loadingList}>
-              Refresh
+              {formatMessage({ id: 'overview.content.refresh', defaultMessage: 'Refresh' })}
             </Button>
           </div>
         )}
         {recent && recent.length === 0 && !listError && (
           <Text as="p" size="xs" tone="faint">
-            No artifacts yet — ask Lucius to build one below.
+            {formatMessage({
+              id: 'overview.content.noArtifacts',
+              defaultMessage: 'No artifacts yet — ask Lucius to build one below.',
+            })}
           </Text>
         )}
         {listError && (
           <Text as="p" size="xs" tone="bad">
-            Could not load your recent artifacts.
+            {formatMessage({
+              id: 'overview.content.artifactFailed',
+              defaultMessage: 'Could not load your recent artifacts.',
+            })}
           </Text>
         )}
         <TextArea
           rows={2}
           value={draft}
           onChange={(e) => setDraft(e.target.value)}
-          placeholder="Describe the widget Lucius should build…"
+          placeholder={formatMessage({
+            id: 'overview.content.prompt',
+            defaultMessage: 'Describe the widget Lucius should build…',
+          })}
         />
         <div className="ov-lux-ask-actions">
           <Button
@@ -354,7 +421,10 @@ const LuxHtml: ComponentType<WidgetContentProps> = ({ instance, def, onPatch, on
             iconLeft={<Spark size={15} ariaHidden />}
             onClick={askLucius}
           >
-            Create with Lucius
+            {formatMessage({
+              id: 'overview.content.createLucius',
+              defaultMessage: 'Create with Lucius',
+            })}
           </Button>
         </div>
       </div>

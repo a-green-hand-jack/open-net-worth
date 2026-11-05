@@ -1,3 +1,4 @@
+import { useAppIntl } from '../../i18n/useAppIntl'
 // "Screen awareness" — the transparency peek above the composer. Shows exactly what's
 // being shared this turn: the snapshot facts passed inline, and the deep-content handles available
 // on demand (tap "+ attach" to force-fetch one, else Lucius fetches as needed). A toggle turns
@@ -22,6 +23,7 @@ function prettyKey(k: string): string {
 }
 
 export function ScreenContextPanel({ snapshot, enabled, onToggle, pinnedIds, onPin }: Props) {
+  const intl = useAppIntl()
   const [collapsed, setCollapsed] = useState(false)
 
   // Nothing registered for the current screen and the feature is on → don't show a confusing
@@ -43,7 +45,7 @@ export function ScreenContextPanel({ snapshot, enabled, onToggle, pinnedIds, onP
         </span>
         <div className="screen-ctx__head-text">
           <div className="screen-ctx__title">
-            {enabled ? 'Screen awareness' : 'Screen awareness off'}
+            {enabled ? intl.formatMessage({ id: 'chat.screen.awareness', defaultMessage: 'Screen awareness' }) : intl.formatMessage({ id: 'chat.screen.awarenessOff', defaultMessage: 'Screen awareness off' })}
           </div>
           {enabled && summary && <div className="screen-ctx__sub">{summary}</div>}
         </div>
@@ -53,18 +55,18 @@ export function ScreenContextPanel({ snapshot, enabled, onToggle, pinnedIds, onP
             className="screen-ctx__hide"
             onClick={() => setCollapsed((c) => !c)}
           >
-            {collapsed ? 'Peek' : 'Hide'}
+            {collapsed ? intl.formatMessage({ id: 'chat.screen.peek', defaultMessage: 'Peek' }) : intl.formatMessage({ id: 'chat.screen.hide', defaultMessage: 'Hide' })}
           </button>
         )}
-        <Switch checked={enabled} onChange={onToggle} aria-label="Toggle screen awareness" />
+        <Switch checked={enabled} onChange={onToggle} aria-label={intl.formatMessage({ id: 'chat.screen.toggle', defaultMessage: 'Toggle screen awareness' })} />
       </div>
 
       {enabled && snapshot && !collapsed && (
         <div className="screen-ctx__body">
-          <div className="screen-ctx__section">Passed inline now</div>
+          <div className="screen-ctx__section">{intl.formatMessage({ id: 'chat.screen.passedInline', defaultMessage: 'Passed inline now' })}</div>
           <dl className="screen-ctx__facts">
             <div className="screen-ctx__fact">
-              <dt>Screen</dt>
+              <dt>{intl.formatMessage({ id: 'chat.screen.screen', defaultMessage: 'Screen' })}</dt>
               <dd>{snapshot.title}</dd>
             </div>
             {Object.entries(facts).map(([k, v]) => (
@@ -75,13 +77,13 @@ export function ScreenContextPanel({ snapshot, enabled, onToggle, pinnedIds, onP
             ))}
           </dl>
           <div className="screen-ctx__note">
-            + the full visible text — labels, % deltas and figures that aren't @-mentionable.
+            {intl.formatMessage({ id: 'chat.screen.fullText', defaultMessage: "+ the full visible text — labels, % deltas and figures that aren't @-mentionable." })}
           </div>
 
           {handles.length > 0 && (
             <>
               <div className="screen-ctx__section">
-                Sources — tap to attach, or Lucius fetches as needed
+                {intl.formatMessage({ id: 'chat.screen.attachHelp', defaultMessage: 'Sources — tap to attach, or Lucius fetches as needed' })}
               </div>
               <div className="screen-ctx__handles">
                 {handles.map((h) => {
@@ -105,11 +107,11 @@ export function ScreenContextPanel({ snapshot, enabled, onToggle, pinnedIds, onP
                       >
                         {pinned ? (
                           <>
-                            <Check size={12} aria-hidden="true" /> attached
+                            <Check size={12} aria-hidden="true" /> {intl.formatMessage({ id: 'chat.screen.attached', defaultMessage: 'attached' })}
                           </>
                         ) : (
                           <>
-                            <Plus size={12} aria-hidden="true" /> attach
+                            <Plus size={12} aria-hidden="true" /> {intl.formatMessage({ id: 'chat.screen.attach', defaultMessage: 'attach' })}
                           </>
                         )}
                       </button>

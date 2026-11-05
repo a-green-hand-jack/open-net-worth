@@ -5,6 +5,10 @@ import { authFetch } from '../../api/client'
 import { useSkills } from '../../hooks/useSkills'
 import type { Skill } from '../../types/skills'
 import { Skills } from './Skills'
+import { IntlProvider } from 'react-intl'
+import messages from '../skills/zh-CN.messages.json'
+import commonMessages from '../../i18n/zh-CN.json'
+import starterRegistry from '../skills/starterSkills.registry.json'
 
 vi.mock('../../api/client', () => ({ authFetch: vi.fn() }))
 vi.mock('../../hooks/useSkills', () => ({ useSkills: vi.fn() }))
@@ -60,6 +64,70 @@ beforeEach(() => {
 })
 
 describe('Skills direct-run handoff', () => {
+  it('translates a verified starter while preserving the invocation ID and user content', () => {
+    const entry = starterRegistry['budget-review']
+    const onRunSkill = vi.fn()
+    useSkillsMock.mockReturnValue({
+      skills: [
+        skill({
+          id: 'budget-review',
+          name: entry.name.english,
+          description: entry.description.english,
+          body: 'My original instructions',
+          starter_source: {
+            id: 'budget-review',
+            name_sha256: entry.name.sha256,
+            description_sha256: entry.description.sha256,
+          },
+        }),
+      ],
+      loading: false,
+      error: null,
+      refresh: vi.fn(),
+      createSkill: vi.fn(),
+      updateSkill: vi.fn(),
+      deleteSkill: vi.fn(),
+    })
+    render(
+      <IntlProvider locale="zh-CN" messages={{ ...commonMessages, ...messages }}>
+        <Skills onRunSkill={onRunSkill} />
+      </IntlProvider>,
+    )
+    selectSkill('预算检查')
+    expect(screen.getByText('My original instructions')).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: '运行' }))
+    expect(onRunSkill).toHaveBeenCalledWith('/budget-review')
+  })
+
+  it('localizes identified file diagnostics while leaving external details intact', () => {
+    const raw = ["frontmatter 'name' is required", 'External parser detail']
+    useSkillsMock.mockReturnValue({
+      skills: [
+        skill({
+          author: 'user',
+          validation_errors: raw,
+          validation_messages: [
+            { text: raw[0]!, message_id: 'skills.validation.nameRequired', params: {} },
+            { text: raw[1]! },
+          ],
+        }),
+      ],
+      loading: false,
+      error: null,
+      refresh: vi.fn(),
+      createSkill: vi.fn(),
+      updateSkill: vi.fn(),
+      deleteSkill: vi.fn(),
+    })
+    render(
+      <IntlProvider locale="zh-CN" messages={{ ...commonMessages, ...messages }}>
+        <Skills onRunSkill={vi.fn()} />
+      </IntlProvider>,
+    )
+    selectSkill('Monthly close')
+    expect(screen.getByRole('alert').textContent).toContain('前置元数据')
+    expect(screen.getByRole('alert').textContent).toContain('External parser detail')
+  })
   it('clicking Run stages a canonical immutable id instead of a renamed label, without a network/model submission', () => {
     const { onRunSkill } = setup([skill({ id: 'budget-review', name: 'Renamed review label' })])
     const fetchSpy = vi.spyOn(globalThis, 'fetch')

@@ -1,4 +1,5 @@
 import { useId } from 'react'
+import { useAppIntl } from '../../i18n/useAppIntl'
 import type { ReactNode } from 'react'
 
 export interface CheckboxGroupOption {
@@ -40,9 +41,10 @@ export function CheckboxGroup({
   maxHeight = 220,
   selectAll = false,
   selectAllControls = false,
-  emptyText = 'Nothing to select',
+  emptyText,
   ariaLabel,
 }: CheckboxGroupProps) {
+  const intl = useAppIntl()
   const groupId = useId()
   const selectedSet = new Set(value)
   const allSelected = options.length > 0 && options.every((o) => selectedSet.has(o.value))
@@ -66,7 +68,7 @@ export function CheckboxGroup({
   if (options.length === 0) {
     return (
       <div className="ui-checkgroup" role="group" aria-label={ariaLabel}>
-        <div className="ui-checkgroup__empty">{emptyText}</div>
+        <div className="ui-checkgroup__empty">{emptyText ?? intl.formatMessage({ id: 'shared.checkgroup.empty', defaultMessage: 'Nothing to select' })}</div>
       </div>
     )
   }
@@ -75,7 +77,7 @@ export function CheckboxGroup({
     <div className="ui-checkgroup" role="group" aria-label={ariaLabel}>
       <div className="ui-checkgroup__head">
         <span className="ui-checkgroup__count">
-          {value.length} of {options.length} selected
+          {intl.formatMessage({ id: 'shared.checkgroup.selected', defaultMessage: '{selected} of {total} selected' }, { selected: value.length, total: options.length })}
         </span>
         {selectAllControls ? (
           <span className="ui-checkgroup__actions">
@@ -85,7 +87,7 @@ export function CheckboxGroup({
               onClick={selectAllOptions}
               disabled={allSelected}
             >
-              Select all
+              {intl.formatMessage({ id: 'shared.checkgroup.selectAll', defaultMessage: 'Select all' })}
             </button>
             <span className="ui-checkgroup__actions-sep" aria-hidden="true">
               •
@@ -96,13 +98,13 @@ export function CheckboxGroup({
               onClick={clearAllOptions}
               disabled={noneSelected}
             >
-              Clear all
+              {intl.formatMessage({ id: 'shared.checkgroup.clearAll', defaultMessage: 'Clear all' })}
             </button>
           </span>
         ) : (
           selectAll && (
             <button type="button" className="ui-checkgroup__selectall" onClick={toggleAll}>
-              {allSelected ? 'Clear all' : 'Select all'}
+              {allSelected ? intl.formatMessage({ id: 'shared.checkgroup.clearAll', defaultMessage: 'Clear all' }) : intl.formatMessage({ id: 'shared.checkgroup.selectAll', defaultMessage: 'Select all' })}
             </button>
           )
         )}

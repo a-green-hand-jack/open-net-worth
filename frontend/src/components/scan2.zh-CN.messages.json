@@ -1,0 +1,15 @@
+{
+  "scan2.help": "帮助",
+  "scan2.ran": "已运行 {name}",
+  "scan2.openingHelp": "正在打开帮助…",
+  "scan2.setupLucius": "设置 Lucius",
+  "scan2.askLucius": "询问 Lucius",
+  "scan2.asContext": "作为上下文",
+  "scan2.dropFiles": "拖放文件以附加",
+  "scan2.addFeedUrl": "添加订阅源网址",
+  "scan2.basedOnAnalysts": "基于 {count, plural, one {# 位分析师} other {# 位分析师}}",
+  "scan2.analystCount": "{count, plural, one {# 位分析师} other {# 位分析师}}",
+  "scan2.bearishCount": "{count} 看空",
+  "scan2.neutralCount": "{count} 中立",
+  "scan2.bullishCount": "{count} 看多"
+}

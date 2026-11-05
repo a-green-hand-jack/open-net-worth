@@ -1,3 +1,6 @@
+import { vaultError } from './vaultErrors'
+import { getNumberLocale } from '../../utils/format'
+import { useAppIntl } from '../../i18n/useAppIntl'
 import { useEffect, useRef, useState } from 'react'
 import type { DragEvent } from 'react'
 import { addVaultFile, type VaultItem } from '../../api/vault'
@@ -27,6 +30,7 @@ import './vault.css'
 // that live elsewhere (backend/services/vault.py) — nothing is copied.
 
 function useUploads(onSingle: (item: VaultItem) => void) {
+  const vaultIntl = useAppIntl()
   const [uploading, setUploading] = useState(0)
   const [error, setError] = useState<string | null>(null)
   const upload = async (files: FileList | File[] | null) => {
@@ -40,7 +44,7 @@ function useUploads(onSingle: (item: VaultItem) => void) {
       try {
         added.push(await addVaultFile(file))
       } catch (e) {
-        failed.push(e instanceof Error ? e.message : `${file.name} could not be added`)
+        failed.push(e instanceof Error ? vaultError(e, vaultIntl) : vaultIntl.formatMessage({ id: 'vault.upload.failed', defaultMessage: '{name} could not be added' }, { name: file.name }))
       }
       setUploading((n) => n - 1)
     }
@@ -68,6 +72,7 @@ function VaultFilters({
   tag: string | null
   onTag: (tag: string | null) => void
 }) {
+  const vaultIntl = useAppIntl()
   const rowRef = useRef<HTMLDivElement>(null)
   useEffect(() => {
     const el = rowRef.current
@@ -82,7 +87,7 @@ function VaultFilters({
       ref={rowRef}
       className="vault-filters"
       role="group"
-      aria-label="Show"
+      aria-label={vaultIntl.formatMessage({ id: "vault.ui.0df6f1cad36c", defaultMessage: "Show" })}
       onScroll={(e) => markSideFades(e.currentTarget)}
     >
       {VAULT_FILTERS.map((f) => {
@@ -98,8 +103,8 @@ function VaultFilters({
               if (f.key === 'all') onTag(null)
             }}
           >
-            {f.label}
-            {counts && <span className="vault-filter-n">{counts[f.key] ?? 0}</span>}
+            {vaultIntl.formatMessage({ id: 'vault.filter', defaultMessage: '{kind, select, all {All} file {Uploads} statement {Statements} receipt {Receipts} asset {Assets} artifact {Artifacts} other {All}}' }, { kind: f.key })}
+            {counts && <span className="vault-filter-n">{(counts[f.key] ?? 0).toLocaleString(getNumberLocale())}</span>}
           </button>
         )
       })}
@@ -112,14 +117,14 @@ function VaultFilters({
             type="button"
             className={`vault-filter${on ? ' is-on' : ''}`}
             aria-pressed={on}
-            aria-label={`Tag ${t.tag}`}
+            aria-label={vaultIntl.formatMessage({ id: 'vault.tagFilter', defaultMessage: 'Tag {tag}' }, { tag: t.tag })}
             onClick={() => onTag(on ? null : t.tag)}
           >
             <span className="vault-filter-hash" aria-hidden="true">
               #
             </span>
             {t.tag}
-            <span className="vault-filter-n">{t.count}</span>
+            <span className="vault-filter-n">{t.count.toLocaleString(getNumberLocale())}</span>
           </button>
         )
       })}
@@ -142,6 +147,7 @@ export function VaultPanel({
    *  by default in a sheet: the phone's covers its chat, and a drag would steal iOS long-press. */
   draggableRows?: boolean
 }) {
+  const vaultIntl = useAppIntl()
   const { data, error, initialLoading, refresh } = useVault()
   const [filter, setFilter] = useState<VaultFilter>('all')
   const [query, setQuery] = useState('')
@@ -172,7 +178,7 @@ export function VaultPanel({
   return (
     <section
       className={`vault-panel vault-panel--${layout}${dragging ? ' is-dragging' : ''}`}
-      aria-label="Documents"
+      aria-label={vaultIntl.formatMessage({ id: "vault.ui.b4e929d8bcfe", defaultMessage: "Documents" })}
       // In the phone sheet the dialog opens focused on the panel itself — never on its first
       // button, which lit up "Add files" with a focus ring on every open (owner report).
       {...(layout === 'sheet' ? { tabIndex: -1, 'data-autofocus': true } : {})}
@@ -208,20 +214,20 @@ export function VaultPanel({
           <span className="vault-head-icon" aria-hidden="true">
             <FolderLock size={18} strokeWidth={1.6} />
           </span>
-          <h2 className="vault-title">Documents</h2>
+          <h2 className="vault-title">{vaultIntl.formatMessage({ id: "vault.ui.b4e929d8bcfe", defaultMessage: "Documents" })}</h2>
           <Button
             size="sm"
             iconLeft={<Upload size={14} strokeWidth={1.7} />}
             loading={uploading > 0}
             onClick={() => inputRef.current?.click()}
           >
-            {uploading > 0 ? `Adding ${uploading}…` : 'Add files'}
+            {uploading > 0 ? vaultIntl.formatMessage({ id: 'vault.adding', defaultMessage: 'Adding {count}…' }, { count: uploading }) : vaultIntl.formatMessage({ id: "vault.ui.01792a33c228", defaultMessage: "Add files" })}
           </Button>
           <button
             type="button"
             className="vault-icon-btn"
             onClick={onClose}
-            aria-label="Close Documents"
+            aria-label={vaultIntl.formatMessage({ id: "vault.ui.e16f6a089638", defaultMessage: "Close Documents" })}
           >
             <X size={18} strokeWidth={1.6} />
           </button>
@@ -231,8 +237,8 @@ export function VaultPanel({
             <Search size={14} strokeWidth={1.7} aria-hidden="true" />
             <input
               type="search"
-              placeholder="Search documents"
-              aria-label="Search documents"
+              placeholder={vaultIntl.formatMessage({ id: "vault.ui.62706a35ade9", defaultMessage: "Search documents" })}
+              aria-label={vaultIntl.formatMessage({ id: "vault.ui.62706a35ade9", defaultMessage: "Search documents" })}
               value={query}
               onChange={(e) => setQuery(e.target.value)}
             />
@@ -252,8 +258,8 @@ export function VaultPanel({
             <VaultListSkeleton />
           ) : error && !data ? (
             <ErrorState
-              title="Couldn't load documents"
-              message={error instanceof Error ? error.message : String(error)}
+              title={vaultIntl.formatMessage({ id: "vault.ui.e78778839903", defaultMessage: "Couldn't load documents" })}
+              message={vaultError(error, vaultIntl)}
               onRetry={() => void refresh()}
             />
           ) : items.length ? (
@@ -261,16 +267,16 @@ export function VaultPanel({
           ) : (
             <EmptyState
               icon={<FolderLock size={22} strokeWidth={1.4} />}
-              title={query || tag || filter !== 'all' ? 'Nothing matches' : 'No documents yet'}
+              title={query || tag || filter !== 'all' ? vaultIntl.formatMessage({ id: "vault.ui.965b516df3ba", defaultMessage: "Nothing matches" }) : vaultIntl.formatMessage({ id: "vault.ui.93e0ee6112f8", defaultMessage: "No documents yet" })}
               body={
                 query || tag || filter !== 'all'
-                  ? 'Try another search or filter.'
-                  : 'Add tax forms, policies and deeds here. Imported statements, receipts and anything you save from a chat show up on their own.'
+                  ? vaultIntl.formatMessage({ id: "vault.ui.1441bc9c75a0", defaultMessage: "Try another search or filter." })
+                  : vaultIntl.formatMessage({ id: "vault.ui.7afd6dc550de", defaultMessage: "Add tax forms, policies and deeds here. Imported statements, receipts and anything you save from a chat show up on their own." })
               }
             />
           )}
         </div>
-        {dragging && <div className="vault-drop">Drop to add to Documents</div>}
+        {dragging && <div className="vault-drop">{vaultIntl.formatMessage({ id: "vault.ui.dc2b4064ed82", defaultMessage: "Drop to add to Documents" })}</div>}
       </div>
       {selected && (
         <VaultItemDetail

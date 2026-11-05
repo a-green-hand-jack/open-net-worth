@@ -308,6 +308,15 @@ def test_automation_via_wins_over_channel_and_skips_when_equal_to_actor(env):
     assert audit._event_via({"surface": "agent:x", "automation": "Logger"}, "Logger") is None
 
 
+def test_activity_messages_preserve_named_agent_and_automation(env):
+    named = {"surface": "agent:x", "actor": "agent", "note": "You", "automation": "Schedule"}
+    assert audit._actor_message(named, "agent") is None
+    assert audit._added_by_message(named, "agent") is None
+    assert audit._via_message(named, "You") is None
+    assert audit._actor_message({"actor": "user"}, "you")["id"] == "audit.actor.you"
+    assert audit._added_by_message(None, "bank")["id"] == "audit.source.bank"
+
+
 # ── Review-decision verbs (approve / reject / flag) ──────────────────────────────
 # Display-only refinement in activity() — storage is untouched (the flag flip IS the
 # stored truth), so these verbs apply retroactively to already-recorded decisions.

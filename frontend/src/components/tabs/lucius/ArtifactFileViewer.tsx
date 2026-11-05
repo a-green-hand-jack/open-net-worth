@@ -1,3 +1,4 @@
+import { useAppIntl } from '../../../i18n/useAppIntl'
 // ArtifactFileViewer — the "open" experience for a FILE artifact (pdf/xlsx/csv), sibling of the
 // iframe-based ArtifactViewer: same header chrome and close/expand controls, but the body is a
 // calm file panel (pdf/xlsx — never fetched as text, the raw route answers 415) or a read-only
@@ -19,6 +20,7 @@ import type { ArtifactExpandState } from './ArtifactViewer'
 import './artifact-viewer.css'
 
 function useFileActions(artifact: ArtifactRef) {
+  const intl = useAppIntl()
   const [busy, setBusy] = useState<'download' | 'open' | null>(null)
   const [error, setError] = useState<string | null>(null)
   const run = async (kind: 'download' | 'open', fn: (a: ArtifactRef) => Promise<void>) => {
@@ -27,7 +29,17 @@ function useFileActions(artifact: ArtifactRef) {
     try {
       await fn(artifact)
     } catch {
-      setError(kind === 'open' ? 'Could not open the file.' : 'Could not download the file.')
+      setError(
+        kind === 'open'
+          ? intl.formatMessage({
+              id: 'artifactUi.openFailed',
+              defaultMessage: 'Could not open the file.',
+            })
+          : intl.formatMessage({
+              id: 'artifactUi.downloadFailed',
+              defaultMessage: 'Could not download the file.',
+            }),
+      )
     } finally {
       setBusy(null)
     }
@@ -41,6 +53,7 @@ function useFileActions(artifact: ArtifactRef) {
 }
 
 function CsvTable({ text }: { text: string }) {
+  const intl = useAppIntl()
   const { head, body, total } = useMemo(() => {
     const rows = parseCsv(text)
     return {
@@ -49,7 +62,15 @@ function CsvTable({ text }: { text: string }) {
       total: Math.max(rows.length - 1, 0),
     }
   }, [text])
-  if (head.length === 0) return <p className="artifact-file-note">This table is empty.</p>
+  if (head.length === 0)
+    return (
+      <p className="artifact-file-note">
+        {intl.formatMessage({
+          id: 'artifactUi.emptyTable',
+          defaultMessage: 'This table is empty.',
+        })}
+      </p>
+    )
   return (
     <div className="artifact-csv">
       <div className="artifact-csv-scroll">
@@ -74,7 +95,14 @@ function CsvTable({ text }: { text: string }) {
       </div>
       {total > body.length && (
         <p className="artifact-file-note">
-          Showing the first {body.length} of {total} rows — download the file for the rest.
+          {intl.formatMessage(
+            {
+              id: 'artifactUi.firstRows',
+              defaultMessage:
+                'Showing the first {shown} of {total} rows — download the file for the rest.',
+            },
+            { shown: body.length, total },
+          )}
         </p>
       )}
     </div>
@@ -82,6 +110,7 @@ function CsvTable({ text }: { text: string }) {
 }
 
 export function ArtifactFilePanel({ artifact }: { artifact: ArtifactRef }) {
+  const intl = useAppIntl()
   const { busy, error, download, open } = useFileActions(artifact)
   const size = formatSize(artifact.sizeBytes)
   return (
@@ -89,7 +118,10 @@ export function ArtifactFilePanel({ artifact }: { artifact: ArtifactRef }) {
       <span className="artifact-file-icon" aria-hidden="true">
         <ArtifactTypeIcon type={artifact.artifactType} size={32} />
       </span>
-      <div className="artifact-file-title">{artifact.title || 'Artifact'}</div>
+      <div className="artifact-file-title">
+        {artifact.title ||
+          intl.formatMessage({ id: 'artifactUi.artifact', defaultMessage: 'Artifact' })}
+      </div>
       <div className="artifact-file-meta">
         {[artifact.filename, size].filter(Boolean).join(' • ')}
       </div>
@@ -100,7 +132,7 @@ export function ArtifactFilePanel({ artifact }: { artifact: ArtifactRef }) {
           loading={busy === 'download'}
           onClick={download}
         >
-          Download
+          {intl.formatMessage({ id: 'artifactUi.download', defaultMessage: 'Download' })}
         </Button>
         {artifact.artifactType === 'pdf' && (
           <Button
@@ -108,7 +140,7 @@ export function ArtifactFilePanel({ artifact }: { artifact: ArtifactRef }) {
             loading={busy === 'open'}
             onClick={open}
           >
-            Open
+            {intl.formatMessage({ id: 'artifactUi.open', defaultMessage: 'Open' })}
           </Button>
         )}
       </div>
@@ -130,6 +162,7 @@ export function ArtifactFileViewer({
   onClose: () => void
   expandState?: ArtifactExpandState
 }) {
+  const intl = useAppIntl()
   const isCsv = artifact.artifactType === 'csv'
   const { raw, failed, retry } = useArtifactContent(artifact.id, artifact.artifactType)
   const { busy, download } = useFileActions(artifact)
@@ -137,7 +170,10 @@ export function ArtifactFileViewer({
     <div className="artifact-viewer">
       <div className="artifact-viewer-head">
         <div className="artifact-viewer-title">
-          <span className="artifact-viewer-title-t">{artifact.title || 'Artifact'}</span>
+          <span className="artifact-viewer-title-t">
+            {artifact.title ||
+              intl.formatMessage({ id: 'artifactUi.artifact', defaultMessage: 'Artifact' })}
+          </span>
           <span className="artifact-viewer-title-meta"> • {extLabel(artifact.artifactType)}</span>
         </div>
         <div className="artifact-viewer-actions">
@@ -146,8 +182,8 @@ export function ArtifactFileViewer({
             className="artifact-viewer-icon-btn"
             onClick={download}
             disabled={busy === 'download'}
-            aria-label={`Save as ${extLabel(artifact.artifactType)}`}
-            title={`Save as ${extLabel(artifact.artifactType)}`}
+            aria-label={intl.formatMessage({ id: 'artifactUi.saveAs', defaultMessage: 'Save as {format}' }, { format: extLabel(artifact.artifactType) })}
+            title={intl.formatMessage({ id: 'artifactUi.saveAs', defaultMessage: 'Save as {format}' }, { format: extLabel(artifact.artifactType) })}
           >
             <Download size={15} strokeWidth={1.6} />
           </button>
@@ -156,8 +192,16 @@ export function ArtifactFileViewer({
               type="button"
               className="artifact-viewer-icon-btn"
               onClick={expandState.onToggle}
-              aria-label={expandState.fullscreen ? 'Minimize' : 'Expand'}
-              title={expandState.fullscreen ? 'Minimize' : 'Expand'}
+              aria-label={
+                expandState.fullscreen
+                  ? intl.formatMessage({ id: 'artifactUi.minimize', defaultMessage: 'Minimize' })
+                  : intl.formatMessage({ id: 'artifactUi.expand', defaultMessage: 'Expand' })
+              }
+              title={
+                expandState.fullscreen
+                  ? intl.formatMessage({ id: 'artifactUi.minimize', defaultMessage: 'Minimize' })
+                  : intl.formatMessage({ id: 'artifactUi.expand', defaultMessage: 'Expand' })
+              }
             >
               {expandState.fullscreen ? (
                 <Minimize2 size={15} strokeWidth={1.6} />
@@ -170,8 +214,8 @@ export function ArtifactFileViewer({
             type="button"
             className="artifact-viewer-icon-btn"
             onClick={onClose}
-            aria-label="Close"
-            title="Close"
+            aria-label={intl.formatMessage({ id: 'artifactUi.close', defaultMessage: 'Close' })}
+            title={intl.formatMessage({ id: 'artifactUi.close', defaultMessage: 'Close' })}
           >
             <X size={18} strokeWidth={1.6} />
           </button>
@@ -182,8 +226,14 @@ export function ArtifactFileViewer({
           <ArtifactFilePanel artifact={artifact} />
         ) : failed ? (
           <ErrorState
-            title="Could not load artifact"
-            message="The file may have been removed."
+            title={intl.formatMessage({
+              id: 'artifactUi.loadFailed',
+              defaultMessage: 'Could not load artifact',
+            })}
+            message={intl.formatMessage({
+              id: 'artifactUi.removed',
+              defaultMessage: 'The file may have been removed.',
+            })}
             onRetry={retry}
           />
         ) : raw === null ? (

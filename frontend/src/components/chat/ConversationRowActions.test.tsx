@@ -15,6 +15,8 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, fireEvent, cleanup, within } from '@testing-library/react'
 import { ConversationMenu } from './ConversationMenu'
+import { IntlProvider } from 'react-intl'
+import chatMessages from './zh-CN.messages.json'
 import { ConversationBrowser } from './ConversationBrowser'
 import type { ConversationMeta } from '../../hooks/useConversations'
 import type { ConvRowStatus } from '../../types/chat'
@@ -224,4 +226,15 @@ describe.each([
     const menu = openKebab(CHAT.title)
     expect(within(menu).queryByRole('menuitem', { name: 'Stop' })).toBeNull()
   })
+})
+
+it('does not persist an unchanged localized onboarding title when renaming', () => {
+  const onboarding = conv({ id: 'onboard', title: 'Onboarding to Open Net Worth', titleSource: 'onboarding' })
+  render(<IntlProvider locale="zh-CN" messages={{ ...chatMessages, 'chat.onboardingTitle': '开始使用 Open NetWorth', 'chat.rename': 'Rename' }}>
+    <ConversationMenu groups={[{ key: 'chat', items: [onboarding], total: 1 }]} activeId="onboard" statusFor={statusFor} formatWhen={() => ''} {...handlers} />
+  </IntlProvider>)
+  const menu = openKebab('开始使用 Open NetWorth')
+  fireEvent.click(within(menu).getByText('Rename'))
+  fireEvent.keyDown(screen.getByDisplayValue('开始使用 Open NetWorth'), { key: 'Enter' })
+  expect(handlers.onRename).not.toHaveBeenCalled()
 })

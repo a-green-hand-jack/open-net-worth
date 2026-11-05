@@ -1,3 +1,4 @@
+import { useAppIntl } from '../../../../../i18n/useAppIntl'
 // Settings › Intelligence → Alerts: where each KIND of Intel update reaches you (one grid,
 // ADR 2026-09-30-notification-channels-per-kind-and-per-alert). The scheduled daily digest was
 // removed — a Daily briefing Automation does that job.
@@ -16,15 +17,16 @@ function RoutesGrid({
   channels: AlertChannel[]
   onChange: (kind: NotifyKind, next: string[]) => void
 }) {
+  const intl = useAppIntl()
   return (
     <div className="rd-nroutes-wrap">
       <table className="rd-nroutes">
         <thead>
           <tr>
             <th scope="col">
-              <span className="sr-only">Kind of update</span>
+              <span className="sr-only">{intl.formatMessage({ id: "intel.settings.4b6b761f", defaultMessage: "Kind of update" })}</span>
             </th>
-            <th scope="col">In-app</th>
+            <th scope="col">{intl.formatMessage({ id: "intel.settings.dbe0ed15", defaultMessage: "In-app" })}</th>
             {channels.map((ch) => (
               <th scope="col" key={ch.id}>
                 <span className="rd-nroutes-ch">
@@ -34,8 +36,8 @@ function RoutesGrid({
                       width={220}
                       text={
                         Object.values(routes).some((ids) => ids.includes(ch.id))
-                          ? `${ch.label} is turned off in Connectors, so it's skipped until you turn it back on.`
-                          : `${ch.label} isn't set up yet. Connect it in Connectors to send updates there.`
+                          ? intl.formatMessage({ id: 'intel.settings.channelDisabled', defaultMessage: "{channel} is turned off in Connectors, so it's skipped until you turn it back on." }, { channel: ch.label })
+                          : intl.formatMessage({ id: 'intel.settings.channelMissing', defaultMessage: "{channel} isn't set up yet. Connect it in Connectors to send updates there." }, { channel: ch.label })
                       }
                     />
                   )}
@@ -48,11 +50,11 @@ function RoutesGrid({
           {NOTIFY_KINDS.map((k) => (
             <tr key={k.id}>
               <th scope="row">
-                <span className="rd-nroutes-kind">{k.label}</span>
-                <span className="rd-nroutes-sub">{k.sub}</span>
+                <span className="rd-nroutes-kind">{intl.formatMessage({ id: 'intel.settings.notifyKind', defaultMessage: '{kind, select, price_alerts {Price alerts} watch_alerts {Watch alerts} other {News analyses}}' }, { kind: k.id })}</span>
+                <span className="rd-nroutes-sub">{intl.formatMessage({ id: 'intel.settings.notifyHelp', defaultMessage: '{kind, select, price_alerts {Default for new alerts. Each alert can change its own.} watch_alerts {Big moves on what you hold or watch.} other {Lucius on news that moves your names.}}' }, { kind: k.id })}</span>
               </th>
               <td>
-                <input type="checkbox" checked disabled aria-label={`${k.label} in-app`} />
+                <input type="checkbox" checked disabled aria-label={intl.formatMessage({ id: 'intel.settings.inAppFor', defaultMessage: '{kind} in-app' }, { kind: intl.formatMessage({ id: 'intel.settings.notifyKind', defaultMessage: '{kind, select, price_alerts {Price alerts} watch_alerts {Watch alerts} other {News analyses}}' }, { kind: k.id }) })} />
               </td>
               {channels.map((ch) => {
                 const on = routes[k.id].includes(ch.id)
@@ -65,8 +67,8 @@ function RoutesGrid({
                       type="checkbox"
                       checked={on}
                       disabled={!ch.available && !on}
-                      title={stale ? `${ch.label} is off in Connectors — skipped` : undefined}
-                      aria-label={`${k.label} via ${ch.label}`}
+                      title={stale ? intl.formatMessage({ id: 'intel.settings.channelSkipped', defaultMessage: '{channel} is off in Connectors — skipped' }, { channel: ch.label }) : undefined}
+                      aria-label={intl.formatMessage({ id: 'intel.settings.viaChannel', defaultMessage: '{kind} via {channel}' }, { kind: intl.formatMessage({ id: 'intel.settings.notifyKind', defaultMessage: '{kind, select, price_alerts {Price alerts} watch_alerts {Watch alerts} other {News analyses}}' }, { kind: k.id }), channel: ch.label })}
                       onChange={(e) =>
                         onChange(
                           k.id,
@@ -88,17 +90,18 @@ function RoutesGrid({
 }
 
 export function AlertsPanel({ cfg, save, channels }: PanelProps & { channels: AlertChannel[] }) {
+  const intl = useAppIntl()
   const routes = notifyRoutes(cfg)
 
   const setRoute = (kind: NotifyKind, next: string[]) => {
-    const label = NOTIFY_KINDS.find((k) => k.id === kind)?.label ?? 'Notifications'
-    save({ notify_routes: { ...routes, [kind]: next } }, `${label} updated`)
+    const label = intl.formatMessage({ id: 'intel.settings.notifyKind', defaultMessage: '{kind, select, price_alerts {Price alerts} watch_alerts {Watch alerts} other {News analyses}}' }, { kind })
+    save({ notify_routes: { ...routes, [kind]: next } }, intl.formatMessage({ id: 'intel.settings.routeUpdated', defaultMessage: '{label} updated' }, { label }))
   }
 
   return (
     <Panel
-      title="Alerts"
-      sub="Where each kind of update reaches you. Everything always shows in the app too."
+      title={intl.formatMessage({ id: "intel.settings.f0d6c55d", defaultMessage: "Alerts" })}
+      sub={intl.formatMessage({ id: "intel.settings.19fa073b", defaultMessage: "Where each kind of update reaches you. Everything always shows in the app too." })}
     >
       <RoutesGrid
         routes={routes}

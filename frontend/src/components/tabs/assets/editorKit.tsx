@@ -6,6 +6,7 @@
 import { useCallback, useRef, useState, type ReactNode } from 'react'
 import { Button, Text } from '../../ui'
 import { AssetsApiError } from './api'
+import { useAppIntl } from '../../../i18n/useAppIntl'
 
 export interface EditorSave {
   saving: boolean
@@ -25,9 +26,9 @@ export interface EditorSave {
   dialogError(fields: readonly string[]): string | null
 }
 
-function asApiError(e: unknown): AssetsApiError {
+function asApiError(e: unknown, fallback: string): AssetsApiError {
   if (e instanceof AssetsApiError) return e
-  const message = e instanceof Error && e.message ? e.message : "That didn't save. Try again."
+  const message = e instanceof Error && e.message ? e.message : fallback
   return new AssetsApiError(message, 0, null, null, null, null)
 }
 
@@ -37,6 +38,11 @@ function without<T extends object>(map: T, keys: readonly string[]): T {
 }
 
 export function useEditorSave(): EditorSave {
+  const { formatMessage } = useAppIntl()
+  const fallback = formatMessage({
+    id: 'assets.docs.saveFailed',
+    defaultMessage: "That didn't save. Try again.",
+  })
   const [saving, setSaving] = useState(false)
   const [refusal, setRefusal] = useState<AssetsApiError | null>(null)
   const [checked, setChecked] = useState<Record<string, string>>({})
@@ -45,22 +51,25 @@ export function useEditorSave(): EditorSave {
   // the Save click (or Enter) that asks to save.
   const unreadableFields = useRef(new Set<string>())
 
-  const save = useCallback(async (write: () => Promise<unknown>) => {
-    if (running.current) return false
-    running.current = true
-    setSaving(true)
-    setRefusal(null)
-    try {
-      await write()
-      return true
-    } catch (e) {
-      setRefusal(asApiError(e))
-      return false
-    } finally {
-      running.current = false
-      setSaving(false)
-    }
-  }, [])
+  const save = useCallback(
+    async (write: () => Promise<unknown>) => {
+      if (running.current) return false
+      running.current = true
+      setSaving(true)
+      setRefusal(null)
+      try {
+        await write()
+        return true
+      } catch (e) {
+        setRefusal(asApiError(e, fallback))
+        return false
+      } finally {
+        running.current = false
+        setSaving(false)
+      }
+    },
+    [fallback],
+  )
 
   const check = useCallback((problems: Partial<Record<string, string>>) => {
     const unreadable = unreadableFields.current
@@ -120,15 +129,16 @@ export interface EditorFooterProps {
 }
 
 export function EditorFooter(props: EditorFooterProps) {
+  const { formatMessage } = useAppIntl()
   const { start, saving, label, onCancel, onSave, disabled } = props
   return (
     <>
       {start}
       <Button variant="ghost" size="sm" onClick={onCancel}>
-        Cancel
+        {formatMessage({ id: 'assets.editor.cancel', defaultMessage: 'Cancel' })}
       </Button>
       <Button variant="primary" size="sm" disabled={saving || disabled} onClick={onSave}>
-        {saving ? 'Saving…' : label}
+        {saving ? formatMessage({ id: 'assets.editor.saving', defaultMessage: 'Saving…' }) : label}
       </Button>
     </>
   )

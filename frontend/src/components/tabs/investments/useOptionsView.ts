@@ -1,3 +1,4 @@
+import { getNumberLocale } from '../../../utils/format'
 import { useCallback, useEffect, useState } from 'react'
 import { authFetch } from '../../../api/client'
 import { useDataVersion } from '../../../hooks/useDataVersion'
@@ -30,6 +31,14 @@ export interface OptionPosition {
   collateral: number
   note: string
   strategy_tag: string
+  strategy_preset:
+    | 'covered_call'
+    | 'csp'
+    | 'long_call'
+    | 'long_put'
+    | 'protective_put'
+    | 'custom'
+    | null
 }
 
 export interface OptionsSummary {
@@ -50,9 +59,9 @@ export interface OptionsResponse {
 // ── View model (what the component renders) ──
 
 export interface OptionsSummaryCard {
-  label: string
+  labelKey: 'open' | 'premium' | 'capital' | 'expiry'
   value: string
-  caption?: string
+  captionParts?: { days: number; symbol: string }
 }
 
 export interface OptionsViewModel {
@@ -68,7 +77,7 @@ export interface OptionsViewModel {
 
 function formatAmount(n: number, currency: string): string {
   return (
-    new Intl.NumberFormat(undefined, {
+    new Intl.NumberFormat(getNumberLocale(), {
       style: 'currency',
       currency,
       maximumFractionDigits: 0,
@@ -79,15 +88,24 @@ function formatAmount(n: number, currency: string): string {
 function buildSummaryCards(data: OptionsResponse): OptionsSummaryCard[] {
   const { summary, base_currency: ccy } = data
   const nearestValue = summary.nearest_expiry_date ? fDate(summary.nearest_expiry_date) : '—'
-  const nearestCaption =
-    summary.nearest_expiry_dte != null && summary.nearest_expiry_underlying
-      ? `${summary.nearest_expiry_dte}d • ${summary.nearest_expiry_underlying}`
-      : undefined
   return [
-    { label: 'Open positions', value: String(summary.open_positions) },
-    { label: 'Premium collected', value: formatAmount(summary.premium_collected, ccy) },
-    { label: 'Capital committed', value: formatAmount(summary.capital_committed, ccy) },
-    { label: 'Nearest expiry', value: nearestValue, caption: nearestCaption },
+    { labelKey: 'open', value: String(summary.open_positions) },
+    {
+      labelKey: 'premium',
+      value: formatAmount(summary.premium_collected, ccy),
+    },
+    {
+      labelKey: 'capital',
+      value: formatAmount(summary.capital_committed, ccy),
+    },
+    {
+      labelKey: 'expiry',
+      value: nearestValue,
+      captionParts:
+        summary.nearest_expiry_dte != null && summary.nearest_expiry_underlying
+          ? { days: summary.nearest_expiry_dte, symbol: summary.nearest_expiry_underlying }
+          : undefined,
+    },
   ]
 }
 

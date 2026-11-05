@@ -14,6 +14,8 @@
 // Both are inline styles because the prototype styles them inline — connectors.css is a verbatim
 // port of the prototype stylesheet and carries no rule for either.
 
+import { useAppIntl } from '../../../i18n/useAppIntl'
+import { useConnectorLabels, useConnectorName } from './useConnectorLabels'
 import { useEffect, useRef, useState, type JSX } from 'react'
 import { TabSkeleton } from '../../ui'
 import { DirectoryCard } from './DirectoryCard'
@@ -78,7 +80,12 @@ export function DirectoryBrowser({
   onPreview,
   onConfigure,
 }: DirectoryBrowserProps): JSX.Element {
-  const shown = filterDirectory(entries, family, query, sort, category)
+  const { formatMessage } = useAppIntl()
+  const labels = useConnectorLabels()
+  const connectorName = useConnectorName()
+  const queryKey = CONNECTOR_CATEGORIES.find((item) => labels.category(item).toLocaleLowerCase() === query.trim().toLocaleLowerCase())
+  const nameKey = ([['email', 'Email'], ['voice', 'Voice calls'], ['mcp-custom', 'Custom MCP server']] as const).find(([id, name]) => connectorName(id, name).toLocaleLowerCase() === query.trim().toLocaleLowerCase())?.[1]
+  const shown = filterDirectory(entries, family, queryKey ?? nameKey ?? query, sort, category)
   // Only the categories something in this family actually carries — an option that can only
   // ever produce "No matches" is a dead end.
   const categories = CONNECTOR_CATEGORIES.filter((c) =>
@@ -151,9 +158,9 @@ export function DirectoryBrowser({
               FOR is a chip below. Two rows of identical pills read as one messy row, with a
               confusing "All" in each (owner review, 2026-10-31). */}
           <Tabs
-            tabs={DIRECTORY_FAMILY_CHIPS.map(([k, l]) => ({
+            tabs={DIRECTORY_FAMILY_CHIPS.map(([k]) => ({
               key: k,
-              label: l,
+              label: k === 'all' ? labels.status('all') : labels.family(k),
               count: familyCount(k),
             }))}
             value={family}
@@ -166,10 +173,10 @@ export function DirectoryBrowser({
             <input
               className="rd-input"
               type="search"
-              placeholder="Search connectors…"
+              placeholder={formatMessage({ id: 'connectors.searchPlaceholder', defaultMessage: 'Search connectors…' })}
               value={query}
               onChange={(e) => onQuery(e.target.value)}
-              aria-label="Search directory"
+              aria-label={formatMessage({ id: 'connectors.directory.search', defaultMessage: 'Search directory' })}
             />
           </span>
           {/* Phone only: Sort as an icon beside search (the text select below is hidden there),
@@ -177,29 +184,29 @@ export function DirectoryBrowser({
               icon keeps the platform's own picker and its accessibility. */}
           {/* Phone only, like Sort: the category filter as an icon — the chip row below is
               hidden there, so the header is one line of family chips instead of two. */}
-          <label className={'cn-sorticon' + (category !== 'all' ? ' on' : '')} title="Category">
+          <label className={'cn-sorticon' + (category !== 'all' ? ' on' : '')} title={formatMessage({ id: 'connectors.directory.category', defaultMessage: 'Category' })}>
             <ListFilter size={16} aria-hidden />
             <select
               value={category}
               onChange={(e) => onCategory(e.target.value as ConnectorCategory | 'all')}
-              aria-label="Filter by category"
+              aria-label={formatMessage({ id: 'connectors.directory.filterCategory', defaultMessage: 'Filter by category' })}
             >
-              <option value="all">All categories ({categoryCount('all')})</option>
+              <option value="all">{formatMessage({ id: 'connectors.directory.allCategories', defaultMessage: 'All categories ({count})' }, { count: categoryCount('all') })}</option>
               {categories.map((c) => (
                 <option key={c} value={c}>
-                  {c} ({categoryCount(c)})
+                  {labels.category(c)} ({categoryCount(c)})
                 </option>
               ))}
             </select>
           </label>
-          <label className="cn-sorticon" title="Sort">
+          <label className="cn-sorticon" title={formatMessage({ id: 'connectors.directory.sort', defaultMessage: 'Sort' })}>
             <ArrowUpDown size={16} aria-hidden />
             <select
               value={sort}
               onChange={(e) => onSort(e.target.value as DirectorySort)}
-              aria-label="Sort directory"
+              aria-label={formatMessage({ id: 'connectors.directory.sortDirectory', defaultMessage: 'Sort directory' })}
             >
-              <option value="popular">Popular</option>
+              <option value="popular">{formatMessage({ id: 'connectors.directory.popular', defaultMessage: 'Popular' })}</option>
               <option value="az">A–Z</option>
             </select>
           </label>
@@ -208,14 +215,14 @@ export function DirectoryBrowser({
             style={{ width: 'auto' }}
             value={sort}
             onChange={(e) => onSort(e.target.value as DirectorySort)}
-            aria-label="Sort directory"
+            aria-label={formatMessage({ id: 'connectors.directory.sortDirectory', defaultMessage: 'Sort directory' })}
           >
-            <option value="popular">Sort: Popular</option>
-            <option value="az">Sort: A–Z</option>
+            <option value="popular">{formatMessage({ id: 'connectors.directory.sortPopular', defaultMessage: 'Sort: Popular' })}</option>
+            <option value="az">{formatMessage({ id: 'connectors.directory.sortAZ', defaultMessage: 'Sort: A–Z' })}</option>
           </select>
         </div>
         {categories.length > 1 ? (
-          <div className="cn-catrow" role="group" aria-label="Filter by category">
+          <div className="cn-catrow" role="group" aria-label={formatMessage({ id: 'connectors.directory.filterCategory', defaultMessage: 'Filter by category' })}>
             {/* No "All" chip of its own: nothing picked IS all, and a picked chip clears
                 when tapped again. The tab above already says "All". */}
             {categories.map((c) => (
@@ -229,7 +236,7 @@ export function DirectoryBrowser({
                   onCategory(category === c ? 'all' : c)
                 }}
               >
-                {c}
+                {labels.category(c)}
                 <span className="cn-chipcount" aria-hidden>
                   {categoryCount(c)}
                 </span>
@@ -248,14 +255,14 @@ export function DirectoryBrowser({
         }}
       >
         {loading ? (
-          <TabSkeleton variant="connectors" label="Loading connectors…" header={false} />
+          <TabSkeleton variant="connectors" label={formatMessage({ id: 'connectors.loading', defaultMessage: 'Loading connectors…' })} header={false} />
         ) : (
           <>
             {showCustom && custom ? <CustomServerRow onAdd={() => onAdd(custom)} /> : null}
 
             {showSuggested && (
-              <div className="cn-suggest" aria-label="Suggested connectors">
-                <div className="cn-suggest-h">Suggested</div>
+              <div className="cn-suggest" aria-label={formatMessage({ id: 'connectors.suggestedConnectors', defaultMessage: 'Suggested connectors' })}>
+                <div className="cn-suggest-h">{formatMessage({ id: 'connectors.suggested', defaultMessage: 'Suggested' })}</div>
                 <div className="cn-suggestgrid swipe">
                   {suggested.map((d) => (
                     <DirectoryCard
@@ -274,7 +281,7 @@ export function DirectoryBrowser({
 
             {/* Labels the full, sortable list only when Suggested sits above it — otherwise the
                 grid is the whole view and needs no heading. */}
-            {showSuggested ? <div className="cn-suggest-h">All connectors</div> : null}
+            {showSuggested ? <div className="cn-suggest-h">{formatMessage({ id: 'connectors.directory.all', defaultMessage: 'All connectors' })}</div> : null}
             <div className="cn-dirgrid">
               {grid.map((d) => (
                 <DirectoryCard
@@ -289,16 +296,16 @@ export function DirectoryBrowser({
             </div>
             {grid.length === 0 ? (
               <Empty
-                title="No matches"
+                title={formatMessage({ id: 'connectors.directory.noMatches', defaultMessage: 'No matches' })}
                 body={
                   custom
-                    ? 'Try a different search or category — or connect it yourself as a custom MCP server.'
-                    : 'Try a different search or category.'
+                    ? formatMessage({ id: 'connectors.directory.noMatchesCustom', defaultMessage: 'Try a different search or category — or connect it yourself as a custom MCP server.' })
+                    : formatMessage({ id: 'connectors.directory.noMatchesBody', defaultMessage: 'Try a different search or category.' })
                 }
               >
                 {custom ? (
                   <Btn variant="primary" onClick={() => onAdd(custom)}>
-                    <Icons.plus /> Add a custom MCP server
+                    <Icons.plus /> {formatMessage({ id: 'connectors.directory.addCustom', defaultMessage: 'Add a custom MCP server' })}
                   </Btn>
                 ) : null}
               </Empty>
@@ -312,6 +319,7 @@ export function DirectoryBrowser({
 
 /** "Don't see yours?" — the custom MCP server, as a row of its own at the top of the list. */
 function CustomServerRow({ onAdd }: { onAdd: () => void }): JSX.Element {
+  const { formatMessage } = useAppIntl()
   return (
     <div className="cn-customrow">
       {/* The Connectors screen's own nav icon — this row IS "add a connector". */}
@@ -319,13 +327,13 @@ function CustomServerRow({ onAdd }: { onAdd: () => void }): JSX.Element {
         <Share2 size={16} />
       </span>
       <div className="cn-customrow-text">
-        <div className="cn-customrow-title">Don’t see yours? Add a custom MCP server</div>
+        <div className="cn-customrow-title">{formatMessage({ id: 'connectors.directory.customTitle', defaultMessage: 'Don’t see yours? Add a custom MCP server' })}</div>
         <div className="cn-customrow-sub">
-          Connect any MCP server by its URL or a command run on this machine.
+          {formatMessage({ id: 'connectors.directory.customBody', defaultMessage: 'Connect any MCP server by its URL or a command run on this machine.' })}
         </div>
       </div>
       <Btn variant="primary" onClick={onAdd}>
-        <Icons.plus /> Add custom server
+        <Icons.plus /> {formatMessage({ id: 'connectors.directory.customAction', defaultMessage: 'Add custom server' })}
       </Btn>
     </div>
   )

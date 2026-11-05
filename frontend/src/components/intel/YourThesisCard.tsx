@@ -1,3 +1,5 @@
+import { FormattedMessage } from './FormattedMessage'
+import { useAppIntl } from '../../i18n/useAppIntl'
 import { useState } from 'react'
 import { Pencil } from 'lucide-react'
 import { Panel } from '../ui'
@@ -35,6 +37,7 @@ export function YourThesisCard({
   currency,
   onSaved,
 }: Props) {
+  const intl = useAppIntl()
   // The saved thesis shows at once; the refetch's copy replaces it as soon as `thesis` changes.
   const [justSaved, setJustSaved] = useState<{
     over: InvestmentThesis | null
@@ -52,13 +55,13 @@ export function YourThesisCard({
     editing || !hasContent ? undefined : (
       <button type="button" className="asd-rail-manage" onClick={() => setEditing(true)}>
         <Pencil size={12} aria-hidden="true" />
-        Edit
+        {<FormattedMessage id="intel.extra.21077124" defaultMessage={"Edit"} />}
       </button>
     )
 
   return (
     <Panel
-      title="Your Thesis"
+      title={intl.formatMessage({ id: "intel.field.ca457366", defaultMessage: "Your Thesis" })}
       badge={role && !editing ? <ThesisRoleBadge role={role} /> : undefined}
       actions={actions}
       className="asd-rail-panel asd-thesis-card"

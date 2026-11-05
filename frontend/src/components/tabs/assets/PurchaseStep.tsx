@@ -4,7 +4,7 @@
 import { useId } from 'react'
 import { fNum, getCurrencySymbol } from '../../../utils/format'
 import { DateField, FormField, MoneyField, Stack, Text } from '../../ui'
-import { purchaseCopy } from './assetCategoryRules'
+import { useAppIntl } from '../../../i18n/useAppIntl'
 import type { PurchaseErrors, PurchaseValue } from './assetForms'
 
 export type { PurchaseErrors, PurchaseValue } from './assetForms'
@@ -35,15 +35,46 @@ export function PurchaseStep({
   editing = false,
   onUnreadable,
 }: PurchaseStepProps) {
+  const { formatMessage } = useAppIntl()
   const id = useId()
-  const copy = purchaseCopy(category)
+  const policy = category === 'policy'
+  const intro = policy
+    ? editing
+      ? formatMessage({
+          id: 'assets.purchase.policyEditIntro',
+          defaultMessage: "Shows whether the cash value is above what you've paid.",
+        })
+      : formatMessage({
+          id: 'assets.purchase.policyIntro',
+          defaultMessage: "Optional. Shows whether the cash value is above what you've paid.",
+        })
+    : editing
+      ? formatMessage({
+          id: 'assets.purchase.editIntro',
+          defaultMessage: 'Adds your gain and yearly return.',
+        })
+      : formatMessage({
+          id: 'assets.purchase.intro',
+          defaultMessage: 'Optional — adds your gain and yearly return.',
+        })
   return (
     <Stack gap="--space-6">
       <Text as="p" size="sm" tone="muted">
-        {editing ? copy.editIntro : copy.intro}
+        {intro}
       </Text>
       <div className="as-form">
-        <FormField label={copy.costLabel} htmlFor={`${id}-cost`} error={errors.cost}>
+        <FormField
+          label={
+            policy
+              ? formatMessage({
+                  id: 'assets.sections.premiumsSoFar',
+                  defaultMessage: 'Premiums paid so far',
+                })
+              : formatMessage({ id: 'assets.sections.boughtFor', defaultMessage: 'Bought for' })
+          }
+          htmlFor={`${id}-cost`}
+          error={errors.cost}
+        >
           <MoneyField
             id={`${id}-cost`}
             autoFocus
@@ -56,7 +87,18 @@ export function PurchaseStep({
             onInvalidChange={(bad) => onUnreadable?.('cost', bad)}
           />
         </FormField>
-        <FormField label={copy.dateLabel} htmlFor={`${id}-date`} error={errors.cost_date}>
+        <FormField
+          label={
+            policy
+              ? formatMessage({
+                  id: 'assets.sections.policyStarted',
+                  defaultMessage: 'Policy started on',
+                })
+              : formatMessage({ id: 'assets.sections.boughtOn', defaultMessage: 'Bought on' })
+          }
+          htmlFor={`${id}-date`}
+          error={errors.cost_date}
+        >
           <DateField
             id={`${id}-date`}
             invalid={!!errors.cost_date}

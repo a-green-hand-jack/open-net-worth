@@ -1,0 +1,21 @@
+[
+  "mail_ledger",
+  "daily-briefing",
+  "weekly-report",
+  "monthly-report",
+  "subscriptions",
+  "pacing",
+  "floor",
+  "large-charge",
+  "new-payee",
+  "drift",
+  "sync_simplefin",
+  "sync_plaid",
+  "sync_lunch_money",
+  "sync_lunch_flow",
+  "sync_ynab",
+  "sync_enable_banking",
+  "sync_gocardless",
+  "sync_alpaca",
+  "sync_ibkr"
+]

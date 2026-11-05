@@ -104,6 +104,11 @@ def flags_for_txn(row: dict, accounts_rows: list[dict], txns: list[dict]) -> lis
                 {
                     "type": "before_tracking_start",
                     "account_id": aid,
+                    "message_id": "ledger.warning.beforeTrackingStart",
+                    "message_params": {
+                        "account": acct.get("name") or aid,
+                        "date": cutoffs.get(aid),
+                    },
                     "message": (
                         f"Dated before {acct.get('name') or aid}'s tracking start "
                         f"({cutoffs.get(aid)}) — summarized into its "
@@ -117,6 +122,8 @@ def flags_for_txn(row: dict, accounts_rows: list[dict], txns: list[dict]) -> lis
             {
                 "type": "straddle",
                 "account_id": row.get("from_account_id"),
+                "message_id": "ledger.warning.straddle",
+                "message_params": {},
                 "message": "This transfer won't balance — one leg is before its "
                 "account's tracking start.",
             }

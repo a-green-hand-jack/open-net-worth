@@ -12,6 +12,8 @@ const authFetch = vi.fn()
 vi.mock('../../../api/client', () => ({ authFetch: (...a: unknown[]) => authFetch(...a) }))
 
 import { MemoryImport } from './MemoryImport'
+import { IntlProvider } from 'react-intl'
+import zh from '../../../i18n/zh-CN.json'
 
 const json = (body: unknown, status = 200) =>
   Promise.resolve(new Response(JSON.stringify(body), { status }))
@@ -87,6 +89,21 @@ describe('MemoryImport', () => {
     serve()
   })
   afterEach(cleanup)
+
+  it('localizes the review while preserving imported text', async () => {
+    render(
+      <IntlProvider locale="zh-CN" messages={zh}>
+        <MemoryImport onClose={vi.fn()} toast={vi.fn()} />
+      </IntlProvider>,
+    )
+    fireEvent.click(await screen.findByRole('button', { name: '下一步' }))
+    fireEvent.change(screen.getByLabelText('粘贴的记忆'), {
+      target: { value: 'Name is Dana Example' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: '查看' }))
+    expect(await screen.findByText('姓名: Dana Example（当前：Dana）')).toBeTruthy()
+    expect(screen.getByText('Rents a flat with a roommate')).toBeTruthy()
+  })
 
   it('copies the export prompt', async () => {
     const writeText = vi.fn().mockResolvedValue(undefined)

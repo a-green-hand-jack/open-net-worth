@@ -284,10 +284,13 @@ def to_canonical(raw: dict) -> CanonicalRow:
     )
     if not row.date:
         row.skip, row.skip_reason = True, "missing date"
+        row.skip_message = {"id": "statement.skip.missing_date", "params": {}}
     elif row.amount <= 0:
         row.skip, row.skip_reason = True, "unparseable amount"
+        row.skip_message = {"id": "statement.skip.unparseable_amount", "params": {}}
     elif not row.direction:
         row.skip, row.skip_reason = True, "ambiguous direction"
+        row.skip_message = {"id": "statement.skip.ambiguous_direction", "params": {}}
     return row
 
 
@@ -758,6 +761,7 @@ def apply_schema(grid: list[list[str]], schema: dict, meta: StatementMeta) -> li
                     amount=abs(loc.parse_signed(_cell(raw, schema.get("debit_col")), conv) or 0),
                     skip=True,
                     skip_reason=f"status '{status}' (not completed)",
+                    skip_message={"id": "statement.skip.status", "params": {"status": status}},
                     **base,
                 )
             )

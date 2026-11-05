@@ -208,6 +208,35 @@ def note(book: Book, d: dict, c: dict, assigned: bool) -> str:
     return "Budget syncs with a new envelope of its own"
 
 
+def note_message(book: Book, d: dict, assigned: bool) -> dict:
+    kind = d["kind"]
+    env = None
+    if kind in ("linked", "category"):
+        category = d["category"]
+        env = book.env_of.get(category["id"])
+        if env is None:
+            key = "assignedEnvelope" if assigned else "notBudgeted"
+        else:
+            key = (
+                "syncEnvelope"
+                if list(env.get("category_ids") or []) == [category["id"]]
+                else "sharedEnvelope"
+            )
+    elif kind == "envelope":
+        env = d["envelope"]
+        key = "sharedEnvelope" if env.get("category_ids") else "syncEnvelope"
+    elif kind == "ambiguous":
+        key = "ambiguous"
+    elif d["offer"] is not None:
+        key, env = "offerEnvelope", d["offer"]
+    else:
+        key = "newEnvelope"
+    return {
+        "message_id": f"ynab.import.category.{key}",
+        "params": {"name": env["name"]} if env is not None else {},
+    }
+
+
 def has_assigned(plan: dict, ynab_id: str) -> bool:
     return any(month.get(ynab_id) for month in plan["assigned"].values())
 
@@ -277,6 +306,7 @@ def rows(plan: dict, decisions: dict[str, dict], book: Book) -> dict[str, dict]:
             "options": d["options"],
             "assigned": has_assigned(plan, c["id"]),
             "note": note(book, d, c, has_assigned(plan, c["id"])),
+            "note_message": note_message(book, d, has_assigned(plan, c["id"])),
         }
     return out
 

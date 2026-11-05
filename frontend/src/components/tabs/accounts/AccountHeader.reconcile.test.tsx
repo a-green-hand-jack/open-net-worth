@@ -7,6 +7,8 @@
 
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { IntlProvider } from 'react-intl'
+import messages from './zh-CN.messages.json'
 import { AccountHeader } from './AccountHeader'
 import { fromApiAccount } from './data'
 import type { ApiAccount } from './types'
@@ -25,8 +27,8 @@ const ACCOUNT = fromApiAccount({
 
 const noop = () => {}
 
-function renderHeader(onReconcile: (a: unknown, real: number) => void) {
-  render(
+function renderHeader(onReconcile: (a: unknown, real: number) => void, chinese = false) {
+  const header = (
     <AccountHeader
       account={ACCOUNT}
       dueInfo={null}
@@ -46,8 +48,17 @@ function renderHeader(onReconcile: (a: unknown, real: number) => void) {
       onReconcile={onReconcile}
       onReview={noop}
       onStartReview={noop}
-    />,
+    />
   )
+  if (chinese) {
+    render(
+      <IntlProvider locale="zh-CN" messages={messages}>
+        {header}
+      </IntlProvider>,
+    )
+    return
+  }
+  render(header)
 }
 
 afterEach(cleanup)
@@ -59,6 +70,14 @@ function openReconcile() {
 }
 
 describe('Reconcile popover', () => {
+  it('confirms the cleared balance with Chinese labels', () => {
+    const onReconcile = vi.fn()
+    renderHeader(onReconcile, true)
+    fireEvent.click(screen.getByRole('button', { name: '核对' }))
+    expect(screen.getByRole('dialog').textContent).toContain('6,276.57')
+    fireEvent.click(screen.getByRole('button', { name: '是，余额一致' }))
+    expect(onReconcile).toHaveBeenCalledWith(ACCOUNT, -6276.57)
+  })
   it('asks about, and confirms, the cleared balance — never the working one', () => {
     const onReconcile = vi.fn()
     renderHeader(onReconcile)

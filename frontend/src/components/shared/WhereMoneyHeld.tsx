@@ -1,3 +1,4 @@
+import { useAppIntl } from '../../i18n/useAppIntl'
 import type { ComputedRow } from '../../types/portfolio'
 import { fBase, fPct } from '../../utils/format'
 import { paletteColor } from '../../utils/constants'
@@ -13,13 +14,14 @@ import { EmptyState, Money } from '../ui'
 // venue) holds debt, not money, so it has no place in a "where money is held" view;
 // percentages stay anchored to total net worth.
 export function WhereMoneyHeld({ rows, total }: { rows: ComputedRow[]; total: number }) {
+  const { formatMessage } = useAppIntl()
   const venues: Record<string, number> = {}
   const venueColors: Record<string, string> = {}
   rows.forEach((r) => {
     // Group by institution so Vantage Brokerage-USD + Vantage Brokerage-SGD merge under "Vantage Brokerage".
     // Fall back to account name (category) then 'Unassigned'. The `??` guard
     // handles rows where institution may be missing on the type (e.g. cash rows).
-    const key = ((r.institution ?? '') || r.category || '').trim() || 'Unassigned'
+    const key = ((r.institution ?? '') || r.category || '').trim()
     venues[key] = (venues[key] || 0) + r._base
     if (r.color && !venueColors[key]) venueColors[key] = r.color
   })
@@ -31,8 +33,15 @@ export function WhereMoneyHeld({ rows, total }: { rows: ComputedRow[]; total: nu
   if (!sorted.length || total <= 0) {
     return (
       <EmptyState
-        title="No venue breakdown yet."
-        body="Add accounts or holdings and they'll roll up here by where they're held."
+        title={formatMessage({
+          id: 'shared.where.empty',
+          defaultMessage: 'No venue breakdown yet.',
+        })}
+        body={formatMessage({
+          id: 'shared.where.emptyHelp',
+          defaultMessage:
+            "Add accounts or holdings and they'll roll up here by where they're held.",
+        })}
       />
     )
   }
@@ -47,12 +56,17 @@ export function WhereMoneyHeld({ rows, total }: { rows: ComputedRow[]; total: nu
         // Bar width is relative to the largest venue so the longest bar fills the track;
         // the label reports % of NET WORTH (the meaningful figure).
         const barPct = max > 0 ? (value / max) * 100 : 0
-        const color = venueColors[v] || paletteColor(v)
+        const color = venueColors[v] || paletteColor(v || 'Unassigned')
         return (
           <div className="wmh-row" key={v}>
             <i style={{ background: color }} />
-            <span className="wmh-nm" title={v}>
-              {v}
+            <span
+              className="wmh-nm"
+              title={
+                v || formatMessage({ id: 'shared.where.unassigned', defaultMessage: 'Unassigned' })
+              }
+            >
+              {v || formatMessage({ id: 'shared.where.unassigned', defaultMessage: 'Unassigned' })}
             </span>
             <div className="wmh-bar">
               <span className="wmh-bar-fill" style={{ width: `${barPct}%`, background: color }} />

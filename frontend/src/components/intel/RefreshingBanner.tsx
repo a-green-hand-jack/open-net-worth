@@ -1,3 +1,4 @@
+import { useAppIntl } from '../../i18n/useAppIntl'
 import { ResearchingStatus, type RefreshStage } from './ResearchingStatus'
 
 /**
@@ -11,16 +12,17 @@ import { ResearchingStatus, type RefreshStage } from './ResearchingStatus'
  * single calm line below states plainly that the current view is the last saved one.
  */
 export function RefreshingBanner({ stage }: { stage?: RefreshStage | null }) {
+  const intl = useAppIntl()
   return (
     <div
       className="asd-refreshing-banner"
       role="status"
-      aria-label="Refreshing news and analysis in the background"
+      aria-label={intl.formatMessage({ id: 'intel.refreshingAria', defaultMessage: "Refreshing news and analysis in the background" })}
     >
       <span className="asd-refreshing-spinner" aria-hidden="true" />
       <div className="asd-refreshing-text">
         <ResearchingStatus stage={stage} />
-        <span className="asd-refreshing-sub">Refreshing. Showing your last saved view</span>
+        <span className="asd-refreshing-sub">{intl.formatMessage({ id: 'intel.refreshingSaved', defaultMessage: "Refreshing. Showing your last saved view" })}</span>
       </div>
       <span className="asd-refreshing-bar" aria-hidden="true" />
     </div>

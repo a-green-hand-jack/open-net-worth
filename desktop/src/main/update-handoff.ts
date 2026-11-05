@@ -2,6 +2,8 @@ import { execFile, spawn } from 'node:child_process';
 import { readFile } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { getDesktopLocale } from './desktop-locale';
+import { message as t } from './native-messages';
 
 // Squirrel.Mac's installer (ShipIt) is the launchd job `<bundle id>.ShipIt`. After a quit with an
 // update downloaded it spends several seconds verifying the new bundle, then CANCELS the update if
@@ -50,8 +52,8 @@ export function notificationsOn(settingsText: string): boolean {
 // started the install (the book was just closed), otherwise it is a reopen that found it still running.
 export function installNotice(version: string | null, closed: boolean): { title: string; body: string } {
   return {
-    title: version ? `Installing Open Net Worth ${version}…` : 'Installing update…',
-    body: `Open Net Worth opens again when it is done. Your book is ${closed ? 'closed safely' : 'not affected'}.`,
+    title: version ? t('Installing Open Net Worth {version}…', getDesktopLocale(), { version }) : t('Installing update…'),
+    body: closed ? t('Open Net Worth opens again when it is done. Your book is closed safely.') : t('Open Net Worth opens again when it is done. Your book is not affected.'),
   };
 }
 

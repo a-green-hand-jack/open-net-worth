@@ -1,6 +1,8 @@
 // @vitest-environment jsdom
 import { afterEach, expect, it, vi } from 'vitest'
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { IntlProvider } from 'react-intl'
+import zh from '../../../i18n/zh-CN.json'
 
 vi.mock('./usePerformanceView', () => ({
   usePerformanceView: () => ({
@@ -19,6 +21,16 @@ import { PerformanceTab } from './PerformanceTab'
 import { takeSendIntent } from '../../../state/luciusSendIntent'
 
 afterEach(cleanup)
+
+it('localizes the empty portfolio state', () => {
+  render(
+    <IntlProvider locale="zh-CN" messages={zh}>
+      <PerformanceTab noHoldings onAddHolding={vi.fn()} />
+    </IntlProvider>,
+  )
+  expect(screen.getByText('你的整个投资组合与市场的比较')).toBeTruthy()
+  expect(screen.getByRole('button', { name: '添加持仓' })).toBeTruthy()
+})
 
 it('with nothing held, pitches one return across every broker instead of a price-history note', () => {
   const onAddHolding = vi.fn()

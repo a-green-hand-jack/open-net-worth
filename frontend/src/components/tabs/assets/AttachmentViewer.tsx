@@ -11,6 +11,7 @@ import { TablePreview } from '../../vault/TablePreview'
 import { formatSize, isPdf, isTable } from '../../vault/vaultFormat'
 import '../../vault/vault.css'
 import { monthYear } from './assetsData'
+import { useAppIntl } from '../../../i18n/useAppIntl'
 
 export const docFileUrl = (doc: AssetDoc) => `/api/uploads/${encodeURIComponent(doc.ref_id)}/file`
 
@@ -59,11 +60,15 @@ export interface AttachmentViewerProps {
 }
 
 export function AttachmentViewer({ a, doc, onClose }: AttachmentViewerProps) {
+  const { formatMessage } = useAppIntl()
   // Its own file name only when a rename hides it, then its size and when it was added.
   const facts = [
     doc.filename && doc.filename !== doc.name ? doc.filename : null,
     formatSize(doc.size_bytes),
-    `Added ${monthYear(doc.added_on)}`,
+    formatMessage(
+      { id: 'assets.docs.addedDate', defaultMessage: 'Added {date}' },
+      { date: monthYear(doc.added_on) },
+    ),
   ]
     .filter(Boolean)
     .join(' · ')
@@ -78,10 +83,10 @@ export function AttachmentViewer({ a, doc, onClose }: AttachmentViewerProps) {
       footer={
         <>
           <Button variant="ghost" size="sm" onClick={onClose}>
-            Close
+            {formatMessage({ id: 'assets.docs.close', defaultMessage: 'Close' })}
           </Button>
           <Button variant="secondary" size="sm" onClick={() => download(doc)}>
-            Download
+            {formatMessage({ id: 'assets.docs.download', defaultMessage: 'Download' })}
           </Button>
         </>
       }

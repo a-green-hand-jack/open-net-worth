@@ -5,11 +5,12 @@
 // Snippets come from mcpClients.ts (the one source), filled with this instance's real origin,
 // its real API token on copy, and the launch command the server reports for this install.
 import { useState } from 'react'
+import { useAppIntl } from '../../../../i18n/useAppIntl'
 import { authFetch } from '../../../../api/client'
 import { useCachedFetchState } from '../../../../state/queryCache'
 import { Btn, Panel, useSectionBusy } from '../ds'
 import type { SectionProps } from '../ds'
-import { FALLBACK_LAUNCH, MCP_CLIENTS, launchNote } from './mcpClients'
+import { FALLBACK_LAUNCH, MCP_CLIENTS, SOURCE_CWD_PLACEHOLDER } from './mcpClients'
 import type { McpLaunch, StdioVariant } from './mcpClients'
 
 /** What the rendered snippet shows in place of the real bearer. */
@@ -24,6 +25,7 @@ async function getJson<T>(path: string): Promise<T> {
 }
 
 export function McpSection({ toast, openSection }: SectionProps) {
+  const { formatMessage } = useAppIntl()
   const [client, setClient] = useState('claude-desktop')
   const [variant, setVariant] = useState<StdioVariant>('installed')
   const { data: tokenData, initialLoading: loadingToken } = useCachedFetchState<{ token: string }>(
@@ -50,21 +52,117 @@ export function McpSection({ toast, openSection }: SectionProps) {
   const snippet = g.snippet({ ...ctx, token: TOKEN_MASK })
   const copyable = g.snippet({ ...ctx, token })
 
+  const guide = () => {
+    switch (g.id) {
+      case 'claude-desktop':
+        return formatMessage({
+          id: 'settings.remaining.mcpGuide0',
+          defaultMessage:
+            'In Claude Desktop: Settings → Developer → Edit Config opens claude_desktop_config.json. Paste this in, then restart Claude Desktop. Open Net Worth must be running.',
+        })
+      case 'cursor':
+        return formatMessage({
+          id: 'settings.remaining.mcpGuide1',
+          defaultMessage:
+            'Add to ~/.cursor/mcp.json (global) or .cursor/mcp.json (per-project). Cursor takes a stdio command OR a remote url.',
+        })
+      case 'vscode':
+        return formatMessage({
+          id: 'settings.remaining.mcpGuide2',
+          defaultMessage:
+            'Add to .vscode/mcp.json (workspace) or your user mcp.json. VS Code uses "servers" — not "mcpServers" — and needs a "type" field.',
+        })
+      case 'chatgpt':
+        return formatMessage({
+          id: 'settings.remaining.mcpGuide3',
+          defaultMessage:
+            "ChatGPT → Settings → Connectors (Developer mode on) → Add custom connector. ChatGPT runs in OpenAI's cloud, so it needs a PUBLIC url — localhost is not reachable.",
+        })
+      case 'http':
+        return formatMessage({
+          id: 'settings.remaining.mcpGuide4',
+          defaultMessage:
+            'Any remote-MCP client (Perplexity, hosted agents, custom). Point it at /mcp with a Bearer token. Hosted clients need a PUBLIC url.',
+        })
+      case 'other':
+        return formatMessage({
+          id: 'settings.remaining.mcpGuide5',
+          defaultMessage:
+            'Most other MCP clients accept the same mcpServers (stdio) form, or a remote url + Bearer header.',
+        })
+      default:
+        return g.where
+    }
+  }
+  const launchDescription = () => {
+    if (launch.desktop)
+      return formatMessage({
+        id: 'settings.remaining.mcpLaunch0',
+        defaultMessage:
+          'The command is the Python bundled inside this app — nothing else to install. This app picks a new address each time it starts, so the bridge finds it through ONW_ROOT (your book folder); Open Net Worth must be running. If you move the app, copy the config again.',
+      })
+    if (ctx.variant === 'source' && Boolean(launch.source_root))
+      return formatMessage({
+        id: 'settings.remaining.mcpLaunch1',
+        defaultMessage:
+          'For a git checkout: cwd is the checkout this instance runs from. Needs python3 on your PATH.',
+      })
+    if (ctx.variant === 'source')
+      return formatMessage(
+        {
+          id: 'settings.remaining.mcpLaunch2',
+          defaultMessage:
+            "For a git checkout: replace {path} with your checkout's absolute path. Needs python3 on your PATH.",
+        },
+        { path: SOURCE_CWD_PLACEHOLDER },
+      )
+    if (launch.command_found)
+      return formatMessage({
+        id: 'settings.remaining.mcpLaunch3',
+        defaultMessage:
+          "The command is the full path to onw on the computer running Open Net Worth — AI apps often don't search your shell's PATH. Use this config on that same computer.",
+      })
+    return formatMessage({
+      id: 'settings.remaining.mcpLaunch4',
+      defaultMessage:
+        'Needs the onw command on the computer running Open Net Worth (uv tool install open-net-worth). If your AI app reports it can\'t find "onw", replace it with the full path printed by `which onw` (Windows: `where onw`).',
+    })
+  }
+
   return (
     <Panel
-      title="Use your book from other AI apps"
-      sub="This instance is an MCP server — point Claude Desktop, Cursor, VS Code or ChatGPT at it"
+      title={formatMessage({
+        id: 'settings.remaining.mcpTitle',
+        defaultMessage: 'Use your book from other AI apps',
+      })}
+      sub={formatMessage({
+        id: 'settings.remaining.mcpSub',
+        defaultMessage:
+          'This instance is an MCP server — point Claude Desktop, Cursor, VS Code or ChatGPT at it',
+      })}
     >
       <span className="rd-help" style={{ display: 'block', lineHeight: 1.55 }}>
-        An app holding your API token acts as you: it can read your book and make changes. Every
-        change it makes is recorded and can be undone. This is the reverse of Connectors → MCP,
-        where Lucius uses someone else&apos;s server.
+        {formatMessage({
+          id: 'settings.remaining.mcpRisk',
+          defaultMessage:
+            "An app holding your API token acts as you: it can read your book and make changes. Every change it makes is recorded and can be undone. This is the reverse of Connectors → MCP, where Lucius uses someone else's server.",
+        })}
       </span>
       <div>
         <div className="rd-bars-lbl" style={{ marginBottom: 7 }}>
-          Connect from…
+          {formatMessage({
+            id: 'settings.remaining.mcpConnectFrom',
+            defaultMessage: 'Connect from…',
+          })}
         </div>
-        <div className="rd-seg rd-seg--scroll" role="tablist" aria-label="MCP client">
+        <div
+          className="rd-seg rd-seg--scroll"
+          role="tablist"
+          aria-label={formatMessage({
+            id: 'settings.remaining.mcpClient',
+            defaultMessage: 'MCP client',
+          })}
+        >
           {MCP_CLIENTS.map((c) => (
             <button
               type="button"
@@ -82,27 +180,56 @@ export function McpSection({ toast, openSection }: SectionProps) {
       <div>
         <span className="rd-help" style={{ display: 'block', lineHeight: 1.55 }}>
           <span className={'rd-badge ' + (local ? '' : 'warn')}>
-            {local ? 'Local (stdio)' : 'Needs a public URL'}
+            {local
+              ? formatMessage({
+                  id: 'settings.remaining.mcpLocal',
+                  defaultMessage: 'Local (stdio)',
+                })
+              : formatMessage({
+                  id: 'settings.remaining.mcpPublic',
+                  defaultMessage: 'Needs a public URL',
+                })}
           </span>{' '}
-          {g.where}
+          {guide()}
         </span>
         {!local && LOOPBACK.test(origin) ? (
           <span className="rd-help" style={{ display: 'block', lineHeight: 1.55, marginTop: 6 }}>
-            This instance is on {window.location.host}, which a hosted app can&apos;t reach — expose
-            it through a tunnel or a public deployment first.
+            {formatMessage(
+              {
+                id: 'settings.remaining.mcpLoopback',
+                defaultMessage:
+                  "This instance is on {host}, which a hosted app can't reach — expose it through a tunnel or a public deployment first.",
+              },
+              { host: window.location.host },
+            )}
           </span>
         ) : null}
         {showVariants ? (
           <div
             className="rd-seg"
             role="tablist"
-            aria-label="How Open Net Worth is installed"
+            aria-label={formatMessage({
+              id: 'settings.remaining.mcpInstallation',
+              defaultMessage: 'How Open Net Worth is installed',
+            })}
             style={{ marginTop: 9 }}
           >
             {(
               [
-                ['installed', 'Installed (onw)'],
-                ['source', 'Running from source'],
+                [
+                  'installed',
+                  formatMessage({
+                    id: 'settings.remaining.mcpInstalled',
+                    defaultMessage: 'Installed (onw)',
+                  }),
+                ],
+                [
+                  'source',
+                  formatMessage({
+                    id: 'settings.remaining.mcpSource',
+                    defaultMessage: 'Running from source',
+                  }),
+                ],
               ] as const
             ).map(([key, label]) => (
               <button
@@ -120,7 +247,7 @@ export function McpSection({ toast, openSection }: SectionProps) {
         ) : null}
         {local ? (
           <span className="rd-help" style={{ display: 'block', lineHeight: 1.55, marginTop: 9 }}>
-            {launchNote(launch, ctx.variant)}
+            {launchDescription()}
           </span>
         ) : null}
         {/* data-ctx-secret keeps this region out of the screen snapshot entirely — belt as
@@ -134,19 +261,42 @@ export function McpSection({ toast, openSection }: SectionProps) {
             onClick={() => {
               void navigator.clipboard
                 .writeText(copyable)
-                .then(() => toast('Copied ' + g.label + ' config — with your real token'))
-                .catch(() => toast('Could not copy — select the snippet manually'))
+                .then(() =>
+                  toast(
+                    formatMessage(
+                      {
+                        id: 'settings.remaining.mcpCopied',
+                        defaultMessage: 'Copied {client} config — with your real token',
+                      },
+                      { client: g.label },
+                    ),
+                  ),
+                )
+                .catch(() =>
+                  toast(
+                    formatMessage({
+                      id: 'settings.remaining.mcpCopyError',
+                      defaultMessage: 'Could not copy — select the snippet manually',
+                    }),
+                  ),
+                )
             }}
           >
-            Copy config
+            {formatMessage({ id: 'settings.remaining.mcpCopy', defaultMessage: 'Copy config' })}
           </Btn>
           <Btn size="xs" variant="ghost" onClick={() => openSection?.('security')}>
-            Manage API token
+            {formatMessage({
+              id: 'settings.remaining.mcpManageToken',
+              defaultMessage: 'Manage API token',
+            })}
           </Btn>
         </div>
         <span className="rd-help" style={{ display: 'block', lineHeight: 1.55, marginTop: 9 }}>
-          One token for every app, kept in Security. Rotating it there disconnects every app
-          configured with the old one.
+          {formatMessage({
+            id: 'settings.remaining.mcpTokenHelp',
+            defaultMessage:
+              'One token for every app, kept in Security. Rotating it there disconnects every app configured with the old one.',
+          })}
         </span>
       </div>
     </Panel>

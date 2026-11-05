@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { useAppIntl } from '../../../i18n/useAppIntl'
 import { authFetch } from '../../../api/client'
 import { invalidateQueryCache } from '../../../state/queryCache'
 import { useDataVersion } from '../../../hooks/useDataVersion'
@@ -14,6 +15,7 @@ import type {
 } from '../../../types/portfolio'
 import { fBase, fPct } from '../../../utils/format'
 import { ViewCache } from './viewCache'
+import { formatRiskSummary } from './performanceMessages'
 
 // The picked benchmark is the ONE "vs the market" index: saved to the profile so the Intel
 // Holdings brief and the watch pulse (and their server-side stories) compare against it too.
@@ -110,6 +112,8 @@ function tone(v: number | null | undefined): 'pos' | 'neg' | undefined {
 }
 
 export function usePerformanceView(): PerformanceViewModel {
+  const intl = useAppIntl()
+  const { formatMessage } = intl
   const [period, setPeriod] = useState<ReturnPeriod>('1Y')
   // The benchmark is the profile's `preferred_benchmark`; `picked` is this view's explicit
   // choice, shown at once while the save lands. Only an explicit pick is written back.
@@ -213,33 +217,56 @@ export function usePerformanceView(): PerformanceViewModel {
     ? [
         {
           key: 'twr',
-          label: annualized ? 'TWR (ann.)' : 'TWR',
+          label: annualized
+            ? formatMessage({ id: 'performance.twrAnnual', defaultMessage: 'TWR (ann.)' })
+            : 'TWR',
           value: twrValue != null ? fReturn(twrValue) : '—',
           tone: tone(twrValue),
-          help:
-            "Time-weighted return. The portfolio's performance stripped of the timing of your deposits and withdrawals" +
-            (annualized ? ', shown annualized' : '') +
-            ' — the standard for comparing against a benchmark.',
+          help: annualized
+            ? formatMessage({
+                id: 'performance.twrHelpAnnual',
+                defaultMessage:
+                  "Time-weighted return. The portfolio's performance stripped of the timing of your deposits and withdrawals, shown annualized — the standard for comparing against a benchmark.",
+              })
+            : formatMessage({
+                id: 'performance.twrHelp',
+                defaultMessage:
+                  "Time-weighted return. The portfolio's performance stripped of the timing of your deposits and withdrawals — the standard for comparing against a benchmark.",
+              }),
         },
         ...(mwr !== null
           ? [
               {
                 key: 'mwr',
-                label: mwrAnnualized ? 'MWR (ann.)' : 'MWR (your IRR)',
+                label: mwrAnnualized
+                  ? formatMessage({ id: 'performance.mwrAnnual', defaultMessage: 'MWR (ann.)' })
+                  : formatMessage({ id: 'performance.mwrIrr', defaultMessage: 'MWR (your IRR)' }),
                 value: mwrValue != null ? fReturn(mwrValue) : '—',
                 tone: tone(mwrValue),
                 help: mwrAnnualized
-                  ? 'Money-weighted return, annualized — your personal internal rate of return over a full year. Unlike TWR it counts the size and timing of your cash flows.'
-                  : 'Money-weighted return — your personal internal rate of return over this period. Unlike TWR it counts the size and timing of your cash flows, so it answers "how did my actual money do?"',
+                  ? formatMessage({
+                      id: 'performance.MoneyWeightedReturnAnnualizedYourPersonalInternalRateOfReturnOverAFullYearUnlikeTwrItCountsTheSizeAndTimingOfYourCashFlows',
+                      defaultMessage:
+                        'Money-weighted return, annualized — your personal internal rate of return over a full year. Unlike TWR it counts the size and timing of your cash flows.',
+                    })
+                  : formatMessage({
+                      id: 'performance.MoneyWeightedReturnYourPersonalInternalRateOfReturnOverThisPeriodUnlikeTwrItCountsTheSizeAndTimingOfYourCashFlowsSoItAnswersHowDidMyActualMoneyDo',
+                      defaultMessage:
+                        'Money-weighted return — your personal internal rate of return over this period. Unlike TWR it counts the size and timing of your cash flows, so it answers "how did my actual money do?"',
+                    }),
               } satisfies PerfStatCard,
             ]
           : []),
         {
           key: 'pg',
-          label: 'Period gain',
+          label: formatMessage({ id: 'performance.PeriodGain', defaultMessage: 'Period gain' }),
           value: (data.period_gain_base >= 0 ? '+' : '') + fBase(data.period_gain_base),
           tone: tone(data.period_gain_base),
-          help: "The change in your portfolio's value over this period in dollars — market moves plus income earned.",
+          help: formatMessage({
+            id: 'performance.TheChangeInYourPortfolioSValueOverThisPeriodInDollarsMarketMovesPlusIncomeEarned',
+            defaultMessage:
+              "The change in your portfolio's value over this period in dollars — market moves plus income earned.",
+          }),
         },
       ]
     : []
@@ -253,14 +280,25 @@ export function usePerformanceView(): PerformanceViewModel {
             label: benchSymbol,
             value: fReturn(benchTwr),
             tone: tone(benchTwr),
-            help: "The benchmark's total return over the same period, for a like-for-like comparison.",
+            help: formatMessage({
+              id: 'performance.TheBenchmarkSTotalReturnOverTheSamePeriodForALikeForLikeComparison',
+              defaultMessage:
+                "The benchmark's total return over the same period, for a like-for-like comparison.",
+            }),
           },
           {
             key: 'ex',
-            label: `Excess vs ${benchSymbol}`,
+            label: formatMessage(
+              { id: 'performance.excess', defaultMessage: 'Excess vs {symbol}' },
+              { symbol: benchSymbol },
+            ),
             value: excess !== null ? fReturn(excess) : '—',
             tone: tone(excess),
-            help: "Your TWR minus the benchmark's — how many points you beat (or trailed) the index by. Positive means you're ahead.",
+            help: formatMessage({
+              id: 'performance.YourTwrMinusTheBenchmarkSHowManyPointsYouBeatOrTrailedTheIndexByPositiveMeansYouReAhead',
+              defaultMessage:
+                "Your TWR minus the benchmark's — how many points you beat (or trailed) the index by. Positive means you're ahead.",
+            }),
           },
         ]
       : []
@@ -276,7 +314,7 @@ export function usePerformanceView(): PerformanceViewModel {
         betaSymbol: rawRisk.beta_symbol ?? 'SPY',
         sharpe: rawRisk.sharpe,
         mdd: rawRisk.max_drawdown != null ? rawRisk.max_drawdown * 100 : null,
-        summary: rawRisk.summary,
+        summary: formatRiskSummary(intl, rawRisk.summary_messages, rawRisk.summary),
       }
     : null
 

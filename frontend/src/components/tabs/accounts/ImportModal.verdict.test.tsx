@@ -10,6 +10,9 @@ vi.mock('../../../api/client', () => ({ authFetch: vi.fn() }))
 
 import { describe, it, expect, afterEach, beforeEach, vi } from 'vitest'
 import { render, cleanup, screen, fireEvent, waitFor, within } from '@testing-library/react'
+import { IntlProvider } from 'react-intl'
+import messages from './zh-CN.messages.json'
+import commonMessages from '../../../i18n/zh-CN.json'
 import { ImportModal } from './ImportModal'
 import type { Account } from './types'
 
@@ -49,12 +52,12 @@ const openVerdict = () => {
   if (btn && btn.getAttribute('aria-expanded') === 'false') fireEvent.click(btn)
 }
 
-async function openWith(preview: unknown) {
+async function openWith(preview: unknown, chinese = false) {
   const onDecisionCommit = vi
     .fn()
     .mockResolvedValue({ created: 0, merged: 0, duplicates: 0, skipped: 0 })
   const onPreview = vi.fn().mockResolvedValue(preview)
-  const utils = render(
+  const content = (
     <ImportModal
       open
       accounts={[acct]}
@@ -62,13 +65,14 @@ async function openWith(preview: unknown) {
       onClose={() => {}}
       onPreview={onPreview as never}
       onDecisionCommit={onDecisionCommit}
-    />,
+    />
   )
+  const utils = render(chinese ? <IntlProvider locale="zh-CN" messages={{ ...commonMessages, ...messages }}>{content}</IntlProvider> : content)
   const fileInput = document.body.querySelector('input[type="file"]') as HTMLInputElement
   fireEvent.change(fileInput, {
     target: { files: [new File(['%PDF-1.4'], 's.pdf', { type: 'application/pdf' })] },
   })
-  fireEvent.click(await screen.findByText(/Read the statement/i))
+  fireEvent.click(await screen.findByText(chinese ? '读取账单' : /Read the statement/i))
   return utils
 }
 
@@ -404,4 +408,14 @@ describe('ImportModal — the math waterfall is gone (SI-64 superseded)', () => 
     expect(screen.getByText(/Every statement transaction will be in your ledger/)).toBeTruthy()
     expect(document.querySelectorAll('.imp-verdict-line').length).toBeGreaterThan(0)
   })
+})
+
+it('warns in Chinese when an excluded unmatched statement row will not be booked', async () => {
+  await openWith(skipNoMatchPreview(), true)
+  await screen.findByText('Clear row')
+  openVerdict()
+  const row = openRow(screen.getByText('Blurry row').closest('.imp3-arow') as HTMLElement)
+  fireEvent.click(within(row).getByRole('radio', { name: '排除' }))
+  expect(screen.getByText('导入后 1 笔账单交易将不会出现在任何位置')).toBeTruthy()
+  expect(screen.getByText('已排除且没有账簿匹配项，点击查看。')).toBeTruthy()
 })

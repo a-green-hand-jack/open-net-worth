@@ -1,3 +1,5 @@
+import { FormattedMessage } from './FormattedMessage'
+import { useAppIntl } from '../../i18n/useAppIntl'
 import { useState } from 'react'
 import { Button, Panel, Stack, Text } from '../ui'
 import { ArrowRight, Plus } from '../../ui/icons'
@@ -70,6 +72,7 @@ export function AssetAlertsCard({
   customFeedUrls,
   onChanged,
 }: Props) {
+  const intl = useAppIntl()
   const [editing, setEditing] = useState<EditTarget | null>(null)
   const [error, setError] = useState<string | null>(null)
 
@@ -93,12 +96,12 @@ export function AssetAlertsCard({
   // watchlist card's "Manage all →"). The empty state keeps a primary CTA in the body.
   const manageAction = hasAlerts ? (
     <button type="button" className="asd-rail-manage" onClick={() => void openEditor()}>
-      Manage <ArrowRight size={12} />
+      {intl.formatMessage({ id: 'miss.manage', defaultMessage: 'Manage' })} <ArrowRight size={12} />
     </button>
   ) : undefined
 
   return (
-    <Panel title="Price Alerts" actions={manageAction} className="asd-rail-panel">
+    <Panel title={intl.formatMessage({ id: "intel.field.bf5e1637", defaultMessage: "Price Alerts" })} actions={manageAction} className="asd-rail-panel">
       <Stack gap="--space-3">
         {hasAlerts ? (
           <div className="asd-alerts-list">
@@ -116,7 +119,7 @@ export function AssetAlertsCard({
         ) : (
           <>
             <Text size="sm" tone="faint">
-              Get notified when {displaySymbol || ticker} crosses a price you set.
+              {intl.formatMessage({ id: 'miss.alertHint', defaultMessage: 'Get notified when {symbol} crosses a price you set.' }, { symbol: displaySymbol || ticker })}
             </Text>
             <div className="asd-alerts-start">
               <BuildWithLucius
@@ -131,7 +134,7 @@ export function AssetAlertsCard({
                 onClick={() => void openEditor()}
                 className="asd-alerts-btn"
               >
-                Add price alert
+                {<FormattedMessage id="intel.extra.4a1e8829" defaultMessage={"Add price alert"} />}
               </Button>
             </div>
           </>

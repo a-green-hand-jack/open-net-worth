@@ -1,4 +1,5 @@
 import { describe, it, expect, vi } from 'vitest'
+import { createIntl } from 'react-intl'
 import {
   addCategoryCandidatesFor,
   allEnvelopeTargets,
@@ -12,6 +13,8 @@ import type { EnvelopeKebabHandlers } from './budgetEnvelopeOps'
 import type { KebabItem } from './budgetParts'
 import type { CategoryMeta } from '../../../hooks/useBudget'
 import type { LocalCat, LocalGroup } from './useBudgetModel'
+
+const englishIntl = createIntl({ locale: 'en' })
 
 function mkCat(
   overrides: Partial<LocalCat> & Pick<LocalCat, 'key' | 'label' | 'envelopeId' | 'categoryIds'>,
@@ -254,18 +257,18 @@ describe('categoryKebabItems — zero-category envelope row', () => {
     items.map((it) => ('label' in it ? it.label : 'header' in it ? `#${it.header}` : '—'))
 
   it('leads with "Add categories…" when a linkable candidate exists', () => {
-    const items = categoryKebabItems(empty, [], groups, catLabel, noopHandlers())
+    const items = categoryKebabItems(empty, [], groups, catLabel, noopHandlers(), englishIntl)
     expect(labelsOf(items)[0]).toBe('Add categories…')
   })
 
   it('does not duplicate "Add categories…" further down the menu', () => {
-    const items = categoryKebabItems(empty, [], groups, catLabel, noopHandlers())
+    const items = categoryKebabItems(empty, [], groups, catLabel, noopHandlers(), englishIntl)
     const labels = labelsOf(items)
     expect(labels.filter((l) => l === 'Add categories…')).toHaveLength(1)
   })
 
   it('suppresses Hide/Unhide (no backing category) but still offers "Delete envelope…"', () => {
-    const items = categoryKebabItems(empty, [], groups, catLabel, noopHandlers())
+    const items = categoryKebabItems(empty, [], groups, catLabel, noopHandlers(), englishIntl)
     const labels = labelsOf(items)
     expect(labels).not.toContain('Hide')
     expect(labels).not.toContain('Unhide')
@@ -273,14 +276,14 @@ describe('categoryKebabItems — zero-category envelope row', () => {
   })
 
   it('still offers Rename and target editing (route to the envelope, not a category)', () => {
-    const items = categoryKebabItems(empty, [], groups, catLabel, noopHandlers())
+    const items = categoryKebabItems(empty, [], groups, catLabel, noopHandlers(), englishIntl)
     const labels = labelsOf(items)
     expect(labels).toContain('Rename')
     expect(labels).toContain('Add target…')
   })
 
   it('a normal 1:1 row is unaffected — Hide stays, Add categories… stays after Merge', () => {
-    const items = categoryKebabItems(sibling, [], groups, catLabel, noopHandlers())
+    const items = categoryKebabItems(sibling, [], groups, catLabel, noopHandlers(), englishIntl)
     const labels = labelsOf(items)
     expect(labels).toContain('Hide')
     expect(labels[0]).not.toBe('Add categories…')
@@ -288,14 +291,14 @@ describe('categoryKebabItems — zero-category envelope row', () => {
 
   // ── handoff item 1 — "Remove from envelope" lists on EVERY linked row, 1:1 included ──
   it('a 1:1 row ALSO gets "Remove from envelope" (handoff delta vs the P4 baseline)', () => {
-    const items = categoryKebabItems(sibling, [], groups, catLabel, noopHandlers())
+    const items = categoryKebabItems(sibling, [], groups, catLabel, noopHandlers(), englishIntl)
     const labels = labelsOf(items)
     expect(labels).toContain('#Remove from envelope')
     expect(labels).toContain('dining')
   })
 
   it('a merged (N>1) row lists every member under "Remove from envelope"', () => {
-    const items = categoryKebabItems(merged, [], groups, catLabel, noopHandlers())
+    const items = categoryKebabItems(merged, [], groups, catLabel, noopHandlers(), englishIntl)
     const labels = labelsOf(items)
     expect(labels).toContain('#Remove from envelope')
     expect(labels).toContain('fun')
@@ -303,34 +306,40 @@ describe('categoryKebabItems — zero-category envelope row', () => {
   })
 
   it('a zero-category row has no "Remove from envelope" section (nothing to remove)', () => {
-    const items = categoryKebabItems(empty, [], groups, catLabel, noopHandlers())
+    const items = categoryKebabItems(empty, [], groups, catLabel, noopHandlers(), englishIntl)
     expect(labelsOf(items)).not.toContain('#Remove from envelope')
   })
 
   // ── handoff item 2 — "Delete envelope…" replaces the old 1:1-only category "Delete" ──
   it('"Delete envelope…" appears on every non-locked row — 1:1, merged, and empty alike', () => {
     for (const c of [sibling, merged, empty]) {
-      const labels = labelsOf(categoryKebabItems(c, [], groups, catLabel, noopHandlers()))
+      const labels = labelsOf(
+        categoryKebabItems(c, [], groups, catLabel, noopHandlers(), englishIntl),
+      )
       expect(labels).toContain('Delete envelope…')
     }
   })
 
   it('the old plain "Delete" verb is gone — category deletion moved to the manager', () => {
-    const labels = labelsOf(categoryKebabItems(sibling, [], groups, catLabel, noopHandlers()))
+    const labels = labelsOf(
+      categoryKebabItems(sibling, [], groups, catLabel, noopHandlers(), englishIntl),
+    )
     expect(labels).not.toContain('Delete')
   })
 
   it('"Move to group" now offers on a merged (N>1) row too — no longer 1:1-only', () => {
     const otherGroups = [mkGroup({ id: 'g-b', name: 'Wants', cats: [] })]
     const labels = labelsOf(
-      categoryKebabItems(merged, otherGroups, groups, catLabel, noopHandlers()),
+      categoryKebabItems(merged, otherGroups, groups, catLabel, noopHandlers(), englishIntl),
     )
     expect(labels).toContain('#Move to group')
     expect(labels).toContain('Wants')
   })
 
   it('a merged (N>1) row renames the ENVELOPE, not "Rename"', () => {
-    const labels = labelsOf(categoryKebabItems(merged, [], groups, catLabel, noopHandlers()))
+    const labels = labelsOf(
+      categoryKebabItems(merged, [], groups, catLabel, noopHandlers(), englishIntl),
+    )
     expect(labels).toContain('Rename envelope')
     expect(labels).not.toContain('Rename')
   })

@@ -1,6 +1,7 @@
 // StatementsSection — the account's imported-statement history (RFC statement-import-unified D8).
 // Collapsed by default; expanding fetches GET /api/accounts/{id}/statements. Each row: file,
 // period, amount due, the reconcile badge, and a download link to the original bytes.
+import { useAppIntl } from '../../../i18n/useAppIntl'
 import { useCallback, useEffect, useState } from 'react'
 import { useDataVersion } from '../../../hooks/useDataVersion'
 import { useQueryCache } from '../../../state/queryCache'
@@ -55,27 +56,21 @@ interface StatementRow {
 // The facts every row shows, in the same order whatever its state (owner, 2026-10-25: a
 // statement waiting for review showed no date, period or size). Each returns null when the
 // statement has nothing to say for it.
-function periodFact(s: StatementRow): string | null {
-  if (s.period_start) {
-    return `${fDate(s.period_start)} → ${s.period_end ? fDate(s.period_end, 'short', 'always') : '…'}`
+function useStatementFacts() {
+  const { formatMessage } = useAppIntl()
+  const periodFact = (s: StatementRow): string | null => {
+    if (s.period_start) return `${fDate(s.period_start)} → ${s.period_end ? fDate(s.period_end, 'short', 'always') : '…'}`
+    return s.statement_date ? formatMessage({ id: 'accounts.statementFacts.date', defaultMessage: 'Statement {date}' }, { date: fDate(s.statement_date) }) : null
   }
-  return s.statement_date ? `Statement ${fDate(s.statement_date)}` : null
-}
-function rowsFact(s: StatementRow): string | null {
-  if (!s.rows_read) return null
-  const rows = `${s.rows_read} row${s.rows_read === 1 ? '' : 's'}`
-  if (s.added == null) return rows
-  return s.linked ? `${rows} · ${s.added} new · ${s.linked} linked` : `${rows} · ${s.added} new`
-}
-function uploadedFact(s: StatementRow, withTime = false): string | null {
-  if (!s.created_at) return null
-  return `Uploaded ${withTime ? fDateTime(s.created_at) : fDate(s.created_at)}`
-}
-function aiCostFact(s: StatementRow): string | null {
-  if (typeof s.llm_cost_usd !== 'number') return null
-  return s.llm_cost_usd > 0
-    ? `AI read ≈ $${Math.max(s.llm_cost_usd, 0.01).toFixed(2)}`
-    : 'No AI cost'
+  const rowsFact = (s: StatementRow): string | null => {
+    if (!s.rows_read) return null
+    const rows = formatMessage({ id: 'accounts.statementFacts.rows', defaultMessage: '{count, plural, one {# row} other {# rows}}' }, { count: s.rows_read })
+    if (s.added == null) return rows
+    return s.linked ? formatMessage({ id: 'accounts.statementFacts.newLinked', defaultMessage: '{rows} · {added} new · {linked} linked' }, { rows, added: s.added, linked: s.linked }) : formatMessage({ id: 'accounts.statementFacts.new', defaultMessage: '{rows} · {added} new' }, { rows, added: s.added })
+  }
+  const uploadedFact = (s: StatementRow, withTime = false): string | null => s.created_at ? formatMessage({ id: 'accounts.statementFacts.uploaded', defaultMessage: 'Uploaded {date}' }, { date: withTime ? fDateTime(s.created_at) : fDate(s.created_at) }) : null
+  const aiCostFact = (s: StatementRow): string | null => typeof s.llm_cost_usd !== 'number' ? null : s.llm_cost_usd > 0 ? formatMessage({ id: 'accounts.statementFacts.aiCost', defaultMessage: 'AI read ≈ ${amount}' }, { amount: Math.max(s.llm_cost_usd, 0.01).toFixed(2) }) : formatMessage({ id: 'accounts.statementFacts.noAiCost', defaultMessage: 'No AI cost' })
+  return { periodFact, rowsFact, uploadedFact, aiCostFact }
 }
 function Facts({ facts }: { facts: (string | null)[] }) {
   return (
@@ -90,13 +85,14 @@ function Facts({ facts }: { facts: (string | null)[] }) {
 }
 /** The balance check in words, or nothing when the file printed no balances to check. */
 function BalanceBadge({ s }: { s: StatementRow }) {
+  const { formatMessage } = useAppIntl()
   const r = s.reconcile
   if (!r) return null
-  const hint = 'Opening + money in − money out, against the closing balance the statement prints'
+  const hint = formatMessage({ id: 'accounts.statementBalance.hint', defaultMessage: 'Opening + money in − money out, against the closing balance the statement prints' })
   if (r.status === 'ok')
     return (
       <span title={hint}>
-        <Badge tone="pos">✓ Balance matches</Badge>
+        <Badge tone="pos">{formatMessage({ id: 'accounts.statementBalance.matches', defaultMessage: '✓ Balance matches' })}</Badge>
       </span>
     )
   if (r.status === 'off')
@@ -104,15 +100,15 @@ function BalanceBadge({ s }: { s: StatementRow }) {
       <span title={hint}>
         <Badge tone="warn">
           {typeof r.delta === 'number'
-            ? `Balance off by ${fCur(Math.abs(r.delta), s.currency || 'SGD', { cents: true })}`
-            : 'Balance off'}
+            ? formatMessage({ id: 'accounts.statementBalance.offAmount', defaultMessage: 'Balance off by {amount}' }, { amount: fCur(Math.abs(r.delta), s.currency || 'SGD', { cents: true }) })
+            : formatMessage({ id: 'accounts.statementBalance.off', defaultMessage: 'Balance off' })}
         </Badge>
       </span>
     )
   if (r.status === 'ok_if_flipped')
     return (
       <span title={hint}>
-        <Badge tone="warn">Balance matches with signs flipped</Badge>
+        <Badge tone="warn">{formatMessage({ id: 'accounts.statementBalance.flipped', defaultMessage: 'Balance matches with signs flipped' })}</Badge>
       </span>
     )
   return null
@@ -222,28 +218,29 @@ export function FileViewerBody({
    *  the app has the browser's pinch-zoom off, so the pages zoom themselves ("can't zoom in"). */
   pageItemId?: string
 }) {
+  const { formatMessage } = useAppIntl()
   const isMobile = useIsMobile()
-  if (state.kind === 'loading') return <div className="acct-stmtview-hint">Loading…</div>
+  if (state.kind === 'loading') return <div className="acct-stmtview-hint">{formatMessage({ id: 'accounts.fileViewer.loading', defaultMessage: 'Loading…' })}</div>
   if (state.kind === 'error')
     return (
       <div className="acct-stmtview-hint">
-        {errorMessage || "Couldn't load the file — try the download instead."}
+        {errorMessage || formatMessage({ id: 'accounts.fileViewer.loadFailed', defaultMessage: "Couldn't load the file — try the download instead." })}
       </div>
     )
   if (state.kind === 'other')
     return (
       <div className="acct-stmtview-hint">
-        No in-app preview for this file type — use the download.
+        {formatMessage({ id: 'accounts.fileViewer.unsupported', defaultMessage: 'No in-app preview for this file type — use the download.' })}
       </div>
     )
   if (state.kind === 'pdf' && isMobile && pageItemId)
-    return <DocumentReader itemId={pageItemId} title={filename || 'file'} />
+    return <DocumentReader itemId={pageItemId} title={filename || formatMessage({ id: 'accounts.fileViewer.file', defaultMessage: 'file' })} />
   if (state.kind === 'pdf')
-    return <iframe className="acct-stmtview-frame" src={state.url} title={filename || 'file'} />
+    return <iframe className="acct-stmtview-frame" src={state.url} title={filename || formatMessage({ id: 'accounts.fileViewer.file', defaultMessage: 'file' })} />
   if (state.kind === 'image')
     return (
       <div className="acct-receiptview-zoom">
-        <ZoomImage className="acct-receiptview-img" src={state.url} alt={filename || 'receipt'} />
+        <ZoomImage className="acct-receiptview-img" src={state.url} alt={filename || formatMessage({ id: 'accounts.receipt.viewerTitle', defaultMessage: 'Receipt' })} />
       </div>
     )
   return <pre className="acct-stmtview-text">{state.text}</pre>
@@ -253,6 +250,7 @@ export function FileViewerBody({
  *  CSV/Excel spreadsheet grid, images, text (owner, 2026-10-26: "even the statement viewer is
  *  not supporting full files like we have in that documents tab"). */
 function StatementFile({ statementId }: { statementId: string }) {
+  const { formatMessage } = useAppIntl()
   const [loaded, setLoaded] = useState<{ id: string; item: VaultItem | null } | null>(null)
   useEffect(() => {
     let alive = true
@@ -264,10 +262,10 @@ function StatementFile({ statementId }: { statementId: string }) {
       alive = false
     }
   }, [statementId])
-  if (loaded?.id !== statementId) return <div className="acct-stmtview-hint">Loading…</div>
+  if (loaded?.id !== statementId) return <div className="acct-stmtview-hint">{formatMessage({ id: 'accounts.fileViewer.loading', defaultMessage: 'Loading…' })}</div>
   if (!loaded.item)
     return (
-      <div className="acct-stmtview-hint">Couldn't load the file — try the download instead.</div>
+      <div className="acct-stmtview-hint">{formatMessage({ id: 'accounts.fileViewer.loadFailed', defaultMessage: "Couldn't load the file — try the download instead." })}</div>
     )
   return <DocumentPreview item={loaded.item} />
 }
@@ -281,6 +279,7 @@ export function StatementViewer({
   stmt: StatementRow
   onClose: () => void
 }) {
+  const { formatMessage } = useAppIntl()
   const [hydrated, setHydrated] = useState<StatementRow | null>(null)
   const stmt = hydrated ?? stmtProp
   useEffect(() => {
@@ -301,12 +300,12 @@ export function StatementViewer({
 
   const facts = [
     stmt.period_start ? `${stmt.period_start} → ${stmt.period_end || '…'}` : null,
-    stmt.statement_date ? `Issued ${stmt.statement_date}` : null,
+    stmt.statement_date ? formatMessage({ id: 'accounts.statementViewer.issued', defaultMessage: 'Issued {date}' }, { date: stmt.statement_date }) : null,
     stmt.amount_due != null
-      ? `Due ${stmt.payment_due_date || '—'} • ${fCur(stmt.amount_due, stmt.currency || 'SGD', { cents: true })}`
+      ? formatMessage({ id: 'accounts.statementViewer.due', defaultMessage: 'Due {date} • {amount}' }, { date: stmt.payment_due_date || '—', amount: fCur(stmt.amount_due, stmt.currency || 'SGD', { cents: true }) })
       : null,
     stmt.minimum_payment != null && stmt.minimum_payment > 0
-      ? `min ${fCur(stmt.minimum_payment, stmt.currency || 'SGD', { cents: true })}`
+      ? formatMessage({ id: 'accounts.statementViewer.minimum', defaultMessage: 'min {amount}' }, { amount: fCur(stmt.minimum_payment, stmt.currency || 'SGD', { cents: true }) })
       : null,
   ]
     .filter(Boolean)
@@ -332,7 +331,7 @@ export function StatementViewer({
   const removeTxn = async (id: string) => {
     if (
       !window.confirm(
-        'Remove this transaction from your ledger? (It looks like a duplicate of a statement row.)',
+        formatMessage({ id: 'accounts.statementViewer.removeConfirm', defaultMessage: 'Remove this transaction from your ledger? (It looks like a duplicate of a statement row.)' }),
       )
     )
       return
@@ -345,7 +344,7 @@ export function StatementViewer({
       open
       onClose={onClose}
       size="xl"
-      title={stmt.filename || 'Statement'}
+      title={stmt.filename || formatMessage({ id: 'accounts.statementViewer.title', defaultMessage: 'Statement' })}
       subtitle={facts || undefined}
       footer={
         <Button
@@ -358,7 +357,7 @@ export function StatementViewer({
             a.click()
           }}
         >
-          <Download size={14} aria-hidden="true" /> Download original
+          <Download size={14} aria-hidden="true" /> {formatMessage({ id: 'accounts.receipt.download', defaultMessage: 'Download original' })}
         </Button>
       }
     >
@@ -370,11 +369,9 @@ export function StatementViewer({
             onClick={() => setDiffOpen((o) => !o)}
             aria-expanded={diffOpen}
           >
-            <Badge tone="warn">⚠ ledger check</Badge>
+            <Badge tone="warn">{formatMessage({ id: 'accounts.statementViewer.ledgerCheck', defaultMessage: '⚠ ledger check' })}</Badge>
             <span className="acct-stmtview-check-t">
-              {diff.length} transaction{diff.length === 1 ? '' : 's'} in your ledger during this
-              period {diff.length === 1 ? 'is' : 'are'} not on this statement — duplicates to
-              remove, or worth a closer look.
+              {formatMessage({ id: 'accounts.statementViewer.diff', defaultMessage: '{count, plural, one {# transaction in your ledger during this period is not on this statement — duplicates to remove, or worth a closer look.} other {# transactions in your ledger during this period are not on this statement — duplicates to remove, or worth a closer look.}}' }, { count: diff.length })}
             </span>
             <span className="acct-stmtview-check-caret">
               {diffOpen ? (
@@ -389,12 +386,12 @@ export function StatementViewer({
               <div key={d.id} className="acct-stmtview-check-row">
                 <span className="nums">{d.date}</span>
                 <span className="acct-stmtview-check-note">{d.note || '—'}</span>
-                <Badge tone="muted">{d.source || d.kind || 'row'}</Badge>
+                <Badge tone="muted">{d.source || d.kind || formatMessage({ id: 'accounts.statementViewer.row', defaultMessage: 'row' })}</Badge>
                 <Money className="nums">
                   {d.amount != null ? fCur(d.amount, d.currency || 'SGD', { cents: true }) : ''}
                 </Money>
                 <Button size="sm" variant="danger" onClick={() => removeTxn(d.id)}>
-                  Remove
+                  {formatMessage({ id: 'accounts.statementViewer.remove', defaultMessage: 'Remove' })}
                 </Button>
               </div>
             ))}
@@ -422,6 +419,9 @@ function LifecycleStatementRow({
   onDownload: (s: StatementRow) => void
   onDelete: (s: StatementRow) => void
 }) {
+  const intl = useAppIntl()
+  const { formatMessage } = intl
+  const { periodFact, rowsFact, uploadedFact, aiCostFact } = useStatementFacts()
   const visible = useDocumentVisible()
   const isParsing = s.parse_status === 'parsing'
   const [errorOpen, setErrorOpen] = useState(false)
@@ -429,8 +429,8 @@ function LifecycleStatementRow({
   const stage = snapshot?.progress?.stages[snapshot.progress.stages.length - 1]
   // The badge already says "Reading…" — the line says which stage, and for how long.
   const liveLine = snapshot?.progress
-    ? `${stage ? progressPhaseLabel(stage.stage, stage.page, stage.pages, stage.label) : 'Starting'} · ${formatElapsed(snapshot.progress.elapsed_s)}`
-    : 'Starting'
+    ? `${stage ? progressPhaseLabel(stage.stage, stage.page, stage.pages, stage.label, intl) : formatMessage({ id: 'accounts.statementRow.starting', defaultMessage: "Starting" })} · ${formatElapsed(snapshot.progress.elapsed_s)}`
+    : formatMessage({ id: 'accounts.statementRow.starting', defaultMessage: "Starting" })
 
   return (
     <div className="acct-stmt-row">
@@ -446,19 +446,19 @@ function LifecycleStatementRow({
                 className="acct-stmt-name"
                 onClick={() => onReview?.(s.id, s.filename, s.created_at)}
               >
-                {s.filename || 'statement'}
+                {s.filename || formatMessage({ id: 'accounts.statementRow.statement', defaultMessage: "statement" })}
               </button>
             ) : (
-              <span className="acct-stmt-name-plain">{s.filename || 'statement'}</span>
+              <span className="acct-stmt-name-plain">{s.filename || formatMessage({ id: 'accounts.statementRow.statement', defaultMessage: "statement" })}</span>
             )}
             {/* One status badge per row, the same vocabulary as a filed row's "imported"
                 (owner, 2026-10-06: "show clearly the status — parsed, parsing, imported"). */}
-            {isParsing && <Badge tone="neutral">Reading…</Badge>}
-            {s.parse_status === 'ready' && <Badge tone="warn">Ready to review</Badge>}
-            {s.parse_status === 'interrupted' && <Badge tone="warn">Reading stopped</Badge>}
+            {isParsing && <Badge tone="neutral">{formatMessage({ id: 'accounts.statementRow.reading', defaultMessage: "Reading…" })}</Badge>}
+            {s.parse_status === 'ready' && <Badge tone="warn">{formatMessage({ id: 'accounts.statementRow.ready', defaultMessage: "Ready to review" })}</Badge>}
+            {s.parse_status === 'interrupted' && <Badge tone="warn">{formatMessage({ id: 'accounts.statementRow.stopped', defaultMessage: "Reading stopped" })}</Badge>}
             {s.parse_status === 'failed' && (
-              <span title={s.parse_error || 'Could not read this file'}>
-                <Badge tone="neg">Couldn’t read</Badge>
+              <span title={s.parse_error || formatMessage({ id: 'accounts.statementRow.readError', defaultMessage: "Could not read this file" })}>
+                <Badge tone="neg">{formatMessage({ id: 'accounts.statementRow.failed', defaultMessage: "Couldn’t read" })}</Badge>
               </span>
             )}
           </Cluster>
@@ -468,7 +468,7 @@ function LifecycleStatementRow({
               <Facts facts={[periodFact(s), rowsFact(s), uploadedFact(s), aiCostFact(s)]} />
             )}
             {s.parse_status === 'interrupted' && (
-              <span className="imp-metafact">Reading was interrupted</span>
+              <span className="imp-metafact">{formatMessage({ id: 'accounts.statementRow.interrupted', defaultMessage: "Reading was interrupted" })}</span>
             )}
             {s.parse_status === 'failed' &&
               (s.parse_error ? (
@@ -478,7 +478,7 @@ function LifecycleStatementRow({
                   onClick={() => setErrorOpen((o) => !o)}
                   aria-expanded={errorOpen}
                 >
-                  <span className="imp-metafact">Couldn’t read this file</span>
+                  <span className="imp-metafact">{formatMessage({ id: 'accounts.statementRow.failedFile', defaultMessage: "Couldn’t read this file" })}</span>
                   <span className="acct-stmt-err-caret">
                     {errorOpen ? (
                       <ChevronDown size="1em" aria-hidden="true" />
@@ -488,7 +488,7 @@ function LifecycleStatementRow({
                   </span>
                 </button>
               ) : (
-                <span className="imp-metafact">Couldn’t read this file</span>
+                <span className="imp-metafact">{formatMessage({ id: 'accounts.statementRow.failedFile', defaultMessage: "Couldn’t read this file" })}</span>
               ))}
             {s.parse_status === 'failed' && errorOpen && s.parse_error && (
               <span className="acct-stmt-err-detail">{s.parse_error}</span>
@@ -505,7 +505,7 @@ function LifecycleStatementRow({
             size="sm"
             onClick={() => onReview?.(s.id, s.filename, s.created_at)}
           >
-            {isParsing ? 'Open' : 'Review'}
+            {isParsing ? formatMessage({ id: 'accounts.statementRow.open', defaultMessage: "Open" }) : formatMessage({ id: 'accounts.statementRow.review', defaultMessage: "Review" })}
           </Button>
         )}
         {(s.parse_status === 'interrupted' || s.parse_status === 'failed') && (
@@ -515,20 +515,20 @@ function LifecycleStatementRow({
             size="sm"
             onClick={() => onRerun(s)}
           >
-            Re-run
+            {formatMessage({ id: 'accounts.statementRow.rerun', defaultMessage: "Re-run" })}
           </Button>
         )}
         {!isParsing && (
           <ActionMenu
-            label={`More actions for ${s.filename || 'statement'}`}
+            label={formatMessage({ id: 'accounts.statements.more', defaultMessage: 'More actions for {name}' }, { name: s.filename || formatMessage({ id: 'accounts.statementRow.statement', defaultMessage: 'statement' }) })}
             items={[
               {
-                label: 'Download',
+                label: formatMessage({ id: 'accounts.statements.download', defaultMessage: 'Download' }),
                 icon: <Download size={14} strokeWidth={1.5} aria-hidden />,
                 onSelect: () => onDownload(s),
               },
               {
-                label: 'Delete',
+                label: formatMessage({ id: 'accounts.statements.delete', defaultMessage: 'Delete' }),
                 tone: 'danger',
                 icon: <Trash2 size={14} strokeWidth={1.5} aria-hidden />,
                 onSelect: () => onDelete(s),
@@ -561,6 +561,8 @@ export function StatementsModal({
    *  review step for this statement's already-cached parse (no re-upload). */
   onReviewStatement?: (statementId: string, filename?: string, uploadedAt?: string) => void
 }) {
+  const { formatMessage } = useAppIntl()
+  const { periodFact, rowsFact, uploadedFact, aiCostFact } = useStatementFacts()
   const [viewing, setViewing] = useState<StatementRow | null>(null)
 
   // Read through the query cache: reopening shows the last list at once and refreshes it
@@ -576,7 +578,7 @@ export function StatementsModal({
   }, [listUrl])
   const list = useQueryCache(listUrl, fetchList, { version: anyWriteV })
   const rows = list.data ?? null
-  const error = list.error != null && rows === null ? 'Could not load statements.' : ''
+  const error = list.error != null && rows === null ? formatMessage({ id: 'accounts.statements.loadError', defaultMessage: "Could not load statements." }) : ''
   const reload = () => void list.refresh().catch(() => {})
 
   // Lifecycle rows (parsing/failed/interrupted/ready-not-yet-reviewed) sort ABOVE ordinary
@@ -588,7 +590,7 @@ export function StatementsModal({
   const download = (s: StatementRow) => {
     const a = document.createElement('a')
     a.href = `/api/statements/${s.id}/file`
-    a.download = s.filename || 'statement'
+    a.download = s.filename || formatMessage({ id: 'accounts.visible.statementLower', defaultMessage: 'statement' })
     a.click()
   }
   // Asks in the app's own confirm window, in one short line (owner, 2026-10-26: the old browser
@@ -613,24 +615,24 @@ export function StatementsModal({
   }
 
   return (
-    <Modal open onClose={onClose} size="xl" title="Statements" subtitle={accountName}>
-      {error && <ErrorState title="Couldn't load statements" message={error} onRetry={reload} />}
-      {!error && rows === null && <Loading label="Loading statements…" />}
+    <Modal open onClose={onClose} size="xl" title={formatMessage({ id: 'accounts.statements.title', defaultMessage: "Statements" })} subtitle={accountName}>
+      {error && <ErrorState title={formatMessage({ id: 'accounts.statements.errorTitle', defaultMessage: "Couldn't load statements" })} message={error} onRetry={reload} />}
+      {!error && rows === null && <Loading label={formatMessage({ id: 'accounts.statements.loading', defaultMessage: "Loading statements…" })} />}
       {!error && rows !== null && rows.length === 0 && (
         <EmptyState
           icon={<FileText size={28} strokeWidth={1.5} aria-hidden="true" />}
-          title="No statements yet"
-          body="Import a bank or card statement and it files here — with its period, due date, amount, and the balance check against the statement's own figures."
+          title={formatMessage({ id: 'accounts.statements.empty', defaultMessage: "No statements yet" })}
+          body={formatMessage({ id: 'accounts.statements.emptyBody', defaultMessage: "Import a bank or card statement and it files here — with its period, due date, amount, and the balance check against the statement's own figures." })}
           action={
             <Cluster gap="--space-3" justify="center">
               {onImport && (
                 <Button size="sm" variant="primary" onClick={onImport}>
-                  Import a statement
+                  {formatMessage({ id: 'accounts.statements.import', defaultMessage: "Import a statement" })}
                 </Button>
               )}
               <LuciusCta
-                label="Add with Lucius"
-                message={`Help me add statements for my ${accountName ?? 'account'}. I can send a PDF or screenshot instead of importing it myself.`}
+                label={formatMessage({ id: 'accounts.statements.lucius', defaultMessage: "Add with Lucius" })}
+                message={formatMessage({ id: 'accounts.visible.statementPrompt', defaultMessage: 'Help me add statements for my {account}. I can send a PDF or screenshot instead of importing it myself.' }, { account: accountName ?? formatMessage({ id: 'accounts.visible.account', defaultMessage: 'account' }) })}
                 onAskLucius={onAskLucius}
               />
             </Cluster>
@@ -660,17 +662,17 @@ export function StatementsModal({
                       <button
                         type="button"
                         className="acct-stmt-name"
-                        title="View the statement"
+                        title={formatMessage({ id: 'accounts.statements.view', defaultMessage: "View the statement" })}
                         onClick={() => setViewing(s)}
                       >
-                        {s.filename || 'statement'}
+                        {s.filename || formatMessage({ id: 'accounts.visible.statementLower', defaultMessage: 'statement' })}
                       </button>
                       <Badge tone="pos">
-                        {s.imported_at ? `Imported ${fDate(s.imported_at)}` : 'Imported'}
+                        {s.imported_at ? formatMessage({ id: 'accounts.statements.importedAt', defaultMessage: 'Imported {date}' }, { date: fDate(s.imported_at) }) : formatMessage({ id: 'accounts.statements.imported', defaultMessage: "Imported" })}
                       </Badge>
                       <BalanceBadge s={s} />
                       {(s.account_ids?.length ?? 0) > 1 && (
-                        <Badge tone="neutral">{s.account_ids!.length} accounts</Badge>
+                        <Badge tone="neutral">{formatMessage({ id: 'accounts.statements.accountCount', defaultMessage: '{count} accounts' }, { count: s.account_ids!.length })}</Badge>
                       )}
                     </Cluster>
                     <div className="imp-metaline">
@@ -687,21 +689,21 @@ export function StatementsModal({
                         {fCur(s.amount_due, s.currency || 'SGD', { cents: true })}
                       </Money>
                       {s.payment_due_date && (
-                        <span className="acct-stmt-due">Due {fDate(s.payment_due_date)}</span>
+                        <span className="acct-stmt-due">{formatMessage({ id: 'accounts.statements.due', defaultMessage: 'Due {date}' }, { date: fDate(s.payment_due_date) })}</span>
                       )}
                     </Stack>
                   </div>
                 )}
                 <ActionMenu
-                  label={`More actions for ${s.filename || 'statement'}`}
+                  label={formatMessage({ id: 'accounts.statements.more', defaultMessage: 'More actions for {name}' }, { name: s.filename || formatMessage({ id: 'accounts.statements.thisStatement', defaultMessage: 'this statement' }) })}
                   items={[
                     {
-                      label: 'Download',
+                      label: formatMessage({ id: 'accounts.statements.download', defaultMessage: "Download" }),
                       icon: <Download size={14} strokeWidth={1.5} aria-hidden />,
                       onSelect: () => download(s),
                     },
                     {
-                      label: 'Delete',
+                      label: formatMessage({ id: 'accounts.statements.delete', defaultMessage: "Delete" }),
                       tone: 'danger',
                       icon: <Trash2 size={14} strokeWidth={1.5} aria-hidden />,
                       onSelect: () => removeStatement(s),
@@ -716,13 +718,13 @@ export function StatementsModal({
       {viewing && <StatementViewer stmt={viewing} onClose={() => setViewing(null)} />}
       <ConfirmModal
         open={deleting !== null}
-        title={`Delete ${deleting?.filename || 'this statement'}?`}
+        title={formatMessage({ id: 'accounts.statements.deleteQuestion', defaultMessage: 'Delete {name}?' }, { name: deleting?.filename || formatMessage({ id: 'accounts.statements.thisStatement', defaultMessage: 'this statement' }) })}
         body={
           deleting?.batch_ids?.length
-            ? 'The file is removed. The transactions it added stay in your ledger.'
-            : 'The file and its review are removed.'
+            ? formatMessage({ id: 'accounts.statements.removeKeep', defaultMessage: "The file is removed. The transactions it added stay in your ledger." })
+            : formatMessage({ id: 'accounts.statements.removeReview', defaultMessage: "The file and its review are removed." })
         }
-        confirmLabel="Delete"
+        confirmLabel={formatMessage({ id: 'accounts.statements.delete', defaultMessage: "Delete" })}
         danger
         onConfirm={() => void confirmRemove()}
         onClose={() => setDeleting(null)}

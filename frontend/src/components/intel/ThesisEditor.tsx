@@ -1,3 +1,6 @@
+import type { IntlShape } from 'react-intl'
+import { FormattedMessage } from './FormattedMessage'
+import { useAppIntl } from '../../i18n/useAppIntl'
 import { useId, useLayoutEffect, useRef, useState, type CSSProperties } from 'react'
 import {
   Button,
@@ -12,15 +15,11 @@ import { getCurrencySymbol } from '../../utils/format'
 import { saveInvestmentThesis } from '../../api/investmentTheses'
 import type { InvestmentThesis, InvestmentThesisFields } from '../../types/assetDetail'
 import {
-  BREAKS_IF_EXAMPLE,
-  BREAKS_IF_LABEL,
   formatPrice,
   groupPrice,
   parsePrice,
   PRICE_LABELS,
   priceText,
-  reasonExample,
-  reasonLabel,
   ROLES,
   type PriceKey,
   type Role,
@@ -65,23 +64,27 @@ function draftOf(thesis: InvestmentThesis | null, held: boolean): Draft {
   }
 }
 
+function thesisPriceLabel(key: PriceKey, intl: IntlShape): string {
+  return intl.formatMessage({ id: 'intel.thesis.priceLabel', defaultMessage: '{key, select, stop_below {Stop below} trim_above {Trim above} buy_below {Buy at or under} buy_above {…but not under} other {Fair value}}' }, { key })
+}
+
 /** The first rule the draft breaks, and the field to outline for it. */
-function draftError(d: Draft): { message: string; field: PriceKey } | null {
+function draftError(d: Draft, intl: IntlShape): { message: string; field: PriceKey } | null {
   // A typo must not save as "no level" — that would silently delete it.
   for (const k of Object.keys(PRICE_LABELS) as PriceKey[]) {
     if (d.prices[k].trim() && parsePrice(d.prices[k]) == null)
-      return { message: `${PRICE_LABELS[k]} must be a positive number.`, field: k }
+      return { message: intl.formatMessage({ id: 'intel.thesis.positive', defaultMessage: '{field} must be a positive number.' }, { field: thesisPriceLabel(k, intl) }), field: k }
   }
   const below = parsePrice(d.prices.buy_below)
   const above = parsePrice(d.prices.buy_above)
   const stop = parsePrice(d.prices.stop_below)
   const trim = parsePrice(d.prices.trim_above)
   if (above != null && below == null)
-    return { message: 'Set “Buy at or under” first.', field: 'buy_below' }
+    return { message: intl.formatMessage({ id: 'intel.thesis.needUpper', defaultMessage: 'Set “Buy at or under” first.' }), field: 'buy_below' }
   if (above != null && below != null && above >= below)
-    return { message: 'The floor must be below the top of the buy zone.', field: 'buy_above' }
+    return { message: intl.formatMessage({ id: 'intel.thesis.zoneOrder', defaultMessage: 'The floor must be below the top of the buy zone.' }), field: 'buy_above' }
   if (stop != null && trim != null && stop >= trim)
-    return { message: 'Your stop must be below your trim level.', field: 'stop_below' }
+    return { message: intl.formatMessage({ id: 'intel.thesis.stopOrder', defaultMessage: 'Your stop must be below your trim level.' }), field: 'stop_below' }
   return null
 }
 
@@ -124,13 +127,14 @@ function PriceInput({ symbol, ...rest }: TextFieldProps & { symbol: string }) {
 }
 
 export function ThesisEditor({ instrumentId, thesis, held, currency, onSaved, onCancel }: Props) {
+  const intl = useAppIntl()
   // useId, not fixed ids: the card and the alerts dialog can both hold an editor on one page.
   const id = useId()
   const [draft, setDraft] = useState<Draft>(() => draftOf(thesis, held))
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const localError = draftError(draft)
-  const roleHelp = ROLES.find((r) => r.value === draft.role)?.help
+  const localError = draftError(draft, intl)
+  const roleHelp = draft.role ? intl.formatMessage({ id: 'intel.thesis.roleHelp', defaultMessage: '{role, select, core {The long-term base of your portfolio.} satellite {An active bet around your core holdings.} other {A small, high-risk bet you can afford to lose.}}' }, { role: draft.role }) : undefined
   const symbol = currency ? getCurrencySymbol(currency) : ''
 
   async function save() {
@@ -149,31 +153,31 @@ export function ThesisEditor({ instrumentId, thesis, held, currency, onSaved, on
   return (
     <div className="asd-thesis-form">
       {held && (
-        <FormField label="Role" info={roleHelp}>
+        <FormField label={intl.formatMessage({ id: "intel.field.f75b2554", defaultMessage: "Role" })} info={roleHelp}>
           <SegmentedControl<Role>
-            ariaLabel="Role"
-            options={ROLES.map((r) => ({ value: r.value, label: r.label }))}
+            ariaLabel={intl.formatMessage({ id: 'intel.field.f75b2554', defaultMessage: 'Role' })}
+            options={ROLES.map((r) => ({ value: r.value, label: intl.formatMessage({ id: 'intel.thesis.role', defaultMessage: '{role, select, core {Core} satellite {Satellite} other {Speculative}}' }, { role: r.value }) }))}
             value={draft.role ?? ('' as Role)}
             onChange={(v) => setDraft({ ...draft, role: v })}
           />
         </FormField>
       )}
-      <FormField label={reasonLabel(held)} htmlFor={`${id}-reason`}>
+      <FormField label={intl.formatMessage({ id: 'intel.thesis.reason', defaultMessage: '{held, select, yes {Why you own it} other {Why you’d buy it}}' }, { held: held ? 'yes' : 'no' })} htmlFor={`${id}-reason`}>
         <GrowingText
           id={`${id}-reason`}
           maxLength={280}
           value={draft.reason}
-          placeholder={reasonExample(held)}
+          placeholder={intl.formatMessage({ id: 'intel.thesis.reasonExample', defaultMessage: '{held, select, yes {e.g. Cloud revenue keeps growing 30%+ a year while margins hold. Holding 3+ years.} other {e.g. Leader in AI chips, but too expensive today.}}' }, { held: held ? 'yes' : 'no' })}
           onChange={(e) => setDraft({ ...draft, reason: e.target.value })}
         />
       </FormField>
       {held && (
-        <FormField label={BREAKS_IF_LABEL} htmlFor={`${id}-breaks`}>
+        <FormField label={intl.formatMessage({ id: 'intel.thesis.breaksIf', defaultMessage: 'Thesis breaks if' })} htmlFor={`${id}-breaks`}>
           <GrowingText
             id={`${id}-breaks`}
             maxLength={280}
             value={draft.breaks_if}
-            placeholder={BREAKS_IF_EXAMPLE}
+            placeholder={intl.formatMessage({ id: 'intel.thesis.breaksExample', defaultMessage: 'e.g. Cloud growth slows two quarters in a row, or the CEO leaves.' })}
             onChange={(e) => setDraft({ ...draft, breaks_if: e.target.value })}
           />
         </FormField>
@@ -185,7 +189,7 @@ export function ThesisEditor({ instrumentId, thesis, held, currency, onSaved, on
         ).map((k) => (
           <FormField
             key={k}
-            label={PRICE_LABELS[k]}
+            label={thesisPriceLabel(k, intl)}
             htmlFor={`${id}-${k}`}
             span={held && k === 'fair_value' ? 'full' : 1}
           >
@@ -211,10 +215,10 @@ export function ThesisEditor({ instrumentId, thesis, held, currency, onSaved, on
       )}
       <div className="asd-thesis-actions">
         <Button variant="secondary" size="sm" onClick={onCancel} disabled={saving}>
-          Cancel
+          {<FormattedMessage id="intel.extra.51bac044" defaultMessage={"Cancel"} />}
         </Button>
         <Button variant="primary" size="sm" onClick={() => void save()} loading={saving}>
-          Save thesis
+          {<FormattedMessage id="intel.extra.7e7c1a90" defaultMessage={"Save thesis"} />}
         </Button>
       </div>
     </div>

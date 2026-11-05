@@ -1,3 +1,6 @@
+import { getNumberLocale } from '../../../utils/format'
+import { fFixed } from '../../../utils/format'
+import { useAppIntl } from '../../../i18n/useAppIntl'
 // The price trigger's ticker: any symbol on the market, not only ones in your book. Your own
 // instruments are suggested first; past them, the market search the command palette uses.
 // Picking a market result resolves it (find-or-create) so its quote currency is known.
@@ -122,6 +125,7 @@ export function TickerPicker({
   /** The ticker typed or picked; `picked` is set when a market result was resolved. */
   onChange: (ticker: string, picked?: PickedInstrument) => void
 }) {
+  const { formatMessage } = useAppIntl()
   const [open, setOpen] = useState(false)
   useEffect(() => {
     onOpenChange?.(open)
@@ -168,7 +172,10 @@ export function TickerPicker({
         }
         className={`a3-mini-select${needed ? ' needed' : ''}`}
         value={value}
-        placeholder="Search any ticker — AAPL, BTC, D05.SI"
+        placeholder={formatMessage({
+          id: 'automations.ticker.placeholder',
+          defaultMessage: 'Search any ticker — AAPL, BTC, D05.SI',
+        })}
         onFocus={() => setOpen(true)}
         onChange={(event) => {
           onChange(event.target.value)
@@ -195,7 +202,10 @@ export function TickerPicker({
       <button
         type="button"
         className="a3-combo-toggle"
-        aria-label="Show ticker suggestions"
+        aria-label={formatMessage({
+          id: 'automations.ticker.showSuggestions',
+          defaultMessage: 'Show ticker suggestions',
+        })}
         aria-expanded={open}
         onMouseDown={(event) => event.preventDefault()}
         onClick={() => {
@@ -206,7 +216,15 @@ export function TickerPicker({
         <ChevronDown size={13} aria-hidden="true" />
       </button>
       {open && (suggestions.length > 0 || loading) && (
-        <div id={listId} className="a3-combo-pop" role="listbox" aria-label="Ticker suggestions">
+        <div
+          id={listId}
+          className="a3-combo-pop"
+          role="listbox"
+          aria-label={formatMessage({
+            id: 'automations.ticker.suggestions',
+            defaultMessage: 'Ticker suggestions',
+          })}
+        >
           {suggestions.map((suggestion, index) => (
             <button
               key={suggestion.key}
@@ -228,11 +246,23 @@ export function TickerPicker({
             </button>
           ))}
           {loading && suggestions.length === 0 && (
-            <div className="a3-combo-status">Searching the market…</div>
+            <div className="a3-combo-status">
+              {formatMessage({
+                id: 'automations.ticker.searching',
+                defaultMessage: 'Searching the market…',
+              })}
+            </div>
           )}
         </div>
       )}
-      {failed && <div className="a3-combo-status">Couldn’t look that ticker up — try again.</div>}
+      {failed && (
+        <div className="a3-combo-status">
+          {formatMessage({
+            id: 'automations.ticker.lookupFailed',
+            defaultMessage: 'Couldn’t look that ticker up — try again.',
+          })}
+        </div>
+      )}
     </div>
   )
 }
@@ -274,6 +304,8 @@ export function TickerConfirm({
   onCurrency: (ticker: string, currency: string) => void
   onSearchAgain: () => void
 }) {
+  const intl = useAppIntl()
+  const { formatMessage } = intl
   const symbol = ticker.trim()
   const [quote, setQuote] = useState<{ for: string; quote: Quote } | null>(null)
   useEffect(() => {
@@ -297,15 +329,28 @@ export function TickerConfirm({
 
   if (!symbol) return null
   if (!quote || quote.for !== symbol) {
-    return <div className="a3-ticker-card a3-muted">Looking up {symbol}…</div>
+    return (
+      <div className="a3-ticker-card a3-muted">
+        {formatMessage(
+          { id: 'automations.ticker.lookingUp', defaultMessage: 'Looking up {symbol}…' },
+          { symbol },
+        )}
+      </div>
+    )
   }
   const q = quote.quote
   if (!q.name && q.price === undefined) {
     return (
       <div className="a3-ticker-card warn">
-        Couldn’t find {symbol} on the market — check the ticker.{' '}
+        {formatMessage(
+          {
+            id: 'automations.ticker.notFound',
+            defaultMessage: 'Couldn’t find {symbol} on the market — check the ticker.',
+          },
+          { symbol },
+        )}{' '}
         <button type="button" className="a3-linkbtn" onClick={onSearchAgain}>
-          Search again
+          {formatMessage({ id: 'automations.ticker.searchAgain', defaultMessage: 'Search again' })}
         </button>
       </div>
     )
@@ -313,18 +358,31 @@ export function TickerConfirm({
   const change =
     q.price !== undefined && q.previous ? ((q.price - q.previous) / q.previous) * 100 : undefined
   const money = (n: number) =>
-    `${q.currency ? `${q.currency} ` : ''}${n.toLocaleString(undefined, { maximumFractionDigits: 4 })}`
+    `${q.currency ? `${q.currency} ` : ''}${n.toLocaleString(getNumberLocale(), { maximumFractionDigits: 4 })}`
   return (
     <div className="a3-ticker-card">
       <div className="a3-ticker-name">{q.name ?? symbol}</div>
       <div className="a3-muted">
         {[symbol, q.exchange, q.currency].filter(Boolean).join(' · ')}
         {q.price !== undefined
-          ? ` · last ${money(q.price)}${change !== undefined ? ` (${change >= 0 ? '+' : ''}${change.toFixed(1)}%)` : ''}`
-          : ' · no live price right now'}
+          ? formatMessage(
+              { id: 'automations.ticker.lastPrice', defaultMessage: ' · last {price}{change}' },
+              {
+                price: money(q.price),
+                change:
+                  change !== undefined ? ` (${change >= 0 ? '+' : ''}${fFixed(change, 1)}%)` : '',
+              },
+            )
+          : formatMessage({
+              id: 'automations.ticker.noPrice',
+              defaultMessage: ' · no live price right now',
+            })}
       </div>
       <button type="button" className="a3-linkbtn" onClick={onSearchAgain}>
-        Not this one? Search again
+        {formatMessage({
+          id: 'automations.ticker.notThis',
+          defaultMessage: 'Not this one? Search again',
+        })}
       </button>
     </div>
   )

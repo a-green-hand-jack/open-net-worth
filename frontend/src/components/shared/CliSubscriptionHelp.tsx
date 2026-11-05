@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
+import { useAppIntl } from '../../i18n/useAppIntl'
 import { Check, Copy } from 'lucide-react'
 import { Button, CollapsibleSection, Stack, Text } from '../ui'
-import { TERMINAL_NOTICE } from './privateCloudCopy'
 
 export type CliHostPlatform = 'macos' | 'windows' | 'linux' | 'other'
 export interface CliSubscriptionHelpProps {
@@ -34,6 +34,7 @@ const PROVIDERS = {
 } as const
 
 function CopyCommand({ command, label }: { command: string; label: string }) {
+  const { formatMessage } = useAppIntl()
   const [copied, setCopied] = useState(false)
   const [failed, setFailed] = useState(false)
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -65,21 +66,34 @@ function CopyCommand({ command, label }: { command: string; label: string }) {
           type="button"
           className="cli-subscription-copy"
           aria-label={label}
-          title={copied ? 'Copied' : 'Copy'}
+          title={
+            copied
+              ? formatMessage({ id: 'shared.cli.copied', defaultMessage: 'Copied' })
+              : formatMessage({ id: 'shared.cli.copy', defaultMessage: 'Copy' })
+          }
           data-copied={copied || undefined}
           onClick={() => void copy()}
         >
           {copied ? <Check size={16} aria-hidden /> : <Copy size={16} aria-hidden />}
-          <span className="sr-only">{copied ? 'Copied' : 'Copy'}</span>
+          <span className="sr-only">
+            {copied
+              ? formatMessage({ id: 'shared.cli.copied', defaultMessage: 'Copied' })
+              : formatMessage({ id: 'shared.cli.copy', defaultMessage: 'Copy' })}
+          </span>
         </button>
       </div>
       <span role="status" className="sr-only">
-        {copied ? 'Command copied.' : ''}
+        {copied
+          ? formatMessage({ id: 'shared.cli.commandCopied', defaultMessage: 'Command copied.' })
+          : ''}
       </span>
       {failed && (
         <div role="status">
           <Text as="p" size="sm" tone="muted">
-            Could not copy. Select the command and copy it manually.
+            {formatMessage({
+              id: 'shared.cli.copyError',
+              defaultMessage: 'Could not copy. Select the command and copy it manually.',
+            })}
           </Text>
         </div>
       )}
@@ -91,6 +105,7 @@ function InstallationSteps({
   provider,
   platform,
 }: Pick<CliSubscriptionHelpProps, 'provider' | 'platform'>) {
+  const { formatMessage } = useAppIntl()
   const details = PROVIDERS[provider]
   const knownPlatform = platform === 'windows' || platform === 'macos' || platform === 'linux'
   const command = platform === 'windows' ? details.windows : details.unix
@@ -100,25 +115,52 @@ function InstallationSteps({
         <>
           <Stack gap="--space-2">
             <Text as="p" size="sm" weight={600}>
-              1. Install {details.label} in {platform === 'windows' ? 'PowerShell' : 'Terminal'}
+              {formatMessage(
+                {
+                  id: 'shared.cli.installStep',
+                  defaultMessage: '1. Install {provider} in {terminal}',
+                },
+                {
+                  provider: details.label,
+                  terminal: platform === 'windows' ? 'PowerShell' : 'Terminal',
+                },
+              )}
             </Text>
             <CopyCommand
               key={command}
               command={command}
-              label={`Copy ${details.label} install command`}
+              label={formatMessage(
+                { id: 'shared.cli.copyInstall', defaultMessage: 'Copy {provider} install command' },
+                { provider: details.label },
+              )}
             />
           </Stack>
           <Stack gap="--space-2">
             <Text as="p" size="sm" weight={600}>
-              2. Open a new terminal and sign in
+              {formatMessage({
+                id: 'shared.cli.signInStep',
+                defaultMessage: '2. Open a new terminal and sign in',
+              })}
             </Text>
             <CopyCommand
               key={details.login}
               command={details.login}
-              label={`Copy ${details.label} sign-in command`}
+              label={formatMessage(
+                { id: 'shared.cli.copySignIn', defaultMessage: 'Copy {provider} sign-in command' },
+                { provider: details.label },
+              )}
             />
             <Text as="p" size="sm" tone="muted">
-              {details.signIn} Plan limits apply.
+              {provider === 'claude_cli'
+                ? formatMessage({
+                    id: 'shared.cli.claudeSignIn',
+                    defaultMessage: 'Choose your Claude subscription when prompted.',
+                  })
+                : formatMessage({
+                    id: 'shared.cli.codexSignIn',
+                    defaultMessage: 'Choose “Sign in with ChatGPT” when prompted.',
+                  })}{' '}
+              {formatMessage({ id: 'shared.cli.limits', defaultMessage: 'Plan limits apply.' })}
             </Text>
           </Stack>
         </>
@@ -130,7 +172,13 @@ function InstallationSteps({
           target="_blank"
           rel="noreferrer"
         >
-          Official {details.label} installation instructions
+          {formatMessage(
+            {
+              id: 'shared.cli.official',
+              defaultMessage: 'Official {provider} installation instructions',
+            },
+            { provider: details.label },
+          )}
         </a>
       )}
     </Stack>
@@ -141,26 +189,46 @@ function TerminalSteps({
   provider,
   onOpen,
 }: Pick<CliSubscriptionHelpProps, 'provider'> & { onOpen: () => void }) {
-  const details = PROVIDERS[provider]
+  const { formatMessage } = useAppIntl()
   // The terminal runs on the server: Codex's default sign-in sends the browser to the server's
   // own 127.0.0.1, which this browser cannot reach. Its device-code sign-in works from anywhere.
   const command = provider === 'claude_cli' ? 'claude' : 'codex login --device-auth'
   const signIn =
     provider === 'claude_cli'
-      ? details.signIn
-      : 'It shows a link and a code: open the link here and enter the code.'
+      ? formatMessage({
+          id: 'shared.cli.claudeSignIn',
+          defaultMessage: 'Choose your Claude subscription when prompted.',
+        })
+      : formatMessage({
+          id: 'shared.cli.deviceAuth',
+          defaultMessage: 'It shows a link and a code: open the link here and enter the code.',
+        })
   return (
     <Stack gap="--space-3">
       <Text as="p" size="sm">
-        Open Terminal and run <code className="cli-subscription-command">{command}</code>. {signIn}{' '}
-        This updates on its own once you are signed in.
+        {formatMessage(
+          {
+            id: 'shared.cli.terminalInstructions',
+            defaultMessage:
+              'Open Terminal and run <code>{command}</code>. {signIn} This updates on its own once you are signed in.',
+          },
+          {
+            command,
+            signIn,
+            code: (chunks) => <code className="cli-subscription-command">{chunks}</code>,
+          },
+        )}
       </Text>
       <Text as="p" size="sm" tone="muted">
-        {TERMINAL_NOTICE}
+        {formatMessage({
+          id: 'shared.cli.terminalNotice',
+          defaultMessage:
+            'This is your server. Tools you sign in to here are used under your own agreement with their provider.',
+        })}
       </Text>
       <div>
         <Button variant="secondary" onClick={onOpen}>
-          Open Terminal
+          {formatMessage({ id: 'shared.cli.openTerminal', defaultMessage: 'Open Terminal' })}
         </Button>
       </div>
     </Stack>
@@ -178,6 +246,7 @@ export function CliSubscriptionHelp({
   onCheck,
   terminal,
 }: CliSubscriptionHelpProps) {
+  const { formatMessage } = useAppIntl()
   const [open, setOpen] = useState(false)
   const check = useRef(onCheck)
   useEffect(() => {
@@ -213,13 +282,22 @@ export function CliSubscriptionHelp({
   return (
     <CollapsibleSection
       className="cli-subscription-help"
-      title={terminal ? 'Sign in from Terminal' : 'Install & sign in'}
+      title={
+        terminal
+          ? formatMessage({
+              id: 'shared.cli.signInTerminal',
+              defaultMessage: 'Sign in from Terminal',
+            })
+          : formatMessage({ id: 'shared.cli.installSignIn', defaultMessage: 'Install & sign in' })
+      }
       open={open}
       onOpenChange={setOpen}
       actions={
         <span role="status">
           <Text size="sm" tone="muted">
-            {detected ? 'Detected' : 'Not installed'}
+            {detected
+              ? formatMessage({ id: 'shared.cli.detected', defaultMessage: 'Detected' })
+              : formatMessage({ id: 'shared.cli.notInstalled', defaultMessage: 'Not installed' })}
           </Text>
         </span>
       }
@@ -229,8 +307,11 @@ export function CliSubscriptionHelp({
       ) : (
         <Stack gap="--space-5">
           <Text as="p" size="sm" tone="muted">
-            Run these on the computer running Open Net Worth. This updates on its own once
-            it&rsquo;s installed.
+            {formatMessage({
+              id: 'shared.cli.runHere',
+              defaultMessage:
+                'Run these on the computer running Open Net Worth. This updates on its own once it’s installed.',
+            })}
           </Text>
           <InstallationSteps provider={provider} platform={platform} />
         </Stack>

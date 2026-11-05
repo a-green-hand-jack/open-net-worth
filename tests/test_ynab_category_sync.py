@@ -341,7 +341,7 @@ def test_the_same_rename_on_both_sides_goes_to_review_and_either_side_can_win(wo
     assert sync()["summary"] == "1 needs review" and not world.writes
     (item,) = ynab_sync.status()["conflicts"]
     assert item["entity"] == "category" and item["kind"] == "conflict"
-    assert item["fields"] == [{"label": "Name", "onw": "Food", "ynab": "Meals"}]
+    assert item["fields"] == [{"label": "Name", "field_id": "name", "onw": "Food", "ynab": "Meals"}]
     assert item["reason"] == "Renamed here and in YNAB. Pick the name to keep."
     ynab_sync.resolve.resolve(item["id"], "onw")
     assert ynab_stub.category_named(world.state, "Food")["id"] == world.state["C"]["groc"]
@@ -730,7 +730,7 @@ def test_picking_a_category_reports_a_real_sentence(world, monkeypatch):  # noqa
     from backend.services.ynab_sync import recorder
 
     lines = []
-    monkeypatch.setattr(recorder, "category_change", lambda d, t: lines.append(t))
+    monkeypatch.setattr(recorder, "category_change", lambda d, t, message=None: lines.append(t))
     enable()
     sync()
     a = make("Gifts", envelope=False)

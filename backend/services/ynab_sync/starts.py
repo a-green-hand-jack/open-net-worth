@@ -62,6 +62,22 @@ def _item(acct: dict, start: str, rows: list[dict], txns: list[dict]) -> dict:
         "currency": cur,
         "txn_ids": sorted(t["id"] for t in rows),
         "reason": reason,
+        "reason_message": {
+            "message_id": "ynab.sync.reason.beforeStart",
+            "params": {
+                "count": str(len(rows)),
+                "account": acct["name"],
+                "start": start,
+                "now": _money(now, cur),
+                "earliest": earliest,
+                "counted": _money(counted, cur),
+                "difference": _money(abs(counted - now), cur),
+                "nowValue": now,
+                "countedValue": counted,
+                "differenceValue": abs(counted - now),
+                "currency": cur,
+            },
+        },
     }
 
 

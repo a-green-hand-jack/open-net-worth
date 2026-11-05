@@ -560,6 +560,10 @@ in-payload-is-exact, with ZERO promoted columns** — the smallest schema footpr
 far (money: 7 promoted columns, planning: 1, investments: 0): every money-bearing field
 (`positions.{cost_basis,quantity}`, `lots.{unit_cost,fees,fx_rate,original_qty,remaining_qty}`,
 `vest_events.{fmv_per_unit,price_paid_per_unit,gross_gain_native,base_amount,units}`,
+`option_contracts.strategy_preset` records an explicitly selected built-in preset; `null` means
+the label's origin is unknown or user-supplied. Historical rows migrate to `null`, and editing a
+strategy label clears the marker. The original `strategy_tag` and all option economics are unchanged.
+
 `option_contracts.{strike,premium_per_share,close_premium_per_share,collateral_amount,
 contracts}`, `realized_events.{proceeds_per_unit,disposal_fees,realized_gain,
 realized_gain_base,fx_rate,quantity}` + its nested `consumptions[]`) stays inside the verbatim

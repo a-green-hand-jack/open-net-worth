@@ -37,6 +37,12 @@ _COMMODITIES: list[tuple[str, str]] = [
     ("CL=F", "Crude"),
     ("NG=F", "Nat Gas"),
 ]
+_COMMODITY_LABEL_SOURCES = {
+    "GC=F": "gold",
+    "SI=F": "silver",
+    "CL=F": "crude",
+    "NG=F": "natural_gas",
+}
 _COINS: list[tuple[str, str]] = [
     ("BTC", "BTC"),
     ("ETH", "ETH"),
@@ -127,6 +133,8 @@ def _build(base: str) -> list[dict]:
             "price": quote.price,
             "change_pct": quote.change_pct,
         }
+        if kind == "commodity" and sym in _COMMODITY_LABEL_SOURCES:
+            row["label_source"] = _COMMODITY_LABEL_SOURCES[sym]
         if quote.is_extended:
             row["session"] = quote.extended_session
         out.append(row)

@@ -20,54 +20,137 @@ import { PageTour } from '../../intro/PageTour'
 import type { TourStep } from '../../intro/PageTour'
 import { useSeenIntro } from '../../intro/useSeenIntro'
 import { sendNextPrefill } from '../../../state/luciusSendIntent'
+import { useAppIntl } from '../../../i18n/useAppIntl'
 
 // Every kind of thing the page holds, orbiting your net worth; the dashed last icon is a
 // category of your own. Labels ride along as tooltips and for screen readers.
-const KINDS: OrbitItem[] = [
-  { label: 'Cash', Icon: Banknote, color: 'var(--cat-cash)' },
-  { label: 'Stocks', Icon: ChartColumn, color: 'var(--cat-invest)' },
-  { label: 'Home', Icon: House, color: 'var(--cat-property)' },
-  { label: 'Car', Icon: Car, color: 'var(--cat-vehicle)' },
-  { label: 'Watch', Icon: Watch, color: 'var(--cat-watch)' },
-  { label: 'Art', Icon: Palette, color: 'var(--cat-art)' },
-  { label: 'Gold', Icon: Coins, color: 'var(--cat-metal)' },
-  { label: 'Insurance', Icon: ShieldCheck, color: 'var(--cat-policy)' },
-  { label: 'Your own kind', Icon: Plus },
-]
+function introContent(intl: ReturnType<typeof useAppIntl>) {
+  const KINDS: OrbitItem[] = [
+    {
+      label: intl.formatMessage({ id: 'assetsIntro.cash', defaultMessage: 'Cash' }),
+      Icon: Banknote,
+      color: 'var(--cat-cash)',
+    },
+    {
+      label: intl.formatMessage({ id: 'assetsIntro.stocks', defaultMessage: 'Stocks' }),
+      Icon: ChartColumn,
+      color: 'var(--cat-invest)',
+    },
+    {
+      label: intl.formatMessage({ id: 'assetsIntro.home', defaultMessage: 'Home' }),
+      Icon: House,
+      color: 'var(--cat-property)',
+    },
+    {
+      label: intl.formatMessage({ id: 'assetsIntro.car', defaultMessage: 'Car' }),
+      Icon: Car,
+      color: 'var(--cat-vehicle)',
+    },
+    {
+      label: intl.formatMessage({ id: 'assetsIntro.watch', defaultMessage: 'Watch' }),
+      Icon: Watch,
+      color: 'var(--cat-watch)',
+    },
+    {
+      label: intl.formatMessage({ id: 'assetsIntro.art', defaultMessage: 'Art' }),
+      Icon: Palette,
+      color: 'var(--cat-art)',
+    },
+    {
+      label: intl.formatMessage({ id: 'assetsIntro.gold', defaultMessage: 'Gold' }),
+      Icon: Coins,
+      color: 'var(--cat-metal)',
+    },
+    {
+      label: intl.formatMessage({ id: 'assetsIntro.insurance', defaultMessage: 'Insurance' }),
+      Icon: ShieldCheck,
+      color: 'var(--cat-policy)',
+    },
+    {
+      label: intl.formatMessage({ id: 'assetsIntro.custom', defaultMessage: 'Your own kind' }),
+      Icon: Plus,
+    },
+  ]
 
-const STEP: IntroStep = {
-  title: 'Your whole net worth, in one place',
-  hero: <OrbitHero title={['Your whole net worth,', 'in one place']} items={KINDS} />,
-  heroCarriesTitle: true,
-  points: [
+  const STEP: IntroStep = {
+    title: intl.formatMessage({
+      id: 'assetsIntro.title',
+      defaultMessage: 'Your whole net worth, in one place',
+    }),
+    hero: (
+      <OrbitHero
+        title={[
+          intl.formatMessage({
+            id: 'assetsIntro.titleFirst',
+            defaultMessage: 'Your whole net worth,',
+          }),
+          intl.formatMessage({ id: 'assetsIntro.titleSecond', defaultMessage: 'in one place' }),
+        ]}
+        items={KINDS}
+      />
+    ),
+    heroCarriesTitle: true,
+    points: [
+      {
+        title: intl.formatMessage({
+          id: 'assetsIntro.everything',
+          defaultMessage: 'Everything you own counts.',
+        }),
+        body: intl.formatMessage({
+          id: 'assetsIntro.everythingBody',
+          defaultMessage: 'Accounts, home, car, watch, or a kind you make up.',
+        }),
+      },
+      {
+        title: intl.formatMessage({
+          id: 'assetsIntro.advice',
+          defaultMessage: 'Better advice from Lucius.',
+        }),
+        body: intl.formatMessage({
+          id: 'assetsIntro.adviceBody',
+          defaultMessage: 'It sees the full picture, so its advice fits you.',
+        }),
+      },
+    ],
+  }
+
+  const ASSETS_TOUR: TourStep[] = [
     {
-      title: 'Everything you own counts.',
-      body: 'Accounts, home, car, watch, or a kind you make up.',
+      target: 'assets-accounts',
+      title: intl.formatMessage({
+        id: 'assetsIntro.accounts',
+        defaultMessage: 'Start with your accounts',
+      }),
+      body: intl.formatMessage({
+        id: 'assetsIntro.accountsBody',
+        defaultMessage:
+          'Bank, brokerage, retirement and cards. Their balances follow your transactions.',
+      }),
     },
     {
-      title: 'Better advice from Lucius.',
-      body: 'It sees the full picture, so its advice fits you.',
+      target: 'assets-things',
+      title: intl.formatMessage({ id: 'assetsIntro.things', defaultMessage: 'Then what you own' }),
+      body: intl.formatMessage({
+        id: 'assetsIntro.thingsBody',
+        defaultMessage:
+          'A home, car, gold or a policy. Give it a value and update it when that changes.',
+      }),
     },
-  ],
+    {
+      target: 'assets-add',
+      title: intl.formatMessage({
+        id: 'assetsIntro.other',
+        defaultMessage: 'Something not listed',
+      }),
+      body: intl.formatMessage({
+        id: 'assetsIntro.otherBody',
+        defaultMessage: 'A business stake or a private deal? Add it here as a kind of your own.',
+      }),
+    },
+  ]
+
+  return { step: STEP, tour: ASSETS_TOUR }
 }
-
-export const ASSETS_TOUR: TourStep[] = [
-  {
-    target: 'assets-accounts',
-    title: 'Start with your accounts',
-    body: 'Bank, brokerage, retirement and cards. Their balances follow your transactions.',
-  },
-  {
-    target: 'assets-things',
-    title: 'Then what you own',
-    body: 'A home, car, gold or a policy. Give it a value and update it when that changes.',
-  },
-  {
-    target: 'assets-add',
-    title: 'Something not listed',
-    body: 'A business stake or a private deal? Add it here as a kind of your own.',
-  },
-]
 
 export const LUCIUS_SETUP =
   'Help me set up my Assets page: my bank, investment and retirement accounts, my cards, and ' +
@@ -80,6 +163,8 @@ export function useAssetsIntro(
   mode: 'empty' | 'filled' | null,
   onAskLucius: (text: string) => void,
 ): { element: ReactNode } {
+  const intl = useAppIntl()
+  const { step, tour } = introContent(intl)
   const { unseen, markSeen } = useSeenIntro('assets')
   // Opens on its own once, on the first visit.
   const [dismissed, setDismissed] = useState(false)
@@ -99,9 +184,14 @@ export function useAssetsIntro(
     <>
       <FeatureIntro
         open={open}
-        steps={[STEP]}
+        steps={[step]}
         lucius={{
-          label: filled ? 'Walk me through it' : 'Set up with Lucius',
+          label: filled
+            ? intl.formatMessage({ id: 'assetsIntro.walk', defaultMessage: 'Walk me through it' })
+            : intl.formatMessage({
+                id: 'assetsIntro.setupLucius',
+                defaultMessage: 'Set up with Lucius',
+              }),
           onClick: () => {
             close()
             sendNextPrefill()
@@ -114,7 +204,12 @@ export function useAssetsIntro(
           },
         }}
         secondary={{
-          label: filled ? 'Got it' : 'Set up myself',
+          label: filled
+            ? intl.formatMessage({ id: 'assetsIntro.gotIt', defaultMessage: 'Got it' })
+            : intl.formatMessage({
+                id: 'assetsIntro.setupMyself',
+                defaultMessage: 'Set up myself',
+              }),
           onClick: () => {
             close()
             if (!filled) setTouring(true)
@@ -122,7 +217,7 @@ export function useAssetsIntro(
         }}
         onClose={close}
       />
-      {touring && <PageTour steps={ASSETS_TOUR} onClose={() => setTouring(false)} />}
+      {touring && <PageTour steps={tour} onClose={() => setTouring(false)} />}
     </>
   )
   return { element }

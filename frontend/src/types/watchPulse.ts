@@ -11,6 +11,7 @@ export interface WatchFinding {
   weight: number
   severity: 'high' | 'medium' | 'low'
   text: string
+  text_message?: { id: string; params: Record<string, string | number> } | null
 }
 
 export interface WatchNearestAlert {
@@ -25,6 +26,7 @@ export interface WatchFit {
   held_pct: number
   rank: number | null
   note: string
+  note_message?: { id: string; params: { state: string; percent: string; sector: string } } | null
 }
 
 export type TrendPeriod = '1M' | '3M' | '1Y'

@@ -1,3 +1,5 @@
+import { skillError } from './skillErrors'
+import { useAppIntl } from '../../i18n/useAppIntl'
 import { useRef, useState } from 'react'
 import { Badge, Button, Cluster, Modal, Stack, Text } from '../ui'
 import { authFetch } from '../../api/client'
@@ -17,6 +19,8 @@ interface UploadSkillModalProps {
  * The installed skill is always DISABLED — the user must enable it via the detail pane toggle.
  */
 export function UploadSkillModal({ onClose, onInstalled }: UploadSkillModalProps) {
+  const intl = useAppIntl()
+  const { formatMessage } = intl
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [dragOver, setDragOver] = useState(false)
   const [uploading, setUploading] = useState(false)
@@ -25,7 +29,12 @@ export function UploadSkillModal({ onClose, onInstalled }: UploadSkillModalProps
 
   async function uploadFile(file: File) {
     if (!file.name.endsWith('.zip')) {
-      setUploadError('Only .zip files are accepted.')
+      setUploadError(
+        formatMessage({
+          id: 'skills.upload.zipOnly',
+          defaultMessage: 'Only .zip files are accepted.',
+        }),
+      )
       return
     }
     setUploading(true)
@@ -41,15 +50,23 @@ export function UploadSkillModal({ onClose, onInstalled }: UploadSkillModalProps
             ? d.detail
             : Array.isArray(d?.detail)
               ? d.detail.map((x: { msg?: string }) => x.msg).join('; ')
-              : `Upload failed (HTTP ${res.status})`
-        setUploadError(detail)
+              : formatMessage(
+                  {
+                    id: 'skills.upload.httpError',
+                    defaultMessage: 'Upload failed (HTTP {status})',
+                  },
+                  { status: res.status },
+                )
+        setUploadError(skillError(intl, d, detail))
         return
       }
       const d = await res.json()
       const skill: Skill = d.skill
       setInstalled(skill)
     } catch {
-      setUploadError('Could not reach the server.')
+      setUploadError(
+        formatMessage({ id: 'skills.serverError', defaultMessage: 'Could not reach the server.' }),
+      )
     } finally {
       setUploading(false)
     }
@@ -89,12 +106,14 @@ export function UploadSkillModal({ onClose, onInstalled }: UploadSkillModalProps
     <Modal
       open
       size="md"
-      title="Upload a skill"
+      title={formatMessage({ id: 'skills.menu.upload', defaultMessage: 'Upload a skill' })}
       onClose={onClose}
       footer={
         <Cluster justify="end" gap="--space-2">
           <Button variant="ghost" onClick={installed ? () => onInstalled(installed) : onClose}>
-            {installed ? 'Done' : 'Cancel'}
+            {installed
+              ? formatMessage({ id: 'skills.done', defaultMessage: 'Done' })
+              : formatMessage({ id: 'skills.cancel', defaultMessage: 'Cancel' })}
           </Button>
         </Cluster>
       }
@@ -103,21 +122,28 @@ export function UploadSkillModal({ onClose, onInstalled }: UploadSkillModalProps
         {!installed ? (
           <>
             <Text tone="muted" size="sm">
-              Upload a <code>.zip</code> with a standard <code>SKILL.md</code> (frontmatter{' '}
-              <code>name</code> + <code>description</code> + instructions). Skills use ordinary tool
-              discovery and never alter tool policy. Add <code>references/*.md</code> for docs, or{' '}
-              <code>scripts/*.py</code> for a script skill. Installs <strong>disabled</strong> —
-              review, then enable it.{' '}
-              <a
-                href="#"
-                onClick={(e) => {
-                  e.preventDefault()
-                  void downloadTemplate()
-                }}
-              >
-                Download a template
-              </a>
-              .
+              {formatMessage(
+                {
+                  id: 'skills.upload.help',
+                  defaultMessage:
+                    'Upload a <code>.zip</code> with a standard <code>SKILL.md</code> (frontmatter <code>name</code> + <code>description</code> + instructions). Skills use ordinary tool discovery and never alter tool policy. Add <code>references/*.md</code> for docs, or <code>scripts/*.py</code> for a script skill. Installs <strong>disabled</strong> — review, then enable it. <link>Download a template</link>.',
+                },
+                {
+                  code: (chunks) => <code>{chunks}</code>,
+                  strong: (chunks) => <strong>{chunks}</strong>,
+                  link: (chunks) => (
+                    <a
+                      href="#"
+                      onClick={(event) => {
+                        event.preventDefault()
+                        void downloadTemplate()
+                      }}
+                    >
+                      {chunks}
+                    </a>
+                  ),
+                },
+              )}
             </Text>
 
             {/* Drop zone */}
@@ -125,7 +151,10 @@ export function UploadSkillModal({ onClose, onInstalled }: UploadSkillModalProps
               className={`upload-dropzone${dragOver ? ' upload-dropzone--drag-over' : ''}`}
               role="button"
               tabIndex={0}
-              aria-label="Drop a .zip file here or click to browse"
+              aria-label={formatMessage({
+                id: 'skills.upload.dropLabel',
+                defaultMessage: 'Drop a .zip file here or click to browse',
+              })}
               onClick={() => !uploading && fileInputRef.current?.click()}
               onKeyDown={(e) => {
                 if ((e.key === 'Enter' || e.key === ' ') && !uploading) {
@@ -150,15 +179,21 @@ export function UploadSkillModal({ onClose, onInstalled }: UploadSkillModalProps
               />
               {uploading ? (
                 <Text tone="faint" size="sm">
-                  Installing…
+                  {formatMessage({ id: 'skills.upload.installing', defaultMessage: 'Installing…' })}
                 </Text>
               ) : (
                 <>
                   <Text size="md" weight={600}>
-                    Drop a .zip file here
+                    {formatMessage({
+                      id: 'skills.upload.drop',
+                      defaultMessage: 'Drop a .zip file here',
+                    })}
                   </Text>
                   <Text tone="faint" size="sm">
-                    or click to browse
+                    {formatMessage({
+                      id: 'skills.upload.browseFiles',
+                      defaultMessage: 'or click to browse',
+                    })}
                   </Text>
                 </>
               )}
@@ -177,14 +212,21 @@ export function UploadSkillModal({ onClose, onInstalled }: UploadSkillModalProps
           <Stack gap="--space-4">
             <div className="upload-installed-banner">
               <Text size="sm" weight={600}>
-                This skill is installed but <span style={{ color: 'var(--warn)' }}>DISABLED</span>.
-                Enable it with the toggle in its detail pane.
+                {formatMessage(
+                  {
+                    id: 'skills.upload.disabledHelp',
+                    defaultMessage:
+                      'This skill is installed but <warning>DISABLED</warning>. Enable it with the toggle in its detail pane.',
+                  },
+                  { warning: (chunks) => <span style={{ color: 'var(--warn)' }}>{chunks}</span> },
+                )}
               </Text>
             </div>
 
             <Stack gap="--space-2">
               <Text size="sm" weight={600}>
-                {installed.name || '(unnamed)'}
+                {installed.name ||
+                  formatMessage({ id: 'skills.unnamed', defaultMessage: '(unnamed)' })}
               </Text>
               {installed.description && (
                 <Text tone="muted" size="sm">
@@ -192,15 +234,21 @@ export function UploadSkillModal({ onClose, onInstalled }: UploadSkillModalProps
                 </Text>
               )}
               <Cluster gap="--space-2" wrap>
-                {installed.has_scripts && <Badge tone="neutral">Includes code</Badge>}
-                <Badge tone="muted">Disabled</Badge>
+                {installed.has_scripts && (
+                  <Badge tone="neutral">
+                    {formatMessage({ id: 'skills.upload.code', defaultMessage: 'Includes code' })}
+                  </Badge>
+                )}
+                <Badge tone="muted">
+                  {formatMessage({ id: 'skills.disabled', defaultMessage: 'Disabled' })}
+                </Badge>
                 {installed.author && (
                   <Badge tone="muted">
                     {installed.author === 'builtin'
                       ? 'Open Net Worth'
                       : installed.author === 'lucius'
                         ? 'Lucius'
-                        : 'You'}
+                        : formatMessage({ id: 'skills.you', defaultMessage: 'You' })}
                   </Badge>
                 )}
               </Cluster>

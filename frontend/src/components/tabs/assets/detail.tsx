@@ -1,3 +1,4 @@
+import { fFixed } from '../../../utils/format'
 // The asset page — header (thumb, name, the ⋯ menu), the value stats with a visible Update
 // value, the value chart, the Value history / Attachments sub-tabs and the rail. Each region
 // lives in its own file (markChart, ValueHistory, Attachments, sections); this is the shell that
@@ -31,6 +32,7 @@ import { RenameCategoryEditor } from './RenameCategoryEditor'
 import { AssetSections, NotesEditor, type EditTarget } from './sections'
 import { UpdateValueDialog } from './ValueDialogs'
 import { ValueHistory } from './ValueHistory'
+import { useAppIntl } from '../../../i18n/useAppIntl'
 
 const MORE_ICON = (
   <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
@@ -96,6 +98,7 @@ interface ValueStatsProps {
 }
 
 function ValueStats({ a, loans, isMobile, onUpdate }: ValueStatsProps) {
+  const { formatMessage } = useAppIntl()
   const loan = loanOf(a, loans)
   const eq = equityOf(a, loans)
   const g = gainOf(a)
@@ -108,38 +111,65 @@ function ValueStats({ a, loans, isMobile, onUpdate }: ValueStatsProps) {
     <>
       <div className="as-dstats">
         <div>
-          <div className="as-dstat-k">Value</div>
+          <div className="as-dstat-k">
+            {formatMessage({ id: 'assets.value.label', defaultMessage: 'Value' })}
+          </div>
           <div className="as-dstat-v money">{fmtOrDash(a.value)}</div>
-          {a.valued_on && <div className="as-dstat-s">valued {monthYear(a.valued_on)}</div>}
+          {a.valued_on && (
+            <div className="as-dstat-s">
+              {formatMessage(
+                { id: 'assets.detail.valued', defaultMessage: 'valued {date}' },
+                { date: monthYear(a.valued_on) },
+              )}
+            </div>
+          )}
           {a.share_pct < 100 && (
             <div className="as-dstat-share">
-              Your {sharePct(a.share_pct)}% · {fmtOrDash(a.share_value)}
+              {formatMessage(
+                { id: 'assets.detail.share', defaultMessage: 'Your {share}% · {value}' },
+                { share: sharePct(a.share_pct), value: fmtOrDash(a.share_value) },
+              )}
             </div>
           )}
         </div>
         {loan && loan.balance > 0 && eq != null && (
           <div>
-            <div className="as-dstat-k">Net equity</div>
+            <div className="as-dstat-k">
+              {formatMessage({ id: 'assets.detail.netEquity', defaultMessage: 'Net equity' })}
+            </div>
             <div className="as-dstat-v money">{fmt(eq)}</div>
-            <div className="as-dstat-s">Whole asset · {Math.round(ofValue(eq))}% of value</div>
+            <div className="as-dstat-s">
+              {formatMessage(
+                {
+                  id: 'assets.detail.wholeAsset',
+                  defaultMessage: 'Whole asset · {percent}% of value',
+                },
+                { percent: Math.round(ofValue(eq)) },
+              )}
+            </div>
           </div>
         )}
         <div>
-          <div className="as-dstat-k">Unrealized</div>
+          <div className="as-dstat-k">
+            {formatMessage({ id: 'assets.detail.unrealized', defaultMessage: 'Unrealized' })}
+          </div>
           {/* Zero is neither a gain nor a loss: plain "S$0", never a green "+S$0". */}
           <div className={'as-dstat-v money ' + (!g ? '' : g > 0 ? 'pos' : 'neg')}>
             {g == null ? '—' : g === 0 ? fmt(0) : (g > 0 ? '+' : '−') + fmt(Math.abs(g))}
           </div>
           <div className="as-dstat-s">
             {g == null
-              ? 'No purchase price yet'
-              : `${pct(gp ?? 0)}${yrs ? ` · ${yrs.toFixed(1)} yr` : ''}${ann != null ? ` · ${pct(ann)}/yr` : ''}`}
+              ? formatMessage({
+                  id: 'assets.detail.noPurchasePrice',
+                  defaultMessage: 'No purchase price yet',
+                })
+              : `${pct(gp ?? 0)}${yrs ? ` · ${formatMessage({ id: 'assets.detail.years', defaultMessage: '{years} yr' }, { years: fFixed(yrs, 1) })}` : ''}${ann != null ? ` · ${formatMessage({ id: 'assets.detail.annualReturn', defaultMessage: '{return}/yr' }, { return: pct(ann) })}` : ''}`}
           </div>
         </div>
       </div>
       {isMobile && (
         <Button variant="primary" fullWidth className="as-dstat-value-cta" onClick={onUpdate}>
-          Update value
+          {formatMessage({ id: 'assets.value.update', defaultMessage: 'Update value' })}
         </Button>
       )}
     </>
@@ -164,6 +194,7 @@ interface DetailHeaderProps {
 /** The breadcrumb, then the photo and name, with Update value and the ⋯ menu on the right (a
  *  phone keeps only the menu there, and shows the photo as the page's cover above the name). */
 function DetailHeader(props: DetailHeaderProps) {
+  const { formatMessage } = useAppIntl()
   const { a, cats, isMobile } = props
   const [viewing, setViewing] = useState(false)
   const picker = usePhotoPicker(props.onPhoto)
@@ -183,7 +214,9 @@ function DetailHeader(props: DetailHeaderProps) {
   return (
     <>
       <div className="as-crumb">
-        <button onClick={props.onBack}>Assets</button>
+        <button onClick={props.onBack}>
+          {formatMessage({ id: 'assets.detail.assets', defaultMessage: 'Assets' })}
+        </button>
         <span>/</span>
         <span className="cur">{a.name}</span>
       </div>
@@ -210,16 +243,40 @@ function DetailHeader(props: DetailHeaderProps) {
         <Cluster gap="--space-3" wrap={false} className="as-dhead-actions">
           {!isMobile && (
             <Button variant="primary" size="sm" onClick={props.onUpdate}>
-              Update value
+              {formatMessage({ id: 'assets.value.update', defaultMessage: 'Update value' })}
             </Button>
           )}
           <ActionMenu
             trigger={MORE_ICON}
             items={[
-              { label: 'Rename or change category', onSelect: props.onRename },
-              { label: a.photo_ref ? 'Change photo' : 'Add photo', onSelect: picker.pick },
-              { label: 'Sell or dispose', onSelect: props.onDispose },
-              { label: 'Delete asset', tone: 'danger', onSelect: props.onDelete },
+              {
+                label: formatMessage({
+                  id: 'assets.detail.rename',
+                  defaultMessage: 'Rename or change category',
+                }),
+                onSelect: props.onRename,
+              },
+              {
+                label: a.photo_ref
+                  ? formatMessage({ id: 'assets.photo.change', defaultMessage: 'Change photo' })
+                  : formatMessage({ id: 'assets.detail.addPhoto', defaultMessage: 'Add photo' }),
+                onSelect: picker.pick,
+              },
+              {
+                label: formatMessage({
+                  id: 'assets.detail.dispose',
+                  defaultMessage: 'Sell or dispose',
+                }),
+                onSelect: props.onDispose,
+              },
+              {
+                label: formatMessage({
+                  id: 'assets.detail.delete',
+                  defaultMessage: 'Delete asset',
+                }),
+                tone: 'danger',
+                onSelect: props.onDelete,
+              },
             ]}
           />
         </Cluster>
@@ -234,7 +291,9 @@ function DetailHeader(props: DetailHeaderProps) {
           }}
           onRemoved={() => {
             setViewing(false)
-            props.onToast('Photo removed.')
+            props.onToast(
+              formatMessage({ id: 'assets.detail.photoRemoved', defaultMessage: 'Photo removed.' }),
+            )
           }}
         />
       )}
@@ -243,6 +302,7 @@ function DetailHeader(props: DetailHeaderProps) {
 }
 
 export function AssetDetail(props: AssetDetailProps) {
+  const { formatMessage } = useAppIntl()
   const { a, cats, loans, onToast } = props
   const isMobile = useIsMobile()
   const [tab, setTab] = useState<'history' | 'docs'>('history')
@@ -286,7 +346,12 @@ export function AssetDetail(props: AssetDetailProps) {
       <div className="as-body as-dbody" {...drop.handlers}>
         {drop.over && (
           <div className="as-drop" aria-hidden="true">
-            <span className="as-drop-label">Drop to add to {a.name}’s documents</span>
+            <span className="as-drop-label">
+              {formatMessage(
+                { id: 'assets.detail.drop', defaultMessage: 'Drop to add to {name}’s documents' },
+                { name: a.name },
+              )}
+            </span>
           </div>
         )}
         <div style={{ minWidth: 0 }}>
@@ -298,8 +363,20 @@ export function AssetDetail(props: AssetDetailProps) {
               value={tab}
               onChange={setTab}
               tabs={[
-                { key: 'history', label: 'Value history' },
-                { key: 'docs', label: 'Documents' },
+                {
+                  key: 'history',
+                  label: formatMessage({
+                    id: 'assets.detail.history',
+                    defaultMessage: 'Value history',
+                  }),
+                },
+                {
+                  key: 'docs',
+                  label: formatMessage({
+                    id: 'assets.detail.documents',
+                    defaultMessage: 'Documents',
+                  }),
+                },
               ]}
             />
           </div>

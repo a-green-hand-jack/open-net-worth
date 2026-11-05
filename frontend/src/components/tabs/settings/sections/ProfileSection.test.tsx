@@ -10,6 +10,8 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, waitFor, cleanup, fireEvent } from '@testing-library/react'
 import { ProfileSection } from './ProfileSection'
+import { IntlProvider } from 'react-intl'
+import messages from '../remaining.zh-CN.messages.json'
 import { clearQueryCache } from '../../../../state/queryCache'
 
 vi.mock('../../../../api/client', () => ({ authFetch: vi.fn() }))
@@ -81,6 +83,21 @@ describe('ProfileSection — list-valued identity fields', () => {
   afterEach(() => {
     cleanup()
     vi.restoreAllMocks()
+  })
+
+  it('shows localized country and employment labels without changing profile values', async () => {
+    mockRoutes()
+    render(
+      <IntlProvider locale="zh-CN" messages={messages}>
+        <ProfileSection toast={vi.fn()} />
+      </IntlProvider>,
+    )
+    expect(await screen.findByRole('button', { name: '泰国' })).toBeTruthy()
+    expect(screen.getByRole('button', { name: '新加坡' })).toBeTruthy()
+    expect(screen.getByRole('button', { name: '受薪雇员' })).toBeTruthy()
+    expect((screen.getByDisplayValue('Alex Tan') as HTMLInputElement).value).toBe('Alex Tan')
+    fireEvent.click(screen.getByRole('button', { name: '泰国' }))
+    expect(screen.getAllByText('泰国')).toHaveLength(2)
   })
 
   it('every trigger button shows the current selection', async () => {

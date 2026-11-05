@@ -14,6 +14,8 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, waitFor, fireEvent, cleanup } from '@testing-library/react'
 import { SqlAccessPanel, relativeTime } from './SqlAccessPanel'
 import { clearQueryCache } from '../../../state/queryCache'
+import { IntlProvider } from 'react-intl'
+import zh from '../../../i18n/zh-CN.json'
 
 vi.mock('../../../api/client', () => ({ authFetch: vi.fn() }))
 
@@ -72,6 +74,57 @@ beforeEach(() => {
 afterEach(cleanup)
 
 describe('SqlAccessPanel', () => {
+  it('localizes known reasons and safely preserves unknown reasons', async () => {
+    routeFetch(
+      {
+        enabled: true,
+        available: false,
+        reason: 'Original diagnostic',
+        reason_message: { id: 'sqlAccess.reason.signinExternal', params: { role: 'custom-role' } },
+      },
+      [],
+    )
+    render(
+      <IntlProvider locale="zh-CN" messages={zh}>
+        <SqlAccessPanel toast={toast} />
+      </IntlProvider>,
+    )
+    expect(await screen.findByText(/数据库拒绝以 custom-role 登录/)).toBeTruthy()
+  })
+
+  it('keeps the original reason when the message parameters are invalid', async () => {
+    routeFetch(
+      {
+        enabled: true,
+        available: false,
+        reason: 'Original diagnostic',
+        reason_message: {
+          id: 'sqlAccess.reason.signinExternal',
+          params: { role: { unexpected: true } },
+        },
+      },
+      [],
+    )
+    render(
+      <IntlProvider locale="zh-CN" messages={zh}>
+        <SqlAccessPanel toast={toast} />
+      </IntlProvider>,
+    )
+    expect(await screen.findByText(/Original diagnostic/)).toBeTruthy()
+  })
+
+  it('localizes query controls while preserving SQL and server errors', async () => {
+    routeFetch({ enabled: true }, [OK_ROW, REFUSED_ROW])
+    render(
+      <IntlProvider locale="zh-CN" messages={zh}>
+        <SqlAccessPanel toast={toast} />
+      </IntlProvider>,
+    )
+    expect(await screen.findByRole('switch', { name: '直接 SQL 读取' })).toBeTruthy()
+    expect(await screen.findByText(OK_ROW.sql)).toBeTruthy()
+    expect(screen.getByText(REFUSED_ROW.error)).toBeTruthy()
+    expect(screen.getByText('42 行')).toBeTruthy()
+  })
   it('renders the kill switch from the server state', async () => {
     routeFetch({ enabled: true }, [])
     render(<SqlAccessPanel toast={toast} />)

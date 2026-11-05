@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useAppIntl } from '../../../i18n/useAppIntl'
 import { authFetch } from '../../../api/client'
 import { Check, ChevronLeft, Trash2 } from '../../../ui/icons'
 import { Button, ConfirmDialog, Modal } from '../../ui'
@@ -65,10 +66,10 @@ function accountId(txn: Txn): string | null {
   return txn.fromAccountId ?? txn.toAccountId
 }
 
-function errorMessage(error: unknown): string {
+function errorMessage(error: unknown, fallback: string): string {
   return error instanceof Error && error.message
     ? error.message
-    : 'The transaction could not be updated.'
+    : fallback
 }
 
 export function TransactionReviewMode({
@@ -88,6 +89,7 @@ export function TransactionReviewMode({
   onReviewEverywhere,
   rowChanged = null,
 }: TransactionReviewModeProps) {
+  const { formatMessage } = useAppIntl()
   const [queue, setQueue] = useState<Txn[]>([])
   // Everything this pass has LOADED, never shrunk by approve/skip. The chip suggestions are
   // counted from it: counting the live queue re-ranked them every time a row left, so the card
@@ -160,7 +162,7 @@ export function TransactionReviewMode({
       try {
         const url = queueUrl(scope, scopeAccountId)
         const response = await authFetch(offset ? `${url}&offset=${offset}` : url)
-        if (!response.ok) throw new Error((await response.text()) || 'Request failed')
+        if (!response.ok) throw new Error((await response.text()) || formatMessage({ id: 'accounts.review.requestFailed', defaultMessage: 'Request failed' }))
         const body = (await response.json()) as ReviewQueueResponse
         const rows = (body.transactions ?? [])
           .map(fromApiTxn)
@@ -178,12 +180,12 @@ export function TransactionReviewMode({
         setTotal(body.total ?? rows.length)
         setHasMore(Boolean(body.has_more))
       } catch (error) {
-        setLoadError(errorMessage(error))
+        setLoadError(errorMessage(error, formatMessage({ id: 'accounts.review.updateFailed', defaultMessage: 'The transaction could not be updated.' })))
       } finally {
         setLoading(false)
       }
     },
-    [scope, scopeAccountId],
+    [formatMessage, scope, scopeAccountId],
   )
 
   useEffect(() => {
@@ -274,19 +276,19 @@ export function TransactionReviewMode({
     const submitted = draft
     removeCurrent(txn.id)
     setActionError(null)
-    setAnnouncement(`Approved. ${Math.max(0, visibleQueue.length - 1)} transactions remaining.`)
+    setAnnouncement(formatMessage({ id: 'accounts.review.approvedAnnouncement', defaultMessage: 'Approved. {count} transactions remaining.' }, { count: Math.max(0, visibleQueue.length - 1) }))
     try {
       await onApprove(txn, submitted)
     } catch (error) {
-      restoreFailed(txn, errorMessage(error))
+      restoreFailed(txn, errorMessage(error, formatMessage({ id: 'accounts.review.updateFailed', defaultMessage: 'The transaction could not be updated.' })))
     }
-  }, [current, draft, onApprove, removeCurrent, restoreFailed, visibleQueue.length])
+  }, [current, draft, formatMessage, onApprove, removeCurrent, restoreFailed, visibleQueue.length])
 
   const skip = useCallback(() => {
     if (!current || busy) return
     setSkippedIds((ids) => new Set(ids).add(current.id))
-    setAnnouncement(`Skipped. ${Math.max(0, visibleQueue.length - 1)} remaining in this pass.`)
-  }, [busy, current, visibleQueue.length])
+    setAnnouncement(formatMessage({ id: 'accounts.review.skippedAnnouncement', defaultMessage: 'Skipped. {count} remaining in this pass.' }, { count: Math.max(0, visibleQueue.length - 1) }))
+  }, [busy, current, formatMessage, visibleQueue.length])
 
   const reject = async () => {
     if (!rejecting || busy) return
@@ -299,7 +301,7 @@ export function TransactionReviewMode({
       setRejectError(null)
       removeCurrent(txn.id)
     } catch (error) {
-      setRejectError(errorMessage(error))
+      setRejectError(errorMessage(error, formatMessage({ id: 'accounts.review.updateFailed', defaultMessage: 'The transaction could not be updated.' })))
     } finally {
       setBusy(null)
     }
@@ -359,7 +361,7 @@ export function TransactionReviewMode({
           disabled={idle}
         >
           <ChevronLeft size={16} />
-          Skip
+          {formatMessage({ id: 'accounts.review.skip', defaultMessage: "Skip" })}
         </Button>
         <Button
           size="sm"
@@ -372,7 +374,7 @@ export function TransactionReviewMode({
           disabled={idle}
         >
           <Trash2 size={15} />
-          Reject
+          {formatMessage({ id: 'accounts.review.reject', defaultMessage: "Reject" })}
         </Button>
         <Button
           size="sm"
@@ -381,7 +383,7 @@ export function TransactionReviewMode({
           disabled={idle || Boolean(validationError)}
         >
           <Check size={16} />
-          Approve
+          {formatMessage({ id: 'accounts.review.approve', defaultMessage: "Approve" })}
         </Button>
       </div>
     ) : undefined
@@ -391,8 +393,8 @@ export function TransactionReviewMode({
       <Modal
         open
         onClose={onClose}
-        title="Review transactions"
-        subtitle={settling ? 'Loading…' : `${displayTotal} remaining`}
+        title={formatMessage({ id: 'accounts.review.reviewTitle', defaultMessage: "Review transactions" })}
+        subtitle={settling ? formatMessage({ id: 'accounts.review.loading', defaultMessage: "Loading…" }) : formatMessage({ id: 'accounts.review.remaining', defaultMessage: '{count} remaining' }, { count: displayTotal })}
         size="lg"
         className="acct-review-mode"
         overlayClassName="acct-review-overlay"
@@ -405,7 +407,7 @@ export function TransactionReviewMode({
       >
         <div
           className="acct-review-stage"
-          aria-label="Transaction review keyboard shortcuts"
+          aria-label={formatMessage({ id: 'accounts.review.shortcuts', defaultMessage: "Transaction review keyboard shortcuts" })}
           tabIndex={0}
           data-autofocus
           data-input={inputMode ?? undefined}
@@ -423,19 +425,19 @@ export function TransactionReviewMode({
           {settling ? (
             <div className="acct-review-state" role="status" aria-live="polite">
               <span className="acct-review-spinner" />
-              <b>Loading transactions…</b>
+              <b>{formatMessage({ id: 'accounts.review.loadingTransactions', defaultMessage: "Loading transactions…" })}</b>
               <span>
                 {scope === 'automation'
-                  ? 'Finding transactions added by automations that still need your review.'
-                  : 'Finding transactions that still need your review.'}
+                  ? formatMessage({ id: 'accounts.review.findingAutomation', defaultMessage: "Finding transactions added by automations that still need your review." })
+                  : formatMessage({ id: 'accounts.review.finding', defaultMessage: "Finding transactions that still need your review." })}
               </span>
             </div>
           ) : loadError ? (
             <div className="acct-review-state" role="alert">
-              <b>Couldn’t load transactions for review</b>
+              <b>{formatMessage({ id: 'accounts.review.loadFailed', defaultMessage: "Couldn’t load transactions for review" })}</b>
               <span>{loadError}</span>
               <Button size="sm" variant="secondary" onClick={() => void loadQueue()}>
-                Retry
+                {formatMessage({ id: 'accounts.review.retry', defaultMessage: "Retry" })}
               </Button>
             </div>
           ) : !current || !draft ? (
@@ -444,24 +446,24 @@ export function TransactionReviewMode({
               <span className="acct-review-complete-icon">
                 <Check size={30} />
               </span>
-              <b>{queue.length === 0 ? 'You’re all caught up' : 'That’s everything for now'}</b>
+              <b>{queue.length === 0 ? formatMessage({ id: 'accounts.review.caughtUp', defaultMessage: "You’re all caught up" }) : formatMessage({ id: 'accounts.review.everything', defaultMessage: "That’s everything for now" })}</b>
               <span>
                 {queue.length === 0
                   ? scope === 'automation'
-                    ? 'No automation transactions are waiting for review.'
+                    ? formatMessage({ id: 'accounts.review.noAutomation', defaultMessage: "No automation transactions are waiting for review." })
                     : scopedName
-                      ? `Nothing in ${scopedName} is waiting for review.`
-                      : 'No transactions are waiting for review.'
-                  : `${skippedCount} skipped transaction${skippedCount === 1 ? '' : 's'} still ${skippedCount === 1 ? 'needs' : 'need'} review.${hasMore ? ' More transactions are waiting beyond this batch.' : ''}`}
+                      ? formatMessage({ id: 'accounts.review.noneInAccount', defaultMessage: 'Nothing in {account} is waiting for review.' }, { account: scopedName })
+                      : formatMessage({ id: 'accounts.review.noTransactions', defaultMessage: "No transactions are waiting for review." })
+                  : formatMessage({ id: 'accounts.review.skippedRemaining', defaultMessage: '{count, plural, one {# skipped transaction still needs review.} other {# skipped transactions still need review.}}{more, select, yes { More transactions are waiting beyond this batch.} other {}}' }, { count: skippedCount, more: hasMore ? 'yes' : 'no' })}
               </span>
               <div className="acct-review-complete-actions">
                 {waitingElsewhere > 0 && onReviewEverywhere && (
                   <Button size="sm" variant="secondary" onClick={onReviewEverywhere}>
-                    Review {waitingElsewhere} in other accounts
+                    {formatMessage({ id: 'accounts.review.otherAccounts', defaultMessage: 'Review {count} in other accounts' }, { count: waitingElsewhere })}
                   </Button>
                 )}
                 <Button size="sm" variant="primary" onClick={onClose}>
-                  Done
+                  {formatMessage({ id: 'accounts.review.done', defaultMessage: "Done" })}
                 </Button>
               </div>
             </div>
@@ -496,15 +498,14 @@ export function TransactionReviewMode({
         data={
           rejecting
             ? {
-                title: 'Reject transaction?',
+                title: formatMessage({ id: 'accounts.review.rejectTitle', defaultMessage: "Reject transaction?" }),
                 body: (
                   <>
                     <b>
                       {(rejecting.payeeId && payeeNames[rejecting.payeeId]) ||
                         rejecting.description}
                     </b>{' '}
-                    will be removed from the ledger. Its imported identity will be remembered so it
-                    is not silently added again.
+                    {formatMessage({ id: 'accounts.review.rejectExplanation', defaultMessage: 'will be removed from the ledger. Its imported identity will be remembered so it is not silently added again.' })}
                     {rejectError && (
                       <span className="acct-review-reject-error" role="alert">
                         {rejectError}
@@ -512,8 +513,8 @@ export function TransactionReviewMode({
                     )}
                   </>
                 ),
-                confirmLabel: 'Reject transaction',
-                cancelLabel: 'Keep transaction',
+                confirmLabel: formatMessage({ id: 'accounts.review.rejectConfirm', defaultMessage: "Reject transaction" }),
+                cancelLabel: formatMessage({ id: 'accounts.review.rejectCancel', defaultMessage: "Keep transaction" }),
                 danger: true,
               }
             : null

@@ -1,3 +1,5 @@
+import { defineMessages } from 'react-intl'
+import { useAppIntl } from '../../../i18n/useAppIntl'
 import { useCallback, useEffect, useState } from 'react'
 import { authFetch } from '../../../api/client'
 import {
@@ -42,6 +44,14 @@ interface ExtraField {
   value: string
 }
 
+const providerHints = defineMessages({
+  duckduckgo: { id: "connectors.web.hint.duckduckgo", defaultMessage: "Free web search with no account or API key." },
+  tavily: { id: "connectors.web.hint.tavily", defaultMessage: "Search built for AI agents \u2014 returns extracted page text rather than raw HTML." },
+  perplexity: { id: "connectors.web.hint.perplexity", defaultMessage: "Answers the query directly and returns the sources it cited." },
+  serper: { id: "connectors.web.hint.serper", defaultMessage: "Fast, low-cost Google results via serper.dev." },
+  google_pse: { id: "connectors.web.hint.google_pse", defaultMessage: "Google Custom Search. Needs an API key and a search engine ID." },
+  firecrawl: { id: "connectors.web.hint.firecrawl", defaultMessage: "Search + full page scraping, JS-rendered pages included \u2014 built for agents." },
+})
 interface ProviderEntry {
   id: string
   label: string
@@ -67,6 +77,8 @@ function extraFieldsOf(p: ProviderEntry | undefined): Record<string, string> {
 }
 
 export function WebSearchSection({ providerId }: { providerId: string }) {
+  const intl = useAppIntl()
+  const { formatMessage } = intl
   const [cfg, setCfg] = useState<SearchStatus | null>(null)
   const [error, setError] = useState(false)
   const [apiKey, setApiKey] = useState('')
@@ -109,14 +121,14 @@ export function WebSearchSection({ providerId }: { providerId: string }) {
       })
       if (!r.ok) {
         const d = await r.json().catch(() => ({}))
-        setSaveErr(d.detail || 'Could not save the web-search configuration.')
+        setSaveErr(d.detail || formatMessage({ id: 'connectors.web.save', defaultMessage: 'Could not save the web-search configuration.' }))
         return false
       }
       setApiKey('')
       load()
       return true
     } catch {
-      setSaveErr('Could not save — could not reach the server.')
+      setSaveErr(formatMessage({ id: 'connectors.email.serverFailed', defaultMessage: 'Could not save — could not reach the server.' }))
       return false
     } finally {
       setSaving(false)
@@ -170,14 +182,14 @@ export function WebSearchSection({ providerId }: { providerId: string }) {
   if (error) {
     return (
       <Text size="sm" tone="bad">
-        Could not load this provider&apos;s settings.
+        {formatMessage({ id: 'connectors.web.load', defaultMessage: "Could not load this provider's settings." })}
       </Text>
     )
   }
   if (!cfg || !provider) {
     return (
       <Text size="sm" tone="faint">
-        Loading…
+        {formatMessage({ id: 'connectors.email.loading', defaultMessage: 'Loading…' })}
       </Text>
     )
   }
@@ -190,10 +202,10 @@ export function WebSearchSection({ providerId }: { providerId: string }) {
           key-free provider's distinctive fact is already the badge below. */}
       {needsKey && (
         <Text size="sm" tone="faint">
-          {provider.hint}{' '}
+          {Object.hasOwn(providerHints, provider.id) && Object.hasOwn(intl.messages, providerHints[provider.id as keyof typeof providerHints].id) ? formatMessage(providerHints[provider.id as keyof typeof providerHints]) : provider.hint}{' '}
           {provider.docs_url && (
             <a href={provider.docs_url} target="_blank" rel="noreferrer">
-              Get a key →
+              {formatMessage({ id: 'connectors.web.getKey', defaultMessage: 'Get a key →' })}
             </a>
           )}
         </Text>
@@ -213,25 +225,25 @@ export function WebSearchSection({ providerId }: { providerId: string }) {
           doesn't — that THIS provider has no key concept at all. */}
       {!needsKey && (
         <Cluster gap="--space-3" align="center" wrap>
-          <Badge tone="pos">No key needed</Badge>
+          <Badge tone="pos">{formatMessage({ id: 'connectors.web.noKey', defaultMessage: 'No key needed' })}</Badge>
         </Cluster>
       )}
 
       {needsKey && (
         <FormField
-          label="API key"
+          label={formatMessage({ id: 'connectors.mcpField.key', defaultMessage: 'API key' })}
           htmlFor={`conn-search-key-${providerId}`}
           required
           help={apiKeyReveal.caption || undefined}
           error={
             apiKeyReveal.error ||
-            (apiKeyTouched.touched && !apiKeyValid ? 'An API key is required.' : undefined)
+            (apiKeyTouched.touched && !apiKeyValid ? formatMessage({ id: 'connectors.web.keyRequired', defaultMessage: 'An API key is required.' }) : undefined)
           }
         >
           <PasswordField
             id={`conn-search-key-${providerId}`}
             value={apiKey}
-            placeholder={provider.has_key ? '••••••••' : 'paste the API key'}
+            placeholder={provider.has_key ? '••••••••' : formatMessage({ id: 'connectors.web.keyPlaceholder', defaultMessage: 'paste the API key' })}
             onChange={(e) => setApiKey(e.target.value)}
             onBlur={apiKeyTouched.onBlur}
             {...apiKeyReveal.fieldProps}
@@ -242,9 +254,9 @@ export function WebSearchSection({ providerId }: { providerId: string }) {
       {provider.extra_fields.map((f) => (
         <FormField
           key={f.key}
-          label={f.label}
+          label={provider.id === 'google_pse' && f.key === 'cx' ? formatMessage({ id: 'connectors.web.googleCx', defaultMessage: 'Search engine ID (cx)' }) : f.label}
           htmlFor={`conn-search-${providerId}-${f.key}`}
-          help={f.hint}
+          help={provider.id === 'google_pse' && f.key === 'cx' ? formatMessage({ id: 'connectors.web.googleCxHelp', defaultMessage: 'Create one at programmablesearchengine.google.com.' }) : f.hint}
         >
           <TextField
             id={`conn-search-${providerId}-${f.key}`}
@@ -272,12 +284,12 @@ export function WebSearchSection({ providerId }: { providerId: string }) {
         <Cluster gap="--space-3" align="center" wrap>
           {!provider.is_active && (
             <Button size="sm" variant="secondary" loading={settingDefault} onClick={makeDefault}>
-              Make default
+              {formatMessage({ id: 'connectors.web.makeDefault', defaultMessage: 'Make default' })}
             </Button>
           )}
           {madeDefault && (
             <Text size="xs" tone="good">
-              Now the default.
+              {formatMessage({ id: 'connectors.web.nowDefault', defaultMessage: 'Now the default.' })}
             </Text>
           )}
         </Cluster>
@@ -287,8 +299,7 @@ export function WebSearchSection({ providerId }: { providerId: string }) {
           substantive half — they are the bigger consumer of the default and the old copy never
           mentioned them, while claiming the setting decided what Lucius could use at all. */}
       <Text size="xs" tone="faint">
-        Searches that don’t name a provider use the default — Lucius’s general web lookups, plus
-        background news scans and asset briefs.
+        {formatMessage({ id: 'connectors.web.defaultHelp', defaultMessage: 'Searches that don’t name a provider use the default — Lucius’s general web lookups, plus background news scans and asset briefs.' })}
       </Text>
     </Stack>
   )

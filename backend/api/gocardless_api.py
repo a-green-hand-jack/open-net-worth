@@ -21,10 +21,12 @@ from __future__ import annotations
 import asyncio
 from typing import Optional
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
-from backend.core.errors import OpenNetWorthError, to_http_status
+from backend.api.connector_error_responses import connector_domain_error
+from backend.core.errors import OpenNetWorthError
 from backend.db.gocardless_config_store import GoCardlessConfigStore
 from backend.services.aggregation import gocardless as gocardless_service
 
@@ -54,7 +56,7 @@ async def _call(fn, *args):
     try:
         return await asyncio.to_thread(fn, *args)
     except OpenNetWorthError as exc:
-        raise HTTPException(to_http_status(exc), exc.message or str(exc)) from exc
+        return connector_domain_error(exc)
 
 
 @router.get("/api/gocardless/status")
@@ -64,7 +66,8 @@ def gocardless_status():
 
 @router.get("/api/gocardless/institutions")
 async def gocardless_institutions(country: str):
-    return {"institutions": await _call(gocardless_service.list_institutions, country)}
+    result = await _call(gocardless_service.list_institutions, country)
+    return result if isinstance(result, JSONResponse) else {"institutions": result}
 
 
 @router.put("/api/gocardless/config")

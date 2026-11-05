@@ -1,3 +1,5 @@
+import { useAppIntl } from '../../i18n/useAppIntl'
+import { FormattedMessage } from './FormattedMessage'
 import { useEffect, useRef, useState } from 'react'
 import { Button } from '../ui'
 import { authFetch } from '../../api/client'
@@ -28,6 +30,7 @@ interface ListState {
 // (alerts.json) and are never touched by membership changes.
 // Membership snapshot is fetched once on mount for the count badge.
 export function AssetWatchlistMenu({ ticker, assetClass, onChanged }: Props) {
+  const intl = useAppIntl()
   const [open, setOpen] = useState(false)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(false)
@@ -190,7 +193,7 @@ export function AssetWatchlistMenu({ ticker, assetClass, onChanged }: Props) {
         onClick={() => (open ? close() : setOpen(true))}
         aria-expanded={open}
         aria-haspopup="menu"
-        aria-label="Watchlists"
+        aria-label={intl.formatMessage({ id: "intel.field.4bbd4c3d", defaultMessage: "Watchlists" })}
         // Filled once the asset is actually saved somewhere — the common star convention
         // (owner ask 2026-08-31: "'save' [Bookmark] is not a proper icon for watch").
         iconLeft={<Star size={14} fill={inCount > 0 ? 'currentColor' : 'none'} />}
@@ -199,7 +202,7 @@ export function AssetWatchlistMenu({ ticker, assetClass, onChanged }: Props) {
             same treatment as the Refresh button (owner ask 2026-08-31: "let's make
             watchlist become an icon too on mobile" / "on mobile ... let's not show 'n'
             for watchlist, just show the icon"). */}
-        <span className="asd-wl-label">Watchlists</span>
+        <span className="asd-wl-label">{<FormattedMessage id="intel.static.watchlists_4bbd4c3d" defaultMessage={"Watchlists"} />}</span>
         {inCount > 0 && <span className="asd-wl-badge">{inCount}</span>}
         <ChevronDown size={13} className="asd-wl-caret" />
       </Button>
@@ -207,11 +210,11 @@ export function AssetWatchlistMenu({ ticker, assetClass, onChanged }: Props) {
         <>
           <div className="asd-wl-overlay" onClick={close} />
           <div className="asd-wl-menu" role="menu">
-            <div className="asd-wl-head">Add to watchlists</div>
-            {loading && <div className="asd-wl-msg">Loading…</div>}
-            {error && !loading && <div className="asd-wl-msg">Couldn’t load watchlists.</div>}
+            <div className="asd-wl-head">{<FormattedMessage id="intel.static.add_to_watchlists_ba248b75" defaultMessage={"Add to watchlists"} />}</div>
+            {loading && <div className="asd-wl-msg">{<FormattedMessage id="intel.static.loading_8636cba2" defaultMessage={"Loading…"} />}</div>}
+            {error && !loading && <div className="asd-wl-msg">{<FormattedMessage id="intel.static.couldn_t_load_watchlists_bcd7e9d0" defaultMessage={"Couldn’t load watchlists."} />}</div>}
             {!loading && !error && lists.length === 0 && (
-              <div className="asd-wl-msg">No watchlists yet.</div>
+              <div className="asd-wl-msg">{<FormattedMessage id="intel.static.no_watchlists_yet_a7c060bd" defaultMessage={"No watchlists yet."} />}</div>
             )}
             {!loading &&
               !error &&
@@ -223,7 +226,7 @@ export function AssetWatchlistMenu({ ticker, assetClass, onChanged }: Props) {
                   role="menuitemcheckbox"
                   aria-checked={l.member}
                   disabled={busy || l.is_auto_sync}
-                  title={l.is_auto_sync ? 'Auto-managed — mirrors your holdings' : undefined}
+                  title={l.is_auto_sync ? intl.formatMessage({ id: 'intel.watchlist.managed', defaultMessage: 'Auto-managed — mirrors your holdings' }) : undefined}
                   onClick={() => {
                     if (!l.is_auto_sync) void toggle(l)
                   }}
@@ -244,7 +247,7 @@ export function AssetWatchlistMenu({ ticker, assetClass, onChanged }: Props) {
                   disabled={busy}
                   onClick={() => void createAndAdd()}
                 >
-                  <Plus size={13} /> New watchlist
+                  <Plus size={13} /> {intl.formatMessage({ id: 'intel.watchlist.new', defaultMessage: 'New watchlist' })}
                 </button>
               </>
             )}

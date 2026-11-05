@@ -51,6 +51,8 @@ DETAIL = (
     "deferred",
     "errors",
     "not_stored",
+    "phase_message",
+    "outcome_message",
 )
 
 
@@ -84,6 +86,10 @@ class ImportRunStore:
         return run
 
     def update(self, run_id: str, fields: dict) -> None:
+        fields = dict(fields)
+        for name in ("phase", "outcome"):
+            if name in fields and f"{name}_message" not in fields:
+                fields[f"{name}_message"] = None
         columns, detail = _split(fields)
         with self._eng().begin() as conn:
             if detail:
@@ -114,7 +120,11 @@ class ImportRunStore:
 
     def summaries(self, provider: str | None, include_archived: bool, limit: int) -> list[dict]:
         """Newest first, the light columns only."""
-        query = select(*(import_runs.c[name] for name in COLUMNS))
+        query = select(
+            *(import_runs.c[name] for name in COLUMNS),
+            import_runs.c.detail["phase_message"].as_json().label("phase_message"),
+            import_runs.c.detail["outcome_message"].as_json().label("outcome_message"),
+        )
         if provider:
             query = query.where(import_runs.c.provider == provider)
         if not include_archived:

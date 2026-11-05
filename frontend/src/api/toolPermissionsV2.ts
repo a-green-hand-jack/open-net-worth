@@ -59,6 +59,8 @@ export interface ToolPermission {
   default_level: PermissionLevel | ''
   /** The tool's own first sentence; empty for an external MCP tool. */
   description: string
+  /** Present only for an application-owned registry description. */
+  description_source?: { tool: string; sha256: string } | null
   updated_at: string
   /** False when the stored tool name no longer resolves in the registry — a rename retired
    *  it, so the decision is already inert. Rendered rather than hidden: a permission the
@@ -126,7 +128,8 @@ export async function setToolPermission(
   })
   if (!res.ok) {
     const detail = res.status === 409 ? await refusalDetail(res) : null
-    if (detail) throw new PermissionRefusedError(detail)
+    if (detail)
+      throw new PermissionRefusedError(detail.message, detail.messageId, detail.messageParams)
     throw new Error(`permission update failed (${res.status})`)
   }
   invalidateQueryCache(TOOL_PERMISSIONS_KEY)
@@ -136,12 +139,45 @@ export async function setToolPermission(
 /** The server understood the request and refused it on purpose (HTTP 409), writing nothing —
  *  e.g. a card's Always allow whose Automation was deleted meanwhile. `message` is the server's
  *  own sentence, written to be shown to the owner as is. */
-export class PermissionRefusedError extends Error {}
+export class PermissionRefusedError extends Error {
+  readonly messageId?: string
+  readonly messageParams?: Record<string, string | number>
+  constructor(
+    message: string,
+    messageId?: string,
+    messageParams?: Record<string, string | number>,
+  ) {
+    super(message)
+    this.messageId = messageId
+    this.messageParams = messageParams
+  }
+}
 
-async function refusalDetail(res: Response): Promise<string | null> {
+async function refusalDetail(
+  res: Response,
+): Promise<{
+  message: string
+  messageId?: string
+  messageParams?: Record<string, string | number>
+} | null> {
   try {
-    const body = (await res.json()) as { detail?: unknown }
-    return typeof body.detail === 'string' && body.detail ? body.detail : null
+    const body = (await res.json()) as {
+      detail?: unknown
+      message_id?: unknown
+      message_params?: unknown
+    }
+    if (typeof body.detail !== 'string' || !body.detail) return null
+    const params = body.message_params
+    return {
+      message: body.detail,
+      ...(typeof body.message_id === 'string' &&
+      params &&
+      typeof params === 'object' &&
+      !Array.isArray(params) &&
+      Object.values(params).every((value) => typeof value === 'string' || typeof value === 'number')
+        ? { messageId: body.message_id, messageParams: params as Record<string, string | number> }
+        : {}),
+    }
   } catch {
     return null
   }

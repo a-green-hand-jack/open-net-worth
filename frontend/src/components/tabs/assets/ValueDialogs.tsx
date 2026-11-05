@@ -3,11 +3,12 @@
 // place (RFC assets-create-edit-redesign §3.5–3.6). A value can't be dated in the future, nor
 // before the purchase — the picker stops at both, and the server says why if it refuses.
 import { useId } from 'react'
+import { defineMessages } from 'react-intl'
 import type { AssetMark, OwnedAsset } from '../../../types/assets'
 import { fNum, getCurrencySymbol, localIso } from '../../../utils/format'
 import { Button, DateField, FormField, Modal, MoneyField, Stack, Text, TextField } from '../../ui'
 import * as api from './api'
-import { notePlaceholder } from './assetCategoryRules'
+import { useAppIntl } from '../../../i18n/useAppIntl'
 import { fmt, monthYear, sharePct } from './assetsData'
 import { EditorFooter, SaveError, useEditorSave } from './editorKit'
 import { useSyncedDraft } from './useSyncedDraft'
@@ -21,14 +22,36 @@ export interface ValueDraft {
 export type ValueErrors = Partial<Record<'value' | 'date', string>>
 
 /** `today` is the local ISO date. An empty date is left to the server (today, or unchanged). */
-function valueErrors(d: ValueDraft, today: string): ValueErrors {
+function valueErrors(
+  d: ValueDraft,
+  today: string,
+  intl: ReturnType<typeof useAppIntl>,
+): ValueErrors {
   const errors: ValueErrors = {}
-  if (d.value == null || d.value <= 0) errors.value = 'Enter a value greater than 0.'
-  if (d.date && d.date > today) errors.date = "Pick a date that isn't in the future."
+  if (d.value == null || d.value <= 0)
+    errors.value = intl.formatMessage({
+      id: 'assets.value.positive',
+      defaultMessage: 'Enter a value greater than 0.',
+    })
+  if (d.date && d.date > today)
+    errors.date = intl.formatMessage({
+      id: 'assets.value.notFuture',
+      defaultMessage: "Pick a date that isn't in the future.",
+    })
   return errors
 }
 
 const FIELDS = ['value', 'date', 'note'] as const
+
+const noteHints = defineMessages({
+  property: { id: 'assets.value.note.property', defaultMessage: 'e.g. Bank valuation' },
+  vehicle: { id: 'assets.value.note.vehicle', defaultMessage: 'e.g. Dealer quote' },
+  watch: { id: 'assets.value.note.watch', defaultMessage: 'e.g. Chrono24 median' },
+  art: { id: 'assets.value.note.art', defaultMessage: 'e.g. Auction estimate' },
+  metal: { id: 'assets.value.note.metal', defaultMessage: 'e.g. Spot price' },
+  policy: { id: 'assets.value.note.policy', defaultMessage: 'e.g. Annual statement' },
+  other: { id: 'assets.value.note.other', defaultMessage: 'e.g. Where the figure came from' },
+})
 
 interface ValueFormProps {
   a: OwnedAsset
@@ -62,6 +85,7 @@ interface ValueFieldsProps {
 
 /** New value · As of · Note — bounded by today and, when there is one, the purchase date. */
 function ValueFields(props: ValueFieldsProps) {
+  const { formatMessage } = useAppIntl()
   const { a, label, dateHelp, draft, update, today, errors } = props
   const id = useId()
   const share = a.share_pct ?? 100
@@ -73,7 +97,13 @@ function ValueFields(props: ValueFieldsProps) {
         // A co-owner who typed their half here would halve what net worth counts.
         help={
           share < 100
-            ? `The whole asset's value — net worth counts your ${sharePct(share)}%.`
+            ? formatMessage(
+                {
+                  id: 'assets.value.shareHint',
+                  defaultMessage: "The whole asset's value — net worth counts your {share}%.",
+                },
+                { share: sharePct(share) },
+              )
             : undefined
         }
         error={errors.value}
@@ -90,7 +120,12 @@ function ValueFields(props: ValueFieldsProps) {
           onInvalidChange={(bad) => props.onUnreadable?.('value', bad)}
         />
       </FormField>
-      <FormField label="As of" htmlFor={`${id}-date`} help={dateHelp} error={errors.date}>
+      <FormField
+        label={formatMessage({ id: 'assets.value.asOf', defaultMessage: 'As of' })}
+        htmlFor={`${id}-date`}
+        help={dateHelp}
+        error={errors.date}
+      >
         <DateField
           id={`${id}-date`}
           invalid={!!errors.date}
@@ -100,13 +135,22 @@ function ValueFields(props: ValueFieldsProps) {
           onChange={(e) => update({ date: e.target.value })}
         />
       </FormField>
-      <FormField label="Note (optional)" htmlFor={`${id}-note`} error={errors.note}>
+      <FormField
+        label={formatMessage({
+          id: 'assets.value.noteOptional',
+          defaultMessage: 'Note (optional)',
+        })}
+        htmlFor={`${id}-note`}
+        error={errors.note}
+      >
         <TextField
           id={`${id}-note`}
           invalid={!!errors.note}
           value={draft.note}
           maxLength={api.TEXT_CAPS.valueNote}
-          placeholder={notePlaceholder(a.category)}
+          placeholder={formatMessage(
+            noteHints[a.category as keyof typeof noteHints] ?? noteHints.other,
+          )}
           onChange={(e) => update({ note: e.target.value })}
         />
       </FormField>
@@ -115,6 +159,7 @@ function ValueFields(props: ValueFieldsProps) {
 }
 
 function ValueForm(props: ValueFormProps) {
+  const intl = useAppIntl()
   const { a, initial, submit, onClose, onSaved } = props
   const today = localIso()
   const [draft, update, latest] = useSyncedDraft<ValueDraft>(initial)
@@ -126,7 +171,7 @@ function ValueForm(props: ValueFormProps) {
   }
 
   async function onSave() {
-    if (!check(valueErrors(latest.current, today))) return
+    if (!check(valueErrors(latest.current, today, intl))) return
     const write = submit(latest.current)
     if (!write) return onClose()
     if (await save(write)) onSaved()
@@ -151,7 +196,7 @@ function ValueForm(props: ValueFormProps) {
                 disabled={!props.remove.removable || saving}
                 onClick={props.remove.onRemove}
               >
-                Remove value
+                {intl.formatMessage({ id: 'assets.value.remove', defaultMessage: 'Remove value' })}
               </Button>
             )
           }
@@ -180,7 +225,10 @@ function ValueForm(props: ValueFormProps) {
         />
         {props.remove && !props.remove.removable && (
           <Text as="p" size="xs" tone="muted">
-            An asset needs at least one value.
+            {intl.formatMessage({
+              id: 'assets.value.needOne',
+              defaultMessage: 'An asset needs at least one value.',
+            })}
           </Text>
         )}
         <SaveError message={dialogError(FIELDS)} />
@@ -197,17 +245,29 @@ export interface UpdateValueDialogProps {
 }
 
 export function UpdateValueDialog({ a, onClose, onSaved }: UpdateValueDialogProps) {
+  const { formatMessage } = useAppIntl()
   return (
     <ValueForm
       a={a}
-      title="Update value"
-      valueLabel="New value"
-      submitLabel="Update value"
+      title={formatMessage({ id: 'assets.value.update', defaultMessage: 'Update value' })}
+      valueLabel={formatMessage({ id: 'assets.value.new', defaultMessage: 'New value' })}
+      submitLabel={formatMessage({ id: 'assets.value.update', defaultMessage: 'Update value' })}
       initial={{ value: null, date: localIso(), note: '' }}
       reference={
-        a.value == null ? null : `Current value: ${fmt(a.value)} · valued ${monthYear(a.valued_on)}`
+        a.value == null
+          ? null
+          : formatMessage(
+              {
+                id: 'assets.value.current',
+                defaultMessage: 'Current value: {value} · valued {date}',
+              },
+              { value: fmt(a.value), date: monthYear(a.valued_on) },
+            )
       }
-      hint="This is saved as a new dated value — the old one stays in history."
+      hint={formatMessage({
+        id: 'assets.value.updateHint',
+        defaultMessage: 'This is saved as a new dated value — the old one stays in history.',
+      })}
       submit={(d) => () =>
         api.addMark(a.id, {
           value: d.value!,
@@ -216,7 +276,9 @@ export function UpdateValueDialog({ a, onClose, onSaved }: UpdateValueDialogProp
         })
       }
       onClose={onClose}
-      onSaved={() => onSaved('Value updated.')}
+      onSaved={() =>
+        onSaved(formatMessage({ id: 'assets.value.updated', defaultMessage: 'Value updated.' }))
+      }
     />
   )
 }
@@ -231,6 +293,7 @@ export interface CorrectValueDialogProps extends UpdateValueDialogProps {
 }
 
 export function CorrectValueDialog(props: CorrectValueDialogProps) {
+  const { formatMessage } = useAppIntl()
   const { a, mark, onClose, onSaved } = props
   // Only what changed is sent: a correction that keeps a value's date must never be refused
   // for that date (a legacy value dated before the purchase stays correctable).
@@ -242,9 +305,12 @@ export function CorrectValueDialog(props: CorrectValueDialogProps) {
   return (
     <ValueForm
       a={a}
-      title="Correct this value"
-      valueLabel="Value"
-      submitLabel="Save correction"
+      title={formatMessage({ id: 'assets.value.correct', defaultMessage: 'Correct this value' })}
+      valueLabel={formatMessage({ id: 'assets.value.label', defaultMessage: 'Value' })}
+      submitLabel={formatMessage({
+        id: 'assets.value.saveCorrection',
+        defaultMessage: 'Save correction',
+      })}
       initial={{ value: mark.value, date: mark.date, note: mark.note }}
       remove={{ removable: props.removable, onRemove: props.onRemove }}
       submit={(d) => {
@@ -252,7 +318,9 @@ export function CorrectValueDialog(props: CorrectValueDialogProps) {
         return Object.keys(body).length ? () => api.correctMark(a.id, mark.id, body) : null
       }}
       onClose={onClose}
-      onSaved={() => onSaved('Value corrected.')}
+      onSaved={() =>
+        onSaved(formatMessage({ id: 'assets.value.corrected', defaultMessage: 'Value corrected.' }))
+      }
     />
   )
 }

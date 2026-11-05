@@ -1,3 +1,4 @@
+import { message as t } from './native-messages';
 import type { BrowserWindow, MessageBoxOptions } from 'electron';
 import { serverAddress, validateServer } from './connections';
 
@@ -12,8 +13,8 @@ export interface ServerSubmitContext {
   validate?: typeof validateServer;
 }
 
-const insecurePrompt = (origin: string): MessageBoxOptions => ({ type: 'warning', title: 'Connection not encrypted', message: 'This connection is not encrypted.', detail: `${origin}\n\nYour password and book data travel without encryption. Continue only on a network you trust.`, buttons: ['Cancel', 'Connect anyway'], defaultId: 0, cancelId: 0 });
-const switchPrompt = (origin: string): MessageBoxOptions => ({ type: 'question', title: 'Change connection', message: 'Switch to this server?', detail: `${origin}\n\nThe app will show the book on this server. The book on this computer isn’t changed — you can switch back any time.\n\nAnything you haven’t saved will be closed, and any browser tab you opened from this app will stop working.`, buttons: ['Cancel', 'Connect'], defaultId: 0, cancelId: 0 });
+const insecurePrompt = (origin: string): MessageBoxOptions => ({ type: 'warning', title: t('Connection not encrypted'), message: t('This connection is not encrypted.'), detail: `${origin}\n\n${t('Your password and book data travel without encryption. Continue only on a network you trust.')}`, buttons: [t('Cancel'), t('Connect anyway')], defaultId: 0, cancelId: 0 });
+const switchPrompt = (origin: string): MessageBoxOptions => ({ type: 'question', title: t('Change connection'), message: t('Switch to this server?'), detail: `${origin}\n\n${t('The app will show the book on this server. The book on this computer isn’t changed — you can switch back any time.')}\n\n${t('Anything you haven’t saved will be closed, and any browser tab you opened from this app will stop working.')}`, buttons: [t('Cancel'), t('Connect')], defaultId: 0, cancelId: 0 });
 
 // The one path from a typed server address to an open connection, shared by the Connection
 // dialog and the first-launch page: validate, confirm what needs confirming, then connect.
@@ -30,8 +31,8 @@ export class ServerSubmission {
 
   // Resolves true once connected, false when the attempt was abandoned (Back, a declined prompt, a closed window).
   async submit(value: unknown, context: ServerSubmitContext): Promise<boolean> {
-    if (typeof value !== 'string') throw new Error('Enter a server URL.');
-    if (this.busy) throw new Error('Wait for the current connection operation to finish.');
+    if (typeof value !== 'string') throw new Error(t("Enter a server URL."));
+    if (this.busy) throw new Error(t("Wait for the current connection operation to finish."));
     const address = serverAddress(value);
     const controller = new AbortController();
     this.validation = controller;

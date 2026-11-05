@@ -1,3 +1,5 @@
+import { getNumberLocale } from '../../../utils/format'
+import { useAppIntl } from '../../../i18n/useAppIntl'
 // Commitment detail screen — the full port of detail3.jsx: header (inline name/note edit,
 // tags, risk chip, Mark completed / kebab menu with cancel+delete confirm strips), stat strip,
 // insight ribbon (at-risk fix / loan early-payoff / autopilot / fully-funded), the payments-on-
@@ -64,6 +66,9 @@ export function CommitmentDetail({
   onChanged,
   onOpenCommitment,
 }: CommitmentDetailProps) {
+  const { formatMessage, locale } = useAppIntl()
+  const kinds: Record<string, string> = { purchase: formatMessage({ id: 'commitments.kind.purchase', defaultMessage: 'Purchase' }), loan_repayment: formatMessage({ id: 'commitments.kind.loanRepayment', defaultMessage: 'Loan repayment' }), auto_pay: formatMessage({ id: 'commitments.kind.autoPay', defaultMessage: 'Auto-pay' }), goal: formatMessage({ id: 'commitments.kind.goal', defaultMessage: 'Goal' }) }
+  const statuses: Record<string, string> = { active: formatMessage({ id: 'commitments.rows.active', defaultMessage: 'Active' }), completed: formatMessage({ id: 'commitments.rows.completed', defaultMessage: 'Completed' }), cancelled: formatMessage({ id: 'commitments.rows.cancelled', defaultMessage: 'Cancelled' }) }
   const [nameDraft, setNameDraft] = useState<string | null>(null)
   const [noteDraft, setNoteDraft] = useState<string | null>(null)
   const [confirmDel, setConfirmDel] = useState(false)
@@ -174,45 +179,46 @@ export function CommitmentDetail({
             headline number+date is the part worth reading at a glance; the reasoning is what
             tapping "Fix" is for. */}
         <span className="c2-ribbon-core">
-          This plan runs <b className="money">{fBase(c.coverage.shortfall_base)}</b> short of your
-          cash floor around{' '}
-          <b>
-            {c.coverage.earliest_shortfall_date ? fmtDate(c.coverage.earliest_shortfall_date) : ''}
-          </b>
+          {formatMessage({ id: 'commitments.insight.shortfall', defaultMessage: 'This plan runs {amount} short of your cash floor around {date}' }, {
+            amount: <b className="money">{fBase(c.coverage.shortfall_base)}</b>,
+            date: <b>{c.coverage.earliest_shortfall_date ? fmtDate(c.coverage.earliest_shortfall_date) : ''}</b>,
+          })}
           {lateDraw && weeks != null
-            ? `. ${lateFundingHint(lateDraw.label, lateDraw.available_date as string, weeks, lateDraw.type === 'asset_sale')}`
+            ? `. ${locale !== 'en' ? formatMessage({ id: 'commitments.insight.lateFunding', defaultMessage: 'It is funded by "{label}", which arrives on {date}, about {weeks} weeks after the payment. {action} closes the gap without new borrowing.' }, {
+              label: lateDraw.label, date: fmtDate(lateDraw.available_date as string), weeks,
+              action: lateDraw.type === 'asset_sale'
+                ? formatMessage({ id: 'commitments.insight.sellEarlier', defaultMessage: 'Selling earlier' })
+                : formatMessage({ id: 'commitments.insight.fundEarlier', defaultMessage: 'Pulling that funding forward' }),
+            }) : lateFundingHint(lateDraw.label, lateDraw.available_date as string, weeks, lateDraw.type === 'asset_sale')}`
             : '.'}
         </span>
         <span className="c2-ribbon-lite">
-          <b className="money">{fBase(c.coverage.shortfall_base)}</b> short around{' '}
-          <b>
-            {c.coverage.earliest_shortfall_date ? fmtDate(c.coverage.earliest_shortfall_date) : ''}
-          </b>
-          .
+          {formatMessage({ id: 'commitments.insight.shortfallBrief', defaultMessage: '{amount} short around {date}.' }, {
+            amount: <b className="money">{fBase(c.coverage.shortfall_base)}</b>,
+            date: <b>{c.coverage.earliest_shortfall_date ? fmtDate(c.coverage.earliest_shortfall_date) : ''}</b>,
+          })}
         </span>
       </>
     )
-    insightBtnLabel = 'Fix'
-    insightBtnSuffix = ' with Lucius'
+    insightBtnLabel = formatMessage({ id: 'commitments.detail.fix', defaultMessage: 'Fix' })
+    insightBtnSuffix = formatMessage({ id: 'commitments.detail.withLucius', defaultMessage: ' with Lucius' })
     insightPrompt = `The "${c.name}" commitment runs ${fBase(c.coverage.shortfall_base)} short of the cash floor around ${c.coverage.earliest_shortfall_date ? fmtDate(c.coverage.earliest_shortfall_date) : 'an upcoming date'}${lateDraw && weeks != null ? `. The "${lateDraw.label}" funding does not arrive until about ${weeks} weeks after the payment` : ''}. Help me close this gap.`
   } else if (loan && c.status === 'active') {
     insight = (
       <>
         <span className="c2-ribbon-core">
-          {loan.paidCount} of {loan.term} payments made —{' '}
-          <b className="money">{fBase(loan.balance)}</b> balance at <b>{loan.apr}%</b>. An extra{' '}
-          <b className="money">{fBase(loan.extra)}/mo</b> clears it{' '}
-          <b>~{loan.monthsSaved} months early</b>, saving about{' '}
-          <b className="money">{fBase(loan.interestSaved)}</b> in interest.
+          {formatMessage({ id: 'commitments.insight.loan', defaultMessage: '{paid} of {term} payments made — {balance} balance at {rate}. An extra {extra} clears it {early}, saving about {saved} in interest.' }, {
+            paid: loan.paidCount, term: loan.term, balance: <b className="money">{fBase(loan.balance)}</b>, rate: <b>{loan.apr}%</b>,
+            extra: <b className="money">{formatMessage({ id: 'commitments.insight.perMonth', defaultMessage: '{amount}/mo' }, { amount: fBase(loan.extra) })}</b>, early: <b>{formatMessage({ id: 'commitments.insight.monthsEarly', defaultMessage: '~{months} months early' }, { months: loan.monthsSaved })}</b>, saved: <b className="money">{fBase(loan.interestSaved)}</b>,
+          })}
         </span>
         <span className="c2-ribbon-lite">
-          {loan.paidCount} of {loan.term} paid — <b className="money">{fBase(loan.balance)}</b> at{' '}
-          <b>{loan.apr}%</b>.
+          {formatMessage({ id: 'commitments.insight.loanBrief', defaultMessage: '{paid} of {term} paid — {balance} at {rate}.' }, { paid: loan.paidCount, term: loan.term, balance: <b className="money">{fBase(loan.balance)}</b>, rate: <b>{loan.apr}%</b> })}
         </span>
       </>
     )
-    insightBtnLabel = 'Draft early payoff'
-    insightBtnSuffix = ' with Lucius'
+    insightBtnLabel = formatMessage({ id: 'commitments.detail.draftEarlyPayoff', defaultMessage: 'Draft early payoff' })
+    insightBtnSuffix = formatMessage({ id: 'commitments.detail.withLucius', defaultMessage: ' with Lucius' })
     insightHot = false
     insightPrompt = `Help me draft an early-payoff plan for my "${c.name}" loan — paying an extra ${fBase(loan.extra)}/mo would clear it about ${loan.monthsSaved} months early and save roughly ${fBase(loan.interestSaved)} in interest.`
   } else {
@@ -222,14 +228,11 @@ export function CommitmentDetail({
     insight =
       envSource && envelope ? (
         <>
-          On autopilot — <b className="money">{fBase(envSource.value_base ?? 0)}/mo</b> flows into
-          your <b>{envelope.envelope}</b> target;{' '}
-          <b className="money">{fBase(envelope.accumulated)}</b> saved so far.
+          {formatMessage({ id: 'commitments.insight.autopilot', defaultMessage: 'On autopilot — {amount} flows into your {target} target; {saved} saved so far.' }, { amount: <b className="money">{formatMessage({ id: 'commitments.insight.perMonth', defaultMessage: '{amount}/mo' }, { amount: fBase(envSource.value_base ?? 0) })}</b>, target: <b>{envelope.envelope}</b>, saved: <b className="money">{fBase(envelope.accumulated)}</b> })}
         </>
       ) : (
         <>
-          Fully funded — every remaining {tracker ? 'contribution' : 'installment'} is covered by
-          earmarked cash and dated draws.
+          {tracker ? formatMessage({ id: 'commitments.insight.fundedContributions', defaultMessage: 'Fully funded — every remaining contribution is covered by earmarked cash and dated draws.' }) : formatMessage({ id: 'commitments.insight.fundedInstallments', defaultMessage: 'Fully funded — every remaining installment is covered by earmarked cash and dated draws.' })}
         </>
       )
     insightPrompt = `My "${c.name}" commitment looks fully funded. Take a look and let me know if there's anything worth tightening up.`
@@ -266,7 +269,7 @@ export function CommitmentDetail({
               setNameDraft(c.name)
             }}
           >
-            Rename
+            {formatMessage({ id: 'commitments.detail.rename', defaultMessage: 'Rename' })}
           </button>
           <button
             className="c3-menu-it"
@@ -276,7 +279,9 @@ export function CommitmentDetail({
               setNoteDraft(c.note || '')
             }}
           >
-            {c.note ? 'Edit note' : 'Add note'}
+            {c.note
+              ? formatMessage({ id: 'commitments.detail.editNote', defaultMessage: 'Edit note' })
+              : formatMessage({ id: 'commitments.detail.addNote', defaultMessage: 'Add note' })}
           </button>
           <button
             className="c3-menu-it"
@@ -286,7 +291,15 @@ export function CommitmentDetail({
               void writes.setStatus(c.status === 'active' ? 'completed' : 'active')
             }}
           >
-            {c.status === 'active' ? 'Mark completed' : 'Reactivate'}
+            {c.status === 'active'
+              ? formatMessage({
+                  id: 'commitments.detail.markCompleted',
+                  defaultMessage: 'Mark completed',
+                })
+              : formatMessage({
+                  id: 'commitments.detail.reactivate',
+                  defaultMessage: 'Reactivate',
+                })}
           </button>
           <div className="c3-menu-divider" />
         </>
@@ -301,7 +314,7 @@ export function CommitmentDetail({
             setConfirmDel(false)
           }}
         >
-          Cancel commitment
+          {formatMessage({ id: 'commitments.detail.cancel', defaultMessage: 'Cancel commitment' })}
         </button>
       )}
       <button
@@ -313,7 +326,7 @@ export function CommitmentDetail({
           setConfirmCancel(false)
         }}
       >
-        Delete commitment
+        {formatMessage({ id: 'remaining.deleteCommitment', defaultMessage: 'Delete commitment' })}
       </button>
     </>
   )
@@ -321,7 +334,7 @@ export function CommitmentDetail({
   const kebabTrigger = (
     <button
       className={'c3-kebab' + (menu ? ' open' : '')}
-      aria-label="More actions"
+      aria-label={formatMessage({ id: 'commitments.detail.more', defaultMessage: 'More actions' })}
       aria-expanded={menu}
       onClick={() => setMenu(!menu)}
     >
@@ -419,7 +432,10 @@ export function CommitmentDetail({
                     {!narrow && (
                       <button
                         className="c2-iconbtn on"
-                        aria-label="Rename"
+                        aria-label={formatMessage({
+                          id: 'commitments.detail.rename',
+                          defaultMessage: 'Rename',
+                        })}
                         onClick={() => setNameDraft(c.name)}
                       >
                         <PencilIcon />
@@ -429,31 +445,37 @@ export function CommitmentDetail({
                   </div>
                 )}
                 <div className="c2-det-tags">
-                  <span className="c2-tag">{KIND_LABELS[c.kind]}</span>
+                  <span className="c2-tag">{kinds[c.kind] ?? KIND_LABELS[c.kind]}</span>
                   <span className="c2-tag">{c.currency}</span>
                   {nonBase && nativePerBase != null && (
                     <span
                       className="c2-tag c3-fx"
-                      title="Base amounts use today's rate — shortfall verdicts move with FX"
+                      title={formatMessage({
+                        id: 'commitments.detail.rateHint',
+                        defaultMessage:
+                          "Base amounts use today's rate — shortfall verdicts move with FX",
+                      })}
                     >
                       {getCurrencySymbol(c.currency)}
-                      {nativePerBase.toLocaleString('en-US', {
+                      {nativePerBase.toLocaleString(getNumberLocale(), {
                         maximumFractionDigits: nativePerBase >= 100 ? 0 : 2,
                       })}{' '}
-                      / {getCurrencySymbol(base)} • today
+                      / {getCurrencySymbol(base)} • {formatMessage({ id: 'visible2.today', defaultMessage: 'today' })}
                     </span>
                   )}
-                  <span className={`c2-tag status-${c.status}`}>{c.status}</span>
+                  <span className={`c2-tag status-${c.status}`}>{statuses[c.status] ?? c.status}</span>
                   {atRisk && c.coverage && (
                     <span className="c2-chip short">
-                      Short {fBase(c.coverage.shortfall_base)} by{' '}
-                      {c.coverage.earliest_shortfall_date
-                        ? fmtDate(c.coverage.earliest_shortfall_date)
-                        : ''}
+                      {formatMessage({ id: 'visible2.shortBy', defaultMessage: 'Short {amount} by {date}' }, { amount: fBase(c.coverage.shortfall_base), date: c.coverage.earliest_shortfall_date ? fmtDate(c.coverage.earliest_shortfall_date) : '' })}
                     </span>
                   )}
                   {c.coverage?.assessed && !atRisk && c.status === 'active' && (
-                    <span className="c2-chip ok">On track to fund</span>
+                    <span className="c2-chip ok">
+                      {formatMessage({
+                        id: 'commitments.detail.onTrack',
+                        defaultMessage: 'On track to fund',
+                      })}
+                    </span>
                   )}
                 </div>
                 {narrow ? (
@@ -466,7 +488,7 @@ export function CommitmentDetail({
                       type="text"
                       value={noteDraft}
                       autoFocus
-                      placeholder="Add a note about this commitment"
+                      placeholder={formatMessage({ id: 'commitments.detail.notePlaceholder', defaultMessage: 'Add a note about this commitment' })}
                       onChange={(e) => setNoteDraft(e.target.value)}
                       onKeyDown={(e) => {
                         if (e.key === 'Enter') {
@@ -478,7 +500,7 @@ export function CommitmentDetail({
                     />
                     <div className="c2-edit-btns">
                       <button className="c2-mini-btn" onClick={() => setNoteDraft(null)}>
-                        Cancel
+                        {formatMessage({ id: 'remaining.cancel', defaultMessage: 'Cancel' })}
                       </button>
                       <button
                         className="c2-mini-btn pri"
@@ -487,16 +509,26 @@ export function CommitmentDetail({
                           setNoteDraft(null)
                         }}
                       >
-                        Save
+                        {formatMessage({ id: 'visible2.save', defaultMessage: 'Save' })}
                       </button>
                     </div>
                   </div>
                 ) : (
                   <div className="c2-det-note c2-note-row">
-                    {c.note || <span style={{ fontStyle: 'italic' }}>No note</span>}
+                    {c.note || (
+                      <span style={{ fontStyle: 'italic' }}>
+                        {formatMessage({
+                          id: 'commitments.detail.noNote',
+                          defaultMessage: 'No note',
+                        })}
+                      </span>
+                    )}
                     <button
                       className="c2-iconbtn on"
-                      aria-label="Edit note"
+                      aria-label={formatMessage({
+                        id: 'commitments.detail.editNote',
+                        defaultMessage: 'Edit note',
+                      })}
                       onClick={() => setNoteDraft(c.note || '')}
                     >
                       <PencilIcon />
@@ -513,7 +545,15 @@ export function CommitmentDetail({
                       void writes.setStatus(c.status === 'active' ? 'completed' : 'active')
                     }
                   >
-                    {c.status === 'active' ? 'Mark completed' : 'Reactivate'}
+                    {c.status === 'active'
+                      ? formatMessage({
+                          id: 'commitments.detail.markCompleted',
+                          defaultMessage: 'Mark completed',
+                        })
+                      : formatMessage({
+                          id: 'commitments.detail.reactivate',
+                          defaultMessage: 'Reactivate',
+                        })}
                   </Button>
                 )}
                 {!narrow && kebab}
@@ -524,11 +564,11 @@ export function CommitmentDetail({
               <Modal
                 open
                 onClose={() => setNoteDraft(null)}
-                title="Note"
+                title={formatMessage({ id: 'commitments.detail.note', defaultMessage: 'Note' })}
                 footer={
                   <>
                     <Button variant="secondary" size="sm" onClick={() => setNoteDraft(null)}>
-                      Cancel
+                      {formatMessage({ id: 'remaining.cancel', defaultMessage: 'Cancel' })}
                     </Button>
                     <Button
                       variant="primary"
@@ -538,7 +578,7 @@ export function CommitmentDetail({
                         setNoteDraft(null)
                       }}
                     >
-                      Save
+                      {formatMessage({ id: 'visible2.save', defaultMessage: 'Save' })}
                     </Button>
                   </>
                 }
@@ -547,7 +587,7 @@ export function CommitmentDetail({
                   className="c2-input c2-note-sheet-textarea"
                   autoFocus
                   rows={4}
-                  placeholder="Add a note about this commitment"
+                  placeholder={formatMessage({ id: 'commitments.detail.notePlaceholder', defaultMessage: 'Add a note about this commitment' })}
                   value={noteDraft}
                   onChange={(e) => setNoteDraft(e.target.value)}
                 />
@@ -558,9 +598,9 @@ export function CommitmentDetail({
               <div className="c3-confirmbar">
                 {confirmDel ? (
                   <span className="c2-del-confirm">
-                    Delete "{c.name}"? Its synced budget targets are removed too.
+                    {formatMessage({ id: 'visible2.deleteConfirm', defaultMessage: 'Delete "{name}"? Its synced budget targets are removed too.' }, { name: c.name })}
                     <button className="c2-mini-btn" onClick={() => setConfirmDel(false)}>
-                      Keep
+                      {formatMessage({ id: 'visible2.keep', defaultMessage: 'Keep' })}
                     </button>
                     <button
                       className="c2-mini-btn danger"
@@ -568,14 +608,14 @@ export function CommitmentDetail({
                         void writes.deleteCommitment().then(onBack)
                       }}
                     >
-                      Delete
+                      {formatMessage({ id: 'remaining.delete', defaultMessage: 'Delete' })}
                     </button>
                   </span>
                 ) : (
                   <span className="c2-del-confirm">
-                    Cancel "{c.name}"? History is kept; tracking and funding stop.
+                    {formatMessage({ id: 'visible2.cancelConfirm', defaultMessage: 'Cancel "{name}"? History is kept; tracking and funding stop.' }, { name: c.name })}
                     <button className="c2-mini-btn" onClick={() => setConfirmCancel(false)}>
-                      Keep
+                      {formatMessage({ id: 'visible2.keep', defaultMessage: 'Keep' })}
                     </button>
                     <button
                       className="c2-mini-btn danger"
@@ -584,7 +624,7 @@ export function CommitmentDetail({
                         setConfirmCancel(false)
                       }}
                     >
-                      Cancel commitment
+                      {formatMessage({ id: 'remaining.cancelCommitment', defaultMessage: 'Cancel commitment' })}
                     </button>
                   </span>
                 )}
@@ -593,44 +633,105 @@ export function CommitmentDetail({
 
             <div className="c2-exp-figs">
               <div className="c2-stat">
-                <span className="k">{tracker ? 'Contributed' : 'Paid'}</span>
+                <span className="k">
+                  {tracker
+                    ? formatMessage({
+                        id: 'commitments.detail.contributed',
+                        defaultMessage: 'Contributed',
+                      })
+                    : formatMessage({ id: 'commitments.detail.paid', defaultMessage: 'Paid' })}
+                </span>
                 <span className={moneyClass('v')}>{fBase(paidBase(c, fx))}</span>
                 <span className="u">
-                  {fPct(paidPct(c))} of{' '}
-                  <span className="money">{fBase(nativeTotalBase(c, fx))}</span>
+                  {formatMessage({ id: 'visible2.percentOf', defaultMessage: '{percent} of {amount}' }, { percent: fPct(paidPct(c)), amount: <span className="money">{fBase(nativeTotalBase(c, fx))}</span> })}
                 </span>
               </div>
               <div className="c2-stat">
-                <span className="k">Remaining</span>
+                <span className="k">
+                  {formatMessage({
+                    id: 'commitments.detail.remaining',
+                    defaultMessage: 'Remaining',
+                  })}
+                </span>
                 <span className={moneyClass('v')}>{fBase(remB)}</span>
                 <span className="u">
-                  {c.installments.filter((i) => i.status !== 'paid').length} installments left
+                  {formatMessage(
+                    {
+                      id: 'commitments.detail.installments',
+                      defaultMessage: '{count} installments left',
+                    },
+                    { count: c.installments.filter((i) => i.status !== 'paid').length },
+                  )}
                 </span>
               </div>
               <div className="c2-stat">
-                <span className="k">{tracker ? 'Next contribution' : 'Next payment'}</span>
+                <span className="k">
+                  {tracker
+                    ? formatMessage({
+                        id: 'commitments.detail.nextContribution',
+                        defaultMessage: 'Next contribution',
+                      })
+                    : formatMessage({
+                        id: 'commitments.detail.nextPayment',
+                        defaultMessage: 'Next payment',
+                      })}
+                </span>
                 <span className={moneyClass('v')}>
                   {next ? fBase(toBase(next.amount, c.currency, fx)) : '—'}
                 </span>
-                <span className="u">{next ? fmtDate(next.due_date) : 'Complete'}</span>
+                <span className="u">
+                  {next
+                    ? fmtDate(next.due_date)
+                    : formatMessage({
+                        id: 'commitments.detail.complete',
+                        defaultMessage: 'Complete',
+                      })}
+                </span>
               </div>
               {loan && (
                 <div className="c2-stat">
-                  <span className="k">Loan balance</span>
+                  <span className="k">
+                    {formatMessage({
+                      id: 'commitments.detail.loanBalance',
+                      defaultMessage: 'Loan balance',
+                    })}
+                  </span>
                   <span className={moneyClass('v')}>{fBase(loan.balance)}</span>
                   <span className="u">
-                    {loan.apr}% APR • {loan.monthsLeft} months left
+                    {formatMessage(
+                      {
+                        id: 'commitments.detail.monthsLeft',
+                        defaultMessage: '{apr}% APR • {months} months left',
+                      },
+                      { apr: loan.apr, months: loan.monthsLeft },
+                    )}
                   </span>
                 </div>
               )}
               {!tracker && !loan && (
                 <div className="c2-stat">
-                  <span className="k">Funding lined up</span>
+                  <span className="k">
+                    {formatMessage({
+                      id: 'commitments.detail.funding',
+                      defaultMessage: 'Funding lined up',
+                    })}
+                  </span>
                   <span className={moneyClass('v', fundGap ? 'warn' : undefined)}>
                     {fBase(funded)}
                   </span>
                   <span className="u">
-                    {fundGap ? `${fBase(remB - funded)} short of remaining` : 'covers remaining'}
+                    {fundGap
+                      ? formatMessage(
+                          {
+                            id: 'commitments.detail.shortRemaining',
+                            defaultMessage: '{amount} short of remaining',
+                          },
+                          { amount: fBase(remB - funded) },
+                        )
+                      : formatMessage({
+                          id: 'commitments.detail.covers',
+                          defaultMessage: 'covers remaining',
+                        })}
                   </span>
                 </div>
               )}
@@ -658,17 +759,38 @@ export function CommitmentDetail({
             {!tracker && c.status === 'active' && <TimelineStrip commitment={c} fx={fx} />}
 
             <div className="c2-seg c3-dettabs" role="tablist">
-              <TabButton k="overview" label="Overview" tab={tab} setTab={pinTab} />
+              <TabButton
+                k="overview"
+                label={formatMessage({
+                  id: 'commitments.detail.overview',
+                  defaultMessage: 'Overview',
+                })}
+                tab={tab}
+                setTab={pinTab}
+              />
               <TabButton
                 k="schedule"
-                label={tracker ? 'Contributions' : 'Schedule'}
+                label={
+                  tracker
+                    ? formatMessage({
+                        id: 'commitments.detail.contributions',
+                        defaultMessage: 'Contributions',
+                      })
+                    : formatMessage({
+                        id: 'commitments.detail.schedule',
+                        defaultMessage: 'Schedule',
+                      })
+                }
                 n={unpaidN || null}
                 tab={tab}
                 setTab={pinTab}
               />
               <TabButton
                 k="funding"
-                label="Funding"
+                label={formatMessage({
+                  id: 'commitments.detail.fundingTab',
+                  defaultMessage: 'Funding',
+                })}
                 n={srcN || null}
                 dot={fundGap ? 'warn' : null}
                 tab={tab}
@@ -676,7 +798,10 @@ export function CommitmentDetail({
               />
               <TabButton
                 k="actions"
-                label="Actions & events"
+                label={formatMessage({
+                  id: 'commitments.detail.actions',
+                  defaultMessage: 'Actions & events',
+                })}
                 n={pendingActsN || null}
                 dot={actsOverdue ? 'bad' : null}
                 tab={tab}

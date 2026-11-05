@@ -306,6 +306,7 @@ export function toEntry(c: Connector): ConnectorDetailEntry {
     desc: selfDescribed
       ? ''
       : provenance?.desc || c.long_description || (mcp ? '' : c.short_description) || '',
+    curatedDescriptionId: mcp && !selfDescribed ? provenance?.id : undefined,
     service: mcp ? undefined : CATALOG.find((e) => e.id === c.id)?.service,
     version: mcp ? str(cfg, 'server_info_version') || undefined : undefined,
     instructions: mcp ? str(cfg, 'server_info_instructions') || undefined : undefined,

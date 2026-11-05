@@ -8,6 +8,8 @@ import { Button, Text, TextField } from '../../ui'
 import { getCurrencySymbol } from '../../../utils/format'
 import { AssetsApiError, TEXT_CAPS } from './api'
 import { Icons } from './icons'
+import { useAppIntl } from '../../../i18n/useAppIntl'
+import { assetCategoryLabel } from './categoryLabels'
 
 const otherIcon = Icons.other!
 const plusIcon = Icons.plus!
@@ -28,6 +30,7 @@ export function CategoryStep({
   onPick,
   onCreateCategory,
 }: CategoryStepProps) {
+  const intl = useAppIntl()
   const [open, setOpen] = useState(newCatLabel !== '')
   const [creating, setCreating] = useState(false)
   const [error, setError] = useState('')
@@ -49,7 +52,14 @@ export function CategoryStep({
       setOpen(false)
       onPick(created.key)
     } catch (err) {
-      setError(err instanceof AssetsApiError ? err.message : "That didn't save — try again.")
+      setError(
+        err instanceof AssetsApiError
+          ? err.message
+          : intl.formatMessage({
+              id: 'assets.saveFailed',
+              defaultMessage: "That didn't save — try again.",
+            }),
+      )
     } finally {
       setCreating(false)
     }
@@ -63,7 +73,7 @@ export function CategoryStep({
             <span style={{ color: k.color }}>
               {(Icons[k.key] ?? otherIcon)({ width: 24, height: 24 })}
             </span>
-            {k.label}
+            {assetCategoryLabel(intl, k)}
           </button>
         ))}
         <button
@@ -73,7 +83,7 @@ export function CategoryStep({
           onClick={() => (open ? close() : setOpen(true))}
         >
           {plusIcon({ width: 24, height: 24 })}
-          New category
+          {intl.formatMessage({ id: 'assets.newCategory', defaultMessage: 'New category' })}
         </button>
       </div>
       {open && (
@@ -83,8 +93,14 @@ export function CategoryStep({
               autoFocus
               value={newCatLabel}
               maxLength={TEXT_CAPS.categoryLabel}
-              placeholder="e.g. Boats, Wine collection"
-              aria-label="New category name"
+              placeholder={intl.formatMessage({
+                id: 'assets.categoryExample',
+                defaultMessage: 'e.g. Boats, Wine collection',
+              })}
+              aria-label={intl.formatMessage({
+                id: 'assets.newCategoryName',
+                defaultMessage: 'New category name',
+              })}
               onChange={(e) => onNewCatLabel(e.target.value)}
               onKeyDown={(e) => {
                 if (e.key === 'Enter') void create()
@@ -95,10 +111,10 @@ export function CategoryStep({
               disabled={!newCatLabel.trim() || creating}
               onClick={() => void create()}
             >
-              Create
+              {intl.formatMessage({ id: 'common.create', defaultMessage: 'Create' })}
             </Button>
             <Button variant="ghost" onClick={close}>
-              Cancel
+              {intl.formatMessage({ id: 'common.cancel', defaultMessage: 'Cancel' })}
             </Button>
           </div>
           {error && (
@@ -117,8 +133,12 @@ export function CategoryStep({
 /** Step 1's footer: hand the whole job to Lucius instead — a card of its own, tinted with
  *  Lucius's colour, showing what to say rather than describing it (owner, 2026-09-28). */
 export function DescribeToLucius({ onAsk }: { onAsk(): void }) {
+  const intl = useAppIntl()
   const id = useId()
-  const example = `my 2019 Rolex, bought for ${getCurrencySymbol()}9,000`
+  const example = intl.formatMessage(
+    { id: 'assets.describeExample', defaultMessage: 'my 2019 Rolex, bought for {currency}9,000' },
+    { currency: getCurrencySymbol() },
+  )
   return (
     <button
       type="button"
@@ -132,10 +152,20 @@ export function DescribeToLucius({ onAsk }: { onAsk(): void }) {
       </span>
       <span className="as-lucius-cta-text">
         <span id={`${id}-title`} className="as-lucius-cta-title">
-          Describe it to Lucius
+          {intl.formatMessage({
+            id: 'assets.describeLucius',
+            defaultMessage: 'Describe it to Lucius',
+          })}
         </span>
         <span id={`${id}-sub`} className="as-lucius-cta-sub">
-          Say it in your own words, like “{example}”. Lucius adds it after you confirm.
+          {intl.formatMessage(
+            {
+              id: 'assets.describeLuciusHelp',
+              defaultMessage:
+                'Say it in your own words, like “{example}”. Lucius adds it after you confirm.',
+            },
+            { example },
+          )}
         </span>
       </span>
     </button>

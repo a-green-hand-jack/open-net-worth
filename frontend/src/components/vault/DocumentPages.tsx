@@ -1,3 +1,4 @@
+import { useAppIntl } from '../../i18n/useAppIntl'
 import { useState } from 'react'
 import { usePageImage } from './usePageImage'
 import { ChevronLeft, ChevronRight, Maximize2 } from '../../ui/icons'
@@ -17,6 +18,7 @@ export function DocumentPages({
    *  the expand button — calls this to open the full-size reader. */
   onExpand?: () => void
 }) {
+  const vaultIntl = useAppIntl()
   const [page, setPage] = useState(1)
   const shown = usePageImage(itemId, page)
   // The last loaded page's count holds while the next page loads, so the pager stays put.
@@ -25,26 +27,26 @@ export function DocumentPages({
   return (
     <div className={`vault-pages${onExpand ? ' vault-pages--compact' : ''}`}>
       {shown.loading ? (
-        <div className="vault-page-skeleton" aria-label="Loading page" />
+        <div className="vault-page-skeleton" aria-label={vaultIntl.formatMessage({ id: "vault.ui.91bf928d3527", defaultMessage: "Loading page" })} />
       ) : shown.error || !shown.url ? (
-        <p className="vault-pages-error">Can't show this document here: {shown.error}</p>
+        <p className="vault-pages-error">{vaultIntl.formatMessage({ id: "vault.ui.4e8a54305d18", defaultMessage: "Can't show this document here:" })} {shown.error}</p>
       ) : onExpand ? (
-        <button type="button" className="vault-page-open" onClick={onExpand} title="Open full size">
+        <button type="button" className="vault-page-open" onClick={onExpand} title={vaultIntl.formatMessage({ id: "vault.ui.f7eb1c9b97c6", defaultMessage: "Open full size" })}>
           <img
             className="vault-page-img"
             src={shown.url}
-            alt={count ? `${title}, page ${page} of ${count}` : title}
+            alt={count ? vaultIntl.formatMessage({ id: 'vault.pageAlt', defaultMessage: '{title}, page {page} of {count}' }, { title, page, count }) : title}
           />
           <span className="vault-page-expand" aria-hidden="true">
             <Maximize2 size={13} strokeWidth={1.8} />
-            Open
+            {vaultIntl.formatMessage({ id: "vault.ui.ed077f3d8125", defaultMessage: "Open" })}
           </span>
         </button>
       ) : (
         <img
           className="vault-page-img"
           src={shown.url}
-          alt={count ? `${title}, page ${page} of ${count}` : title}
+          alt={count ? vaultIntl.formatMessage({ id: 'vault.pageAlt', defaultMessage: '{title}, page {page} of {count}' }, { title, page, count }) : title}
         />
       )}
       {count && count > 1 ? (
@@ -54,19 +56,19 @@ export function DocumentPages({
             className="vault-icon-btn"
             onClick={() => setPage((p) => Math.max(1, p - 1))}
             disabled={page <= 1}
-            aria-label="Previous page"
+            aria-label={vaultIntl.formatMessage({ id: "vault.ui.1208ec01f223", defaultMessage: "Previous page" })}
           >
             <ChevronLeft size={16} strokeWidth={1.8} />
           </button>
           <span className="vault-pager-label">
-            Page {page} of {count}
+            {vaultIntl.formatMessage({ id: 'vault.pageCount', defaultMessage: 'Page {page} of {count}' }, { page, count })}
           </span>
           <button
             type="button"
             className="vault-icon-btn"
             onClick={() => setPage((p) => Math.min(count, p + 1))}
             disabled={page >= count}
-            aria-label="Next page"
+            aria-label={vaultIntl.formatMessage({ id: "vault.ui.c08ac736a5e2", defaultMessage: "Next page" })}
           >
             <ChevronRight size={16} strokeWidth={1.8} />
           </button>

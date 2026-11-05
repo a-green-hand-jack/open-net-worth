@@ -643,6 +643,7 @@ async def _generate_briefing(total_nw: float) -> dict:
             "Check your AI provider in Settings, then refresh.",
             "chat_suggestion": "",
             "error": True,
+            "note_message": {"message_id": "briefing.error.unreachable", "params": {}},
         }
 
     if result is not None:
@@ -659,6 +660,7 @@ async def _generate_briefing(total_nw: float) -> dict:
         "note": "The AI returned a briefing we couldn't read. Try refreshing.",
         "chat_suggestion": "",
         "error": True,
+        "note_message": {"message_id": "briefing.error.unreadable", "params": {}},
     }
 
 

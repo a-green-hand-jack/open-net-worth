@@ -39,22 +39,28 @@ async def submit_order(run_id, data):
         existing = TradingStore("orders").find_by_id(key, conn=conn)
         if existing:
             if existing["intent_hash"] != fingerprint(clean):
-                raise ConflictError("Request ID was already used for a different order")
+                raise ConflictError(
+                    "Request ID was already used for a different order",
+                    message_id="trading.error.request_id_conflict",
+                )
             return existing
         assert_running(run)
         if run.get("environment_error"):
             raise ConflictError(
-                "Trading environment has an unresolved error; repair it before submitting new orders"
+                "Trading environment has an unresolved error; repair it before submitting new orders",
+                message_id="trading.error.environment_unresolved",
             )
         if clean.get("decision_id"):
             decision = TradingStore("events").required(clean["decision_id"], conn=conn)
             if decision["run_id"] != run_id or decision["kind"] != "agent_decision":
                 raise ConflictError(
-                    "Order decision must be a recorded decision in this workspace environment"
+                    "Order decision must be a recorded decision in this workspace environment",
+                    message_id="trading.error.decision_invalid",
                 )
         if not uses_broker_execution(run) and clean["time_in_force"] == "day":
             raise ConflictError(
-                "DAY requires a verified session calendar; this simulator supports GTC"
+                "DAY requires a verified session calendar; this simulator supports GTC",
+                message_id="trading.error.day_calendar_required",
             )
         run = TradingStore("runs").update_by_id(
             run_id, {"current_time": environment_time(run).isoformat()}, conn=conn
@@ -94,29 +100,45 @@ async def submit_order(run_id, data):
 def _reserve(conn, run, clean):
     account = TradingStore("accounts").required(clean["account_id"], conn=conn)
     if account["run_id"] != run["id"]:
-        raise ConflictError("Account is outside the trading run")
+        raise ConflictError(
+            "Account is outside the trading run", message_id="trading.error.account_outside_run"
+        )
     instrument = clean["instrument"]
     mandate = run["workspace_snapshot"]["mandate"]
     if instrument["asset_class"] not in mandate["allowed_asset_classes"]:
-        raise ConflictError("Asset class is outside the mandate")
+        raise ConflictError(
+            "Asset class is outside the mandate",
+            message_id="trading.error.asset_class_outside_mandate",
+        )
     if mandate["instruments"] and instrument_key(instrument) not in {
         instrument_key(item) for item in mandate["instruments"]
     }:
-        raise ConflictError("Instrument is outside the mandate universe")
+        raise ConflictError(
+            "Instrument is outside the mandate universe",
+            message_id="trading.error.instrument_outside_mandate",
+        )
     if instrument["currency"] != account["currency"] or instrument["venue"] != account["venue"]:
-        raise ConflictError("Order currency and venue must match its allocated account")
+        raise ConflictError(
+            "Order currency and venue must match its allocated account",
+            message_id="trading.error.order_account_mismatch",
+        )
     quote = latest_quote(run, instrument)
     if quote is None:
         raw = raw_latest_quote(run, instrument)
         if raw is not None:
             assert_quote_authority(run, instrument, raw)
-        raise ConflictError("No market observation is available at the environment time")
+        raise ConflictError(
+            "No market observation is available at the environment time",
+            message_id="trading.error.observation_missing",
+        )
     if (
         run["mode"] != "backtest"
         and (environment_time(run) - instant(quote["timestamp"])).total_seconds()
         > mandate["max_quote_age_seconds"]
     ):
-        raise ConflictError("Market observation is stale")
+        raise ConflictError(
+            "Market observation is stale", message_id="trading.error.observation_stale"
+        )
     quantity = amount(clean["quantity"])
     price = amount(clean["limit_price"] or quote["price"])
     if clean["side"] == "sell":
@@ -125,17 +147,24 @@ def _reserve(conn, run, clean):
     if mandate["max_order_notional"] is not None and notional > amount(
         mandate["max_order_notional"]
     ):
-        raise ConflictError("Order exceeds the mandate notional limit")
+        raise ConflictError(
+            "Order exceeds the mandate notional limit", message_id="trading.error.notional_limit"
+        )
     snapshot = account_snapshot(run, account, conn=conn)
     if clean["side"] == "sell":
         position = snapshot["positions"].get(instrument_key(instrument), {})
         if quantity > amount(position.get("available_quantity", 0)):
-            raise ConflictError("Insufficient unreserved position quantity")
+            raise ConflictError(
+                "Insufficient unreserved position quantity",
+                message_id="trading.error.position_insufficient",
+            )
         return account, amount(0), quantity
     slip = amount(mandate["slippage_bps"]) / 10000 if clean["order_type"] == "market" else amount(0)
     reserved = notional * (1 + slip) * (1 + amount(mandate["fee_bps"]) / 10000)
     if reserved > amount(snapshot["available_cash"]):
-        raise ConflictError("Insufficient unreserved account cash")
+        raise ConflictError(
+            "Insufficient unreserved account cash", message_id="trading.error.cash_insufficient"
+        )
     return account, reserved, amount(0)
 
 
@@ -183,7 +212,9 @@ def _unknown(run_id, order_id, state, reason):
 def _owned_order(conn, run_id, order_id):
     order = TradingStore("orders").required(order_id, conn=conn)
     if order["run_id"] != run_id:
-        raise ConflictError("Order is outside this run")
+        raise ConflictError(
+            "Order is outside this run", message_id="trading.error.order_outside_run"
+        )
     return order
 
 

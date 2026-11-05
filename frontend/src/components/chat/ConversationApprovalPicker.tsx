@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { useAppIntl } from '../../i18n/useAppIntl'
 import { PermissionModeControl, type PermissionMode } from '../ui'
 import { getPermissionMode, setPermissionMode } from '../../api/permissionMode'
 
@@ -26,6 +27,7 @@ const UNKNOWN: Known = { mode: 'manual', editable: true }
 const knownModes = new Map<string, Known>()
 
 export function ConversationApprovalPicker({ sessionId }: { sessionId: string }) {
+  const intl = useAppIntl()
   const [state, setState] = useState(() => ({ sessionId, known: knownModes.get(sessionId) }))
   // A different conversation on the same mount reads ITS remembered mode, never the last one's.
   const known = state.sessionId === sessionId ? state.known : knownModes.get(sessionId)
@@ -64,13 +66,13 @@ export function ConversationApprovalPicker({ sessionId }: { sessionId: string })
     <span className={'lx-approval-slot' + (known ? '' : ' lx-approval-slot--pending')}>
       <PermissionModeControl
         value={mode}
-        subject="Approvals in this conversation"
+        subject={intl.formatMessage({ id: 'chat.approval.subject', defaultMessage: 'Approvals in this conversation' })}
         tone="bare"
         disabled={!editable}
         // An Automation run's mode belongs to the Automation. Showing it read-only is the
         // honest option: hiding it would leave no answer to "what governs this run?", and
         // leaving it editable wrote a value the gate never reads.
-        disabledReason="Set by this Automation — change it on the Automation."
+        disabledReason={intl.formatMessage({ id: 'chat.approval.automationReason', defaultMessage: 'Set by this Automation — change it on the Automation.' })}
         onChange={(next) => {
           const previous = mode
           setMode(next)

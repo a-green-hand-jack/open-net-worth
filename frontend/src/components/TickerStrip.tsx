@@ -5,7 +5,9 @@
 // public market data, and the strip never shows position size or value, so nothing personal is
 // on screen.
 
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState, useSyncExternalStore } from 'react'
+import { useAppIntl } from '../i18n/useAppIntl'
+import { getFormatRevision, getNumberLocale, subscribeDisplayFormats } from '../utils/format'
 import { useNavigate } from '@tanstack/react-router'
 import { fetchJson } from '../hooks/serverState'
 import { useMarketTicker } from '../hooks/useMarketTicker'
@@ -17,6 +19,7 @@ import type { ComputedRow } from '../types/portfolio'
 export interface TickerItem {
   key: string
   label: string
+  labelSource?: string
   price: number
   /** The instrument's OWN quote currency — gold in USD, a SGD-listed holding in SGD. NOT the
    *  app's base currency: these are native quotes and converting them would be a lie. */
@@ -67,15 +70,26 @@ function fmtPrice(v: number): string {
   // Scale precision to magnitude rather than fixing it. Below a cent, FIXED decimals are not
   // enough: VND/SGD is ~0.00005, which renders as a flat "0.0000" at 4dp — a real rate shown
   // as zero. Significant digits keep small pairs readable without giving gold four decimals.
-  if (v > 0 && v < 0.01) return v.toPrecision(3)
+  if (v > 0 && v < 0.01) return v.toLocaleString(getNumberLocale(), { minimumSignificantDigits: 3, maximumSignificantDigits: 3, useGrouping: false })
   const digits = v >= 1000 ? 0 : v >= 1 ? 2 : 4
-  return v.toLocaleString(undefined, {
+  return v.toLocaleString(getNumberLocale(), {
     minimumFractionDigits: digits,
     maximumFractionDigits: digits,
   })
 }
 
 function Item({ item, onOpen }: { item: TickerItem; onOpen: (sym: string) => void }) {
+  const intl = useAppIntl()
+  const source = item.kind === 'commodity' ? item.labelSource : undefined
+  const label = source === 'gold' && item.navSymbol === 'GC=F'
+    ? intl.formatMessage({ id: 'ticker.commodity.gold', defaultMessage: 'Gold' })
+    : source === 'silver' && item.navSymbol === 'SI=F'
+      ? intl.formatMessage({ id: 'ticker.commodity.silver', defaultMessage: 'Silver' })
+      : source === 'crude' && item.navSymbol === 'CL=F'
+        ? intl.formatMessage({ id: 'ticker.commodity.crude', defaultMessage: 'Crude' })
+        : source === 'natural_gas' && item.navSymbol === 'NG=F'
+          ? intl.formatMessage({ id: 'ticker.commodity.naturalGas', defaultMessage: 'Nat Gas' })
+          : item.label
   const pct = item.changePct
   const dir = pct == null ? 'flat' : pct > 0 ? 'up' : pct < 0 ? 'down' : 'flat'
   // An FX pair's label already names both currencies ("USD/SGD"), so repeating the unit is
@@ -83,11 +97,11 @@ function Item({ item, onOpen }: { item: TickerItem; onOpen: (sym: string) => voi
   const showUnit = item.kind !== 'fx'
   const body = (
     <>
-      <span className="ticker-item-sym">{item.label}</span>
+      <span className="ticker-item-sym">{label}</span>
       {item.session && (
         <span
           className="ticker-item-session"
-          title={item.session === 'pre' ? 'Pre-market' : 'After hours'}
+          title={item.session === 'pre' ? intl.formatMessage({ id: 'shared.ticker.preMarket', defaultMessage: 'Pre-market' }) : intl.formatMessage({ id: 'shared.ticker.afterHours', defaultMessage: 'After hours' })}
         >
           {item.session === 'pre' ? <Sunrise size={11} /> : <Sunset size={11} />}
         </span>
@@ -99,7 +113,7 @@ function Item({ item, onOpen }: { item: TickerItem; onOpen: (sym: string) => voi
           {/* No glyph when flat. An arrow says "it moved, this way"; a dot in that slot said
               nothing and just read as punctuation stuck to the number (owner, 2026-08-24). */}
           {dir === 'up' ? '▲' : dir === 'down' ? '▼' : null}
-          {Math.abs(pct).toFixed(2)}%
+          {Math.abs(pct).toLocaleString(getNumberLocale(), { minimumFractionDigits: 2, maximumFractionDigits: 2, useGrouping: false })}%
         </span>
       )}
     </>
@@ -111,7 +125,7 @@ function Item({ item, onOpen }: { item: TickerItem; onOpen: (sym: string) => voi
       type="button"
       className="ticker-item ticker-item--tap"
       onClick={() => onOpen(sym)}
-      title={`Open ${item.label}`}
+      title={intl.formatMessage({ id: 'shared.ticker.open', defaultMessage: 'Open {label}' }, { label })}
     >
       {body}
     </button>
@@ -141,6 +155,8 @@ function useFollowsATicker(enabled: boolean): boolean {
 }
 
 export function TickerStrip({ rows, priceStatus, asOf, asOfLong }: TickerStripProps) {
+  const intl = useAppIntl()
+  useSyncExternalStore(subscribeDisplayFormats, getFormatRevision, getFormatRevision)
   const held = useMemo(() => holdingItems(rows), [rows])
   const [always, setAlways] = useState(getTickerMarketAlways)
   useEffect(() => subscribeTicker(() => setAlways(getTickerMarketAlways())), [])
@@ -164,6 +180,7 @@ export function TickerStrip({ rows, priceStatus, asOf, asOfLong }: TickerStripPr
     const mkt: TickerItem[] = market.map((m) => ({
       key: `m:${m.symbol}`,
       label: m.label,
+      labelSource: m.label_source,
       price: m.price,
       unit: m.unit,
       changePct: m.change_pct,
@@ -205,7 +222,7 @@ export function TickerStrip({ rows, priceStatus, asOf, asOfLong }: TickerStripPr
   const seconds = Math.max(20, items.length * 3.2)
 
   return (
-    <div className="ticker" aria-label="Market prices">
+    <div className="ticker" aria-label={intl.formatMessage({ id: 'shared.ticker.marketPrices', defaultMessage: 'Market prices' })}>
       <span className="ticker-head" title={asOfLong} aria-label={asOfLong}>
         <span
           className="ticker-dot"

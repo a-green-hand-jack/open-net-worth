@@ -159,7 +159,10 @@ describe('one reviewed delegation for expert and conversational setup', () => {
       ),
     )
     expect(tradingApi.createDelegation).not.toHaveBeenCalled()
-    expect(vi.mocked(tradingApi.reviewDelegation).mock.calls[0]?.[0].workspace.mandate.max_order_notional).toBe(existing.mandate.max_order_notional)
+    expect(
+      vi.mocked(tradingApi.reviewDelegation).mock.calls[0]?.[0].workspace.mandate
+        .max_order_notional,
+    ).toBe(existing.mandate.max_order_notional)
     expect(vi.mocked(tradingApi.reviewDelegation).mock.calls[0]?.[0].workspace).not.toHaveProperty(
       'id',
     )

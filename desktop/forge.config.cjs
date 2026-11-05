@@ -26,7 +26,7 @@ module.exports = {
     protocols: [{ name: 'Open Net Worth sign-in', schemes: ['onw'] }],
     ...(process.platform === 'darwin' ? { icon: path.resolve(__dirname, 'resources', 'icon.icns') } : {}),
     ...(process.platform === 'win32' ? { icon: windowsIcon, ...(windowsSign ? { windowsSign } : {}) } : {}),
-    extraResource: [runtime],
+    extraResource: [runtime, ...(process.platform === 'darwin' ? [path.resolve(__dirname, 'resources', 'zh-Hans.lproj')] : [])],
     ...runtimeResourceHooks(runtime, 'Open Net Worth'),
     ignore: [/^\/runtime(?:-[^/]*)?($|\/)/, /^\/src($|\/)/, /^\/tests($|\/)/, /^\/qa($|\/)/, /^\/out($|\/)/, /^\/resources\/onboarding\.generated\.json$/],
     afterCopy: [async ({ buildPath }) => {

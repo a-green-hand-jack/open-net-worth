@@ -1,3 +1,4 @@
+import { useAppIntl } from '../../../i18n/useAppIntl'
 // The per-provider CONFIGURATION form, hosted inside the connector detail page (spec §3).
 //
 // Spec §3 makes the detail page the one place a connector is configured, connected and
@@ -86,11 +87,12 @@ export interface ConnectorConfigProps {
 }
 
 export function ConnectorConfig({ connector, initialCountry }: ConnectorConfigProps): JSX.Element {
+  const intl = useAppIntl()
   // One opt-out for all 16 credential forms below — see screenSnapshot.secrets.test.ts.
-  return <div data-ctx-secret="">{configForm(connector, initialCountry)}</div>
+  return <div data-ctx-secret="">{configForm(connector, initialCountry, intl)}</div>
 }
 
-function configForm(connector: Connector, initialCountry?: string): JSX.Element {
+function configForm(connector: Connector, initialCountry: string | undefined, intl: ReturnType<typeof useAppIntl>): JSX.Element {
   switch (connector.kind) {
     case 'email':
       return <EmailUnifiedSection />
@@ -131,7 +133,7 @@ function configForm(connector: Connector, initialCountry?: string): JSX.Element 
     default:
       return (
         <Text size="sm" tone="faint">
-          This connector has no settings to configure here.
+          {intl.formatMessage({ id: 'connector.noSettings', defaultMessage: 'This connector has no settings to configure here.' })}
         </Text>
       )
   }

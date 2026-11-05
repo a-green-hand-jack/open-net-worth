@@ -100,7 +100,29 @@ def test_patching_a_figure_is_refused_with_guidance(client, field):
 
     assert r.status_code == 422
     assert "derived from its records" in r.json()["detail"]
+    assert r.json()["message_id"] == "positions.error.figuresDerived"
+    assert r.json()["message_params"] == {}
     assert PositionStore().find_by_id(pid)["quantity"] == 10.0
+
+
+def test_position_message_contract_tracks_emitted_ids():
+    import ast
+    import json
+    from pathlib import Path
+
+    root = Path(__file__).resolve().parents[1]
+    contract = json.loads((root / "backend/core/positions_message_contract.json").read_text())
+    emitted = set()
+    for path in ("backend/services/positions.py", "backend/api/portfolio.py"):
+        tree = ast.parse((root / path).read_text())
+        emitted.update(
+            node.value
+            for node in ast.walk(tree)
+            if isinstance(node, ast.Constant)
+            and isinstance(node.value, str)
+            and node.value.startswith("positions.error.")
+        )
+    assert emitted == set(contract)
 
 
 def test_patching_a_missing_position_is_404(client):

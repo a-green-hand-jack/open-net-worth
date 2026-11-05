@@ -279,3 +279,14 @@ describe('the @ mention a row offers', () => {
     expect(subs).toEqual(['Connected', 'Auth error'])
   })
 })
+
+it('renders Chinese status and keeps reconnect bound to the original connector', async () => {
+  const { IntlProvider } = await import('react-intl')
+  const messages = (await import('./zh-CN.messages.json')).default
+  const onReconnect = vi.fn()
+  render(<IntlProvider locale="zh-CN" messages={messages}><ConnectorList entries={[PLAID]} filters={NONE} onOpen={vi.fn()} onReconnect={onReconnect} onBrowse={vi.fn()} onAddBank={vi.fn()} /></IntlProvider>)
+  expect(screen.getByText('数据源')).toBeTruthy()
+  expect(screen.getByText('身份验证错误')).toBeTruthy()
+  fireEvent.click(screen.getByRole('button', { name: '重新连接' }))
+  expect(onReconnect).toHaveBeenCalledWith(PLAID)
+})

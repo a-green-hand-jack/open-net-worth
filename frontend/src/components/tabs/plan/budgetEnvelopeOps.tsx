@@ -4,6 +4,8 @@
 // ReassignDeleteModal's shell 1:1 (.pl-ov/.pl-modal/head/body/intro/label/.pl-selwrap/sub/
 // list/foot) — new modals below add only what the shell doesn't already cover.
 import { useEffect, useState } from 'react'
+import { useAppIntl } from '../../../i18n/useAppIntl'
+import type { IntlShape } from 'react-intl'
 import type { ReactNode } from 'react'
 import * as PD from './planData'
 import { Chevron, X } from './icons'
@@ -137,7 +139,9 @@ export function categoryKebabItems(
   allGroups: LocalGroup[],
   catLabel: (key: string) => string,
   h: EnvelopeKebabHandlers,
+  intl: IntlShape,
 ): KebabItem[] {
+  const { formatMessage } = intl
   const isEnvelope = c.categoryIds.length > 1
   // Zero-category envelope (RFC envelope⊥category full split — created via "Add envelope",
   // no category linked yet): no BACKING category, so category-store ops (Hide/Delete/recolor
@@ -152,12 +156,28 @@ export function categoryKebabItems(
   // A zero-category row's next useful action is linking a category — lead with it (RFC
   // §Frontend: "its kebab leads with Add categories…") instead of burying it after Rename/target.
   if (isEmpty && canAddCats)
-    items.push({ label: 'Add categories…', onClick: h.onAddCats }, { divider: true })
+    items.push(
+      {
+        label: formatMessage({ id: 'plan.kebab.addCategories', defaultMessage: 'Add categories…' }),
+        onClick: h.onAddCats,
+      },
+      { divider: true },
+    )
   // Container-model verbs (owner, 2026-07-03; ported verbatim from prototype/plan/budget.jsx:
   // 830-852): an envelope HOLDS categories — you move a category into an envelope and remove
   // it back out; "merge" only describes combining two multi-category envelopes.
-  items.push({ label: isEnvelope ? 'Rename envelope' : 'Rename', onClick: h.onRename })
-  items.push({ label: c.target ? 'Edit target…' : 'Add target…', onClick: h.onEditTarget })
+  items.push({
+    label: isEnvelope
+      ? formatMessage({ id: 'plan.kebab.renameEnvelope', defaultMessage: 'Rename envelope' })
+      : formatMessage({ id: 'plan.kebab.rename', defaultMessage: 'Rename' }),
+    onClick: h.onRename,
+  })
+  items.push({
+    label: c.target
+      ? formatMessage({ id: 'plan.kebab.editTarget', defaultMessage: 'Edit target…' })
+      : formatMessage({ id: 'plan.kebab.addTarget', defaultMessage: 'Add target…' }),
+    onClick: h.onEditTarget,
+  })
   // "Move to group" is offered on EVERY row now — merged (N>1) envelopes included (the kebab
   // used to block them while drag-and-drop already allowed it; now consistent, prototype
   // comment: "kebab previously blocked merged rows while drag allowed them; now consistent").
@@ -165,20 +185,30 @@ export function categoryKebabItems(
     const dests = otherGroups.filter((g) => !g.synced)
     if (dests.length) {
       items.push(
-        { header: 'Move to group' },
+        { header: formatMessage({ id: 'plan.kebab.moveGroup', defaultMessage: 'Move to group' }) },
         ...dests.map((g) => ({ label: g.name, indent: true, onClick: () => h.onMoveTo(g.id) })),
       )
     }
   }
-  if (canMerge) items.push({ label: 'Merge into…', onClick: h.onMerge })
-  if (!isEmpty && canAddCats) items.push({ label: 'Add categories…', onClick: h.onAddCats })
+  if (canMerge)
+    items.push({
+      label: formatMessage({ id: 'plan.kebab.merge', defaultMessage: 'Merge into…' }),
+      onClick: h.onMerge,
+    })
+  if (!isEmpty && canAddCats)
+    items.push({
+      label: formatMessage({ id: 'plan.kebab.addCategories', defaultMessage: 'Add categories…' }),
+      onClick: h.onAddCats,
+    })
   // "Remove from envelope" (handoff item 1) — lists on EVERY linked row, 1:1 included: a 1:1
   // category can only be freed for another envelope this way (its envelope stays put, keeps
   // its pool; the category itself lands in Outside envelopes → Unbudgeted). Confirmed via
   // RemoveCategoryModal at the call site (onSplit) — this function only composes the menu.
   if (!isEmpty) {
     items.push(
-      { header: 'Remove from envelope' },
+      {
+        header: formatMessage({ id: 'plan.kebab.remove', defaultMessage: 'Remove from envelope' }),
+      },
       ...c.categoryIds.map((k) => ({
         label: catLabel(k),
         indent: true,
@@ -189,13 +219,25 @@ export function categoryKebabItems(
   // Exactly ONE divider precedes the final danger action — paired with Hide/Unhide when
   // there's a backing category, alone otherwise (prototype budget.jsx:848-850).
   if (!isEmpty)
-    items.push({ divider: true }, { label: c.hidden ? 'Unhide' : 'Hide', onClick: h.onToggleHide })
+    items.push(
+      { divider: true },
+      {
+        label: c.hidden
+          ? formatMessage({ id: 'plan.kebab.unhide', defaultMessage: 'Unhide' })
+          : formatMessage({ id: 'plan.kebab.hide', defaultMessage: 'Hide' }),
+        onClick: h.onToggleHide,
+      },
+    )
   else items.push({ divider: true })
   // "Delete envelope…" (handoff item 2) replaces the old 1:1-only "Delete" that destroyed the
   // CATEGORY — every non-synced row gets it now (merged, 1:1, empty alike; this function is
   // only ever called for a non-locked/non-synced row — CategoryRow hides the kebab entirely
   // for `locked` rows). Category deletion moves to Manage categories.
-  items.push({ label: 'Delete envelope…', danger: true, onClick: h.onDeleteEnvelope })
+  items.push({
+    label: formatMessage({ id: 'plan.kebab.delete', defaultMessage: 'Delete envelope…' }),
+    danger: true,
+    onClick: h.onDeleteEnvelope,
+  })
   return items
 }
 
@@ -215,6 +257,7 @@ export function MergeEnvelopeModal({
   onCancel: () => void
   onConfirm: (targetEnvelopeId: string, targetName: string) => void
 }) {
+  const { formatMessage } = useAppIntl()
   const [target, setTarget] = useState('')
   const mergeTargets = mergeTargetsFor(source, allGroups)
   const targetName = (() => {
@@ -226,33 +269,64 @@ export function MergeEnvelopeModal({
   })()
   const sourceName = source.label
   const n = source.categoryIds.length
-  const destLabel = targetName || 'the destination'
+  const destLabel =
+    targetName || formatMessage({ id: 'plan.mergeDestination', defaultMessage: 'the destination' })
 
   return (
-    <PlanningModal onClose={onCancel} label="Merge envelope">
+    <PlanningModal
+      onClose={onCancel}
+      label={formatMessage({ id: 'plan.mergeEnvelope', defaultMessage: 'Merge envelope' })}
+    >
       <div className="pl-modal-head">
-        <h3>Merge envelope</h3>
-        <button className="pl-modal-x" onClick={onCancel} aria-label="Close">
+        <h3>{formatMessage({ id: 'plan.mergeEnvelope', defaultMessage: 'Merge envelope' })}</h3>
+        <button
+          className="pl-modal-x"
+          onClick={onCancel}
+          aria-label={formatMessage({ id: 'plan.close', defaultMessage: 'Close' })}
+        >
           <X size={16} />
         </button>
       </div>
       <div className="pl-modal-body">
         <p className="pl-modal-intro">
-          {targetName ? (
-            <>
-              Merge <b>{sourceName}</b> into <b>{targetName}</b>? {sourceName}&rsquo;s categories
-              join {targetName}
-              {moneyLine ? '.' : ', and its assigned money moves too.'}
-            </>
-          ) : (
-            <>
-              Merge <b>{sourceName}</b> into another envelope? Its categories join the destination
-              {moneyLine ? '.' : ', and its assigned money moves too.'}
-            </>
-          )}
+          {targetName
+            ? moneyLine
+              ? formatMessage(
+                  {
+                    id: 'plan.mergeIntroTarget',
+                    defaultMessage:
+                      'Merge <b>{source}</b> into <b>{target}</b>? {source}’s categories join {target}.',
+                  },
+                  { source: sourceName, target: targetName, b: (chunks) => <b>{chunks}</b> },
+                )
+              : formatMessage(
+                  {
+                    id: 'plan.mergeIntroTargetMoney',
+                    defaultMessage:
+                      'Merge <b>{source}</b> into <b>{target}</b>? {source}’s categories join {target}, and its assigned money moves too.',
+                  },
+                  { source: sourceName, target: targetName, b: (chunks) => <b>{chunks}</b> },
+                )
+            : moneyLine
+              ? formatMessage(
+                  {
+                    id: 'plan.mergeIntroNoTarget',
+                    defaultMessage:
+                      'Merge <b>{source}</b> into another envelope? Its categories join the destination.',
+                  },
+                  { source: sourceName, b: (chunks) => <b>{chunks}</b> },
+                )
+              : formatMessage(
+                  {
+                    id: 'plan.mergeIntroNoTargetMoney',
+                    defaultMessage:
+                      'Merge <b>{source}</b> into another envelope? Its categories join the destination, and its assigned money moves too.',
+                  },
+                  { source: sourceName, b: (chunks) => <b>{chunks}</b> },
+                )}
         </p>
         <label className="pl-modal-label" htmlFor="pl-merge-sel">
-          Merge into
+          {formatMessage({ id: 'plan.mergeInto', defaultMessage: 'Merge into' })}
         </label>
         <div className="pl-selwrap">
           <Select
@@ -260,7 +334,10 @@ export function MergeEnvelopeModal({
             id="pl-merge-sel"
             value={target}
             onChange={(e) => setTarget(e.target.value)}
-            placeholder="Select an envelope…"
+            placeholder={formatMessage({
+              id: 'plan.selectEnvelope',
+              defaultMessage: 'Select an envelope…',
+            })}
             options={mergeTargets.map((g) => ({
               group: g.name,
               options: g.cats.map((c) => ({ value: c.key, label: c.label })),
@@ -270,30 +347,59 @@ export function MergeEnvelopeModal({
             <Chevron dir="down" size={13} />
           </span>
         </div>
-        <p className="pl-modal-sub">What happens:</p>
+        <p className="pl-modal-sub">
+          {formatMessage({ id: 'plan.whatHappens', defaultMessage: 'What happens:' })}
+        </p>
         <ul className="pl-modal-list">
           {/* CONF-2 — an empty (zero-category) source envelope has nothing to enumerate; the
                 prototype special-cases n===0 with its own copy (envelopes.jsx:115). */}
           <li>
             {n === 0
-              ? 'This empty envelope folds'
-              : `${n} categor${n === 1 ? 'y' : 'ies'} from ${sourceName} move${n === 1 ? 's' : ''}`}{' '}
-            into {destLabel}
+              ? formatMessage(
+                  {
+                    id: 'plan.mergeEmpty',
+                    defaultMessage: 'This empty envelope folds into {destination}',
+                  },
+                  { destination: destLabel },
+                )
+              : formatMessage(
+                  {
+                    id: 'plan.mergeCategoryCount',
+                    defaultMessage:
+                      '{count, plural, one {# category} other {# categories}} from {source} {count, plural, one {moves} other {move}} into {destination}',
+                  },
+                  { count: n, source: sourceName, destination: destLabel },
+                )}
           </li>
           {moneyLine ? (
             <li>{moneyLine(destLabel)}</li>
           ) : (
             <li>
-              All of {sourceName}&rsquo;s assigned money — every month, past and future — folds into{' '}
-              {destLabel}
+              {formatMessage(
+                {
+                  id: 'plan.mergeAllMoney',
+                  defaultMessage:
+                    'All of {source}’s assigned money — every month, past and future — folds into {destination}',
+                },
+                { source: sourceName, destination: destLabel },
+              )}
             </li>
           )}
-          <li>Any category can be taken back out later from {destLabel}&rsquo;s menu</li>
+          <li>
+            {formatMessage(
+              {
+                id: 'plan.mergeUndoCategory',
+                defaultMessage:
+                  'Any category can be taken back out later from {destination}’s menu',
+              },
+              { destination: destLabel },
+            )}
+          </li>
         </ul>
       </div>
       <div className="pl-modal-foot">
         <Button variant="secondary" size="dense" onClick={onCancel}>
-          Cancel
+          {formatMessage({ id: 'plan.cancel', defaultMessage: 'Cancel' })}
         </Button>
         <Button
           variant="primary"
@@ -301,7 +407,7 @@ export function MergeEnvelopeModal({
           disabled={!target}
           onClick={() => onConfirm(target, targetName)}
         >
-          Merge envelopes
+          {formatMessage({ id: 'plan.mergeEnvelopes', defaultMessage: 'Merge envelopes' })}
         </Button>
       </div>
     </PlanningModal>
@@ -330,6 +436,7 @@ export function AddCategoriesModal({
   onCancel: () => void
   onConfirm: (picks: AddCatCandidate[]) => void
 }) {
+  const { formatMessage } = useAppIntl()
   const [picked, setPicked] = useState<Set<string>>(new Set())
   const groups = addCategoryCandidatesFor(
     target,
@@ -347,22 +454,47 @@ export function AddCategoriesModal({
   const picks = all.filter((c) => picked.has(c.categoryId))
 
   return (
-    <PlanningModal onClose={onCancel} label="Add categories">
+    <PlanningModal
+      onClose={onCancel}
+      label={formatMessage({ id: 'plan.addCategories', defaultMessage: 'Add categories' })}
+    >
       <div className="pl-modal-head">
-        <h3>Add categories to {target.label}</h3>
-        <button className="pl-modal-x" onClick={onCancel} aria-label="Close">
+        <h3>
+          {formatMessage(
+            { id: 'plan.addCategoriesTo', defaultMessage: 'Add categories to {name}' },
+            { name: target.label },
+          )}
+        </h3>
+        <button
+          className="pl-modal-x"
+          onClick={onCancel}
+          aria-label={formatMessage({ id: 'plan.close', defaultMessage: 'Close' })}
+        >
           <X size={16} />
         </button>
       </div>
       <div className="pl-modal-body">
         <p className="pl-modal-intro">
-          Pick the categories <b>{target.label}</b> should fund. Their transactions keep their own
-          labels — they just draw from this envelope&rsquo;s pool.
+          {formatMessage(
+            {
+              id: 'plan.addCategoriesIntro',
+              defaultMessage:
+                'Pick the categories <b>{name}</b> should fund. Their transactions keep their own labels — they just draw from this envelope’s pool.',
+            },
+            { name: target.label, b: (chunks) => <b>{chunks}</b> },
+          )}
         </p>
         <div className="pl-addcats-list">
           {groups.map((g) => (
             <div key={g.name} className="pl-addcats-group">
-              <div className="pl-addcats-gname">{g.name}</div>
+              <div className="pl-addcats-gname">
+                {g.cats.every((c) => c.unlinked)
+                  ? formatMessage({
+                      id: 'plan.outside.noEnvelope',
+                      defaultMessage: 'Not in an envelope',
+                    })
+                  : g.name}
+              </div>
               {g.cats.map((c) => (
                 <Checkbox
                   key={c.categoryId}
@@ -371,10 +503,24 @@ export function AddCategoriesModal({
                   label={c.label}
                   description={
                     c.unlinked
-                      ? 'not in an envelope yet — its spending this month moves in with it'
+                      ? formatMessage({
+                          id: 'plan.addCatUnlinked',
+                          defaultMessage:
+                            'not in an envelope yet — its spending this month moves in with it',
+                        })
                       : c.fromEnvelope
-                        ? `in ${c.fromEnvelope} — moves over; that envelope keeps its money`
-                        : 'brings its assigned money along'
+                        ? formatMessage(
+                            {
+                              id: 'plan.addCatFrom',
+                              defaultMessage:
+                                'in {name} — moves over; that envelope keeps its money',
+                            },
+                            { name: c.fromEnvelope },
+                          )
+                        : formatMessage({
+                            id: 'plan.addCatMoney',
+                            defaultMessage: 'brings its assigned money along',
+                          })
                   }
                 />
               ))}
@@ -384,7 +530,7 @@ export function AddCategoriesModal({
       </div>
       <div className="pl-modal-foot">
         <Button variant="secondary" size="dense" onClick={onCancel}>
-          Cancel
+          {formatMessage({ id: 'plan.cancel', defaultMessage: 'Cancel' })}
         </Button>
         <Button
           variant="primary"
@@ -393,10 +539,16 @@ export function AddCategoriesModal({
           onClick={() => onConfirm(picks)}
         >
           {busy
-            ? 'Adding…'
+            ? formatMessage({ id: 'plan.adding', defaultMessage: 'Adding…' })
             : picks.length
-              ? `Add ${picks.length} ${picks.length === 1 ? 'category' : 'categories'}`
-              : 'Add categories'}
+              ? formatMessage(
+                  {
+                    id: 'plan.addCategoryCount',
+                    defaultMessage: 'Add {count, plural, one {# category} other {# categories}}',
+                  },
+                  { count: picks.length },
+                )
+              : formatMessage({ id: 'plan.addCategories', defaultMessage: 'Add categories' })}
         </Button>
       </div>
     </PlanningModal>
@@ -440,6 +592,7 @@ export function AddToEnvelopeModal({
   onCancel: () => void
   onConfirm: (targetEnvelopeId: string, targetName: string) => void
 }) {
+  const { formatMessage } = useAppIntl()
   const [target, setTarget] = useState('')
   const targets = allEnvelopeTargets(allGroups)
   const targetName = (() => {
@@ -451,10 +604,22 @@ export function AddToEnvelopeModal({
   })()
 
   return (
-    <PlanningModal onClose={onCancel} label="Add to envelope">
+    <PlanningModal
+      onClose={onCancel}
+      label={formatMessage({ id: 'plan.addToEnvelopeTitle', defaultMessage: 'Add to envelope' })}
+    >
       <div className="pl-modal-head">
-        <h3>Add {categoryLabel} to an envelope</h3>
-        <button className="pl-modal-x" onClick={onCancel} aria-label="Close">
+        <h3>
+          {formatMessage(
+            { id: 'plan.addNamedToEnvelope', defaultMessage: 'Add {name} to an envelope' },
+            { name: categoryLabel },
+          )}
+        </h3>
+        <button
+          className="pl-modal-x"
+          onClick={onCancel}
+          aria-label={formatMessage({ id: 'plan.close', defaultMessage: 'Close' })}
+        >
           <X size={16} />
         </button>
       </div>
@@ -462,18 +627,30 @@ export function AddToEnvelopeModal({
         <p className="pl-modal-intro">
           {targetName ? (
             <>
-              <b>{categoryLabel}</b>&rsquo;s spending will draw from <b>{targetName}</b> going
-              forward.
+              {formatMessage(
+                {
+                  id: 'plan.addToEnvelopeSelected',
+                  defaultMessage:
+                    '<b>{category}</b>’s spending will draw from <b>{envelope}</b> going forward.',
+                },
+                { category: categoryLabel, envelope: targetName, b: (chunks) => <b>{chunks}</b> },
+              )}
             </>
           ) : (
             <>
-              Pick an envelope for <b>{categoryLabel}</b> to draw from. A category links to{' '}
-              <b>one</b> envelope at a time.
+              {formatMessage(
+                {
+                  id: 'plan.addToEnvelopePick',
+                  defaultMessage:
+                    'Pick an envelope for <b>{category}</b> to draw from. A category links to <b>one</b> envelope at a time.',
+                },
+                { category: categoryLabel, b: (chunks) => <b>{chunks}</b> },
+              )}
             </>
           )}
         </p>
         <label className="pl-modal-label" htmlFor="pl-addtoenv-sel">
-          Add to
+          {formatMessage({ id: 'plan.addTo', defaultMessage: 'Add to' })}
         </label>
         <div className="pl-selwrap">
           <Select
@@ -481,7 +658,10 @@ export function AddToEnvelopeModal({
             id="pl-addtoenv-sel"
             value={target}
             onChange={(e) => setTarget(e.target.value)}
-            placeholder="Select an envelope…"
+            placeholder={formatMessage({
+              id: 'plan.selectEnvelope',
+              defaultMessage: 'Select an envelope…',
+            })}
             options={targets.map((g) => ({
               group: g.name,
               options: g.cats.map((c) => ({ value: c.key, label: c.label })),
@@ -494,7 +674,7 @@ export function AddToEnvelopeModal({
       </div>
       <div className="pl-modal-foot">
         <Button variant="secondary" size="dense" onClick={onCancel}>
-          Cancel
+          {formatMessage({ id: 'plan.cancel', defaultMessage: 'Cancel' })}
         </Button>
         <Button
           variant="primary"
@@ -502,7 +682,9 @@ export function AddToEnvelopeModal({
           disabled={!target || !!busy}
           onClick={() => onConfirm(target, targetName)}
         >
-          {busy ? 'Adding…' : 'Add to envelope'}
+          {busy
+            ? formatMessage({ id: 'plan.adding', defaultMessage: 'Adding…' })
+            : formatMessage({ id: 'plan.addToEnvelopeTitle', defaultMessage: 'Add to envelope' })}
         </Button>
       </div>
     </PlanningModal>
@@ -533,43 +715,92 @@ export function RemoveCategoryModal({
   onCancel: () => void
   onConfirm: () => void
 }) {
+  const { formatMessage } = useAppIntl()
   return (
-    <PlanningModal onClose={onCancel} label="Remove category from envelope">
+    <PlanningModal
+      onClose={onCancel}
+      label={formatMessage({
+        id: 'plan.removeCategoryFromEnvelope',
+        defaultMessage: 'Remove category from envelope',
+      })}
+    >
       <div className="pl-modal-head">
         <h3>
-          Remove {categoryLabel} from {envelopeName}?
+          {formatMessage(
+            {
+              id: 'plan.removeCategoryQuestion',
+              defaultMessage: 'Remove {category} from {envelope}?',
+            },
+            { category: categoryLabel, envelope: envelopeName },
+          )}
         </h3>
-        <button className="pl-modal-x" onClick={onCancel} aria-label="Close">
+        <button
+          className="pl-modal-x"
+          onClick={onCancel}
+          aria-label={formatMessage({ id: 'plan.close', defaultMessage: 'Close' })}
+        >
           <X size={16} />
         </button>
       </div>
       <div className="pl-modal-body">
         <p className="pl-modal-intro">
-          <b>{categoryLabel}</b> stops drawing from <b>{envelopeName}</b>&rsquo;s pool. Nothing is
-          deleted.
+          {formatMessage(
+            {
+              id: 'plan.removeCategoryIntro',
+              defaultMessage:
+                '<b>{category}</b> stops drawing from <b>{envelope}</b>’s pool. Nothing is deleted.',
+            },
+            { category: categoryLabel, envelope: envelopeName, b: (chunks) => <b>{chunks}</b> },
+          )}
         </p>
         <ul className="pl-modal-list">
           <li>
             {whereLine ?? (
               <>
-                {categoryLabel} moves to <b>Outside envelopes</b> — link it to another envelope any
-                time
+                {formatMessage(
+                  {
+                    id: 'plan.removeCategoryOutside',
+                    defaultMessage:
+                      '{category} moves to <b>Outside envelopes</b> — link it to another envelope any time',
+                  },
+                  { category: categoryLabel, b: (chunks) => <b>{chunks}</b> },
+                )}
               </>
             )}
           </li>
           <li>
-            {keepsLine ?? `${envelopeName} keeps all its assigned money`}
-            {sole ? ' and becomes an empty envelope' : ''}
+            {keepsLine ??
+              formatMessage(
+                {
+                  id: 'plan.removeCategoryKeeps',
+                  defaultMessage: '{envelope} keeps all its assigned money',
+                },
+                { envelope: envelopeName },
+              )}
+            {sole
+              ? formatMessage({
+                  id: 'plan.becomesEmpty',
+                  defaultMessage: ' and becomes an empty envelope',
+                })
+              : ''}
           </li>
-          <li>Past transactions keep their {categoryLabel} label</li>
+          <li>
+            {formatMessage(
+              {
+                id: 'plan.pastTransactionsKeepLabel',
+                defaultMessage: 'Past transactions keep their {category} label',
+              },
+              { category: categoryLabel },
+            )}
+          </li>
         </ul>
       </div>
       <div className="pl-modal-foot">
         <Button variant="secondary" size="dense" onClick={onCancel}>
-          Cancel
+          {formatMessage({ id: 'plan.cancel', defaultMessage: 'Cancel' })}
         </Button>
         <Button variant="danger" size="dense" onClick={onConfirm}>
-          Remove from envelope
+          {formatMessage({ id: 'plan.removeFromEnvelope', defaultMessage: 'Remove from envelope' })}
         </Button>
       </div>
     </PlanningModal>
@@ -613,6 +844,7 @@ export function DeleteEnvelopeModal({
   onCancel: () => void
   onConfirm: () => void
 }) {
+  const { formatMessage } = useAppIntl()
   const n = categoryLabels.length
   const [preview, setPreview] = useState<EnvelopeDeletePreview | null>(null)
 
@@ -631,20 +863,46 @@ export function DeleteEnvelopeModal({
   }, [envelopeId, month])
 
   return (
-    <PlanningModal onClose={onCancel} label="Delete envelope">
+    <PlanningModal
+      onClose={onCancel}
+      label={formatMessage({ id: 'plan.deleteEnvelope', defaultMessage: 'Delete envelope' })}
+    >
       <div className="pl-modal-head">
-        <h3>Delete {envelopeName}?</h3>
-        <button className="pl-modal-x" onClick={onCancel} aria-label="Close">
+        <h3>
+          {formatMessage(
+            { id: 'plan.deleteNamedQuestion', defaultMessage: 'Delete {name}?' },
+            { name: envelopeName },
+          )}
+        </h3>
+        <button
+          className="pl-modal-x"
+          onClick={onCancel}
+          aria-label={formatMessage({ id: 'plan.close', defaultMessage: 'Close' })}
+        >
           <X size={16} />
         </button>
       </div>
       <div className="pl-modal-body">
         <p className="pl-modal-intro">
-          Deleting an envelope never deletes categories or transactions — it just stops budgeting
-          for them together.
+          {formatMessage({
+            id: 'plan.deleteEnvelopeIntro',
+            defaultMessage:
+              'Deleting an envelope never deletes categories or transactions — it just stops budgeting for them together.',
+          })}
         </p>
         <ul className="pl-modal-list">
-          {n > 0 && <li>{describeUnlinkedCategoriesLine(categoryLabels)}</li>}
+          {n > 0 && (
+            <li>
+              {formatMessage(
+                {
+                  id: 'plan.deleteEnvelopeUnlinks',
+                  defaultMessage:
+                    '{count, plural, one {# category} other {# categories}} ({names}) {count, plural, one {becomes} other {become}} unbudgeted — link {count, plural, one {it} other {them}} to another envelope any time',
+                },
+                { count: n, names: categoryLabels.join(', ') },
+              )}
+            </li>
+          )}
           {/* `delta_rta` is the TRUE figure — everything assigned releases, only the uncovered
              share of a cash hole stays held elsewhere, so it can be MORE than `available`
              (docs/launch/BOARD.md's undercounting repro: assign $100, spend $50 cash → $100 back,
@@ -660,13 +918,25 @@ export function DeleteEnvelopeModal({
           )}
           {preview !== null && preview.delta_rta > 0.005 && (
             <li>
-              <b>{fSmart(preview.delta_rta)}</b> returns to Ready to Assign
+              {formatMessage(
+                {
+                  id: 'plan.envelopeReturned',
+                  defaultMessage: '<b>{amount}</b> returns to Ready to Assign',
+                },
+                { amount: fSmart(preview.delta_rta), b: (chunks) => <b>{chunks}</b> },
+              )}
             </li>
           )}
           {preview !== null && preview.available < -0.005 && (
             <li>
-              Deleting this won&apos;t erase its <b>{fSmart(-preview.available)}</b> overspend — its
-              categories keep holding it until month-end, so Ready to Assign doesn&apos;t drop now
+              {formatMessage(
+                {
+                  id: 'plan.envelopeOverspendRemains',
+                  defaultMessage:
+                    'Deleting this won’t erase its <b>{amount}</b> overspend — its categories keep holding it until month-end, so Ready to Assign doesn’t drop now',
+                },
+                { amount: fSmart(-preview.available), b: (chunks) => <b>{chunks}</b> },
+              )}
             </li>
           )}
           {notes?.map((n, i) => (
@@ -676,10 +946,12 @@ export function DeleteEnvelopeModal({
       </div>
       <div className="pl-modal-foot">
         <Button variant="secondary" size="dense" onClick={onCancel}>
-          Cancel
+          {formatMessage({ id: 'plan.cancel', defaultMessage: 'Cancel' })}
         </Button>
         <Button variant="danger" size="dense" disabled={!!busy} onClick={onConfirm}>
-          {busy ? 'Deleting…' : 'Delete envelope'}
+          {busy
+            ? formatMessage({ id: 'plan.deleting', defaultMessage: 'Deleting…' })
+            : formatMessage({ id: 'plan.deleteEnvelope', defaultMessage: 'Delete envelope' })}
         </Button>
       </div>
     </PlanningModal>
@@ -744,6 +1016,12 @@ export function NewEnvelopeModal({
   onCancel: () => void
   onConfirm: (name: string, color: string, categoryIds: string[]) => void
 }) {
+  const { formatMessage } = useAppIntl()
+  const kindLabels: Record<string, string> = {
+    income: formatMessage({ id: 'plan.kindIncome', defaultMessage: 'Inflow' }),
+    transfer: formatMessage({ id: 'plan.kindTransfer', defaultMessage: 'Transfer' }),
+    investment: formatMessage({ id: 'plan.kindInvestment', defaultMessage: 'Investment' }),
+  }
   const candidates = unlinkedCandidateCategories(categories, allGroups, hiddenKeys)
   const [picked, setPicked] = useState<Set<string>>(new Set())
   const [manualName, setManualName] = useState('')
@@ -771,21 +1049,46 @@ export function NewEnvelopeModal({
   }
 
   return (
-    <PlanningModal onClose={onCancel} label="New envelope" className="pl-nemod-modal">
+    <PlanningModal
+      onClose={onCancel}
+      label={formatMessage({ id: 'plan.newEnvelope', defaultMessage: 'New envelope' })}
+      className="pl-nemod-modal"
+    >
       <div className="pl-modal-head">
-        <h3>{groupName ? `New envelope in ${groupName}` : 'New envelope'}</h3>
-        <button className="pl-modal-x" onClick={onCancel} aria-label="Close">
+        <h3>
+          {groupName
+            ? formatMessage(
+                { id: 'plan.newEnvelopeIn', defaultMessage: 'New envelope in {group}' },
+                { group: groupName },
+              )
+            : formatMessage({ id: 'plan.newEnvelope', defaultMessage: 'New envelope' })}
+        </h3>
+        <button
+          className="pl-modal-x"
+          onClick={onCancel}
+          aria-label={formatMessage({ id: 'plan.close', defaultMessage: 'Close' })}
+        >
           <X size={16} />
         </button>
       </div>
       <div className="pl-modal-body">
         <p className="pl-modal-intro">
-          Pick the categories this envelope funds — or pick none to start empty. Categories already
-          in another envelope can be pulled in later via <b>Add categories…</b>
+          {formatMessage(
+            {
+              id: 'plan.newEnvelopeIntro',
+              defaultMessage:
+                'Pick the categories this envelope funds — or pick none to start empty. Categories already in another envelope can be pulled in later via <b>Add categories…</b>',
+            },
+            { b: (chunks) => <b>{chunks}</b> },
+          )}
         </p>
         {candidates.length === 0 ? (
           <p className="pl-modal-sub" style={{ fontWeight: 500, color: 'var(--faint)' }}>
-            Every category is already linked to an envelope — this one will start empty.
+            {formatMessage({
+              id: 'plan.newEnvelopeAllLinked',
+              defaultMessage:
+                'Every category is already linked to an envelope — this one will start empty.',
+            })}
           </p>
         ) : (
           <div className="pl-nemod-list">
@@ -804,7 +1107,15 @@ export function NewEnvelopeModal({
                   </>
                 }
                 description={
-                  c.kind === 'expense' ? 'not budgeted yet' : `${c.kind} • not budgeted yet`
+                  c.kind === 'expense'
+                    ? formatMessage({
+                        id: 'plan.notBudgetedYet',
+                        defaultMessage: 'not budgeted yet',
+                      })
+                    : formatMessage(
+                        { id: 'plan.kindNotBudgeted', defaultMessage: '{kind} • not budgeted yet' },
+                        { kind: kindLabels[c.kind] ?? c.kind },
+                      )
                 }
               />
             ))}
@@ -815,12 +1126,16 @@ export function NewEnvelopeModal({
           htmlFor="pl-nemod-name"
           style={{ marginTop: 16, display: 'block' }}
         >
-          Envelope name
+          {formatMessage({ id: 'plan.envelopeName', defaultMessage: 'Envelope name' })}
         </label>
         <input
           id="pl-nemod-name"
           className="pl-inline-input pl-newenv-name"
-          placeholder={pickedCats.length ? '' : 'e.g. Everyday food'}
+          placeholder={
+            pickedCats.length
+              ? ''
+              : formatMessage({ id: 'plan.envelopeExample', defaultMessage: 'e.g. Everyday food' })
+          }
           value={name}
           onChange={(e) => {
             setTyped(true)
@@ -836,14 +1151,24 @@ export function NewEnvelopeModal({
       </div>
       <div className="pl-modal-foot">
         <Button variant="secondary" size="dense" onClick={onCancel}>
-          Cancel
+          {formatMessage({ id: 'plan.cancel', defaultMessage: 'Cancel' })}
         </Button>
         <Button variant="primary" size="dense" disabled={!name.trim() || !!busy} onClick={submit}>
           {busy
-            ? 'Creating…'
+            ? formatMessage({ id: 'plan.creating', defaultMessage: 'Creating…' })
             : pickedCats.length
-              ? `Create • funds ${pickedCats.length} ${pickedCats.length === 1 ? 'category' : 'categories'}`
-              : 'Create empty envelope'}
+              ? formatMessage(
+                  {
+                    id: 'plan.createFunds',
+                    defaultMessage:
+                      'Create • funds {count, plural, one {# category} other {# categories}}',
+                  },
+                  { count: pickedCats.length },
+                )
+              : formatMessage({
+                  id: 'plan.createEmptyEnvelope',
+                  defaultMessage: 'Create empty envelope',
+                })}
         </Button>
       </div>
     </PlanningModal>
@@ -857,6 +1182,7 @@ export function NewEnvelopeModal({
 // budget's Uncategorized pile, not silently lost.
 export interface DeleteCategoryOption {
   name: string
+  kind: string
   cats: Array<{ id: string; label: string }>
 }
 export function DeleteCategoryModal({
@@ -878,6 +1204,7 @@ export function DeleteCategoryModal({
   onCancel: () => void
   onConfirm: (reassignKey: string | null, reassignLabel: string) => void
 }) {
+  const { formatMessage } = useAppIntl()
   const [target, setTarget] = useState('')
   const targetName = (() => {
     for (const g of options) {
@@ -889,29 +1216,56 @@ export function DeleteCategoryModal({
   const empty = txnCount === 0
 
   return (
-    <PlanningModal onClose={onCancel} label="Delete category">
+    <PlanningModal
+      onClose={onCancel}
+      label={formatMessage({ id: 'plan.deleteCategory', defaultMessage: 'Delete category' })}
+    >
       <div className="pl-modal-head">
-        <h3>Delete {categoryLabel}</h3>
-        <button className="pl-modal-x" onClick={onCancel} aria-label="Close">
+        <h3>
+          {formatMessage(
+            { id: 'plan.deleteNamed', defaultMessage: 'Delete {name}' },
+            { name: categoryLabel },
+          )}
+        </h3>
+        <button
+          className="pl-modal-x"
+          onClick={onCancel}
+          aria-label={formatMessage({ id: 'plan.close', defaultMessage: 'Close' })}
+        >
           <X size={16} />
         </button>
       </div>
       <div className="pl-modal-body">
         {empty ? (
           <p className="pl-modal-intro">
-            <b>{categoryLabel}</b> has no transactions — there&rsquo;s nothing to reassign.
+            {formatMessage(
+              {
+                id: 'plan.deleteCategoryEmpty',
+                defaultMessage:
+                  '<b>{category}</b> has no transactions — there’s nothing to reassign.',
+              },
+              { category: categoryLabel, b: (chunks) => <b>{chunks}</b> },
+            )}
           </p>
         ) : (
           <p className="pl-modal-intro">
-            Deleting rewrites history — if you just want <b>{categoryLabel}</b> out of the way,{' '}
-            <b>Hide</b> keeps its records intact. To delete, reassign its past activity to another
-            category first.
+            {formatMessage(
+              {
+                id: 'plan.deleteCategoryIntro',
+                defaultMessage:
+                  'Deleting rewrites history — if you just want <b>{category}</b> out of the way, <b>Hide</b> keeps its records intact. To delete, reassign its past activity to another category first.',
+              },
+              { category: categoryLabel, b: (chunks) => <b>{chunks}</b> },
+            )}
           </p>
         )}
         {!empty && (
           <>
             <label className="pl-modal-label" htmlFor="pl-delcat-sel">
-              Reassign activity to
+              {formatMessage({
+                id: 'plan.reassignActivity',
+                defaultMessage: 'Reassign activity to',
+              })}
             </label>
             <div className="pl-selwrap">
               <Select
@@ -919,7 +1273,10 @@ export function DeleteCategoryModal({
                 id="pl-delcat-sel"
                 value={target}
                 onChange={(e) => setTarget(e.target.value)}
-                placeholder="Select a category…"
+                placeholder={formatMessage({
+                  id: 'plan.selectCategory',
+                  defaultMessage: 'Select a category…',
+                })}
                 options={options.map((g) => ({
                   group: g.name,
                   options: g.cats.map((c) => ({ value: c.id, label: c.label })),
@@ -931,42 +1288,100 @@ export function DeleteCategoryModal({
             </div>
           </>
         )}
-        <p className="pl-modal-sub">What happens:</p>
+        <p className="pl-modal-sub">
+          {formatMessage({ id: 'plan.whatHappens', defaultMessage: 'What happens:' })}
+        </p>
         <ul className="pl-modal-list">
           {empty ? (
-            <li>No transactions are touched — it has none</li>
+            <li>
+              {formatMessage({
+                id: 'plan.noTransactionsTouched',
+                defaultMessage: 'No transactions are touched — it has none',
+              })}
+            </li>
           ) : (
             <li>
-              All of {categoryLabel}&rsquo;s transactions
-              {txnCount != null ? (
-                <>
-                  {' '}
-                  (<b>{txnCount}</b>)
-                </>
-              ) : null}{' '}
-              move to {targetName || 'the selected category'}
+              {txnCount != null
+                ? formatMessage(
+                    {
+                      id: 'plan.deleteCategoryMovesCount',
+                      defaultMessage:
+                        'All of {category}’s transactions (<b>{count}</b>) move to {target}',
+                    },
+                    {
+                      category: categoryLabel,
+                      count: txnCount,
+                      target:
+                        targetName ||
+                        formatMessage({
+                          id: 'plan.selectedCategory',
+                          defaultMessage: 'the selected category',
+                        }),
+                      b: (chunks) => <b>{chunks}</b>,
+                    },
+                  )
+                : formatMessage(
+                    {
+                      id: 'plan.deleteCategoryMoves',
+                      defaultMessage: 'All of {category}’s transactions move to {target}',
+                    },
+                    {
+                      category: categoryLabel,
+                      target:
+                        targetName ||
+                        formatMessage({
+                          id: 'plan.selectedCategory',
+                          defaultMessage: 'the selected category',
+                        }),
+                    },
+                  )}
             </li>
           )}
           {envelopeName ? (
             <li>
-              Its link to the <b>{envelopeName}</b> envelope is removed — the envelope and its money
-              stay
+              {formatMessage(
+                {
+                  id: 'plan.deleteCategoryLinked',
+                  defaultMessage:
+                    'Its link to the <b>{envelope}</b> envelope is removed — the envelope and its money stay',
+                },
+                { envelope: envelopeName, b: (chunks) => <b>{chunks}</b> },
+              )}
             </li>
           ) : (
-            <li>It isn&rsquo;t linked to any envelope — no budget rows change</li>
+            <li>
+              {formatMessage({
+                id: 'plan.deleteCategoryUnlinked',
+                defaultMessage: 'It isn’t linked to any envelope — no budget rows change',
+              })}
+            </li>
           )}
-          <li>{categoryLabel} disappears from every picker and report</li>
+          <li>
+            {formatMessage(
+              {
+                id: 'plan.deleteCategoryGone',
+                defaultMessage: '{category} disappears from every picker and report',
+              },
+              { category: categoryLabel },
+            )}
+          </li>
         </ul>
         {!empty && (
           <button className="pl-delcat-skip" onClick={() => onConfirm(null, '')}>
-            Delete without reassigning — its transactions become uncategorized and land in{' '}
-            <b>Uncategorized</b>
+            {formatMessage(
+              {
+                id: 'plan.deleteCategoryWithoutReassign',
+                defaultMessage:
+                  'Delete without reassigning — its transactions become uncategorized and land in <b>Uncategorized</b>',
+              },
+              { b: (chunks) => <b>{chunks}</b> },
+            )}
           </button>
         )}
       </div>
       <div className="pl-modal-foot">
         <Button variant="secondary" size="dense" onClick={onCancel}>
-          Cancel
+          {formatMessage({ id: 'plan.cancel', defaultMessage: 'Cancel' })}
         </Button>
         <Button
           variant="danger"
@@ -974,7 +1389,7 @@ export function DeleteCategoryModal({
           disabled={empty ? false : !target}
           onClick={() => (empty ? onConfirm(null, '') : onConfirm(target, targetName))}
         >
-          Delete category
+          {formatMessage({ id: 'plan.deleteCategory', defaultMessage: 'Delete category' })}
         </Button>
       </div>
     </PlanningModal>

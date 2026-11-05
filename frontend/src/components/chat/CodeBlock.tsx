@@ -1,3 +1,4 @@
+import { useAppIntl } from '../../i18n/useAppIntl'
 // A fenced code block in Lucius's reply, with a Copy button: shown on hover, and always on a
 // touch screen, which has no hover (owner, 2026-10-31). Copies the block's text exactly as
 // shown — terminal commands are the usual case, and retyping them invites mistakes.
@@ -5,6 +6,7 @@ import { useRef, useState, type ComponentPropsWithoutRef } from 'react'
 import { Check, Copy } from '../../ui/icons'
 
 export function CodeBlock({ children, ...props }: ComponentPropsWithoutRef<'pre'>) {
+  const intl = useAppIntl()
   const pre = useRef<HTMLPreElement>(null)
   const [copied, setCopied] = useState(false)
 
@@ -34,10 +36,10 @@ export function CodeBlock({ children, ...props }: ComponentPropsWithoutRef<'pre'
         type="button"
         className={'msg-code-copy' + (copied ? ' copied' : '')}
         onClick={copy}
-        aria-label={copied ? 'Copied' : 'Copy code'}
+        aria-label={copied ? intl.formatMessage({ id: 'miss.copy.copied', defaultMessage: 'Copied' }) : intl.formatMessage({ id: 'miss.copy.code', defaultMessage: 'Copy code' })}
       >
         {copied ? <Check size={13} aria-hidden="true" /> : <Copy size={13} aria-hidden="true" />}
-        <span>{copied ? 'Copied' : 'Copy'}</span>
+        <span>{copied ? intl.formatMessage({ id: 'miss.copy.copied', defaultMessage: 'Copied' }) : intl.formatMessage({ id: 'miss.copy.copy', defaultMessage: 'Copy' })}</span>
       </button>
     </div>
   )

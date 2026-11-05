@@ -1,3 +1,5 @@
+import { IntlProvider } from 'react-intl'
+import messages from './zh-CN.messages.json'
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
@@ -113,6 +115,17 @@ beforeEach(() => {
 afterEach(cleanup)
 
 describe('VaultPanel', () => {
+  it('keeps a private user-named document protected in Chinese', async () => {
+    render(<IntlProvider locale="zh-CN" messages={messages} onError={() => {}}><ChatComposerProvider><VaultPanel onClose={vi.fn()} onOpenArtifact={vi.fn()} /></ChatComposerProvider></IntlProvider>)
+    fireEvent.click(await screen.findByText('Home insurance policy'))
+    expect(screen.getByText(/绝不能读取文件内容/)).toBeTruthy()
+    expect(screen.queryByRole('button', { name: '向 Lucius 询问此项' })).toBeNull()
+    const toggle = screen.getByRole('switch', { name: '私密' }) as HTMLInputElement
+    expect(toggle.checked).toBe(true)
+    fireEvent.click(toggle)
+    expect(updateVaultFile).toHaveBeenCalledWith('file-att_2', { private: false })
+  })
+
   it('lists every kind, each row a document entity (mentionable, draggable)', async () => {
     renderPanel()
     const row = await screen.findByRole('button', { name: /^2025 tax return/ })

@@ -5,6 +5,7 @@
 // positive amount, and Σ amounts == the leg amount (±0.01). This editor surfaces that
 // contract live: a remaining pill turns "balanced" only when the lines sum to the total,
 // and the parent gates "Save changes" on the same rule (see EditBody.splitValid).
+import { useAppIntl } from '../../../i18n/useAppIntl'
 import { fCur } from './data'
 import type { Category } from './types'
 import { AddCategoryField } from './pickers'
@@ -28,7 +29,7 @@ export interface SplitEditorProps {
   currency: string
   options: (Category & { group: string })[]
   onCreateCategory: (prefill: string, cb: (id: string) => void) => void
-  /** Called when the user removes the last line or clicks "Unsplit" — the parent exits split mode. */
+  /** Called when the user removes the last line or clicks {formatMessage({ id: 'accounts.split.unsplit', defaultMessage: "Unsplit" })} — the parent exits split mode. */
   onUnsplit: () => void
 }
 
@@ -41,6 +42,7 @@ export function SplitEditor({
   onCreateCategory,
   onUnsplit,
 }: SplitEditorProps) {
+  const { formatMessage } = useAppIntl()
   const assigned = lines.reduce((s, l) => s + (parseFloat(l.amount) || 0), 0)
   const remaining = round2(total - assigned)
   const balanced = Math.abs(remaining) <= 0.005
@@ -59,10 +61,10 @@ export function SplitEditor({
     <div className="acct-edit-field acct-edit-splitwrap" data-ctx-ignore>
       <div className="acct-edit-splithead">
         <span className="acct-edit-label">
-          Split • {lines.length} {lines.length === 1 ? 'category' : 'categories'}
+          {formatMessage({ id: 'accounts.split.count', defaultMessage: 'Split • {count, plural, one {# category} other {# categories}}' }, { count: lines.length })}
         </span>
         <button type="button" className="acct-edit-unsplit" onClick={onUnsplit}>
-          Unsplit
+          {formatMessage({ id: 'accounts.split.unsplit', defaultMessage: "Unsplit" })}
         </button>
       </div>
       <div className="acct-edit-splitrows">
@@ -90,15 +92,15 @@ export function SplitEditor({
                   value={line.amount}
                   onChange={(e) => patchLine(i, { amount: e.target.value })}
                   placeholder="0.00"
-                  aria-label="Split amount"
+                  aria-label={formatMessage({ id: 'accounts.split.amount', defaultMessage: "Split amount" })}
                 />
               </div>
               <button
                 type="button"
                 className="acct-edit-splitrm"
                 onClick={() => removeLine(i)}
-                title="Remove this line"
-                aria-label="Remove split line"
+                title={formatMessage({ id: 'accounts.split.removeLineTitle', defaultMessage: "Remove this line" })}
+                aria-label={formatMessage({ id: 'accounts.split.removeLine', defaultMessage: "Remove split line" })}
               >
                 <X size={12} aria-hidden="true" />
               </button>
@@ -107,18 +109,18 @@ export function SplitEditor({
               className="acct-edit-splitnote"
               value={line.note}
               onChange={(e) => patchLine(i, { note: e.target.value })}
-              placeholder="Memo (optional)"
-              aria-label="Split memo"
+              placeholder={formatMessage({ id: 'accounts.split.memo', defaultMessage: "Memo (optional)" })}
+              aria-label={formatMessage({ id: 'accounts.split.memoLabel', defaultMessage: "Split memo" })}
             />
           </div>
         ))}
       </div>
       <div className="acct-edit-splitfoot">
         <button type="button" className="acct-edit-splitadd" onClick={addLine}>
-          <Plus size={12} aria-hidden="true" /> Add line
+          <Plus size={12} aria-hidden="true" /> {formatMessage({ id: 'accounts.split.add', defaultMessage: "Add line" })}
         </button>
         <span className={`acct-edit-splitremain${balanced ? ' ok' : ''}`}>
-          {balanced ? 'Balanced' : `Remaining ${fCur(remaining, currency, { cents: true })}`}
+          {balanced ? formatMessage({ id: 'accounts.split.balanced', defaultMessage: 'Balanced' }) : formatMessage({ id: 'accounts.split.remaining', defaultMessage: 'Remaining {amount}' }, { amount: fCur(remaining, currency, { cents: true }) })}
         </span>
       </div>
     </div>

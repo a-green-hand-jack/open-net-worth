@@ -12,7 +12,9 @@
 // @vitest-environment jsdom
 
 import { describe, it, expect, vi, afterEach } from 'vitest'
-import { render, cleanup } from '@testing-library/react'
+import { render, cleanup, fireEvent } from '@testing-library/react'
+import { IntlProvider } from 'react-intl'
+import zh from '../../../i18n/zh-CN.json'
 import { Actions } from './detailActions'
 import { setBaseCurrency } from '../../../utils/format'
 import type { Commitment } from '../../../types/commitments'
@@ -91,6 +93,70 @@ const m = {
 } as unknown as DetailMutations
 
 describe('Actions & events tab', () => {
+  it('localizes controls while preserving user labels and filter values', () => {
+    const { getByText, getByLabelText } = render(
+      <IntlProvider locale="zh-CN" messages={zh}>
+        <Actions commitment={commitment} fx={{ SGD: 1 }} m={m} />
+      </IntlProvider>,
+    )
+    expect(getByText('事项与事件')).toBeTruthy()
+    expect(getByText('Sign SPA addendum')).toBeTruthy()
+    expect((getByLabelText('按状态筛选') as HTMLSelectElement).value).toBe('all')
+  })
+
+  it('translates a promoted generated action while preserving an unmarked same-name action', () => {
+    const rows: Commitment['actions'] = [
+      {
+        ...commitment.actions![0]!,
+        id: 'generated',
+        label: 'Draw down Custom lender',
+        label_source: { kind: 'draw_down', label: 'Custom lender' },
+      },
+      { ...commitment.actions![0]!, id: 'user', label: 'Draw down Custom lender' },
+    ]
+    const { getByText } = render(
+      <IntlProvider locale="zh-CN" messages={zh}>
+        <Actions commitment={{ ...commitment, actions: rows }} fx={{ SGD: 1 }} m={m} />
+      </IntlProvider>,
+    )
+    expect(getByText('提取 Custom lender')).toBeTruthy()
+    expect(getByText('Draw down Custom lender')).toBeTruthy()
+  })
+
+  it('includes the source when promoting a generated action', () => {
+    const addAction = vi.fn().mockResolvedValue(undefined)
+    const source = {
+      id: 'funding',
+      type: 'loan',
+      label: 'Custom lender',
+      amount: 100,
+      currency: 'SGD',
+      ref_position_id: null,
+      sell_quantity: null,
+      available_date: '2027-01-01',
+      ref_account_id: null,
+      repayment_commitment_id: null,
+      note: '',
+      disabled: false,
+      cadence: null,
+      status: 'planned',
+      realized_txn_id: null,
+    } as const
+    const { getByLabelText } = render(
+      <Actions
+        commitment={{ ...commitment, actions: [], funding_plan: [source] }}
+        fx={{ SGD: 1 }}
+        m={{ ...m, addAction }}
+      />,
+    )
+    fireEvent.click(getByLabelText('Mark done'))
+    expect(addAction).toHaveBeenCalledWith(
+      expect.objectContaining({
+        label: 'Draw down Custom lender',
+        label_source: { kind: 'draw_down', label: 'Custom lender' },
+      }),
+    )
+  })
   it('has no manual "+ Add action" control', () => {
     const { queryByText } = render(<Actions commitment={commitment} fx={{ SGD: 1 }} m={m} />)
     expect(queryByText('+ Add action')).toBeNull()

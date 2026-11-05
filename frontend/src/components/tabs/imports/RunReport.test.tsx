@@ -7,6 +7,7 @@ import { describe, it, expect, afterEach, beforeEach, vi } from 'vitest'
 import { render, screen, cleanup, fireEvent, within } from '@testing-library/react'
 import { RunReportModal } from './RunReport'
 import { clearQueryCache } from '../../../state/queryCache'
+import { setDisplayFormats } from '../../../utils/format'
 import { importRun, run } from './importsFixtures'
 import type { RunRecord } from './runs'
 
@@ -27,6 +28,7 @@ beforeEach(() => {
 
 afterEach(() => {
   cleanup()
+  setDisplayFormats({ number_format: null })
   clearQueryCache()
   vi.clearAllMocks()
 })
@@ -124,4 +126,29 @@ describe('RunReport', () => {
     fireEvent.click(await screen.findByText('Archive'))
     expect(posts).toEqual([`/api/imports/runs/${current.id}/archive`])
   })
+})
+
+it('shows marked verification text in Chinese and retains external values', async () => {
+  const { IntlProvider } = await import('react-intl')
+  const { default: messages } = await import('./zh-CN.messages.json')
+  const { default: common } = await import('../../../i18n/zh-CN.json')
+  current = importRun({ verification: { ok: false, checks_total: 1, checks_matching: 0, matches: [], mismatches: [{ check: 'Savings: balance', check_message: { message_id: 'ynab.import.check.balance', params: { name: 'Savings' } }, unit: 'money', ynab_value: 100, onw_value: 95, difference: -5, note: 'provider note' }] } })
+  render(<IntlProvider locale="zh-CN" messages={{ ...common, ...messages }}><RunReportModal runId={current.id} onClose={() => {}} /></IntlProvider>)
+  expect(await screen.findByText('Savings：余额')).toBeTruthy()
+  expect(screen.getByText('provider note')).toBeTruthy()
+  expect(screen.getByText('-5.00')).toBeTruthy()
+})
+
+
+it('uses profile number format for verification amounts under Chinese UI', async () => {
+  const { IntlProvider } = await import('react-intl')
+  const { default: messages } = await import('./zh-CN.messages.json')
+  const { default: common } = await import('../../../i18n/zh-CN.json')
+  setDisplayFormats({ number_format: 'dot' })
+  current = importRun({ verification: { ok: false, checks_total: 1234, checks_matching: 0, matches: [], mismatches: [{ check: 'Account', unit: 'money', ynab_value: 1234.5, onw_value: 1200, difference: -34.5, note: '' }] } })
+  render(<IntlProvider locale="zh-CN" messages={{ ...common, ...messages }}><RunReportModal runId={current.id} onClose={() => {}} /></IntlProvider>)
+  expect(await screen.findByText('1.234,50')).toBeTruthy()
+  expect(screen.getByText('1.200,00')).toBeTruthy()
+  expect(screen.getByText('-34,50')).toBeTruthy()
+  expect(screen.getByText('1.234 项检查，0 项一致')).toBeTruthy()
 })

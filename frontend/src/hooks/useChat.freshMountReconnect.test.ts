@@ -23,7 +23,8 @@ vi.mock('../api/client', () => ({
 
 const mockLoadMessages = vi.fn()
 const mockReconcile = vi.fn()
-vi.mock('../utils/chatStore', () => ({
+vi.mock('../utils/chatStore', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../utils/chatStore')>()),
   loadMessages: (...args: unknown[]) => mockLoadMessages(...args),
   reconcileWithRemote: (...args: unknown[]) => mockReconcile(...args),
   saveMessages: vi.fn(),

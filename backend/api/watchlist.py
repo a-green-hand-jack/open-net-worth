@@ -16,13 +16,16 @@ DELETE /api/watchlists/{id}            — delete a watchlist (items exclusive t
 from __future__ import annotations
 
 import asyncio
+import json
+from pathlib import Path
 from typing import Literal, Optional
 
 from fastapi import APIRouter, HTTPException, Query
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel, field_validator
 
 from backend.api.portfolio import read_rows
-from backend.core.errors import ConflictError, NotFoundError, ValidationError
+from backend.core.errors import ConflictError, NotFoundError, OpenNetWorthError, ValidationError
 from backend.core.ids import new_id
 from backend.paths import (
     WATCHLIST_JSON as WATCHLIST_FILE,  # noqa: F401  (re-export; test fixtures monkeypatch this)
@@ -31,6 +34,30 @@ from backend.services import watchlist as wl_service
 from backend.services.prices import resolve_watchlist_symbol
 
 router = APIRouter()
+_WATCH_MESSAGE_PARAMS = json.loads(
+    (Path(__file__).resolve().parents[1] / "core/watchlist_message_contract.json").read_text()
+)
+
+
+def _watch_error(exc: OpenNetWorthError, status_code: int):
+    message_id = exc.context.get("message_id")
+    params = exc.context.get("message_params", {})
+    if (
+        isinstance(message_id, str)
+        and message_id in _WATCH_MESSAGE_PARAMS
+        and isinstance(params, dict)
+        and set(params) == set(_WATCH_MESSAGE_PARAMS[message_id])
+    ):
+        return JSONResponse(
+            status_code=status_code,
+            content={
+                "detail": str(exc),
+                "message_id": message_id,
+                "message_params": params,
+            },
+        )
+    raise HTTPException(status_code=status_code, detail=str(exc)) from exc
+
 
 # NOTE: do NOT wrap WatchlistStore method calls in a module-level lock here.
 # Every store mutator (insert/update_by_id/delete/update_config/sync_from_holdings)
@@ -223,7 +250,10 @@ async def get_watchlist_quotes():
 def add_watchlist_item(body: WatchlistItemCreate):
     store = wl_service.watchlist_store()
     topic = body.type in wl_service.TOPIC_TYPES
-    watchlist_id = None if topic else _ticker_watchlist(store, body.watchlist)
+    try:
+        watchlist_id = None if topic else _ticker_watchlist(store, body.watchlist)
+    except (ValidationError, ConflictError) as exc:
+        return _watch_error(exc, 409 if isinstance(exc, ConflictError) else 422)
 
     # Validate + canonicalise a typed ticker against a real instrument (Yahoo/CoinGecko)
     # so junk like "ADOBE" resolves to ADBE — and a symbol that matches nothing is
@@ -234,9 +264,13 @@ def add_watchlist_item(body: WatchlistItemCreate):
     if body.type == "ticker":
         resolved = resolve_watchlist_symbol(body.value)
         if resolved is None:
-            raise HTTPException(
-                status_code=422,
-                detail=f"Couldn’t find a stock or coin matching “{body.value}”. Check the symbol and try again.",
+            return _watch_error(
+                ValidationError(
+                    f"Couldn’t find a stock or coin matching “{body.value}”. Check the symbol and try again.",
+                    message_id="watchlist.error.symbolNotFound",
+                    message_params={"symbol": body.value},
+                ),
+                422,
             )
         val = resolved["value"]
         label = body.label or resolved["label"]
@@ -246,7 +280,12 @@ def add_watchlist_item(body: WatchlistItemCreate):
     existing = store.find_by_value(val, type="ticker") if body.type == "ticker" else None
     if existing:
         if watchlist_id in existing.get("watchlist_ids", []):
-            raise HTTPException(status_code=409, detail="already in this watchlist")
+            return _watch_error(
+                ConflictError(
+                    "already in this watchlist", message_id="watchlist.error.alreadyInList"
+                ),
+                409,
+            )
         # Append this watchlist to the existing item's watchlist_ids and return it.
         new_ids = list(existing.get("watchlist_ids", [])) + [watchlist_id]
         updated = store.update_by_id(existing["id"], {"watchlist_ids": new_ids})
@@ -263,9 +302,9 @@ def add_watchlist_item(body: WatchlistItemCreate):
     try:
         store.insert(item)
     except ValidationError as exc:
-        raise HTTPException(status_code=422, detail=str(exc)) from exc
+        return _watch_error(exc, 422)
     except ConflictError as exc:
-        raise HTTPException(status_code=409, detail=str(exc)) from exc
+        return _watch_error(exc, 409)
     if topic and body.watchlist:
         return {**item, "notice": wl_service.TOPIC_NOT_LISTED_NOTE}
     return item
@@ -275,17 +314,21 @@ def _ticker_watchlist(store, name: Optional[str]) -> str:
     """The watchlist a ticker is added to. No silent default: My holdings is auto-managed
     (ADR 0018), so an add must name a list — it never falls into My holdings."""
     if not name:
-        raise HTTPException(
-            status_code=422,
-            detail="Choose or create a watchlist — My holdings is auto-managed and can't be added to.",
+        raise ValidationError(
+            "Choose or create a watchlist — My holdings is auto-managed and can't be added to.",
+            message_id="watchlist.error.chooseList",
         )
     watchlist_id = wl_service.resolve_watchlist_id_strict(name)
     if watchlist_id is None:
-        raise HTTPException(status_code=422, detail=f"watchlist {name!r} does not exist")
+        raise ValidationError(
+            f"watchlist {name!r} does not exist",
+            message_id="watchlist.error.namedListNotFound",
+            message_params={"name": name},
+        )
     if store.is_locked_watchlist(watchlist_id):
-        raise HTTPException(
-            status_code=409,
-            detail="My holdings is auto-managed — it mirrors your owned positions and can't be edited by hand.",
+        raise ConflictError(
+            "My holdings is auto-managed — it mirrors your owned positions and can't be edited by hand.",
+            message_id="watchlist.error.managedEdit",
         )
     return watchlist_id
 
@@ -296,10 +339,10 @@ def update_watchlist_item(item_id: str, body: WatchlistItemPatch):
     try:
         updated = wl_service.update_item(item_id, changes)
     except ValidationError as exc:
-        raise HTTPException(status_code=422, detail=str(exc)) from exc
+        return _watch_error(exc, 422)
     if updated:
         return updated
-    raise HTTPException(status_code=404, detail="not found")
+    return _watch_error(NotFoundError("not found", message_id="watchlist.error.itemNotFound"), 404)
 
 
 @router.delete("/api/watchlist/items/{item_id}")
@@ -314,7 +357,7 @@ def remove_watchlist_item(
         try:
             result = store.remove_from_watchlist(item_id, watchlist_id)
         except ConflictError as exc:
-            raise HTTPException(status_code=409, detail=str(exc)) from exc
+            return _watch_error(exc, 409)
         return {
             "ok": result["removed"] or result["deleted"],
             "removed": result["removed"],
@@ -323,9 +366,12 @@ def remove_watchlist_item(
     # Full delete is refused for an item that belongs to My holdings (auto-managed, ADR 0018) —
     # an owned ticker leaves My holdings only by being sold.
     if item and any(store.is_locked_watchlist(w) for w in item.get("watchlist_ids", [])):
-        raise HTTPException(
-            status_code=409,
-            detail="This is one of your holdings — My holdings is auto-managed. Remove it from your other watchlists instead.",
+        return _watch_error(
+            ConflictError(
+                "This is one of your holdings — My holdings is auto-managed. Remove it from your other watchlists instead.",
+                message_id="watchlist.error.holdingsRemove",
+            ),
+            409,
         )
     deleted = store.delete(item_id)
     return {"ok": deleted, "deleted": deleted}
@@ -343,7 +389,7 @@ def update_config(body: ConfigPatch):
                 store.get_config().get("notify_routes"), changes["notify_routes"]
             )
         except ValidationError as exc:
-            raise HTTPException(status_code=422, detail=str(exc)) from exc
+            return _watch_error(exc, 422)
     saved_config = store.update_config(changes)
     # Hot-reload the running scheduler so interval/enabled changes take effect live (not just on
     # restart) — mirrors the Lucius update_monitoring_config tool path. Best-effort.
@@ -391,9 +437,9 @@ def create_watchlist(body: WatchlistCreate):
             is_auto_sync=body.is_auto_sync or False,
         )
     except ConflictError as exc:
-        raise HTTPException(status_code=409, detail=str(exc)) from exc
+        return _watch_error(exc, 409)
     except ValidationError as exc:
-        raise HTTPException(status_code=422, detail=str(exc)) from exc
+        return _watch_error(exc, 422)
     return watchlist
 
 
@@ -403,11 +449,11 @@ def update_watchlist(watchlist_id: str, body: WatchlistPatch):
     try:
         return wl_service.update_watchlist(watchlist_id, changes)
     except NotFoundError as exc:
-        raise HTTPException(status_code=404, detail=str(exc)) from exc
+        return _watch_error(exc, 404)
     except ConflictError as exc:
-        raise HTTPException(status_code=409, detail=str(exc)) from exc
+        return _watch_error(exc, 409)
     except ValidationError as exc:
-        raise HTTPException(status_code=422, detail=str(exc)) from exc
+        return _watch_error(exc, 422)
 
 
 @router.delete("/api/watchlists/{watchlist_id}")
@@ -415,6 +461,6 @@ def delete_watchlist(watchlist_id: str):
     try:
         return wl_service.delete_watchlist(watchlist_id)
     except ConflictError as exc:
-        raise HTTPException(status_code=409, detail=str(exc)) from exc
+        return _watch_error(exc, 409)
     except NotFoundError as exc:
-        raise HTTPException(status_code=404, detail=str(exc)) from exc
+        return _watch_error(exc, 404)

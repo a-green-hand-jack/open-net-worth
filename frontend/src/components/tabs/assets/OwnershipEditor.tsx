@@ -24,6 +24,7 @@ import type { LoanFormGate } from './InlineAddLoan'
 import { OwnershipStep } from './OwnershipStep'
 import { LoanRefused, linkedTo, useStagedLoan } from './useStagedLoan'
 import { useSyncedDraft } from './useSyncedDraft'
+import { useAppIntl } from '../../../i18n/useAppIntl'
 
 const FIELDS = ['share_pct', 'loan_account_id', 'loan_name', 'loan_owed'] as const
 
@@ -42,6 +43,7 @@ export interface OwnershipEditorProps {
 }
 
 export function OwnershipEditor({ a, loans, onClose, onSaved }: OwnershipEditorProps) {
+  const { formatMessage } = useAppIntl()
   // Every change merges into the newest value (`latest`), never a copy from the last render.
   const [value, update, latest] = useSyncedDraft<OwnershipValue>(() => ownershipFromAsset(a))
   const staged = useStagedLoan((loan) => update(linkedTo(latest.current, loan)))
@@ -56,7 +58,18 @@ export function OwnershipEditor({ a, loans, onClose, onSaved }: OwnershipEditorP
   async function onSave() {
     if (loanForm.current?.holds()) return
     const current = latest.current
-    if (!check(ownershipErrors(current))) return
+    const errors = ownershipErrors(current)
+    if (
+      !check({
+        share_pct: errors.share_pct
+          ? formatMessage({
+              id: 'assets.owner.shareRange',
+              defaultMessage: 'Enter a share from 0 to 100.',
+            })
+          : undefined,
+      })
+    )
+      return
     const saved = await save(async () => {
       const loanId = await staged.resolveLoanId(current).catch((err: unknown) => {
         throw err instanceof LoanRefused ? stagedLoanRefusal(err.refusal) : err
@@ -67,7 +80,8 @@ export function OwnershipEditor({ a, loans, onClose, onSaved }: OwnershipEditorP
         loan_account_id: loanId,
       })
     })
-    if (saved) onSaved('Ownership updated.')
+    if (saved)
+      onSaved(formatMessage({ id: 'assets.owner.updated', defaultMessage: 'Ownership updated.' }))
   }
 
   const errors: OwnershipErrors = {
@@ -82,11 +96,16 @@ export function OwnershipEditor({ a, loans, onClose, onSaved }: OwnershipEditorP
       className="as-modal"
       open
       onClose={onClose}
-      title="Ownership"
+      title={formatMessage({ id: 'assets.sections.ownership', defaultMessage: 'Ownership' })}
       subtitle={a.name}
       size="md"
       footer={
-        <EditorFooter saving={saving} label="Save changes" onCancel={onClose} onSave={onSave} />
+        <EditorFooter
+          saving={saving}
+          label={formatMessage({ id: 'assets.details.save', defaultMessage: 'Save changes' })}
+          onCancel={onClose}
+          onSave={onSave}
+        />
       }
     >
       <Stack gap="--space-6">

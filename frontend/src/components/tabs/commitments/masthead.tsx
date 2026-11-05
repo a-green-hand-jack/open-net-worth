@@ -1,3 +1,6 @@
+import { FormattedMessage, RawIntlProvider } from 'react-intl'
+import { useAppIntl } from '../../../i18n/useAppIntl'
+import { proposalText } from './proposalMessages'
 // Funding-outlook masthead — ported verbatim from the design handoff's masthead.jsx
 // `Masthead`: verdict hero + four stats + the cushion chart + a Lucius ribbon reading the
 // TOP fix proposal (never hardcoded copy — see coverageEngine.ts).
@@ -44,6 +47,9 @@ export function Masthead({
   onReview,
   onFix,
 }: MastheadProps) {
+  const intl = useAppIntl()
+  const { formatMessage } = intl
+  const shownProposal = topProposal ? proposalText(intl, topProposal) : null
   const active = list.filter((c) => c.status === 'active')
   const floor = derived.floor
   const atRisk = derived.minBal < floor
@@ -78,18 +84,39 @@ export function Masthead({
   // (see .c2-sum-metrics in the ≤560px container query).
   const narrow = useNarrow()
   const stats: Array<{ k: string; v: number; tone?: string; hint?: string }> = [
-    { k: 'Committed remaining', v: committedRemaining },
     {
-      k: 'Due in 30 days',
+      k: formatMessage({
+        id: 'commitments.masthead.committed',
+        defaultMessage: 'Committed remaining',
+      }),
+      v: committedRemaining,
+    },
+    {
+      k: formatMessage({ id: 'commitments.masthead.due30', defaultMessage: 'Due in 30 days' }),
       v: dueSoon,
-      hint: 'Everything going out in the next 30 days, auto-debits and goal set-asides included. The same figure as the Dashboard.',
+      hint: formatMessage({
+        id: 'commitments.masthead.dueHint',
+        defaultMessage:
+          'Everything going out in the next 30 days, auto-debits and goal set-asides included. The same figure as the Dashboard.',
+      }),
     },
     {
-      k: 'Recurring funding / mo',
+      k: formatMessage({
+        id: 'commitments.masthead.recurring',
+        defaultMessage: 'Recurring funding / mo',
+      }),
       v: monthlySetAside(list),
-      hint: 'Monthly funding sources (budget envelope top-ups) feeding these commitments. A one-off or scheduled set-aside, such as a goal installment, is not here: it counts under Due in 30 days.',
+      hint: formatMessage({
+        id: 'commitments.masthead.recurringHint',
+        defaultMessage:
+          'Monthly funding sources (budget envelope top-ups) feeding these commitments. A one-off or scheduled set-aside, such as a goal installment, is not here: it counts under Due in 30 days.',
+      }),
     },
-    { k: 'Cash earmarked', v: earmarked, tone: overCommitted ? 'warn' : undefined },
+    {
+      k: formatMessage({ id: 'commitments.masthead.cash', defaultMessage: 'Cash earmarked' }),
+      v: earmarked,
+      tone: overCommitted ? 'warn' : undefined,
+    },
   ]
 
   // Extracted so the SAME markup can sit inside the funding-outlook card (desktop, and the
@@ -105,52 +132,86 @@ export function Masthead({
         {atRisk && riskC ? (
           <>
             <span className="c2-ribbon-core">
-              <b>{riskC.name}</b> runs{' '}
-              <b className={moneyClass()}>
-                {fBaseWhole(riskC.coverage?.shortfall_base ?? shortfall)}
-              </b>{' '}
-              short around{' '}
-              <b>
-                {riskC.coverage?.earliest_shortfall_date
-                  ? fmtDate(riskC.coverage.earliest_shortfall_date)
-                  : ''}
-              </b>
-              {topProposal ? <>. {topProposal.ribbonHint}</> : '.'}
+              <FormattedMessage
+                id="commitments.masthead.riskRibbon"
+                defaultMessage="{name} runs {amount} short around {date}"
+                values={{
+                  name: <b>{riskC.name}</b>,
+                  amount: (
+                    <b className={moneyClass()}>
+                      {fBaseWhole(riskC.coverage?.shortfall_base ?? shortfall)}
+                    </b>
+                  ),
+                  date: (
+                    <b>
+                      {riskC.coverage?.earliest_shortfall_date
+                        ? fmtDate(riskC.coverage.earliest_shortfall_date)
+                        : ''}
+                    </b>
+                  ),
+                }}
+              />
+              {topProposal ? <>. {shownProposal!.ribbonHint}</> : '.'}
             </span>
             <span className="c2-ribbon-lite">
               {topProposal ? (
                 <>
-                  <b>Suggested fix:</b> {topProposal.title}.
+                  <b>
+                    {formatMessage({
+                      id: 'commitments.masthead.suggested',
+                      defaultMessage: 'Suggested fix:',
+                    })}
+                  </b>{' '}
+                  {shownProposal!.title}.
                 </>
               ) : (
-                'Lucius can help close this gap.'
+                formatMessage({
+                  id: 'commitments.masthead.luciusHelp',
+                  defaultMessage: 'Lucius can help close this gap.',
+                })
               )}
             </span>
           </>
         ) : (
           <>
-            Cash stays above your safety floor —{' '}
-            <b className={moneyClass()}>{fBase(monthlySetAside(list))}/mo</b> set aside across your
-            synced budget targets.
+            <FormattedMessage
+              id="commitments.masthead.safeRibbon"
+              defaultMessage="Cash stays above your safety floor — {amount} set aside across your synced budget targets."
+              values={{
+                amount: (
+                  <b className={moneyClass()}>
+                    {formatMessage(
+                      { id: 'commitments.masthead.perMonth', defaultMessage: '{amount}/mo' },
+                      { amount: fBase(monthlySetAside(list)) },
+                    )}
+                  </b>
+                ),
+              }}
+            />
           </>
         )}
       </span>
       <span className="c2-ribbon-acts">
         {atRisk && riskC && (
           <button className="c2-ribbon-act" onClick={() => onReview(riskC.id)}>
-            Review commitment
+            {formatMessage({
+              id: 'commitments.masthead.review',
+              defaultMessage: 'Review commitment',
+            })}
           </button>
         )}
         <button className="c2-ribbon-act hot" onClick={onFix}>
           <Spark size={13} />
-          {atRisk ? 'Fix with Lucius' : 'Ask Lucius'}
+          {atRisk
+            ? formatMessage({ id: 'commitments.masthead.fix', defaultMessage: 'Fix with Lucius' })
+            : formatMessage({ id: 'commitments.masthead.ask', defaultMessage: 'Ask Lucius' })}
         </button>
       </span>
     </div>
   )
 
   return (
-    <>
+    <RawIntlProvider value={intl}>
       <section className="c2-sum">
         <div className="c2-sum-row">
           <div className="c2-sum-left">
@@ -164,35 +225,75 @@ export function Masthead({
               </span>
               <span className={moneyClass('c2-sum-hero', atRisk ? 'neg' : 'pos')}>
                 {atRisk
-                  ? `Short ${fBaseWhole(shortfall)}`
+                  ? formatMessage(
+                      { id: 'commitments.masthead.short', defaultMessage: 'Short {amount}' },
+                      { amount: fBaseWhole(shortfall) },
+                    )
                   : floor > 0
-                    ? `Cash stays above your ${fBaseWhole(floor)} safety floor`
-                    : 'Cash stays above zero'}
+                    ? formatMessage(
+                        {
+                          id: 'commitments.masthead.aboveFloor',
+                          defaultMessage: 'Cash stays above your {amount} safety floor',
+                        },
+                        { amount: fBaseWhole(floor) },
+                      )
+                    : formatMessage({
+                        id: 'commitments.masthead.aboveZero',
+                        defaultMessage: 'Cash stays above zero',
+                      })}
               </span>
             </div>
             <span className="c2-sum-sub">
               {atRisk ? (
                 <>
-                  Cash dips below{' '}
-                  {floor > 0 ? (
-                    <>
-                      your <b>{fBase(floor)}</b> safety floor
-                    </>
-                  ) : (
-                    <b>zero</b>
-                  )}{' '}
-                  in <b>{gapMonth}</b>
-                  {lowestMonth && lowestMonth !== gapMonth && (
-                    <>
-                      {' '}
-                      and bottoms out in <b>{lowestMonth}</b>
-                    </>
-                  )}
-                  , within the next {horizon} months
-                  {cov.spans_currencies && ", at today's exchange rates"}.
+                  <FormattedMessage
+                    id="commitments.masthead.riskDetail"
+                    defaultMessage="Cash dips below {floor} in {month}{lowest}, within the next {horizon} months{exchange}."
+                    values={{
+                      floor:
+                        floor > 0
+                          ? formatMessage(
+                              {
+                                id: 'commitments.masthead.floorValue',
+                                defaultMessage: 'your {amount} safety floor',
+                              },
+                              { amount: fBase(floor) },
+                            )
+                          : formatMessage({
+                              id: 'commitments.masthead.zero',
+                              defaultMessage: 'zero',
+                            }),
+                      month: <b>{gapMonth}</b>,
+                      lowest:
+                        lowestMonth && lowestMonth !== gapMonth
+                          ? formatMessage(
+                              {
+                                id: 'commitments.masthead.lowest',
+                                defaultMessage: ' and bottoms out in {month}',
+                              },
+                              { month: lowestMonth },
+                            )
+                          : '',
+                      horizon,
+                      exchange: cov.spans_currencies
+                        ? formatMessage({
+                            id: 'commitments.masthead.exchange',
+                            defaultMessage: ", at today's exchange rates",
+                          })
+                        : '',
+                    }}
+                  />
                 </>
               ) : (
-                <>For the next {horizon} months, after every planned payment.</>
+                <>
+                  {formatMessage(
+                    {
+                      id: 'commitments.masthead.nextMonths',
+                      defaultMessage: 'For the next {months} months, after every planned payment.',
+                    },
+                    { months: horizon },
+                  )}
+                </>
               )}
             </span>
           </div>
@@ -212,7 +313,16 @@ export function Masthead({
               below already names Cushion/Payments/Funding, so the short form reads as a
               deliberate label sharing a row with the select, not a clipped sentence. */}
             <span className="c2-chart-title">
-              Cash cushion<span className="c2-chart-title-rest"> vs. committed payments</span>
+              {formatMessage({
+                id: 'commitments.masthead.cashCushion',
+                defaultMessage: 'Cash cushion',
+              })}
+              <span className="c2-chart-title-rest">
+                {formatMessage({
+                  id: 'commitments.masthead.versus',
+                  defaultMessage: ' vs. committed payments',
+                })}
+              </span>
             </span>
             {/* Four segmented buttons cost a full row on a phone to expose a setting that is
               changed rarely. A native select is one control, one tap target, and opens the
@@ -223,18 +333,33 @@ export function Masthead({
               (narrow ? (
                 <select
                   className="c2-select c3-hz-select"
-                  aria-label="Timeframe"
+                  aria-label={formatMessage({
+                    id: 'commitments.masthead.timeframe',
+                    defaultMessage: 'Timeframe',
+                  })}
                   value={horizon}
                   onChange={(e) => onHorizon(Number(e.target.value))}
                 >
                   {hzOptions.map((o) => (
                     <option key={o.value} value={o.value}>
-                      {o.label === 'All' ? 'All months' : o.label}
+                      {o.label === 'All'
+                        ? formatMessage({
+                            id: 'commitments.masthead.allMonths',
+                            defaultMessage: 'All months',
+                          })
+                        : o.label}
                     </option>
                   ))}
                 </select>
               ) : (
-                <div className="c3-hz" role="group" aria-label="Timeframe">
+                <div
+                  className="c3-hz"
+                  role="group"
+                  aria-label={formatMessage({
+                    id: 'commitments.masthead.timeframe',
+                    defaultMessage: 'Timeframe',
+                  })}
+                >
                   {hzOptions.map((o) => (
                     <button
                       key={o.value}
@@ -242,8 +367,20 @@ export function Masthead({
                       onClick={() => onHorizon(o.value)}
                       title={
                         o.label === 'All'
-                          ? `Through the last payment (${o.value} months)`
-                          : `${o.value} months`
+                          ? formatMessage(
+                              {
+                                id: 'commitments.masthead.throughLast',
+                                defaultMessage: 'Through the last payment ({months} months)',
+                              },
+                              { months: o.value },
+                            )
+                          : formatMessage(
+                              {
+                                id: 'commitments.masthead.months',
+                                defaultMessage: '{months} months',
+                              },
+                              { months: o.value },
+                            )
                       }
                     >
                       {o.label}
@@ -253,18 +390,28 @@ export function Masthead({
               ))}
             <div className="c2-chart-legend">
               <span className="c2-leg">
-                <i className="line" /> Cushion
+                <i className="line" />{' '}
+                {formatMessage({ id: 'commitments.masthead.cushion', defaultMessage: 'Cushion' })}
               </span>
               <span className="c2-leg">
                 <i className="out" />
                 <span>
-                  Payments<span className="c2-leg-rest">&nbsp;out</span>
+                  {formatMessage({
+                    id: 'commitments.masthead.payments',
+                    defaultMessage: 'Payments',
+                  })}
+                  <span className="c2-leg-rest">
+                    {formatMessage({ id: 'commitments.masthead.out', defaultMessage: ' out' })}
+                  </span>
                 </span>
               </span>
               <span className="c2-leg">
                 <i className="in" />
                 <span>
-                  Funding<span className="c2-leg-rest">&nbsp;in</span>
+                  {formatMessage({ id: 'commitments.masthead.funding', defaultMessage: 'Funding' })}
+                  <span className="c2-leg-rest">
+                    {formatMessage({ id: 'commitments.masthead.in', defaultMessage: ' in' })}
+                  </span>
                 </span>
               </span>
               {/* The plot carries TWO dashed reference lines (zero and the cash floor). Their
@@ -275,7 +422,13 @@ export function Masthead({
                 <span className="c2-leg zero">
                   <i className="zeroline" />
                   <span>
-                    $0<span className="c2-leg-rest">&nbsp;cash</span>
+                    $0
+                    <span className="c2-leg-rest">
+                      {formatMessage({
+                        id: 'commitments.masthead.cashLabel',
+                        defaultMessage: ' cash',
+                      })}
+                    </span>
                   </span>
                 </span>
               )}
@@ -283,7 +436,8 @@ export function Masthead({
                 <span className="c2-leg floor">
                   <i className="floorline" />
                   <span>
-                    Floor<span className="c2-leg-rest">&nbsp;{fBase(floor)}</span>
+                    {formatMessage({ id: 'commitments.masthead.floor', defaultMessage: 'Floor' })}
+                    <span className="c2-leg-rest">&nbsp;{fBase(floor)}</span>
                   </span>
                 </span>
               )}
@@ -299,6 +453,6 @@ export function Masthead({
       {/* Phone: the ribbon becomes its OWN card below the funding-outlook card, rather than a
         strip stacked inside it — its own border/background, not a border-top separator. */}
       {narrow && <div className="c2-ribbon-card">{ribbon}</div>}
-    </>
+    </RawIntlProvider>
   )
 }

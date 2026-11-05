@@ -53,17 +53,25 @@ export interface VaultFileDetails {
   private?: boolean
 }
 
-async function detailOf(r: Response, fallback: string): Promise<string> {
-  try {
-    const body = (await r.json()) as { detail?: unknown }
-    return typeof body.detail === 'string' && body.detail ? body.detail : fallback
-  } catch {
-    return fallback
+export class VaultRequestError extends Error {
+  readonly messageId: unknown
+  readonly messageParams: unknown
+  constructor(message: string, body: { message_id?: unknown; message_params?: unknown }) {
+    super(message)
+    this.name = 'VaultRequestError'
+    this.messageId = body.message_id
+    this.messageParams = body.message_params
   }
 }
 
 async function jsonOrThrow<T>(r: Response, what: string): Promise<T> {
-  if (!r.ok) throw new Error(await detailOf(r, `${what} failed (${r.status})`))
+  if (!r.ok) {
+    const fallback = `${what} failed (${r.status})`
+    const json: unknown = await r.json().catch(() => ({}))
+    const body = json && typeof json === 'object' && !Array.isArray(json) ? json as { detail?: unknown; message_id?: unknown; message_params?: unknown } : {}
+    const message = typeof body.detail === 'string' && body.detail ? body.detail : fallback
+    throw new VaultRequestError(message, body)
+  }
   return (await r.json()) as T
 }
 

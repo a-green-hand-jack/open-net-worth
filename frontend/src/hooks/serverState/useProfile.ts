@@ -4,6 +4,7 @@ import { fetchJson } from './fetchJson'
 import { PROFILE_KEY } from './keys'
 
 export interface ProfileData {
+  language?: 'en' | 'zh-CN' | null
   base_currency?: string
   target_allocation?: Record<string, number>
   risk_concentration_guideline?: number

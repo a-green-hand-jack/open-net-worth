@@ -1,3 +1,5 @@
+import { alertErrorText } from './priceAlerts/alertErrors'
+import { useAppIntl } from '../../i18n/useAppIntl'
 // Price alerts on ONE ticker — two views, one modal host (the "Price Alerts Redesign"):
 //   manage — every alert on the ticker, the 52-week track, Lucius's suggested set, and the
 //            ticker-level settings (mute, news sources); every control commits itself;
@@ -60,7 +62,6 @@ interface Props {
   onRemove?: () => void
 }
 
-const SAVE_FAILED = 'Could not save — please try again.'
 
 export function PriceAlertsModal(props: Props) {
   return props.luciusCtx ? (
@@ -146,6 +147,8 @@ function AlertsModalBody({
   onSaved,
   onRemove,
 }: Props & { ctx: LuciusContext }) {
+  const intl = useAppIntl()
+  const saveFailed = intl.formatMessage({ id: 'intel.error.saveFailed', defaultMessage: 'Could not save — please try again.' })
   const ticker = item.value
   const [alerts, setAlerts] = useState<AlertRecord[]>(() => item.price_alerts || [])
   const [view, setView] = useState<'manage' | 'form'>('manage')
@@ -182,8 +185,8 @@ function AlertsModalBody({
       await work()
       await refresh()
       return true
-    } catch {
-      if (mounted.current) setError(SAVE_FAILED)
+    } catch (error) {
+      if (mounted.current) setError(alertErrorText(error, intl, saveFailed))
       return false
     } finally {
       if (mounted.current) setSaving(false)
@@ -213,7 +216,7 @@ function AlertsModalBody({
       })),
   }
   const suggestAll = (): SuggestionView[] =>
-    luciusSuggestAlerts(luciusAsset, ctx).map((s) => ({
+    luciusSuggestAlerts(luciusAsset, ctx, intl).map((s) => ({
       op: s.op === 'below' ? '<=' : '>=',
       value: s.value,
       name: s.name ?? '',
@@ -283,8 +286,8 @@ function AlertsModalBody({
       body: JSON.stringify(body),
     })
     if (!res.ok) {
-      const detail = res.status === 422 ? await errorDetail(res, SAVE_FAILED) : SAVE_FAILED
-      throw new Error(watchlistFieldError(detail).field ? detail : SAVE_FAILED)
+      const detail = res.status === 422 ? await errorDetail(res, saveFailed, intl) : saveFailed
+      throw new Error(watchlistFieldError(detail).field ? detail : saveFailed)
     }
   }
 
@@ -297,7 +300,7 @@ function AlertsModalBody({
     } catch {
       if (!mounted.current) return
       setMuted(!on)
-      setError(SAVE_FAILED)
+      setError(saveFailed)
     }
   }
 
@@ -307,7 +310,7 @@ function AlertsModalBody({
       await patchItem({ custom_feed_urls: next.map((u) => u.trim()).filter(Boolean) })
       onSaved()
     } catch (e) {
-      if (mounted.current) setError(e instanceof Error && e.message ? e.message : SAVE_FAILED)
+      if (mounted.current) setError(e instanceof Error && e.message ? e.message : saveFailed)
     }
   }
 

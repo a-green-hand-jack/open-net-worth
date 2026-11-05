@@ -120,7 +120,7 @@ def _comparable(value: Any) -> Any:
             sorted(
                 (k, _comparable(v))
                 for k, v in value.items()
-                if v is not None and k not in ("label", "id")
+                if v is not None and k not in ("label", "id", "labelSource")
             )
         )
     if isinstance(value, bool) or value is None:

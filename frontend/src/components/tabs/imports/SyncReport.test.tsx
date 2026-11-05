@@ -1,4 +1,5 @@
 // @vitest-environment jsdom
+import { setDisplayFormats } from '../../../utils/format'
 //
 // A sync run opened as a report: Sent / Pulled with field-by-field changes, Assigned, conflicts
 // (Keep buttons only while still open), deferred, errors, "Nothing changed", paging by 50.
@@ -30,6 +31,7 @@ beforeEach(() => {
 
 afterEach(() => {
   cleanup()
+  setDisplayFormats({ number_format: null })
   clearQueryCache()
   vi.clearAllMocks()
 })
@@ -172,4 +174,40 @@ describe('Sync run report', () => {
       screen.getByText('Food holds several categories, so its Assigned isn’t synced with YNAB.'),
     ).toBeTruthy()
   })
+})
+
+it('translates marked field labels and booleans without translating a memo value', async () => {
+  const { IntlProvider } = await import('react-intl')
+  const { default: messages } = await import('./zh-CN.messages.json')
+  const { default: common } = await import('../../../i18n/zh-CN.json')
+  const base = syncRun()
+  current = { ...base, txn_changes: [{ ...base.txn_changes![0]!, fields: [{ name: 'Cleared', field_id: 'cleared', before: 'no', after: 'yes' }, { name: 'Memo', field_id: 'memo', before: 'no', after: 'yes' }] }] }
+  render(<IntlProvider locale="zh-CN" messages={{ ...common, ...messages }}><RunReportModal runId={current.id} onClose={() => {}} /></IntlProvider>)
+  expect(await screen.findByText('结算状态 否 → 是')).toBeTruthy()
+  expect(screen.getByText('备注 no → yes')).toBeTruthy()
+})
+
+it('translates marked category changes while preserving user names and legacy lines', async () => {
+  const { IntlProvider } = await import('react-intl')
+  const { default: messages } = await import('./zh-CN.messages.json')
+  const { default: common } = await import('../../../i18n/zh-CN.json')
+  const { default: automations } = await import('../automations/zh-CN.messages.json')
+  current = syncRun({ category_changes: [{ direction: 'sent', text: 'Added My bills to YNAB.', text_message: { message_id: 'ynab.sync.change.categoryAdded', params: { name: 'My bills' } } }, { direction: 'sent', text: 'Legacy raw line' }] })
+  render(<IntlProvider locale="zh-CN" messages={{ ...common, ...automations, ...messages }}><RunReportModal runId={current.id} onClose={() => {}} /></IntlProvider>)
+  expect(await screen.findByText(/My bills/)).toBeTruthy()
+  expect(screen.getByText('Legacy raw line')).toBeTruthy()
+})
+
+
+it('uses profile number format for synchronized amounts under Chinese UI', async () => {
+  const { IntlProvider } = await import('react-intl')
+  const { default: messages } = await import('./zh-CN.messages.json')
+  const { default: common } = await import('../../../i18n/zh-CN.json')
+  setDisplayFormats({ number_format: 'dot' })
+  const base = syncRun()
+  current = { ...base, txn_changes: [{ ...base.txn_changes![0]!, fields: [{ name: 'Amount', field_id: 'amount', before: '1234.50', after: '1300.00' }, { name: 'Memo', field_id: 'memo', before: '1234.50', after: '1300.00' }] }] }
+  render(<IntlProvider locale="zh-CN" messages={{ ...common, ...messages }}><RunReportModal runId={current.id} onClose={() => {}} /></IntlProvider>)
+  expect(await screen.findByText('1.200,00 → 1.300,00')).toBeTruthy()
+  expect(screen.getByText('金额 1.234,50 → 1.300,00')).toBeTruthy()
+  expect(screen.getByText('备注 1234.50 → 1300.00')).toBeTruthy()
 })

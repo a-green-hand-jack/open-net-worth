@@ -193,6 +193,7 @@ def _failed_items(now: datetime) -> list[dict]:
                 "started_at": run.get("started_at") or "",
                 "finished_at": run.get("finished_at"),
                 "error": run.get("error") or None,
+                "error_message": run.get("error_message"),
             }
         )
     items.sort(key=lambda item: item["finished_at"] or item["started_at"], reverse=True)

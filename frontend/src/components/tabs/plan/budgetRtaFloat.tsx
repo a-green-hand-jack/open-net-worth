@@ -1,6 +1,7 @@
 // Floating Ready-to-Assign banner (owner, 2026-09-25): the hero no longer pins, so once it has
 // scrolled out of view its headline figures ride in a pill at the bottom of the page instead.
 import { useEffect, useLayoutEffect, useRef, useState, type RefObject } from 'react'
+import { useAppIntl } from '../../../i18n/useAppIntl'
 import { createPortal } from 'react-dom'
 import * as PD from './planData'
 
@@ -112,6 +113,7 @@ export function RtaFloat({
   filter: string | null
   setFilter: (f: string | null) => void
 }) {
+  const { formatMessage } = useAppIntl()
   const hidden = useHeroHidden()
   const pill = useRef<HTMLDivElement>(null)
   const left = usePillLeft(pill)
@@ -126,7 +128,9 @@ export function RtaFloat({
       aria-hidden={!hidden}
       inert={!hidden}
     >
-      <span className="pl-rta-float-k">Ready to assign</span>
+      <span className="pl-rta-float-k">
+        {formatMessage({ id: 'plan.readyToAssignFloat', defaultMessage: 'Ready to assign' })}
+      </span>
       <span className={'pl-rta-float-v mask' + (zero ? '' : neg ? ' neg' : ' pos')}>
         {neg ? '−' : ''}
         {fBaseCents(Math.abs(rta))}
@@ -138,7 +142,10 @@ export function RtaFloat({
           onClick={() => toggle('overspent')}
         >
           <i />
-          {overspentCount} overspent
+          {formatMessage(
+            { id: 'plan.overspentCount', defaultMessage: '{count} overspent' },
+            { count: overspentCount },
+          )}
         </button>
       )}
       {underfundedCount > 0 && (
@@ -147,17 +154,23 @@ export function RtaFloat({
           onClick={() => toggle('underfunded')}
         >
           <i />
-          {underfundedCount} underfunded
+          {formatMessage(
+            { id: 'plan.underfundedCount', defaultMessage: '{count} underfunded' },
+            { count: underfundedCount },
+          )}
         </button>
       )}
       {overspentCount === 0 && underfundedCount === 0 && (
         <span className="pl-sum-mini-stat ok">
           <i />
-          On track
+          {formatMessage({ id: 'plan.onTrack', defaultMessage: 'On track' })}
         </span>
       )}
       <span className="pl-sum-mini-stat">
-        <span className="mask">{fBase(totalAvailable)}</span> available
+        {formatMessage(
+          { id: 'plan.amountAvailable', defaultMessage: '{amount} available' },
+          { amount: <span className="mask">{fBase(totalAvailable)}</span> },
+        )}
       </span>
     </div>,
     document.body,

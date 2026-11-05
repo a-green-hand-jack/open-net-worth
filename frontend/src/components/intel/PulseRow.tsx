@@ -1,7 +1,12 @@
+import { localizedFit } from './watchStoryPresentation'
+import { findingHelp } from './findingHelp'
+import { findingText } from './findingText'
+import { useAppIntl } from '../../i18n/useAppIntl'
+import { FormattedMessage } from './FormattedMessage'
 import type { ReactNode } from 'react'
 import { TREND_PERIODS } from '../../hooks/usePulsePeriod'
 import { SegmentedControl } from '../ui'
-import { fPrice, getCurrencySymbol } from '../../utils/format'
+import { fPrice, getCurrencySymbol, getNumberLocale } from '../../utils/format'
 import { Bell } from '../../ui/icons'
 import { AssetLink } from './AssetLink'
 import { Explain } from './Explain'
@@ -14,16 +19,17 @@ import type { TrendPeriod, WatchPulseRow } from '../../types/watchPulse'
 // watchlist tab, so the header labels sit exactly over their figures.
 
 function ContextLine({ row }: { row: WatchPulseRow }) {
-  const pe = row.forward_pe ? `fwd P/E ${row.forward_pe.toFixed(0)}` : null
+  const intl = useAppIntl()
+  const pe = row.forward_pe ? `fwd P/E ${row.forward_pe.toLocaleString(getNumberLocale(), { maximumFractionDigits: 0, useGrouping: false })}` : null
   const first = row.position ? (
     <>
-      {row.position.weight.toFixed(1)}% of your investments ·{' '}
+      {intl.formatMessage({ id: 'intel.pulse.portfolioWeight', defaultMessage: '{percent}% of your investments · ' }, { percent: row.position.weight.toLocaleString(getNumberLocale(), { minimumFractionDigits: 1, maximumFractionDigits: 1, useGrouping: false }) })}
       <span style={{ color: toneColor(row.position.day_pl) }}>
-        {fSignedBase(row.position.day_pl)} today
+        {intl.formatMessage({ id: 'intel.pulse.positionToday', defaultMessage: '{amount} today' }, { amount: fSignedBase(row.position.day_pl) })}
       </span>
     </>
   ) : (
-    row.fit?.note
+    localizedFit(row.fit, intl)
   )
   if (!first && !pe && !row.thesis) return null
   return (
@@ -33,14 +39,14 @@ function ContextLine({ row }: { row: WatchPulseRow }) {
           {first}
           {first && pe ? ' · ' : ''}
           {pe && (
-            <Explain className="" text="Price ÷ next year's expected earnings per share">
+            <Explain className="" text={intl.formatMessage({ id: 'intel.pulse.forwardPeHelp', defaultMessage: "Price ÷ next year's expected earnings per share" })}>
               {pe}
             </Explain>
           )}
         </div>
       )}
       {row.thesis && (
-        <div className="intel-pulse-thesis" title="Your thesis">
+        <div className="intel-pulse-thesis" title={intl.formatMessage({ id: "intel.field.cde97650", defaultMessage: "Your thesis" })}>
           “{row.thesis}”
         </div>
       )}
@@ -67,14 +73,15 @@ export function PulseColHead({
   period: TrendPeriod
   onPeriod: (p: TrendPeriod) => void
 }) {
+  const intl = useAppIntl()
   return (
     <div className="intel-pulse-grid intel-pulse-colhead">
-      <span aria-hidden="true">Ticker</span>
+      <span aria-hidden="true">{<FormattedMessage id="intel.static.ticker_796f0da0" defaultMessage={"Ticker"} />}</span>
       <span className="intel-pulse-colhead-trend">
-        <span aria-hidden="true">Trend</span>
+        <span aria-hidden="true">{<FormattedMessage id="intel.static.trend_353a1ca2" defaultMessage={"Trend"} />}</span>
         <span className="intel-pulse-period">
           <SegmentedControl
-            ariaLabel="Trend period"
+            ariaLabel={intl.formatMessage({ id: 'intel.pulse.trendPeriod', defaultMessage: 'Trend period' })}
             value={period}
             onChange={onPeriod}
             options={TREND_PERIODS.map((p) => ({ value: p, label: p }))}
@@ -82,10 +89,10 @@ export function PulseColHead({
         </span>
       </span>
       <span className="intel-pulse-colhead-next" aria-hidden="true">
-        Next
+        {<FormattedMessage id="intel.extra.a41dbf02" defaultMessage={"Next"} />}
       </span>
       <span className="intel-pulse-colhead-num" aria-hidden="true">
-        Today
+        {<FormattedMessage id="intel.extra.721589c1" defaultMessage={"Today"} />}
       </span>
       <span />
     </div>
@@ -101,6 +108,7 @@ export function PulseRow({
   children,
   className,
 }: RowProps) {
+  const intl = useAppIntl()
   const sym = getCurrencySymbol(row.currency || undefined)
   const chips = row.findings.slice(0, 3)
   return (
@@ -118,7 +126,7 @@ export function PulseRow({
               {sym}
               {fPrice(row.price)}
             </span>
-            {markOwned && row.position && <span className="intel-pulse-owned">Owned</span>}
+            {markOwned && row.position && <span className="intel-pulse-owned">{<FormattedMessage id="intel.static.owned_fa757c29" defaultMessage={"Owned"} />}</span>}
           </span>
           <span className="intel-pulse-name">{row.name}</span>
         </AssetLink>
@@ -130,8 +138,8 @@ export function PulseRow({
             type="button"
             className="intel-pulse-bell"
             onClick={() => onEditAlerts(row)}
-            title={`Price alerts for ${row.ticker}`}
-            aria-label={`Price alerts for ${row.ticker}`}
+            title={intl.formatMessage({ id: 'intel.pulse.priceAlertsFor', defaultMessage: 'Price alerts for {ticker}' }, { ticker: row.ticker })}
+            aria-label={intl.formatMessage({ id: 'intel.pulse.priceAlertsFor', defaultMessage: 'Price alerts for {ticker}' }, { ticker: row.ticker })}
           >
             <Bell size={13} />
           </button>
@@ -145,9 +153,9 @@ export function PulseRow({
             <Explain
               key={f.kind}
               className={`intel-pulse-chip intel-pulse-chip--${f.tone}`}
-              text={FINDING_HELP[f.kind] ?? f.text}
+              text={findingHelp(f.kind, FINDING_HELP[f.kind] ?? findingText(f, intl), intl)}
             >
-              {f.text}
+              {findingText(f, intl)}
             </Explain>
           ))}
         </div>

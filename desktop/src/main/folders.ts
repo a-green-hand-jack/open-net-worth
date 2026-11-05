@@ -1,3 +1,4 @@
+import { message as t } from './native-messages';
 import { randomUUID } from 'node:crypto';
 import { readdir, lstat, realpath } from 'node:fs/promises';
 import { basename, extname, join } from 'node:path';
@@ -56,10 +57,10 @@ export class FolderWatcher {
     const canonical = await realpath(path);
     if (this.preferences.current.folders.some(folder => folder.path === canonical)) return;
     const stat = await lstat(canonical);
-    if (!stat.isDirectory() || stat.isSymbolicLink()) throw new Error('Choose a regular folder.');
-    if (this.preferences.current.folders.length >= 8) throw new Error('Choose at most 8 watched folders.');
+    if (!stat.isDirectory() || stat.isSymbolicLink()) throw new Error(t("Choose a regular folder."));
+    if (this.preferences.current.folders.length >= 8) throw new Error(t("Choose at most 8 watched folders."));
     const folder: FolderLocator = { id: `desktop_${randomUUID()}`, label: basename(canonical), path: canonical, device: stat.dev, inode: stat.ino };
-    if (generation !== this.generation) throw new Error('The book changed. Choose the folder again.');
+    if (generation !== this.generation) throw new Error(t("The book changed. Choose the folder again."));
     await this.backend.json('/api/desktop/folders', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: folder.id, label: folder.label }) });
     await this.preferences.saveForBook(root, { folders: [...this.preferences.current.folders, folder] });
   }
@@ -68,7 +69,7 @@ export class FolderWatcher {
 
   private async revokeFolder(id: string): Promise<void> {
     const root = this.backend.bookRoot;
-    if (!this.preferences.current.folders.some(folder => folder.id === id)) throw new Error('Unknown watched folder.');
+    if (!this.preferences.current.folders.some(folder => folder.id === id)) throw new Error(t("Unknown watched folder."));
     await this.backend.request(`/api/desktop/folders/${encodeURIComponent(id)}`, { method: 'DELETE' });
     await this.preferences.saveForBook(root, { folders: this.preferences.current.folders.filter(folder => folder.id !== id) });
   }

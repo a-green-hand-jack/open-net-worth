@@ -333,8 +333,34 @@ def test_post_disposal_oversell_returns_422(write_client):
         },
     )
     assert r.status_code == 422
+    assert r.json()["message_id"] == "lots.error.insufficientLots"
+    assert r.json()["message_params"] == {}
     # nothing booked
     assert c.get("/api/realized-pnl").json()["events"] == []
+
+
+def test_lots_message_contract_tracks_emitted_ids():
+    import ast
+    import json
+    from pathlib import Path
+
+    root = Path(__file__).resolve().parents[1]
+    contract = json.loads((root / "backend/core/lots_message_contract.json").read_text())
+    emitted = set()
+    for path in (
+        "backend/services/lots.py",
+        "backend/services/lot_corrections.py",
+        "backend/api/lots.py",
+    ):
+        tree = ast.parse((root / path).read_text())
+        emitted.update(
+            node.value
+            for node in ast.walk(tree)
+            if isinstance(node, ast.Constant)
+            and isinstance(node.value, str)
+            and node.value.startswith("lots.error.")
+        )
+    assert emitted == set(contract)
 
 
 def test_post_disposal_bad_lot_id_returns_422(write_client):
@@ -567,6 +593,8 @@ def test_post_identical_acquire_returns_409_unless_allow_duplicate(write_client)
     dup = c.post(f"/api/positions/{pos['id']}/lots", json=body)
     assert dup.status_code == 409
     assert "identical open lot" in dup.json()["detail"]
+    assert dup.json()["message_id"] == "lots.error.identicalOpen"
+    assert dup.json()["message_params"] == {}
 
     override = c.post(f"/api/positions/{pos['id']}/lots", json={**body, "allow_duplicate": True})
     assert override.status_code == 200
@@ -641,3 +669,10 @@ def test_post_instrument_lot_first_hold(write_client):
     assert r.status_code == 200
     assert r.json()["ok"] is True
     assert r.json()["quantity"] == 5.0
+    duplicate = c.post(
+        f"/api/instruments/{inst['id']}/lots",
+        json={"account_id": acc["id"], "quantity": 5, "unit_cost": 11, "acquired_at": "2026-01-01"},
+    )
+    assert duplicate.status_code == 409
+    assert duplicate.json()["message_id"] == "lots.error.identicalOpen"
+    assert duplicate.json()["message_params"] == {}

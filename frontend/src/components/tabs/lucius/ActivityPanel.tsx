@@ -1,3 +1,5 @@
+import { useAppIntl } from '../../../i18n/useAppIntl'
+import { automationRunMessage } from '../automations/runMessages'
 // ActivityPanel — the Lucius landing screen's Activity panel (below the greeting, inside
 // ChatPanel's `isHomeEmpty` block — see ChatPanel.tsx, which renders it as a sibling right
 // after the greeting, ahead of the composer/footer). Needs attention (transactions to review,
@@ -16,7 +18,8 @@ import type {
 } from '../../../api/automations'
 import { useAutomationActivity } from '../../../hooks/useAutomationActivity'
 import { useDataVersion } from '../../../hooks/useDataVersion'
-import { fScheduleWhen, timeAgo } from '../../../utils/format'
+import { fScheduleWhen } from '../../../utils/format'
+import { intelTimeAgo } from '../../intel/relativeTime'
 import { AlertCircle, Ban, Bell, Check, ChevronRight, Clock } from '../../../ui/icons'
 import './activity-panel.css'
 
@@ -96,6 +99,7 @@ function NeedsAttentionSection({
   failed: FailedActivityItem[]
   onOpenRun: (automationId: string, runId?: string, sessionId?: string) => void
 }) {
+  const intl = useAppIntl()
   const [expanded, setExpanded] = useState(false)
   const count = (reviewTotal > 0 ? 1 : 0) + failed.length
   if (count === 0) return null
@@ -106,7 +110,7 @@ function NeedsAttentionSection({
     <section className="lx-activity-section">
       <div className="lx-activity-section-head">
         <Text as="span" size="xs" weight={600} tone="muted" className="lx-activity-section-title">
-          Needs attention
+          {intl.formatMessage({ id: 'remaining.activity.attention', defaultMessage: 'Needs attention' })}
         </Text>
         <Badge tone="neutral">{count}</Badge>
       </div>
@@ -123,7 +127,7 @@ function NeedsAttentionSection({
           onClick={() => setExpanded((e) => !e)}
           className="lx-activity-show-more"
         >
-          {expanded ? 'Show less' : `Show ${overflow} more`}
+          {expanded ? intl.formatMessage({ id: 'remaining.showLess', defaultMessage: 'Show less' }) : intl.formatMessage({ id: 'remaining.showMore', defaultMessage: 'Show {count} more' }, { count: overflow })}
         </Button>
       )}
     </section>
@@ -141,7 +145,8 @@ function FailedRow({
   onOpen: (automationId: string, runId?: string, sessionId?: string) => void
 }) {
   const open = () => onOpen(item.automation_id, item.run_id, item.session_id ?? undefined)
-  const why = item.error || "The run didn't finish."
+  const intl = useAppIntl()
+  const why = automationRunMessage(intl, item.error_message, item.error || intl.formatMessage({ id: 'remaining.activity.runUnfinished', defaultMessage: "The run didn't finish." }))
   return (
     <div className="lx-activity-row lx-activity-row--action-only">
       <span
@@ -152,20 +157,23 @@ function FailedRow({
       </span>
       <span className="lx-activity-row-body">
         <Text as="span" size="sm" weight={600} truncate title={item.automation_name}>
-          {`${item.automation_name} failed`}
+          {intl.formatMessage({ id: 'remaining.activity.failedName', defaultMessage: '{name} failed' }, { name: item.automation_name })}
         </Text>
         <Text as="span" size="xs" tone="muted">
-          {`${why} • ${timeAgo(item.finished_at ?? item.started_at)}`}
+          {`${why} • ${intelTimeAgo(item.finished_at ?? item.started_at, intl)}`}
         </Text>
       </span>
       <span className="lx-activity-row-action">
         <Button
           variant="secondary"
           size="sm"
-          aria-label={`Open the failed run of ${item.automation_name}`}
+          aria-label={intl.formatMessage(
+            { id: 'activity.openFailedRun', defaultMessage: 'Open the failed run of {name}' },
+            { name: item.automation_name },
+          )}
           onClick={open}
         >
-          Open
+          {intl.formatMessage({ id: 'remaining.activity.open', defaultMessage: 'Open' })}
         </Button>
       </span>
     </div>
@@ -173,7 +181,8 @@ function FailedRow({
 }
 
 function ReviewRow({ total, onOpen }: { total: number; onOpen: () => void }) {
-  const label = `${total} transaction${total === 1 ? '' : 's'} to review`
+  const intl = useAppIntl()
+  const label = intl.formatMessage({ id: 'remaining.activity.transactionCount', defaultMessage: '{count, plural, one {# transaction to review} other {# transactions to review}}' }, { count: total })
   return (
     <div className="lx-activity-row lx-activity-row--action-only">
       <span
@@ -187,12 +196,20 @@ function ReviewRow({ total, onOpen }: { total: number; onOpen: () => void }) {
           {label}
         </Text>
         <Text as="span" size="xs" tone="muted">
-          Check what was added while you were away
+          {intl.formatMessage({ id: 'remaining.activity.reviewHint', defaultMessage: 'Check what was added while you were away' })}
         </Text>
       </span>
       <span className="lx-activity-row-action">
-        <Button variant="secondary" size="sm" aria-label="Review transactions" onClick={onOpen}>
-          Review
+        <Button
+          variant="secondary"
+          size="sm"
+          aria-label={intl.formatMessage({
+            id: 'activity.reviewTransactionsAria',
+            defaultMessage: 'Review transactions',
+          })}
+          onClick={onOpen}
+        >
+          {intl.formatMessage({ id: 'remaining.activity.review', defaultMessage: 'Review' })}
         </Button>
       </span>
     </div>
@@ -206,6 +223,7 @@ function ActiveSection({
   items: ActiveActivityItem[]
   onOpen: (automationId: string, runId?: string, sessionId?: string) => void
 }) {
+  const intl = useAppIntl()
   const [expanded, setExpanded] = useState(false)
   if (items.length === 0) return null
   const visible = expanded ? items : items.slice(0, SECTION_CAP)
@@ -215,7 +233,7 @@ function ActiveSection({
     <section className="lx-activity-section">
       <div className="lx-activity-section-head">
         <Text as="span" size="xs" weight={600} tone="muted" className="lx-activity-section-title">
-          Active
+          {intl.formatMessage({ id: 'remaining.activity.active', defaultMessage: 'Active' })}
         </Text>
         <Badge tone="neutral">{items.length}</Badge>
       </div>
@@ -231,7 +249,7 @@ function ActiveSection({
           onClick={() => setExpanded((e) => !e)}
           className="lx-activity-show-more"
         >
-          {expanded ? 'Show less' : `Show ${overflow} more`}
+          {expanded ? intl.formatMessage({ id: 'remaining.showLess', defaultMessage: 'Show less' }) : intl.formatMessage({ id: 'remaining.showMore', defaultMessage: 'Show {count} more' }, { count: overflow })}
         </Button>
       )}
     </section>
@@ -266,10 +284,12 @@ function ActiveRow({
   item: ActiveActivityItem
   onOpen: (automationId: string, runId?: string, sessionId?: string) => void
 }) {
+  const intl = useAppIntl()
   const waiting = item.status === 'waiting'
   const meta = ACTIVE_STATUS_META[item.status]
   const when = item.finished_at ?? item.started_at
-  const subtitle = `${meta.label} • ${timeAgo(when)}`
+  const status = intl.formatMessage({ id: 'remaining.activity.status', defaultMessage: '{status, select, waiting {Permissions needed} running {Running} completed {Completed} failed {Failed} other {Stopped}}' }, { status: item.status })
+  const subtitle = `${status} • ${intelTimeAgo(when, intl)}`
   const open = () => onOpen(item.automation_id, item.run_id, item.session_id ?? undefined)
   return (
     <div
@@ -302,7 +322,7 @@ function ActiveRow({
       {waiting ? (
         <span className="lx-activity-row-action" onClick={(e) => e.stopPropagation()}>
           <Button variant="secondary" size="sm" onClick={open}>
-            Review
+            {intl.formatMessage({ id: 'remaining.activity.review', defaultMessage: 'Review' })}
           </Button>
         </span>
       ) : (
@@ -324,6 +344,7 @@ function ScheduledSection({
   items: ScheduledActivityItem[]
   onOpen: (automationId: string, runId?: string, sessionId?: string) => void
 }) {
+  const intl = useAppIntl()
   const [expanded, setExpanded] = useState(false)
   if (items.length === 0) return null
   const visible = expanded ? items : items.slice(0, SECTION_CAP)
@@ -333,7 +354,7 @@ function ScheduledSection({
     <section className="lx-activity-section">
       <div className="lx-activity-section-head">
         <Text as="span" size="xs" weight={600} tone="muted" className="lx-activity-section-title">
-          Scheduled
+          {intl.formatMessage({ id: 'remaining.activity.scheduled', defaultMessage: 'Scheduled' })}
         </Text>
         <Badge tone="neutral">{items.length}</Badge>
       </div>
@@ -360,7 +381,7 @@ function ScheduledSection({
                 {item.automation_name}
               </Text>
               <Text as="span" size="xs" tone="muted">
-                {fScheduleWhen(item.next_run_at)}
+                {fScheduleWhen(item.next_run_at, intl)}
               </Text>
             </span>
             <ChevronRight
@@ -379,7 +400,7 @@ function ScheduledSection({
           onClick={() => setExpanded((e) => !e)}
           className="lx-activity-show-more"
         >
-          {expanded ? 'Show less' : `Show ${overflow} more`}
+          {expanded ? intl.formatMessage({ id: 'remaining.showLess', defaultMessage: 'Show less' }) : intl.formatMessage({ id: 'remaining.showMore', defaultMessage: 'Show {count} more' }, { count: overflow })}
         </Button>
       )}
     </section>

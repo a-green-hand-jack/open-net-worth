@@ -165,6 +165,8 @@ def _make_signal(data: dict) -> dict:
         "severity": data.get("severity", "info"),
         "title": data.get("title", ""),
         "summary": data.get("summary", ""),
+        **({"title_message": data["title_message"]} if "title_message" in data else {}),
+        **({"summary_message": data["summary_message"]} if "summary_message" in data else {}),
         "portfolio_impact": data.get("portfolio_impact", ""),
         "action_items": data.get("action_items", []),
         "affected_tickers": data.get("affected_tickers", []),

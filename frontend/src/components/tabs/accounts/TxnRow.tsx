@@ -7,6 +7,7 @@
  */
 
 import { useState, useEffect, useRef, useMemo } from 'react'
+import { useAppIntl } from '../../../i18n/useAppIntl'
 import { EntityRow } from '../../../lucius/EntityRow'
 import type { Txn, Account, Category, FxRates } from './types'
 import { fCur, fBase } from './format'
@@ -44,6 +45,7 @@ export interface RowPatch {
 export function categoryPill(
   catKey: string | null,
   catMap: Record<string, Category> = {},
+  uncategorized = 'Uncategorized',
 ): React.ReactNode {
   const c = catKey ? catMap[catKey] : undefined
   const color = c?.color || '#7c8595'
@@ -51,7 +53,7 @@ export function categoryPill(
   // opaque id (`cat_xxx`) to the user — fall back to a friendly label instead.
   return (
     <span className="acct-pill" style={{ background: color + '26', color }}>
-      {c?.label || 'Uncategorized'}
+      {c?.label || uncategorized}
     </span>
   )
 }
@@ -113,6 +115,7 @@ export function TxnRow({
   categories,
   catMap,
 }: TxnRowProps) {
+  const { formatMessage } = useAppIntl()
   const [edit, setEdit] = useState<string | null>(null)
   const close = () => setEdit(null)
   const commit = (patch: RowPatch) => {
@@ -204,7 +207,7 @@ export function TxnRow({
   const payeeTransfer = isTransfer
   const payeeMain: React.ReactNode = isTransfer ? (
     t.kind === 'adjustment' ? (
-      'Balance adjustment'
+      formatMessage({ id: 'accounts.balanceAdjustment', defaultMessage: 'Balance adjustment' })
     ) : (
       <span>
         {payeeFromName || '—'}
@@ -222,7 +225,7 @@ export function TxnRow({
   const signedBase = (pos ? 1 : -1) * Math.abs(baseVal)
   const fromAcct = t.fromAccountId ? acctMap[t.fromAccountId] : null
   const toAcct = t.toAccountId ? acctMap[t.toAccountId] : null
-  const askLabel = payeeName || t.description || '(no description)'
+  const askLabel = payeeName || t.description || formatMessage({ id: 'accounts.noDescription', defaultMessage: '(no description)' })
   const askSearch = [t.description, t.memo, payeeName, primaryAcct?.name, t.category]
     .filter(Boolean)
     .join(' ')
@@ -266,7 +269,17 @@ export function TxnRow({
         </span>
         <span
           className="acct-clr"
-          title={t.cleared ? 'Cleared — click to unclear' : 'Uncleared — click to clear'}
+          title={
+            t.cleared
+              ? formatMessage({
+                  id: 'accounts.clickUnclear',
+                  defaultMessage: 'Cleared — click to unclear',
+                })
+              : formatMessage({
+                  id: 'accounts.clickClear',
+                  defaultMessage: 'Uncleared — click to clear',
+                })
+          }
           onClick={(e) => {
             e.stopPropagation()
             onUpdate(t.id, { cleared: !t.cleared })
@@ -365,13 +378,20 @@ export function TxnRow({
                 onToggle={() => onSplit(t.id)}
               />
             ) : t.category && t.kind !== 'adjustment' ? (
-              categoryPill(t.category, catMap)
+              categoryPill(
+                t.category,
+                catMap,
+                formatMessage({ id: 'accounts.uncategorized', defaultMessage: 'Uncategorized' }),
+              )
             ) : !isTransfer && (t.kind === 'expense' || t.kind === 'income') ? (
               <span
                 className="acct-unsorted"
-                title="No category — this won't count toward any budget envelope"
+                title={formatMessage({
+                  id: 'accounts.noCategoryBudget',
+                  defaultMessage: "No category — this won't count toward any budget envelope",
+                })}
               >
-                Uncategorized
+                {formatMessage({ id: 'accounts.uncategorized', defaultMessage: 'Uncategorized' })}
               </span>
             ) : (
               <span className="acct-payee-sub">—</span>
@@ -445,9 +465,13 @@ export function TxnRow({
             {t.needsReview ? (
               <span
                 className="acct-review-pill"
-                title="Added by an import, Lucius or an automation, and not confirmed by you yet. Approving only clears this flag."
+                title={formatMessage({
+                  id: 'accounts.reviewFlagHelp',
+                  defaultMessage:
+                    'Added by an import, Lucius or an automation, and not confirmed by you yet. Approving only clears this flag.',
+                })}
               >
-                Review
+                {formatMessage({ id: 'accounts.review', defaultMessage: 'Review' })}
               </span>
             ) : (
               <SourceIcon source={t.source} />
@@ -544,7 +568,11 @@ export function TxnRow({
                 className="acct-split-cat"
                 style={{ gridColumn: gcol('category', 'payee', 'date') }}
               >
-                {categoryPill(s.category, catMap)}
+                {categoryPill(
+                  s.category,
+                  catMap,
+                  formatMessage({ id: 'accounts.uncategorized', defaultMessage: 'Uncategorized' }),
+                )}
               </span>
               {s.note && (has('description') || has('memo')) && (
                 <span

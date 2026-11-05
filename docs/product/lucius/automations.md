@@ -46,6 +46,10 @@ Other templates on the same page:
   **Large charge alert**; **Browse all templates** adds **New payee check** and **Portfolio
   drift**.
 
+New template names, descriptions and displayed instructions follow your display language until
+you edit each field. The original instructions are sent to Lucius until you change them; your
+edited text and older text without a known template source stay as written.
+
 > **Looking for the daily portfolio digest?** The scheduled "Daily Portfolio Digest" that used
 > to be switched on in **Settings → Intelligence** has been removed. The **Daily briefing** template does
 > that job now — and you can read, edit, pause or delete it like any other Automation.

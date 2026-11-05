@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import asyncio
+import io
 import json
 import os
 import queue
@@ -12,13 +14,18 @@ import sys
 import threading
 import urllib.error
 import urllib.request
+from contextlib import asynccontextmanager
 from pathlib import Path
 
 import pytest
+from fastapi import FastAPI
 
+from backend.cli.desktop import _startup_errors
 from backend.core import instance_lock
+from backend.core.errors import MigrationError
 from backend.core.instance_lock import InstanceAlreadyRunning
 from backend.core.version import APP_VERSION
+from backend.db.migrate import _refuse_if_revision_unsafe
 
 
 def _read_lines(stream, results):
@@ -186,3 +193,48 @@ def test_launch_refuses_owned_book_without_migration_or_ready(tmp_path):
         assert not (tmp_path / "data" / "onw.db").exists()
     finally:
         instance_lock.release()
+
+
+def test_database_ahead_is_reported_by_private_pipe_without_database_details(tmp_path):
+    @asynccontextmanager
+    async def lifespan(_app):
+        _refuse_if_revision_unsafe("synthetic-newer-revision", tmp_path / "synthetic.db")
+        yield
+
+    app = FastAPI(lifespan=lifespan)
+    output = io.StringIO()
+    _startup_errors(app, {"root": str(tmp_path), "instance_id": "test-instance"}, output)
+
+    async def start():
+        async with app.router.lifespan_context(app):
+            pass
+
+    with pytest.raises(MigrationError):
+        asyncio.run(start())
+    assert json.loads(output.getvalue()) == {
+        "type": "startup_error",
+        "protocol": 1,
+        "instance_id": "test-instance",
+        "version": APP_VERSION,
+        "code": "database_ahead",
+        "port": None,
+    }
+
+
+def test_other_migration_failure_is_not_misclassified_as_database_ahead(tmp_path):
+    @asynccontextmanager
+    async def lifespan(_app):
+        raise MigrationError("Synthetic migration failure")
+        yield
+
+    app = FastAPI(lifespan=lifespan)
+    output = io.StringIO()
+    _startup_errors(app, {"root": str(tmp_path), "instance_id": "test-instance"}, output)
+
+    async def start():
+        async with app.router.lifespan_context(app):
+            pass
+
+    with pytest.raises(MigrationError):
+        asyncio.run(start())
+    assert output.getvalue() == ""

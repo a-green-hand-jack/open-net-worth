@@ -8,12 +8,14 @@ import { useLayoutEffect, useRef, useState } from 'react'
 import { ArrowUp } from '../../../ui/icons'
 import { TurnActivity } from '../../chat/TurnActivity'
 import type { InstructChange, InstructOutcome } from '../../../hooks/useMemoryFacts'
+import { defineMessages, type IntlShape } from 'react-intl'
+import { useAppIntl } from '../../../i18n/useAppIntl'
 
-const KIND: Record<InstructChange['change'], string> = {
-  added: 'Added',
-  updated: 'Updated',
-  removed: 'Forgot',
-}
+const KIND = defineMessages({
+  added: { id: 'memory.change.added', defaultMessage: 'Added' },
+  updated: { id: 'memory.change.updated', defaultMessage: 'Updated' },
+  removed: { id: 'memory.change.removed', defaultMessage: 'Forgot' },
+})
 
 /** The topic a change landed in — "Debt reduction" from "Plans · Debt reduction". */
 function topicOf(where: string): string {
@@ -22,19 +24,32 @@ function topicOf(where: string): string {
 
 /** One sentence for what happened: "Updated a memory in Debt reduction", "Changed 3 memories".
  *  A bare count ("Updated 1") read as nothing (owner, 2026-10-31). */
-function headline(changes: InstructChange[]): string {
-  if (!changes.length) return 'No changes were made.'
+function headline(changes: InstructChange[], intl: IntlShape): string {
+  if (!changes.length)
+    return intl.formatMessage({ id: 'memory.change.none', defaultMessage: 'No changes were made.' })
   const [c] = changes
   if (changes.length === 1 && c) {
-    return `${KIND[c.change]} a memory${c.where ? ` in ${topicOf(c.where)}` : ''}`
+    return c.where
+      ? intl.formatMessage(
+          { id: 'memory.change.oneIn', defaultMessage: '{action} a memory in {topic}' },
+          { action: intl.formatMessage(KIND[c.change]), topic: topicOf(c.where) },
+        )
+      : intl.formatMessage(
+          { id: 'memory.change.one', defaultMessage: '{action} a memory' },
+          { action: intl.formatMessage(KIND[c.change]) },
+        )
   }
   // each line below says which kind, so the count is all the heading needs
-  return `Changed ${changes.length} memories`
+  return intl.formatMessage(
+    { id: 'memory.change.many', defaultMessage: 'Changed {count} memories' },
+    { count: changes.length },
+  )
 }
 
 /** Each change: the text as it now stands, and what it said before. Which kind and where only
  *  when there are several — for one, the headline already says both. */
 function ChangeList({ changes }: { changes: InstructChange[] }) {
+  const { formatMessage } = useAppIntl()
   const several = changes.length > 1
   return (
     <ul className="rd-mem-changes-list">
@@ -42,14 +57,21 @@ function ChangeList({ changes }: { changes: InstructChange[] }) {
         <li key={i} className={`is-${c.change}`}>
           {several && (
             <div className="rd-mem-change-meta">
-              <span className="rd-mem-change-kind">{KIND[c.change]}</span>
+              <span className="rd-mem-change-kind">{formatMessage(KIND[c.change])}</span>
               {c.where && <span className="rd-mem-change-where">{topicOf(c.where)}</span>}
             </div>
           )}
           <div className={c.change === 'removed' ? 'rd-mem-change-t is-gone' : 'rd-mem-change-t'}>
             {c.text}
           </div>
-          {c.was && <div className="rd-mem-change-was">Before: {c.was}</div>}
+          {c.was && (
+            <div className="rd-mem-change-was">
+              {formatMessage(
+                { id: 'memory.change.before', defaultMessage: 'Before: {content}' },
+                { content: c.was },
+              )}
+            </div>
+          )}
         </li>
       ))}
     </ul>
@@ -60,6 +82,8 @@ function ChangeList({ changes }: { changes: InstructChange[] }) {
  *  Lucius's own sentence only restated them, so it shows only when nothing changed (behind See
  *  why) or beside something he refused. */
 function MemoryOutcome({ outcome }: { outcome: InstructOutcome }) {
+  const intl = useAppIntl()
+  const { formatMessage } = intl
   const { changes, reply, refused } = outcome
   const [open, setOpen] = useState(changes.length > 0)
   const why = changes.length ? '' : reply
@@ -67,7 +91,7 @@ function MemoryOutcome({ outcome }: { outcome: InstructOutcome }) {
   return (
     <div className="rd-mem-outcome" role="status">
       <div className="rd-mem-outcome-head">
-        <span>{headline(changes)}</span>
+        <span>{headline(changes, intl)}</span>
         {hasDetail && (
           <button
             type="button"
@@ -75,7 +99,11 @@ function MemoryOutcome({ outcome }: { outcome: InstructOutcome }) {
             aria-expanded={open}
             onClick={() => setOpen((v) => !v)}
           >
-            {open ? 'Hide' : changes.length ? 'Show' : 'See why'}
+            {open
+              ? formatMessage({ id: 'memory.change.hide', defaultMessage: 'Hide' })
+              : changes.length
+                ? formatMessage({ id: 'memory.change.show', defaultMessage: 'Show' })
+                : formatMessage({ id: 'memory.change.why', defaultMessage: 'See why' })}
           </button>
         )}
       </div>
@@ -94,7 +122,7 @@ const MAX_HEIGHT_PX = 160
 
 export function MemoryAskBox({
   disabled,
-  placeholder = 'Tell Lucius what to remember or change',
+  placeholder,
   onSubmit,
 }: {
   disabled?: boolean
@@ -102,6 +130,7 @@ export function MemoryAskBox({
   /** What happened, or null when the change was refused or failed (the box keeps its text). */
   onSubmit: (text: string) => Promise<InstructOutcome | null>
 }) {
+  const { formatMessage } = useAppIntl()
   const [text, setText] = useState('')
   const [busy, setBusy] = useState(false)
   const [outcome, setOutcome] = useState<{ n: number; out: InstructOutcome } | null>(null)
@@ -150,8 +179,22 @@ export function MemoryAskBox({
           disabled={disabled}
           readOnly={busy}
           maxLength={1000}
-          placeholder={disabled ? 'Turn memory on to make changes' : placeholder}
-          aria-label="Tell Lucius what to remember or change"
+          placeholder={
+            disabled
+              ? formatMessage({
+                  id: 'memory.ask.disabled',
+                  defaultMessage: 'Turn memory on to make changes',
+                })
+              : (placeholder ??
+                formatMessage({
+                  id: 'memory.ask.prompt',
+                  defaultMessage: 'Tell Lucius what to remember or change',
+                }))
+          }
+          aria-label={formatMessage({
+            id: 'memory.ask.prompt',
+            defaultMessage: 'Tell Lucius what to remember or change',
+          })}
           onChange={(e) => setText(e.target.value)}
           onKeyDown={(e) => {
             if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) {
@@ -163,8 +206,8 @@ export function MemoryAskBox({
         <button
           type="submit"
           className="rd-mem-send"
-          title="Update memory"
-          aria-label="Update memory"
+          title={formatMessage({ id: 'memory.ask.update', defaultMessage: 'Update memory' })}
+          aria-label={formatMessage({ id: 'memory.ask.update', defaultMessage: 'Update memory' })}
           aria-busy={busy || undefined}
           disabled={disabled || busy || !text.trim()}
         >

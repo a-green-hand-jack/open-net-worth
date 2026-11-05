@@ -1,3 +1,4 @@
+import { useAppIntl } from '../../i18n/useAppIntl'
 // QuoteDetailView — the /quote/$symbol route's content. Navigation to this route is
 // instant (no pre-navigation network call); this component resolves the ticker to an
 // instrument id itself and shows a skeleton/error state while that happens, exactly
@@ -14,13 +15,14 @@ interface Props {
 }
 
 export function QuoteDetailView({ ticker, seedName }: Props) {
+  const intl = useAppIntl()
   const { instrumentId, resolving, error, retry } = useResolveTicker(ticker)
 
   if (error) {
     return (
       <div className="asd-error">
         <ErrorState
-          message={`Could not find a market instrument for "${ticker}".`}
+          message={intl.formatMessage({ id: 'intel.quote.notFound', defaultMessage: 'Could not find a market instrument for "{ticker}".' }, { ticker })}
           onRetry={retry}
         />
       </div>

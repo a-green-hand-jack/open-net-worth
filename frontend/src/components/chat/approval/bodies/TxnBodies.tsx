@@ -1,3 +1,8 @@
+import { fFixed } from '../../../../utils/format'
+import { defineMessages, type IntlShape, type MessageDescriptor } from 'react-intl'
+import { fieldLabel } from '../FieldLabels'
+import { useAppIntl } from '../../../../i18n/useAppIntl'
+import { FormattedMessage } from '../FormattedMessage'
 import type { ReactNode } from 'react'
 import type { ProposedChange } from '../../../../types/chat'
 import { fAmountNative, fCurrency, fDate } from '../../../../utils/format'
@@ -17,14 +22,18 @@ type TxnCategory = NonNullable<ProposedChange['category']>
 type TxnLeg = NonNullable<ProposedChange['from']>
 type BulkRow = NonNullable<ProposedChange['rows']>[number]
 
-const KIND_LABEL: Record<string, string> = {
-  expense: 'Expense',
-  income: 'Income',
-  transfer: 'Transfer',
-  investment: 'Investment',
-  adjustment: 'Adjustment',
-}
 
+const kindMessages = defineMessages({
+  expense: { id: 'chat.txn.expense', defaultMessage: 'Expense' },
+  income: { id: 'chat.txn.income', defaultMessage: 'Income' },
+  transfer: { id: 'chat.txn.transfer', defaultMessage: 'Transfer' },
+  investment: { id: 'chat.txn.investment', defaultMessage: 'Investment' },
+  adjustment: { id: 'chat.txn.adjustment', defaultMessage: 'Adjustment' },
+})
+const warningMessages = defineMessages({
+  'ledger.warning.beforeTrackingStart': { id: 'ledger.warning.beforeTrackingStart', defaultMessage: "Dated before {account}'s tracking start ({date}) — summarized into its opening, not counted." },
+  'ledger.warning.straddle': { id: 'ledger.warning.straddle', defaultMessage: "This transfer won't balance — one leg is before its account's tracking start." },
+})
 // The update diff's account-shaped fields — when any of them is in the diff, the account
 // is already on a change row and the resulting-account fact would say it twice.
 // An edit that MOVES the money names the accounts in its diff; an amount edit does not, so the
@@ -37,33 +46,34 @@ function categorySource(
   category: TxnCategory,
   rule: ProposedChange['rule'],
   payee: ProposedChange['payee'],
+  intl: IntlShape,
 ): string {
   switch (category.source) {
     case 'rule':
-      return `set by rule: ${rule?.name ?? 'a rule'}`
+      return intl.formatMessage({ id: 'chat.txn.byRule', defaultMessage: 'set by rule: {rule}' }, { rule: rule?.name ?? intl.formatMessage({ id: 'chat.txn.aRule', defaultMessage: 'a rule' }) })
     case 'payee_default':
-      return `${payee?.name ?? 'the payee'}'s default`
+      return intl.formatMessage({ id: 'chat.txn.payeeDefault', defaultMessage: "{payee}'s default" }, { payee: payee?.name ?? intl.formatMessage({ id: 'chat.txn.thePayee', defaultMessage: 'the payee' }) })
     case 'explicit':
-      return 'as specified'
+      return intl.formatMessage({ id: 'chat.txn.specified', defaultMessage: 'as specified' })
     default:
-      return 'Uncategorized'
+      return intl.formatMessage({ id: 'chat.txn.uncategorized', defaultMessage: 'Uncategorized' })
   }
 }
 
 // A txn_bulk sample row only carries the bare source string (no rule/payee name — the
 // sample is a display cap, not the full resolution detail).
-function bulkSource(source: string): string {
+function bulkSource(source: string, intl: IntlShape): string {
   switch (source) {
     case 'rule':
-      return 'rule'
+      return intl.formatMessage({ id: 'chat.txn.rule', defaultMessage: 'rule' })
     case 'payee_default':
-      return 'payee default'
+      return intl.formatMessage({ id: 'chat.txn.payeeDefaultShort', defaultMessage: 'payee default' })
     case 'explicit':
-      return 'as specified'
+      return intl.formatMessage({ id: 'chat.txn.specified', defaultMessage: 'as specified' })
     case 'split':
-      return 'split'
+      return intl.formatMessage({ id: 'chat.txn.split', defaultMessage: 'split' })
     default:
-      return 'Uncategorized'
+      return intl.formatMessage({ id: 'chat.txn.uncategorized', defaultMessage: 'Uncategorized' })
   }
 }
 
@@ -76,8 +86,10 @@ const primaryLeg = (change: ProposedChange): TxnLeg | null =>
   change.from?.amount != null ? change.from : change.to?.amount != null ? change.to : null
 
 function TxnLead({ change }: { change: ProposedChange }) {
+  const intl = useAppIntl()
   const leg = primaryLeg(change)
-  const kind = KIND_LABEL[change.txn_kind ?? ''] ?? 'Transaction'
+  const key = change.txn_kind ?? ''
+  const kind = Object.hasOwn(kindMessages, key) ? intl.formatMessage(kindMessages[key as keyof typeof kindMessages] as MessageDescriptor) : intl.formatMessage({ id: 'chat.txn.transaction', defaultMessage: 'Transaction' })
   const subject = change.description || change.payee?.name
   return (
     <ApprovalLead figure={leg && fCurrency(leg.amount!, leg.currency || '')}>
@@ -87,12 +99,13 @@ function TxnLead({ change }: { change: ProposedChange }) {
 }
 
 function TxnMeta({ change }: { change: ProposedChange }) {
+  const intl = useAppIntl()
   return (
     <ApprovalMeta
       items={[
         change.date && fDate(change.date, 'short', 'always'),
-        change.memo && `Memo: ${change.memo}`,
-        change.tags && change.tags.length > 0 && `Tags: ${change.tags.join(', ')}`,
+        change.memo && intl.formatMessage({ id: 'chat.txn.memo', defaultMessage: 'Memo: {memo}' }, { memo: change.memo }),
+        change.tags && change.tags.length > 0 && intl.formatMessage({ id: 'chat.txn.tags', defaultMessage: 'Tags: {tags}' }, { tags: change.tags.join(', ') }),
       ]}
     />
   )
@@ -100,24 +113,25 @@ function TxnMeta({ change }: { change: ProposedChange }) {
 
 // The resolved category + its tier. Uncategorized is warn-toned: a user who wanted a
 // category needs to SEE that none was applied. A split defers to SplitsDetails instead.
-function categoryText(change: ProposedChange): string | null {
+function categoryText(change: ProposedChange, intl: IntlShape): string | null {
   const { category } = change
   if (!category || category.source === 'split') return null
-  if (category.source === 'none') return category.label || 'Uncategorized'
-  return `${category.label} · ${categorySource(category, change.automation ?? change.rule, change.payee)}`
+  if (category.source === 'none') return intl.formatMessage({ id: 'chat.txn.uncategorized', defaultMessage: 'Uncategorized' })
+  return `${category.label} · ${categorySource(category, change.automation ?? change.rule, change.payee, intl)}`
 }
 
 function CategoryFact({ change }: { change: ProposedChange }) {
-  const text = categoryText(change)
+  const intl = useAppIntl()
+  const text = categoryText(change, intl)
   if (text == null) return null
   const none = change.category?.source === 'none'
   return (
     <ApprovalFact
-      label="Category"
+      label={<FormattedMessage id="chat.approval.field.category" defaultMessage="Category" />}
       tone={none ? 'warn' : undefined}
       title={
         none
-          ? 'No rule, payee default or category given, so it is stored Uncategorized.'
+          ? intl.formatMessage({ id: 'chat.approval.uncategorizedHint', defaultMessage: 'No rule, payee default or category given, so it is stored Uncategorized.' })
           : undefined
       }
     >
@@ -129,12 +143,13 @@ function CategoryFact({ change }: { change: ProposedChange }) {
 // Only worth a row when the payee is new (the write will mint it) or differs from the
 // description the lead already shows.
 function PayeeFact({ change }: { change: ProposedChange }) {
+  const intl = useAppIntl()
   const { payee } = change
   if (!payee || (!payee.is_new && payee.name === change.description)) return null
   return (
-    <ApprovalFact label="Payee">
+    <ApprovalFact label={<FormattedMessage id="chat.approval.field.payee" defaultMessage="Payee" />}>
       {payee.name}
-      {payee.is_new && ' · will be created'}
+      {payee.is_new && intl.formatMessage({ id: 'chat.txn.payeeCreated', defaultMessage: ' · will be created' })}
     </ApprovalFact>
   )
 }
@@ -142,6 +157,7 @@ function PayeeFact({ change }: { change: ProposedChange }) {
 // The resolved accounts BY NAME (never id). A transfer reads "From → To"; the receiving
 // amount is its own row only when it differs from the sent figure the lead shows.
 function AccountFacts({ change }: { change: ProposedChange }) {
+  const intl = useAppIntl()
   const { from, to } = change
   if (from && to) {
     const received =
@@ -150,9 +166,9 @@ function AccountFacts({ change }: { change: ProposedChange }) {
       (to.currency !== from.currency || to.amount !== from.amount)
     return (
       <>
-        <ApprovalFact label="Transfer">{`${from.account_name} → ${to.account_name}`}</ApprovalFact>
+        <ApprovalFact label={<FormattedMessage id="chat.approval.field.transfer" defaultMessage="Transfer" />}>{`${from.account_name} → ${to.account_name}`}</ApprovalFact>
         {received && (
-          <ApprovalFact label="Received">{fCurrency(to.amount!, to.currency || '')}</ApprovalFact>
+          <ApprovalFact label={<FormattedMessage id="chat.approval.field.received" defaultMessage="Received" />}>{fCurrency(to.amount!, to.currency || '')}</ApprovalFact>
         )}
       </>
     )
@@ -162,19 +178,20 @@ function AccountFacts({ change }: { change: ProposedChange }) {
   // An expense or income says its own direction; an investment or adjustment leg does not —
   // a buy and a sell, or +500 and −500, would read the same as a bare "Account".
   const directional = change.txn_kind === 'investment' || change.txn_kind === 'adjustment'
-  const label = !directional ? 'Account' : from ? 'From' : 'To'
+  const label = !directional ? intl.formatMessage({ id: 'chat.approval.field.account', defaultMessage: 'Account' }) : from ? intl.formatMessage({ id: 'chat.duplicates.from', defaultMessage: 'From' }) : intl.formatMessage({ id: 'chat.duplicates.to', defaultMessage: 'To' })
   return <ApprovalFact label={label}>{leg.account_name}</ApprovalFact>
 }
 
 // The historical-rate stamp (ADR 2026-07-09): the base amount and its fx rate, only when
 // the leg currency actually differs from base — nothing to add for a same-currency txn.
 function BaseFact({ change }: { change: ProposedChange }) {
+  const intl = useAppIntl()
   const { base } = change
   if (!base || base.amount == null || base.currency === legCurrencyOf(change)) return null
   return (
-    <ApprovalFact label={`In ${base.currency || 'base'}`}>
+    <ApprovalFact label={intl.formatMessage({ id: 'chat.position.inCurrency', defaultMessage: 'In {currency}' }, { currency: base.currency || intl.formatMessage({ id: 'chat.txn.base', defaultMessage: 'base' }) })}>
       {fCurrency(base.amount, base.currency || '')}
-      {base.fx_rate != null && ` · rate ${base.fx_rate.toFixed(4)}`}
+      {base.fx_rate != null && intl.formatMessage({ id: 'chat.txn.rate', defaultMessage: ' · rate {rate}' }, { rate: fFixed(base.fx_rate, 4) })}
     </ApprovalFact>
   )
 }
@@ -182,15 +199,16 @@ function BaseFact({ change }: { change: ProposedChange }) {
 // Split-category breakdown (a split txn has no single category) behind a disclosure whose
 // summary names the categories.
 function SplitsDetails({ change }: { change: ProposedChange }) {
+  const intl = useAppIntl()
   const splits = change.splits
   if (!splits || splits.length === 0) return null
-  const labels = splits.map((s) => s.category_label || 'Uncategorized')
+  const labels = splits.map((s) => s.category_label || intl.formatMessage({ id: 'chat.txn.uncategorized', defaultMessage: 'Uncategorized' }))
   return (
     <ApprovalDetails
-      summary={`Split across ${splits.length} categor${splits.length === 1 ? 'y' : 'ies'}: ${labels.join(', ')}`}
+      summary={intl.formatMessage({ id: 'chat.txn.splitAcross', defaultMessage: 'Split across {count, plural, one {# category} other {# categories}}: {labels}' }, { count: splits.length, labels: labels.join(', ') })}
     >
       <ApprovalTable
-        head={['Category', 'Amount']}
+        head={[intl.formatMessage({ id: 'chat.approval.field.category', defaultMessage: 'Category' }), intl.formatMessage({ id: 'chat.duplicates.amount', defaultMessage: 'Amount' })]}
         numeric={[1]}
         rows={splits.map((s, i) => ({
           key: i,
@@ -202,11 +220,12 @@ function SplitsDetails({ change }: { change: ProposedChange }) {
 }
 
 function WarningNotes({ warnings }: { warnings: ProposedChange['warnings'] }) {
+  const intl = useAppIntl()
   return (
     <>
       {(warnings || []).map((w, i) => (
         <ApprovalNote key={i} tone="warn">
-          {typeof w === 'string' ? w : w.message}
+          {typeof w === 'string' ? w : w.message_id && Object.hasOwn(warningMessages, w.message_id) ? intl.formatMessage(warningMessages[w.message_id as keyof typeof warningMessages] as MessageDescriptor, w.message_params) : w.message}
         </ApprovalNote>
       ))}
     </>
@@ -238,6 +257,7 @@ const diffValue = (v: unknown) => (v == null || v === '' ? '—' : renderGeneric
 // diff does not already cover follow, since that is the state the user is confirming. A
 // category change reads its AFTER from the resolution (with its tier), not the raw field.
 export function TxnUpdateBody({ change }: { change: ProposedChange }) {
+  const intl = useAppIntl()
   const fields = change.fields || []
   const changed = new Set(fields.map((f) => f.field))
   const showAccounts = !ACCOUNT_FIELDS.some((f) => changed.has(f))
@@ -249,11 +269,11 @@ export function TxnUpdateBody({ change }: { change: ProposedChange }) {
         {fields.map((f) => (
           <ApprovalChange
             key={f.field}
-            label={f.label || f.field}
+            label={fieldLabel(f.field, intl, f.label, change.grant_tool, change.enum_schema_version, `updates.*.${f.field}`)}
             before={diffValue(f.before)}
             after={
               f.field === 'category'
-                ? (categoryText(change) ?? diffValue(f.after))
+                ? (categoryText(change, intl) ?? diffValue(f.after))
                 : diffValue(f.after)
             }
           />
@@ -263,7 +283,7 @@ export function TxnUpdateBody({ change }: { change: ProposedChange }) {
         {showAccounts && <AccountFacts change={change} />}
         {!changed.has('base_amount') && <BaseFact change={change} />}
       </ApprovalFacts>
-      {fields.length === 0 && <ApprovalNote>No field changes</ApprovalNote>}
+      {fields.length === 0 && <ApprovalNote>{<FormattedMessage id="chat.approval.field.no_field_changes" defaultMessage="No field changes" />}</ApprovalNote>}
       <SplitsDetails change={change} />
       <WarningNotes warnings={change.warnings} />
     </>
@@ -272,7 +292,7 @@ export function TxnUpdateBody({ change }: { change: ProposedChange }) {
 
 // Three columns so the amount is never cut off on a phone: the category (and, on a
 // multi-account import, the account) sit under the description as muted lines.
-function bulkCells(row: BulkRow, withAccount: boolean): ReactNode[] {
+function bulkCells(row: BulkRow, withAccount: boolean, intl: IntlShape): ReactNode[] {
   const uncategorized = row.category_source === 'none'
   return [
     fDate(row.date, 'short'),
@@ -280,8 +300,8 @@ function bulkCells(row: BulkRow, withAccount: boolean): ReactNode[] {
       {row.description || '—'}
       <div className={uncategorized ? 'ac-tone-warn' : 'ac-tone-muted'}>
         {uncategorized
-          ? row.category_label || 'Uncategorized'
-          : `${row.category_label} (${bulkSource(row.category_source)})`}
+          ? intl.formatMessage({ id: 'chat.txn.uncategorized', defaultMessage: 'Uncategorized' })
+          : `${row.category_label} (${bulkSource(row.category_source, intl)})`}
       </div>
       {withAccount && <div className="ac-tone-muted">{row.account_name}</div>}
     </>,
@@ -292,6 +312,7 @@ function bulkCells(row: BulkRow, withAccount: boolean): ReactNode[] {
 // txn_bulk — ONE card for the whole batch (never one card per row): totals and the rules
 // that fired up top, then the capped sample, with the rows it does not show counted.
 export function TxnBulkBody({ change }: { change: ProposedChange }) {
+  const intl = useAppIntl()
   const rows = change.rows || []
   const count = change.count ?? rows.length
   const more = count - rows.length
@@ -307,37 +328,37 @@ export function TxnBulkBody({ change }: { change: ProposedChange }) {
   return (
     <>
       <ApprovalLead>
-        {count} transaction{count === 1 ? '' : 's'}
+        {intl.formatMessage({ id: 'chat.txn.count', defaultMessage: '{count, plural, one {# transaction} other {# transactions}}' }, { count })}
       </ApprovalLead>
-      <ApprovalMeta items={[change.import_description, more > 0 && `+${more} more not shown`]} />
+      <ApprovalMeta items={[change.import_description, more > 0 && intl.formatMessage({ id: 'chat.txn.more', defaultMessage: '+{count} more not shown' }, { count: more })]} />
       <ApprovalFacts>
         {totals && totals.inflow_base > 0 && (
-          <ApprovalFact label="Money in" tone="good">
+          <ApprovalFact label={<FormattedMessage id="chat.approval.field.money_in" defaultMessage="Money in" />} tone="good">
             {fCurrency(totals.inflow_base, totals.base_currency)}
           </ApprovalFact>
         )}
         {totals && totals.outflow_base > 0 && (
-          <ApprovalFact label="Money out">
+          <ApprovalFact label={<FormattedMessage id="chat.approval.field.money_out" defaultMessage="Money out" />}>
             {fCurrency(totals.outflow_base, totals.base_currency)}
           </ApprovalFact>
         )}
-        {oneAccount && <ApprovalFact label="Account">{oneAccount}</ApprovalFact>}
+        {oneAccount && <ApprovalFact label={<FormattedMessage id="chat.approval.field.account" defaultMessage="Account" />}>{oneAccount}</ApprovalFact>}
         {rulesApplied.length > 0 && (
-          <ApprovalFact label="Rules applied">
+          <ApprovalFact label={<FormattedMessage id="chat.approval.field.rules_applied" defaultMessage="Rules applied" />}>
             {rulesApplied.map((r) => `${r.name} (${r.count})`).join(', ')}
           </ApprovalFact>
         )}
       </ApprovalFacts>
       {uncategorized > 0 && (
         <ApprovalNote tone="warn">
-          {uncategorized} of the {rows.length} rows shown are Uncategorized
+          {intl.formatMessage({ id: 'chat.txn.uncategorizedRows', defaultMessage: '{count} of the {total} rows shown are Uncategorized' }, { count: uncategorized, total: rows.length })}
         </ApprovalNote>
       )}
       <WarningNotes warnings={change.warnings} />
       <ApprovalTable
-        head={['Date', 'Transaction', 'Amount']}
+        head={[intl.formatMessage({ id: 'chat.duplicates.date', defaultMessage: 'Date' }), intl.formatMessage({ id: 'chat.txn.transaction', defaultMessage: 'Transaction' }), intl.formatMessage({ id: 'chat.duplicates.amount', defaultMessage: 'Amount' })]}
         numeric={[2]}
-        rows={rows.map((r, i) => ({ key: i, cells: bulkCells(r, !oneAccount) }))}
+        rows={rows.map((r, i) => ({ key: i, cells: bulkCells(r, !oneAccount, intl) }))}
       />
     </>
   )

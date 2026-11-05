@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type ComponentType } from 'react'
+import { useAppIntl } from '../../../i18n/useAppIntl'
 import { Check, Search, Tags, X } from '../../../ui/icons'
 import { TextField } from '../../ui'
 import { useIsCoarsePointer } from '../../../hooks/useIsCoarsePointer'
@@ -11,13 +12,13 @@ export interface ReviewChoiceOption {
 }
 
 /**
- * A row of the likeliest choices as chips, then "Other" — the shape of every decision a card
+ * A row of the likeliest choices as chips, then {formatMessage({ id: 'accounts.reviewChoices.other', defaultMessage: "Other" })} — the shape of every decision a card
  * asks for. Categories were the first; a transfer's destination account is the second, so the
  * chooser is generic and each caller names its caption, icon and search copy. `none` adds a
  * leading "nothing chosen" chip (Uncategorized) for a choice that may be empty; a transfer's
  * destination never is, so it passes none.
  *
- * "Other" turns the row INTO the picker, in place: the caption becomes the search field and
+ * {formatMessage({ id: 'accounts.reviewChoices.other', defaultMessage: "Other" })} turns the row INTO the picker, in place: the caption becomes the search field and
  * the chips give way to one list, ordered as the chips were (chosen, then likeliest, then
  * A–Z), so the likely ones are its top and not a second copy above it — two answers to the
  * same question on one card read as redundant (owner, 2026-09-20). It also hands the chips'
@@ -46,10 +47,11 @@ export function ReviewChipChooser({
   searchLabel: string
   placeholder: string
   resultsTestId?: string
-  /** Chips before "Other". Four category names fit two rows on a phone; account names are
+  /** Chips before {formatMessage({ id: 'accounts.reviewChoices.other', defaultMessage: "Other" })}. Four category names fit two rows on a phone; account names are
    *  longer, so a transfer offers three. */
   limit?: number
 }) {
+  const { formatMessage } = useAppIntl()
   const [searching, setSearching] = useState(false)
   const [query, setQuery] = useState('')
   // On a touch screen, focusing the field on open throws the on-screen keyboard over the
@@ -123,7 +125,7 @@ export function ReviewChipChooser({
             <button
               type="button"
               className="acct-review-category-search-close"
-              aria-label="Close search"
+              aria-label={formatMessage({ id: 'accounts.reviewChoices.close', defaultMessage: "Close search" })}
               onClick={close}
             >
               <X size={16} aria-hidden="true" />
@@ -192,7 +194,7 @@ export function ReviewChipChooser({
         ))}
         <button type="button" className="acct-review-choice" onClick={() => setSearching(true)}>
           <Search size={14} aria-hidden="true" />
-          Other
+          {formatMessage({ id: 'accounts.reviewChoices.other', defaultMessage: "Other" })}
         </button>
       </div>
     </div>
@@ -210,17 +212,18 @@ export function ReviewCategoryChoices({
   suggestedIds: string[]
   onChange: (id: string | null) => void
 }) {
+  const { formatMessage } = useAppIntl()
   return (
     <ReviewChipChooser
-      caption="Choose a category"
+      caption={formatMessage({ id: 'accounts.reviewChoices.choose', defaultMessage: "Choose a category" })}
       options={categories}
       selected={selected}
       suggestedIds={suggestedIds}
       onChange={onChange}
       icon={Tags}
-      none="Uncategorized"
-      searchLabel="Search categories"
-      placeholder="Find a category…"
+      none={formatMessage({ id: 'accounts.reviewChoices.uncategorized', defaultMessage: "Uncategorized" })}
+      searchLabel={formatMessage({ id: 'accounts.reviewChoices.search', defaultMessage: "Search categories" })}
+      placeholder={formatMessage({ id: 'accounts.reviewChoices.find', defaultMessage: "Find a category…" })}
       resultsTestId="review-category-results"
     />
   )

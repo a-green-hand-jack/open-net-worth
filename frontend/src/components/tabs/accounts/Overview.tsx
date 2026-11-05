@@ -7,6 +7,7 @@
  */
 
 import { useEffect, useRef, useState, type ReactNode } from 'react'
+import { useAppIntl } from '../../../i18n/useAppIntl'
 import { Button } from '../../ui'
 import { BalanceTermsInfo } from './BalanceTermsInfo'
 import {
@@ -145,6 +146,7 @@ export function Overview({
   archivedCount = 0,
   onPhoneShortcuts,
 }: OverviewProps) {
+  const { formatMessage } = useAppIntl()
   const [menuOpen, setMenuOpen] = useState(false)
   const menuRef = useRef<HTMLDivElement>(null)
 
@@ -177,14 +179,17 @@ export function Overview({
               onClick={onReopen}
               onMouseEnter={onReopenHover}
               onMouseLeave={onReopenLeave}
-              title="Show accounts"
+              title={formatMessage({
+                id: 'accounts.showAccounts',
+                defaultMessage: 'Show accounts',
+              })}
             >
               <ChevronsRight size={16} strokeWidth={1.75} aria-hidden="true" />
             </button>
           )}
           <div>
             <div className="acct-head-title" data-ctx-title="Accounts">
-              Accounts
+              {formatMessage({ id: 'accounts.title', defaultMessage: 'Accounts' })}
             </div>
           </div>
         </div>
@@ -195,7 +200,7 @@ export function Overview({
             variant="ghost"
             onClick={onManagePayees}
           >
-            Manage payees
+            {formatMessage({ id: 'accounts.managePayees', defaultMessage: 'Manage payees' })}
           </Button>
           {/* Beside Manage payees, its natural sibling — both are ledger-entity admin, and both
               are used well outside the screen that happens to host them. */}
@@ -205,21 +210,28 @@ export function Overview({
             variant="ghost"
             onClick={onManageCategories}
           >
-            Manage categories
+            {formatMessage({
+              id: 'accounts.manageCategories',
+              defaultMessage: 'Manage categories',
+            })}
           </Button>
           <Button className="acct-head-collapsible" size="sm" variant="ghost" onClick={onImport}>
-            Import
+            {formatMessage({ id: 'accounts.import', defaultMessage: 'Import' })}
           </Button>
           <Button size="sm" variant="secondary" onClick={onAdd} data-tour="setup-accounts">
             <span className="acct-btn-ico">
-              <Plus size={14} strokeWidth={2} aria-hidden="true" /> Add account
+              <Plus size={14} strokeWidth={2} aria-hidden="true" />{' '}
+              {formatMessage({ id: 'accounts.addAccount', defaultMessage: 'Add account' })}
             </span>
           </Button>
           <div className="acct-menu-wrap" ref={menuRef}>
             <button
               className="btn-ghost-icon"
               onClick={() => setMenuOpen((o) => !o)}
-              aria-label="More actions"
+              aria-label={formatMessage({
+                id: 'accounts.moreActions',
+                defaultMessage: 'More actions',
+              })}
             >
               <MoreHorizontal size={18} strokeWidth={1.75} aria-hidden="true" />
             </button>
@@ -234,7 +246,7 @@ export function Overview({
                     onManagePayees()
                   }}
                 >
-                  Manage payees
+                  {formatMessage({ id: 'accounts.managePayees', defaultMessage: 'Manage payees' })}
                 </OverviewMenuItem>
                 <OverviewMenuItem
                   icon="categories"
@@ -244,7 +256,10 @@ export function Overview({
                     onManageCategories()
                   }}
                 >
-                  Manage categories
+                  {formatMessage({
+                    id: 'accounts.manageCategories',
+                    defaultMessage: 'Manage categories',
+                  })}
                 </OverviewMenuItem>
                 {onManageInstitutions && (
                   <OverviewMenuItem
@@ -254,7 +269,10 @@ export function Overview({
                       onManageInstitutions()
                     }}
                   >
-                    Manage institutions
+                    {formatMessage({
+                      id: 'accounts.manageInstitutions',
+                      defaultMessage: 'Manage institutions',
+                    })}
                   </OverviewMenuItem>
                 )}
                 <OverviewMenuItem
@@ -265,7 +283,7 @@ export function Overview({
                     onImport()
                   }}
                 >
-                  Import
+                  {formatMessage({ id: 'accounts.import', defaultMessage: 'Import' })}
                 </OverviewMenuItem>
                 <OverviewMenuItem
                   icon="export"
@@ -274,7 +292,10 @@ export function Overview({
                     onExport()
                   }}
                 >
-                  Export transactions
+                  {formatMessage({
+                    id: 'accounts.exportTransactions',
+                    defaultMessage: 'Export transactions',
+                  })}
                 </OverviewMenuItem>
                 <OverviewMenuItem
                   icon="archive"
@@ -283,7 +304,18 @@ export function Overview({
                     onArchivedAccounts?.()
                   }}
                 >
-                  Archived accounts{archivedCount ? ` (${archivedCount})` : ''}
+                  {archivedCount
+                    ? formatMessage(
+                        {
+                          id: 'accounts.archivedCount',
+                          defaultMessage: 'Archived accounts ({count})',
+                        },
+                        { count: archivedCount },
+                      )
+                    : formatMessage({
+                        id: 'accounts.archivedAccounts',
+                        defaultMessage: 'Archived accounts',
+                      })}
                 </OverviewMenuItem>
                 {onPhoneShortcuts ? (
                   <OverviewMenuItem
@@ -293,7 +325,10 @@ export function Overview({
                       onPhoneShortcuts()
                     }}
                   >
-                    Phone shortcuts
+                    {formatMessage({
+                      id: 'accounts.phoneShortcuts',
+                      defaultMessage: 'Phone shortcuts',
+                    })}
                   </OverviewMenuItem>
                 ) : null}
               </div>
@@ -307,10 +342,13 @@ export function Overview({
       <div className="acct-bal">
         <div className="acct-bal-card">
           <div className="acct-bal-k">
-            Cash
+            {formatMessage({ id: 'accounts.group.cash', defaultMessage: 'Cash' })}
             <BalanceTermsInfo
-              total="Cash on hand"
-              meaning="the two together, across your bank and e-wallet accounts."
+              total={formatMessage({ id: 'accounts.cashOnHand', defaultMessage: 'Cash on hand' })}
+              meaning={formatMessage({
+                id: 'accounts.cashAcrossAccounts',
+                defaultMessage: 'the two together, across your bank and e-wallet accounts.',
+              })}
             />
           </div>
           <div className="acct-bal-breakdown">
@@ -318,7 +356,9 @@ export function Overview({
               <div className={'acct-bal-fig mask' + (cashBalance.cleared > 0 ? ' pos' : '')}>
                 {fCur(cashBalance.cleared, baseCurrency, { cents: true })}
               </div>
-              <div className="acct-bal-lbl">Cleared</div>
+              <div className="acct-bal-lbl">
+                {formatMessage({ id: 'accounts.cleared', defaultMessage: 'Cleared' })}
+              </div>
             </div>
             <div className="acct-bal-grp">
               <span className="acct-bal-op">+</span>
@@ -331,9 +371,12 @@ export function Overview({
                     type="button"
                     className="acct-bal-lbl-btn"
                     onClick={onShowUncleared}
-                    title="Show uncleared transactions"
+                    title={formatMessage({
+                      id: 'accounts.showUncleared',
+                      defaultMessage: 'Show uncleared transactions',
+                    })}
                   >
-                    Uncleared
+                    {formatMessage({ id: 'accounts.uncleared', defaultMessage: 'Uncleared' })}
                   </button>
                 </div>
               </div>
@@ -344,7 +387,9 @@ export function Overview({
                 <div className={'acct-bal-fig work mask' + (cashOnHand > 0 ? ' pos' : '')}>
                   {fCur(cashOnHand, baseCurrency, { cents: true })}
                 </div>
-                <div className="acct-bal-lbl">Cash on hand</div>
+                <div className="acct-bal-lbl">
+                  {formatMessage({ id: 'accounts.cashOnHand', defaultMessage: 'Cash on hand' })}
+                </div>
               </div>
             </div>
           </div>

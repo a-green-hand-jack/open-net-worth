@@ -525,17 +525,36 @@ def preview_summary(plan: dict) -> dict:
     """The numbers the UI shows before anything is written."""
     s = plan["stats"]
     warnings = []
+    warnings_messages = []
     if s.get("subcent_amounts"):
         warnings.append(
             f"{s['subcent_amounts']} amount(s) have sub-cent precision; they are rounded to cents."
+        )
+        warnings_messages.append(
+            {
+                "message_id": "ynab.import.warning.subcent",
+                "params": {"count": str(s["subcent_amounts"])},
+            }
         )
     if s.get("unknown_category"):
         warnings.append(
             f"{s['unknown_category']} line(s) use a category YNAB no longer lists; they import uncategorized."
         )
+        warnings_messages.append(
+            {
+                "message_id": "ynab.import.warning.unknownCategory",
+                "params": {"count": str(s["unknown_category"])},
+            }
+        )
     if s.get("transfers_one_sided"):
         warnings.append(
             f"{s['transfers_one_sided']} transfer(s) have no matching row in the other account; they import as plain income or expense."
+        )
+        warnings_messages.append(
+            {
+                "message_id": "ynab.import.warning.oneSidedTransfer",
+                "params": {"count": str(s["transfers_one_sided"])},
+            }
         )
     return {
         "plan_name": plan["name"],
@@ -561,4 +580,5 @@ def preview_summary(plan: dict) -> dict:
         "transfers": s.get("transfers_paired", 0),
         "budget_months": len(plan["assigned"]),
         "warnings": warnings,
+        "warnings_messages": warnings_messages,
     }

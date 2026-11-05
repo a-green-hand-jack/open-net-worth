@@ -27,6 +27,13 @@ from backend.services.ynab_pairs import is_parking_name
 logger = logging.getLogger(__name__)
 
 
+class SharedEnvelopeNote(str):
+    def __new__(cls, text: str, envelope_name: str):
+        value = super().__new__(cls, text)
+        value.envelope_name = envelope_name
+        return value
+
+
 def shared_note(envelope_name: str) -> str:
     return f"{envelope_name} holds several categories, so its Assigned isn't synced with YNAB."
 
@@ -93,7 +100,7 @@ def apply(plan: dict, decisions: dict[str, dict], plan_id: str, book: Book):
             env = give_envelope(book, cat, group_id)
             made["envelopes"] += 1
         elif env is None and held is not None:
-            notes[held["id"]] = shared_note(held["name"])
+            notes[held["id"]] = SharedEnvelopeNote(shared_note(held["name"]), held["name"])
         held = book.env_of.get(cat["id"])
         ynab_pairs.save([_pair(plan_id, c, book.rows[cat["id"]], env, held, old_cats.get(c["id"]))])
         out[c["id"]] = {"category": cat["id"], "envelope": env["id"] if env else None}

@@ -1,5 +1,7 @@
+import { skillError } from '../skills/skillErrors'
+import { useAppIntl } from '../../i18n/useAppIntl'
 import { useEffect, useMemo, useState } from 'react'
-import { useSkills, type SkillCreateBody } from '../../hooks/useSkills'
+import { useSkills, type SkillCreateBody, type SkillResult } from '../../hooks/useSkills'
 import { useRegisterScreenFacts } from '../../lucius/useScreenContract'
 import type {
   ClaudeSkillMetadata,
@@ -36,12 +38,6 @@ import {
 } from '../skills/SkillCompatibilityEditor'
 import '../skills/skills.css'
 
-const SKILL_EDITOR_SECTIONS = [
-  { value: 'instructions' as const, label: 'Instructions' },
-  { value: 'claude' as const, label: 'Claude Code' },
-  { value: 'openai' as const, label: 'OpenAI' },
-]
-
 interface Props {
   // Open the chat panel with a prefilled message (the Run surface).
   onRunSkill: (text: string) => void
@@ -55,7 +51,19 @@ export function buildSkillRunMessage(skill: Skill): string {
 }
 
 export function Skills({ onRunSkill }: Props) {
-  const { skills, loading, error, refresh, createSkill, updateSkill, deleteSkill } = useSkills()
+  const intl = useAppIntl()
+  const { formatMessage } = intl
+  const {
+    skills,
+    loading,
+    error,
+    errorMessageId,
+    errorMessageParams,
+    refresh,
+    createSkill,
+    updateSkill,
+    deleteSkill,
+  } = useSkills()
 
   // ── Selection state ──────────────────────────────────────────────────────────
   const [selectedSkillId, setSelectedSkillId] = useState<string | null>(null)
@@ -178,13 +186,43 @@ export function Skills({ onRunSkill }: Props) {
     setBusyToggle(skill.id)
     const res = await updateSkill(skill.id, { enabled: !skill.enabled })
     setBusyToggle(null)
-    if (!res.ok) setActionError(res.error || 'Could not update the skill.')
+    if (!res.ok)
+      setActionError(
+        skillError(
+          intl,
+          {
+            message_id: res.messageId,
+            message_params: res.messageParams,
+            message_items: res.messageItems,
+          },
+          res.error ||
+            formatMessage({
+              id: 'skills.updateError',
+              defaultMessage: 'Could not update the skill.',
+            }),
+        ),
+      )
   }
 
   async function onDelete(skill: Skill) {
     setActionError(null)
     const res = await deleteSkill(skill.id)
-    if (!res.ok) setActionError(res.error || 'Could not delete the skill.')
+    if (!res.ok)
+      setActionError(
+        skillError(
+          intl,
+          {
+            message_id: res.messageId,
+            message_params: res.messageParams,
+            message_items: res.messageItems,
+          },
+          res.error ||
+            formatMessage({
+              id: 'skills.deleteError',
+              defaultMessage: 'Could not delete the skill.',
+            }),
+        ),
+      )
     setConfirmDelete(null)
     // If the deleted skill was selected, clear selection.
     if (selectedSkillId === skill.id) {
@@ -215,8 +253,11 @@ export function Skills({ onRunSkill }: Props) {
 
   const header = (
     <PageHeader
-      title="Skills"
-      subtitle="Reusable playbooks Lucius can run for you — one-click routines"
+      title={formatMessage({ id: 'skills.title', defaultMessage: 'Skills' })}
+      subtitle={formatMessage({
+        id: 'skills.subtitle',
+        defaultMessage: 'Reusable playbooks Lucius can run for you — one-click routines',
+      })}
       actions={
         <CreateSkillMenu
           onCreateWithLucius={onCreateWithLucius}
@@ -234,7 +275,11 @@ export function Skills({ onRunSkill }: Props) {
       <Container size="wide" className="skills-page">
         <Stack gap="--space-6" className="skills-page__stack">
           {header}
-          <TabSkeleton variant="skills" label="Loading skills…" header={false} />
+          <TabSkeleton
+            variant="skills"
+            label={formatMessage({ id: 'skills.loading', defaultMessage: 'Loading skills…' })}
+            header={false}
+          />
         </Stack>
       </Container>
     )
@@ -243,7 +288,14 @@ export function Skills({ onRunSkill }: Props) {
   if (error) {
     return (
       <Container size="wide">
-        <ErrorState message={error} onRetry={refresh} />
+        <ErrorState
+          message={skillError(
+            intl,
+            { message_id: errorMessageId, message_params: errorMessageParams },
+            error,
+          )}
+          onRetry={refresh}
+        />
       </Container>
     )
   }
@@ -253,7 +305,7 @@ export function Skills({ onRunSkill }: Props) {
       size="wide"
       className="skills-page"
       data-ctx-region="content"
-      data-ctx-title="Skills"
+      data-ctx-title={formatMessage({ id: 'skills.title', defaultMessage: 'Skills' })}
     >
       <Stack gap="--space-6" className="skills-page__stack">
         {header}
@@ -264,7 +316,7 @@ export function Skills({ onRunSkill }: Props) {
               {actionError}
             </Text>
             <Button variant="ghost" size="sm" onClick={() => setActionError(null)}>
-              Dismiss
+              {formatMessage({ id: 'skills.dismiss', defaultMessage: 'Dismiss' })}
             </Button>
           </Cluster>
         )}
@@ -344,21 +396,28 @@ export function Skills({ onRunSkill }: Props) {
         <Modal
           open
           size="sm"
-          title={`Delete "${confirmDelete.name}"?`}
+          title={formatMessage(
+            { id: 'skills.deleteTitle', defaultMessage: 'Delete \"{name}\"?' },
+            { name: confirmDelete.name },
+          )}
           onClose={() => setConfirmDelete(null)}
           footer={
             <>
               <Button variant="ghost" onClick={() => setConfirmDelete(null)}>
-                Cancel
+                {formatMessage({ id: 'skills.cancel', defaultMessage: 'Cancel' })}
               </Button>
               <Button variant="danger" onClick={() => onDelete(confirmDelete)}>
-                Delete
+                {formatMessage({ id: 'skills.delete', defaultMessage: 'Delete' })}
               </Button>
             </>
           }
         >
           <Text tone="muted">
-            This removes the skill permanently. Lucius will no longer be able to run it.
+            {formatMessage({
+              id: 'skills.deleteHelp',
+              defaultMessage:
+                'This removes the skill permanently. Lucius will no longer be able to run it.',
+            })}
           </Text>
         </Modal>
       )}
@@ -389,12 +448,19 @@ function SkillEditor({
 }: {
   skill: Skill | null
   onClose: () => void
-  onCreate: (body: SkillCreateBody) => Promise<{ ok: boolean; error?: string }>
-  onUpdate: (
-    id: string,
-    changes: Record<string, unknown>,
-  ) => Promise<{ ok: boolean; error?: string }>
+  onCreate: (body: SkillCreateBody) => Promise<SkillResult>
+  onUpdate: (id: string, changes: Record<string, unknown>) => Promise<SkillResult>
 }) {
+  const intl = useAppIntl()
+  const { formatMessage } = intl
+  const sections = [
+    {
+      value: 'instructions' as const,
+      label: formatMessage({ id: 'skills.editor.instructions', defaultMessage: 'Instructions' }),
+    },
+    { value: 'claude' as const, label: 'Claude Code' },
+    { value: 'openai' as const, label: 'OpenAI' },
+  ]
   const isNew = skill === null
   const [name, setName] = useState(skill?.name ?? '')
   const [description, setDescription] = useState(skill?.description ?? '')
@@ -408,12 +474,22 @@ function SkillEditor({
   async function onSave() {
     setFormError(null)
     if (!name.trim()) {
-      setFormError('A skill needs a name.')
+      setFormError(
+        formatMessage({
+          id: 'skills.editor.nameRequired',
+          defaultMessage: 'A skill needs a name.',
+        }),
+      )
       return
     }
     if (!description.trim()) {
       setSection('instructions')
-      setFormError('A skill needs a description so Lucius knows when to use it.')
+      setFormError(
+        formatMessage({
+          id: 'skills.editor.descriptionRequired',
+          defaultMessage: 'A skill needs a description so Lucius knows when to use it.',
+        }),
+      )
       return
     }
     setSaving(true)
@@ -430,32 +506,59 @@ function SkillEditor({
     const res = isNew ? await onCreate(payload) : await onUpdate(skill!.id, payload)
     setSaving(false)
     if (res.ok) onClose()
-    else setFormError(res.error || 'Could not save the skill.')
+    else
+      setFormError(
+        skillError(
+          intl,
+          {
+            message_id: res.messageId,
+            message_params: res.messageParams,
+            message_items: res.messageItems,
+          },
+          res.error ||
+            formatMessage({
+              id: 'skills.editor.saveError',
+              defaultMessage: 'Could not save the skill.',
+            }),
+        ),
+      )
   }
 
   return (
     <Modal
       open
       size="xl"
-      title={isNew ? 'New skill' : `Edit "${skill!.name}"`}
+      title={
+        isNew
+          ? formatMessage({ id: 'skills.new', defaultMessage: 'New skill' })
+          : formatMessage(
+              { id: 'skills.editor.editTitle', defaultMessage: 'Edit \"{name}\"' },
+              { name: skill!.name },
+            )
+      }
       onClose={onClose}
       closeOnBackdrop={false}
       dragToDismiss={false}
       footer={
         <>
           <Button variant="ghost" onClick={onClose} disabled={saving}>
-            Cancel
+            {formatMessage({ id: 'skills.cancel', defaultMessage: 'Cancel' })}
           </Button>
           <Button variant="primary" loading={saving} onClick={onSave}>
-            {isNew ? 'Create skill' : 'Save changes'}
+            {isNew
+              ? formatMessage({ id: 'skills.editor.create', defaultMessage: 'Create skill' })
+              : formatMessage({ id: 'skills.editor.save', defaultMessage: 'Save changes' })}
           </Button>
         </>
       }
     >
       <Stack gap="--space-6">
         <SegmentedControl
-          ariaLabel="Skill editor section"
-          options={SKILL_EDITOR_SECTIONS}
+          ariaLabel={formatMessage({
+            id: 'skills.editor.section',
+            defaultMessage: 'Skill editor section',
+          })}
+          options={sections}
           value={section}
           onChange={setSection}
         />
@@ -464,35 +567,56 @@ function SkillEditor({
           <Stack gap="--space-6">
             <FormField
               htmlFor="skill-name"
-              label="Name"
+              label={formatMessage({ id: 'skills.editor.name', defaultMessage: 'Name' })}
               required
-              help="Lowercase letters, numbers, and hyphens (e.g. monthly-close)."
+              help={formatMessage({
+                id: 'skills.editor.nameHelp',
+                defaultMessage: 'Lowercase letters, numbers, and hyphens (e.g. monthly-close).',
+              })}
             >
               <TextField
                 id="skill-name"
                 value={name}
-                placeholder="e.g. monthly-close"
+                placeholder={formatMessage({ id: 'visible2.skillExample', defaultMessage: 'e.g. monthly-close' })}
                 onChange={(e) => setName(slugifyLiveName(e.target.value))}
               />
             </FormField>
 
-            <FormField htmlFor="skill-desc" label="Description" required>
+            <FormField
+              htmlFor="skill-desc"
+              label={formatMessage({
+                id: 'skills.editor.description',
+                defaultMessage: 'Description',
+              })}
+              required
+            >
               <TextField
                 id="skill-desc"
                 value={description}
-                placeholder="One line — what this skill does"
+                placeholder={formatMessage({
+                  id: 'skills.editor.descriptionPlaceholder',
+                  defaultMessage: 'One line — what this skill does',
+                })}
                 onChange={(e) => setDescription(e.target.value)}
               />
             </FormField>
 
-            <FormField htmlFor="skill-body" label="Instructions (markdown)">
+            <FormField
+              htmlFor="skill-body"
+              label={formatMessage({
+                id: 'skills.editor.instructionsMarkdown',
+                defaultMessage: 'Instructions (markdown)',
+              })}
+            >
               <TextArea
                 id="skill-body"
                 rows={9}
                 value={body}
-                placeholder={
-                  '1. Read the requested month from the conversation.\n2. Call get_spending_summary.\n3. …'
-                }
+                placeholder={formatMessage({
+                  id: 'skills.editor.bodyPlaceholder',
+                  defaultMessage:
+                    '1. Read the requested month from the conversation.\n2. Call get_spending_summary.\n3. …',
+                })}
                 onChange={(e) => setBody(e.target.value)}
               />
             </FormField>

@@ -436,3 +436,76 @@ def test_an_unsummarizable_report_does_not_fail_a_completed_run(ynab, monkeypatc
     monkeypatch.setattr(job_module.report, "outcome", lambda *a: 1 / 0)
     job = run("preview")
     assert job["status"] == "done" and job["outcome"] == ""
+
+
+def test_problem_hint_sources_are_known_without_rewriting_external_reason():
+    import json
+    from pathlib import Path
+
+    from backend.services.ynab_migration import report
+
+    root = Path(__file__).resolve().parents[1]
+    contract = json.loads((root / "backend/core/ynab_import_message_contract.json").read_text())
+    assert {f"ynab.import.hint.{key}" for key in report._HINTS} == {
+        key for key in contract if key.startswith("ynab.import.hint.")
+    }
+    for kind in report._HINTS:
+        row = report.problem({"ref": "synthetic", "kind": kind, "reason": "provider text"})
+        assert row["reason"] == "provider text"
+        assert row["hint_message"] == {"message_id": f"ynab.import.hint.{kind}", "params": {}}
+    assert report.problem({"ref": "synthetic", "kind": "unknown"})["hint_message"] is None
+
+
+def test_import_message_contract_tracks_verification_sources():
+    import ast
+    from pathlib import Path
+
+    from backend.services.ynab_migration import report
+
+    root = Path(__file__).resolve().parents[1]
+    contract = json.loads((root / "backend/core/ynab_import_message_contract.json").read_text())
+    trees = [
+        ast.parse((root / f"backend/services/ynab_migration/{name}.py").read_text())
+        for name in ("verify", "mapping", "job", "report")
+    ]
+    emitted = {
+        node.value
+        for tree in trees
+        for node in ast.walk(tree)
+        if isinstance(node, ast.Constant)
+        and isinstance(node.value, str)
+        and node.value.startswith("ynab.import.")
+        and not node.value.endswith(".")
+    }
+    emitted |= {f"ynab.import.hint.{kind}" for kind in report._HINTS}
+    emitted |= {
+        f"ynab.import.category.{kind}"
+        for kind in (
+            "assignedEnvelope",
+            "notBudgeted",
+            "syncEnvelope",
+            "sharedEnvelope",
+            "ambiguous",
+            "offerEnvelope",
+            "newEnvelope",
+        )
+    }
+    emitted |= {
+        f"ynab.import.note.{kind}" for kind in ("readyBoth", "readyAccounts", "readyUnsynced")
+    }
+    assert emitted == set(contract)
+
+
+def test_history_diff_exposes_numeric_details_without_parsing_text(monkeypatch):
+    from backend.services.ynab_migration import verify
+
+    monkeypatch.setattr(verify.ledger_service.transactions, "all", lambda: [])
+    text, left, right, details = verify._line_diff(
+        {"lines": {"2026-01|category": {"ref123456789": 1234500}}},
+        "2026-01",
+        "category",
+        None,
+    )
+    assert "1,234.50 [ref12345]" in text
+    assert left == "['1,234.50 [ref12345]']" and right == "[]"
+    assert details == {"onlyYnab": [{"amount": 1234.5, "ref": "ref12345"}], "onlyHere": []}

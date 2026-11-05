@@ -4,6 +4,7 @@
 // group header with its grip, chevron, name, count, + and ⋮; a row with its status line and bar
 // (read against the cap). Every cell is shared with the phone card (propCells.tsx / PropCards.tsx).
 import { useState } from 'react'
+import { useAppIntl } from '../../../../../i18n/useAppIntl'
 import type { DragEvent } from 'react'
 import { entityRefProps } from '../../../../../utils/mentionable'
 import { ColorIcon, InlineEdit } from '../../budgetParts'
@@ -50,6 +51,7 @@ export function PropRow({
   /** A row others can't be dropped beside — one in the Excluded section, which has no order. */
   noDrop?: boolean
 }) {
+  const { formatMessage } = useAppIntl()
   // Zero-Based's insertion line (plan.css .pl-crow.over-top / .over-bottom): where it lands.
   const line = h.overRow?.id === e.id ? ' over-' + h.overRow.edge : ''
   return (
@@ -85,8 +87,11 @@ export function PropRow({
             <button
               type="button"
               className="pt-ename"
-              aria-label={'Edit ' + e.label}
-              title="Edit envelope"
+              aria-label={formatMessage(
+                { id: 'plan.editNamed', defaultMessage: 'Edit {name}' },
+                { name: e.label },
+              )}
+              title={formatMessage({ id: 'plan.editEnvelope', defaultMessage: 'Edit envelope' })}
               onClick={() => h.onEdit(e.id)}
             >
               {e.label}
@@ -131,6 +136,7 @@ export function PropGroup({
   gd: GroupDnd
   h: RowHandlers
 }) {
+  const { formatMessage } = useAppIntl()
   const [naming, setNaming] = useState(false)
   if (h.mobile)
     return (
@@ -174,7 +180,10 @@ export function PropGroup({
               onDragStart={gd.start(g.id)}
               onClick={(e) => e.stopPropagation()}
               aria-label={'Drag group ' + g.name}
-              title="Drag to reorder groups"
+              title={formatMessage({
+                id: 'plan.dragGroup',
+                defaultMessage: 'Drag to reorder groups',
+              })}
             >
               <Grip />
             </button>
@@ -198,7 +207,17 @@ export function PropGroup({
                   onToggle()
                 }}
                 aria-expanded={!closed}
-                aria-label={(closed ? 'Expand ' : 'Collapse ') + g.name}
+                aria-label={
+                  closed
+                    ? formatMessage(
+                        { id: 'plan.propRows.expand', defaultMessage: 'Expand {name}' },
+                        { name: g.name },
+                      )
+                    : formatMessage(
+                        { id: 'plan.propRows.collapse', defaultMessage: 'Collapse {name}' },
+                        { name: g.name },
+                      )
+                }
               >
                 <span className="pl-chevron">
                   <Chevron dir={closed ? 'right' : 'down'} size={13} />
@@ -231,8 +250,11 @@ export function PropGroup({
             <button
               type="button"
               className="pl-gadd"
-              title={'Add an envelope to ' + g.name}
-              aria-label="Add envelope"
+              title={formatMessage(
+                { id: 'plan.addEnvelopeTo', defaultMessage: 'Add an envelope to {name}' },
+                { name: g.name },
+              )}
+              aria-label={formatMessage({ id: 'plan.addEnvelope', defaultMessage: 'Add envelope' })}
               onClick={(e) => {
                 e.stopPropagation()
                 actions.onAddEnvelope(g.id, g.name)
@@ -245,7 +267,17 @@ export function PropGroup({
         </span>
         <span
           className={'pl-c-num pt-num strong' + (capOver ? ' warn' : '')}
-          title={capOver ? `Caps add up to more than the ${g.target}% target` : ''}
+          title={
+            capOver
+              ? formatMessage(
+                  {
+                    id: 'plan.propRows.capOver',
+                    defaultMessage: 'Caps add up to more than the {target}% target',
+                  },
+                  { target: g.target },
+                )
+              : ''
+          }
         >
           {ct ? fBase(ct) : <Dash />}
         </span>
@@ -270,7 +302,9 @@ export function PropGroup({
       {!closed && list.map((e) => <PropRow key={e.id} e={e} locked={g.synced} h={h} />)}
       {/* An empty group says nothing until something is being dragged — then it's the target. */}
       {!closed && !list.length && !g.synced && h.dragging && (
-        <div className="pt-dropnote">Drop here</div>
+        <div className="pt-dropnote">
+          {formatMessage({ id: 'plan.dropHere', defaultMessage: 'Drop here' })}
+        </div>
       )}
     </div>
   )

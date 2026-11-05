@@ -8,6 +8,14 @@ import { fetchJson } from '../../../../../hooks/serverState'
 import { invalidateQueryCache } from '../../../../../state/queryCache'
 import { invalidatePropMonths } from './propApi'
 
+export class EnvelopeRequestError extends Error {
+  readonly status: number
+  constructor(status: number) {
+    super(`Request failed (${status})`)
+    this.status = status
+  }
+}
+
 export interface BudgetGroupRef {
   id: string
   name: string
@@ -22,14 +30,14 @@ async function send(url: string, method: string, body?: unknown): Promise<Respon
     ...(body === undefined ? {} : { body: JSON.stringify(body) }),
   })
   if (r.ok) return r
-  let detail = `Request failed (${r.status})`
+  let detail: string | undefined
   try {
     const b = await r.json()
     if (b?.detail) detail = String(b.detail)
   } catch {
     /* non-JSON error body */
   }
-  throw new Error(detail)
+  throw detail ? new Error(detail) : new EnvelopeRequestError(r.status)
 }
 
 function refreshBoth() {

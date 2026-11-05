@@ -29,9 +29,12 @@ docs/adr/2026-09-11-lot-acquire-optional-cash-debit.md.
 
 from __future__ import annotations
 
-from typing import Optional
+import json
+from pathlib import Path
+from typing import Any, Optional
 
 from fastapi import APIRouter, HTTPException
+from fastapi.responses import JSONResponse
 
 from backend.core.errors import OpenNetWorthError, to_http_status
 from backend.models.lot import InstrumentLotCreate, LotAmend, LotCreate
@@ -39,6 +42,11 @@ from backend.models.realized_event import DisposalCreate
 from backend.services import lots as lots_service
 
 router = APIRouter()
+_MESSAGE_CONTRACT = json.loads(
+    (Path(__file__).resolve().parents[1] / "core/lots_message_contract.json").read_text(
+        encoding="utf-8"
+    )
+)
 
 
 def _kind_value(kind) -> str:
@@ -79,14 +87,59 @@ def _dispose_fields(body: DisposalCreate) -> dict:
     }
 
 
-def _raise_lot_write(result: dict) -> dict:
+def _raise_lot_write(result: dict, *, default_status: int = 422) -> Any:
     if not result.get("error"):
         return result
-    if result.get("existing_lot_id") or result.get("existing_event_id"):
-        raise HTTPException(409, result["error"])
+    if result.get("existing_lot_id"):
+        return JSONResponse(
+            status_code=409,
+            content={
+                "detail": result["error"],
+                "message_id": "lots.error.identicalOpen",
+                "message_params": {},
+            },
+        )
+    if result.get("existing_event_id"):
+        status = 409
+    else:
+        # Only a missing thing is a 404; every other refusal is the request being invalid.
+        status = 404 if "not found" in (result["error"] or "") else default_status
+    message_id = result.get("message_id")
+    params = result.get("message_params", {})
+    if (
+        isinstance(message_id, str)
+        and message_id in _MESSAGE_CONTRACT
+        and isinstance(params, dict)
+        and set(params) == set(_MESSAGE_CONTRACT[message_id])
+        and all(isinstance(value, str) for value in params.values())
+    ):
+        return JSONResponse(
+            status_code=status,
+            content={"detail": result["error"], "message_id": message_id, "message_params": params},
+        )
     # Only a missing thing is a 404; every other refusal is the request being invalid.
-    status = 404 if "not found" in (result["error"] or "") else 422
     raise HTTPException(status, result["error"])
+
+
+def _lot_exception(exc: OpenNetWorthError) -> Any:
+    message_id = exc.context.get("message_id")
+    params = exc.context.get("message_params", {})
+    if (
+        isinstance(message_id, str)
+        and message_id in _MESSAGE_CONTRACT
+        and isinstance(params, dict)
+        and set(params) == set(_MESSAGE_CONTRACT[message_id])
+        and all(isinstance(value, str) for value in params.values())
+    ):
+        return JSONResponse(
+            status_code=to_http_status(exc),
+            content={
+                "detail": exc.message or str(exc),
+                "message_id": message_id,
+                "message_params": params,
+            },
+        )
+    raise HTTPException(to_http_status(exc), exc.message or str(exc)) from exc
 
 
 @router.get("/api/positions/{position_id}/lots")
@@ -153,11 +206,9 @@ def record_disposal(position_id: str, body: DisposalCreate):
     try:
         result = lots_service.apply_lot_change(change)
     except OpenNetWorthError as exc:  # InvalidLotSelection / InsufficientLots → 422
-        raise HTTPException(to_http_status(exc), exc.message or str(exc)) from exc
+        return _lot_exception(exc)
     if result.get("error"):
-        if result.get("existing_event_id"):
-            raise HTTPException(409, result["error"])
-        raise HTTPException(404, result["error"])
+        return _raise_lot_write(result, default_status=404)
     return result
 
 
@@ -168,7 +219,7 @@ def amend_disposal(event_id: str, body: DisposalCreate):
     try:
         result = lots_service.apply_lot_change(change)
     except OpenNetWorthError as exc:
-        raise HTTPException(to_http_status(exc), exc.message or str(exc)) from exc
+        return _lot_exception(exc)
     return _raise_lot_write(result)
 
 

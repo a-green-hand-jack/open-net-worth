@@ -1,3 +1,4 @@
+import { message as t } from './native-messages';
 import { app, BrowserWindow, nativeTheme, screen, session, shell, systemPreferences, type IpcMainInvokeEvent, type Session, type WebContents } from 'electron';
 import { join } from 'node:path';
 import { createHash } from 'node:crypto';
@@ -11,6 +12,8 @@ import { ArtifactProtocolOwner } from './artifact-protocol';
 import { WindowLifetime } from './window-lifetime';
 import { setDockVisible } from './dock-visibility';
 import { recoveryPage } from './recovery-page';
+import { BookInUseError, DatabaseAheadError } from './runtime';
+import { getDesktopLocale } from './desktop-locale';
 import { hostedPage } from './hosted-page';
 import { welcomePage, type InitialPage } from './welcome-page';
 import type { BookEntry, BookStartupStage } from './book-switch';
@@ -195,14 +198,14 @@ export class DesktopWindow {
   }
 
   async loadServer(): Promise<void> {
-    if (!this.serverOrigin) throw new Error('No server selected.');
+    if (!this.serverOrigin) throw new Error(t("No server selected."));
     await this.load(`${this.serverOrigin}/`);
   }
 
   // A page that never finishes loading must end in the recovery screen, not an endless splash.
   private async load(url: string): Promise<void> {
     let timer: NodeJS.Timeout | undefined;
-    const timeout = new Promise<never>((_resolve, reject) => { timer = setTimeout(() => { this.window.webContents.stop(); reject(new Error('The page took too long to open.')); }, PAGE_LOAD_TIMEOUT_MS); });
+    const timeout = new Promise<never>((_resolve, reject) => { timer = setTimeout(() => { this.window.webContents.stop(); reject(new Error(t("The page took too long to open."))); }, PAGE_LOAD_TIMEOUT_MS); });
     try { await Promise.race([this.window.loadURL(url), timeout]); } finally { clearTimeout(timer); }
     this.forgetHistory();
   }
@@ -216,11 +219,11 @@ export class DesktopWindow {
   // `entry` is the gateway callback on a fresh sign-in; its query holds a one-time code, so no error from
   // a failed load (which Electron words with the URL) is ever passed on.
   async loadHosted(entry: string | null = null): Promise<void> {
-    if (!this.hosted || !this.serverOrigin) throw new Error('No Private Cloud selected.');
+    if (!this.hosted || !this.serverOrigin) throw new Error(t("No Private Cloud selected."));
     this.portalIntercepted = false;
     try { await this.load(entry ?? `${this.serverOrigin}/`); }
     catch {
-      if (!this.portalIntercepted) throw new Error('Could not open your Private Cloud. Check your connection and try again.');
+      if (!this.portalIntercepted) throw new Error(t("Could not open your Private Cloud. Check your connection and try again."));
     }
     if (this.startupVisible) this.show();
   }
@@ -242,13 +245,13 @@ export class DesktopWindow {
 
   // A request carrying this window's own sign-in, for reads the main process makes about the signed-in account.
   hostedFetch(path: string, init: { signal?: AbortSignal; headers?: Record<string, string> } = {}): Promise<Response> {
-    if (!this.hosted || !this.serverOrigin) throw new Error('No Private Cloud selected.');
+    if (!this.hosted || !this.serverOrigin) throw new Error(t("No Private Cloud selected."));
     return this.isolated.fetch(new URL(path, this.serverOrigin).href, { credentials: 'include', redirect: 'error', headers: { Accept: 'application/json', ...init.headers }, signal: init.signal ?? AbortSignal.timeout(10_000) });
   }
 
   // The gateway session was ended by the page (C4); this drops this origin's cookies and storage on the device.
   async endHostedSession(): Promise<void> {
-    if (!this.hosted || !this.serverOrigin) throw new Error('No Private Cloud selected.');
+    if (!this.hosted || !this.serverOrigin) throw new Error(t("No Private Cloud selected."));
     await this.showHostedWaiting(true);
     await this.isolated.clearStorageData();
     await this.isolated.clearCache();
@@ -285,10 +288,10 @@ export class DesktopWindow {
   }
 
   async loadApp(entry: BookEntry = 'folder'): Promise<void> {
-    if (!this.backend.origin) throw new Error('The backend is unavailable.');
+    if (!this.backend.origin) throw new Error(t("The backend is unavailable."));
     const response = await this.backend.request('/');
     const html = await response.text();
-    if (html.length > 2 * 1024 * 1024) throw new Error('The bundled frontend is too large.');
+    if (html.length > 2 * 1024 * 1024) throw new Error(t("The bundled frontend is too large."));
     this.inlineScriptHashes = [...html.matchAll(/<script\b([^>]*)>([\s\S]*?)<\/script\s*>/gi)]
       .filter((match) => !/\bsrc\s*=/i.test(match[1]))
       .map((match) => `'sha256-${createHash('sha256').update(match[2], 'utf8').digest('base64')}'`);
@@ -317,7 +320,8 @@ export class DesktopWindow {
   async showRecovery(starting: boolean): Promise<void> {
     if (this.closing) return;
     const failure = this.backend.startupFailure;
-    this.nativePage = starting ? { screen: 'starting your book', error: '' } : failure ? { screen: 'recovery: book already open', error: failure.message } : { screen: 'recovery: could not start', error: this.backend.failureReason };
+    const failureText = failure instanceof DatabaseAheadError ? t('This book was last opened by a newer version of Open Net Worth. Update the app to open it.') : failure instanceof BookInUseError ? (failure.port === null ? t('This book is already open in another Open Net Worth server. Stop that server and retry, or choose another folder.') : t('This book is already open in another Open Net Worth server on port {port}. Stop that server and retry, or choose another folder.', getDesktopLocale(), { port: failure.port })) : this.backend.failureReason;
+    this.nativePage = starting ? { screen: 'starting your book', error: '' } : failure instanceof BookInUseError ? { screen: 'recovery: book already open', error: failureText } : { screen: 'recovery: could not start', error: failureText };
     const html = recoveryPage(starting, this.backend.startupFailure, this.backend.bookRoot, nativeTheme.shouldUseDarkColors ? 'dark' : 'light', this.startupStage, null, this.backend.failureReason, !starting && this.offerBookChoice());
     this.recoveryUrl = `data:text/html;charset=utf-8,${encodeURIComponent(html)}`;
     await this.window.loadURL(this.recoveryUrl);
@@ -336,39 +340,39 @@ export class DesktopWindow {
 
   authorizeBookChoice(event: IpcMainInvokeEvent): void {
     this.authorize(event);
-    if (event.senderFrame?.url !== `${this.backend.origin}/setup/folder`) throw new Error('Book selection is unavailable here.');
+    if (event.senderFrame?.url !== `${this.backend.origin}/setup/folder`) throw new Error(t("Book selection is unavailable here."));
   }
 
   authorizeInitial(event: IpcMainInvokeEvent): void {
     this.authorize(event, true);
     const url = event.senderFrame?.url;
     const fromRecovery = url === this.recoveryUrl && this.offerBookChoice();
-    if (url !== this.welcomeUrl && !fromRecovery) throw new Error('Book selection is unavailable here.');
+    if (url !== this.welcomeUrl && !fromRecovery) throw new Error(t("Book selection is unavailable here."));
   }
 
   authorize(event: IpcMainInvokeEvent, allowRecovery = false): void {
-    if (this.serverOrigin) throw new Error('Local desktop capabilities are unavailable for a server connection.');
+    if (this.serverOrigin) throw new Error(t("Local desktop capabilities are unavailable for a server connection."));
     const contents = this.lifetime.current();
-    if (!contents) throw new Error('The desktop window has closed.');
-    if (event.sender !== contents || event.senderFrame !== contents.mainFrame) throw new Error('Untrusted desktop caller.');
+    if (!contents) throw new Error(t("The desktop window has closed."));
+    if (event.sender !== contents || event.senderFrame !== contents.mainFrame) throw new Error(t("Untrusted desktop caller."));
     const url = event.senderFrame?.url ?? '';
     if (allowRecovery && (url === this.recoveryUrl || url === this.welcomeUrl)) return;
-    if (!this.backend.origin || !trustedFrame(this.backend.origin, url, event.senderFrame?.routingId, contents.mainFrame.routingId)) throw new Error('Untrusted desktop caller.');
+    if (!this.backend.origin || !trustedFrame(this.backend.origin, url, event.senderFrame?.routingId, contents.mainFrame.routingId)) throw new Error(t("Untrusted desktop caller."));
   }
 
   authorizeClient(event: IpcMainInvokeEvent, native = false): void {
     const contents = this.lifetime.current();
-    if (!contents) throw new Error('The desktop window has closed.');
-    if (event.sender !== contents || event.senderFrame !== contents.mainFrame) throw new Error('Untrusted desktop caller.');
+    if (!contents) throw new Error(t("The desktop window has closed."));
+    if (event.sender !== contents || event.senderFrame !== contents.mainFrame) throw new Error(t("Untrusted desktop caller."));
     const url = event.senderFrame?.url ?? '';
     if (native && [this.recoveryUrl, this.welcomeUrl].includes(url)) return;
     const origin = this.serverOrigin ?? this.backend.origin;
-    if (!origin || !appDocument(origin, url)) throw new Error('Untrusted desktop caller.');
+    if (!origin || !appDocument(origin, url)) throw new Error(t("Untrusted desktop caller."));
   }
 
   authorizeServerRetry(event: IpcMainInvokeEvent): void {
     this.authorizeClient(event, true);
-    if (!serverRecoveryAllowed(this.serverOrigin, event.senderFrame?.url ?? '', this.recoveryUrl)) throw new Error('This recovery action is unavailable here.');
+    if (!serverRecoveryAllowed(this.serverOrigin, event.senderFrame?.url ?? '', this.recoveryUrl)) throw new Error(t("This recovery action is unavailable here."));
   }
 
   private detachSessionPolicy(): void {
@@ -465,7 +469,7 @@ export class DesktopWindow {
     });
     this.downloadHandler = (_event, item) => {
       if (!this.lifetime.current()) { item.cancel(); return; }
-      item.setSaveDialogOptions({ title: 'Save Open Net Worth file' });
+      item.setSaveDialogOptions({ title: t('Save Open Net Worth file') });
     };
     isolated.on('will-download', this.downloadHandler);
   }

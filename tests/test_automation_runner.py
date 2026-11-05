@@ -448,6 +448,8 @@ def test_stale_running_run_fails_and_releases_its_runtime_lock(db_isolated):
     assert outcome["recovered"] == 1
     assert updated["status"] == "failed"
     assert "restart" in updated["error"].lower()
+    assert updated["error_message"] == {"id": "automations.run.restartInterrupted", "params": {}}
+    assert updated["summary_message"] == {"id": "automations.run.interrupted", "params": {}}
     assert AutomationRuntimeStore().get_for_automation("missing_automation") is None
 
 

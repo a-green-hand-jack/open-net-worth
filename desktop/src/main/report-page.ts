@@ -2,6 +2,8 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { LIMITS, type ReportPayload } from './problem-report';
 import { SUPPORT_EMAIL } from './report-config';
+import { getDesktopLocale } from './desktop-locale';
+import { message as t } from './native-messages';
 
 const assets = JSON.parse(readFileSync(join(__dirname, '..', '..', 'resources', 'onboarding.generated.json'), 'utf8')) as { css: string; logo: string };
 
@@ -42,12 +44,12 @@ button.primary{background:var(--fr-gold);border-color:var(--fr-gold);color:var(-
 input:focus-visible,textarea:focus-visible,button:focus-visible,summary:focus-visible,.x:focus-visible{outline:2px solid var(--fr-gold);outline-offset:2px}
 .done p{color:var(--muted)}.done .actions{display:flex;justify-content:flex-end;margin-top:var(--space-6)}`;
 
-const CLOSE = `<button id="dismiss" class="x" type="button" aria-label="Close"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg></button>`;
+const closeButton = (): string => `<button id="dismiss" class="x" type="button" aria-label="${t('Close')}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg></button>`;
 
 // A draft is data, never markup: it is embedded as JSON with every `<` escaped.
 const json = (value: unknown): string => JSON.stringify(value).replace(/</g, '\\u003c');
 
-const SCRIPT = `
+const reportScript = (): string => `
 const $=id=>document.getElementById(id);const draft=JSON.parse($('draft').textContent);const bridge=window.onwReport;
 const fields={description:$('description'),email:$('email'),error:$('error'),logs:$('logs'),include:$('include')};
 let busy=false;
@@ -58,12 +60,12 @@ const status=(text,bad)=>{const node=$('status');node.className='status'+(bad?' 
 const refresh=()=>{if(fields.logs)fields.logs.disabled=!fields.include.checked||busy;$('json').textContent=JSON.stringify(payload(),null,2);const ready=Boolean(fields.description.value.trim())&&!busy;for(const id of ['send','copy','email'])$(id).disabled=!ready;$('cancel').disabled=busy;$('dismiss').disabled=busy};
 const clean=failure=>String(failure&&failure.message||failure).replace(/^Error invoking remote method '[^']+': (Error: )?/,'');
 const guarded=run=>async()=>{busy=true;refresh();status('');try{await run()}catch(failure){fallback(clean(failure))}finally{busy=false;refresh()}};
-const fallback=message=>{const node=status(message+' You can copy the report or email it to ',true);const address=document.createElement('span');address.className='addr';address.textContent=${JSON.stringify(SUPPORT_EMAIL)};node.append(address,'.');$('copy').hidden=false;$('email').hidden=false};
+const fallback=message=>{const node=status(message+' '+${json(t('You can copy the report or email it to'))}+' ',true);const address=document.createElement('span');address.className='addr';address.textContent=${JSON.stringify(SUPPORT_EMAIL)};node.append(address,'.');$('copy').hidden=false;$('email').hidden=false};
 for(const field of Object.values(fields))if(field)field.addEventListener('input',refresh);fields.include.addEventListener('change',refresh);
-$('send').addEventListener('click',guarded(async()=>{const sent=await bridge.send(payload());$('form').hidden=true;$('foot').hidden=true;$('done').hidden=false;if(sent.id)$('reference').textContent='Reference '+sent.id;$('close').focus()}));
+$('send').addEventListener('click',guarded(async()=>{const sent=await bridge.send(payload());$('form').hidden=true;$('foot').hidden=true;$('done').hidden=false;if(sent.id)$('reference').textContent=${json(t('Reference {id}', undefined, { id: '__id__' }))}.replace('__id__', sent.id);$('close').focus()}));
 $('discord').addEventListener('click',guarded(async()=>{await bridge.community()}));
-$('copy').addEventListener('click',guarded(async()=>{await bridge.copy(payload());status('Copied. Paste it wherever you like.')}));
-$('email').addEventListener('click',guarded(async()=>{await bridge.email(payload());status('Your mail app opened with the start of the report. The whole report, logs included, is on your clipboard to paste.')}));
+$('copy').addEventListener('click',guarded(async()=>{await bridge.copy(payload());status(${json(t('Copied. Paste it wherever you like.'))})}));
+$('email').addEventListener('click',guarded(async()=>{await bridge.email(payload());status(${json(t('Your mail app opened with the start of the report. The whole report, logs included, is on your clipboard to paste.'))})}));
 const close=()=>{if(!busy)bridge.close()};
 for(const id of ['cancel','close','dismiss'])$(id).addEventListener('click',close);
 $('scrim').addEventListener('click',event=>{if(event.target===event.currentTarget&&document.documentElement.classList.contains('overlay'))close()});
@@ -73,19 +75,19 @@ refresh();fields.description.focus();`;
 // `overlay`: drawn over the main window (a click on the scrim closes it); otherwise it fills a window of its own.
 export function reportPage(draft: ReportPayload, theme: 'dark' | 'light', overlay = false): string {
   const logs = draft.logs !== null;
-  return `<!doctype html><html lang="en" data-theme="${theme}"${overlay ? ' class="overlay"' : ''}><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; img-src data:; font-src data:; script-src 'nonce-onw-report';"><title>Report a problem — Open Net Worth</title><style>${assets.css}
+  return `<!doctype html><html lang="${getDesktopLocale()}" data-theme="${theme}"${overlay ? ' class="overlay"' : ''}><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; img-src data:; font-src data:; script-src 'nonce-onw-report';"><title>${t('Report a problem')} — Open Net Worth</title><style>${assets.css}
 ${STYLE}</style></head><body><div id="scrim" class="scrim"><div class="card" role="dialog" aria-modal="true" aria-labelledby="title">
-<div class="scroll"><main><div id="form"><div class="head"><h1 id="title">Report a problem</h1>${CLOSE}</div>
-<label for="description">What happened?</label><textarea id="description" rows="5" maxlength="${LIMITS.description}"></textarea>
-<label for="email">Email <span class="req">(optional)</span></label><input id="email" type="email" maxlength="${LIMITS.email}" autocomplete="off" aria-describedby="email-hint"><p id="email-hint" class="hint">We’ll only use it to tell you when the fix is out.</p>
-${draft.error ? `<label for="error">Error</label><textarea id="error" rows="3" maxlength="${LIMITS.error}" class="mono"></textarea>` : ''}
-<p class="label">Sent with the report</p><dl><dt>Version</dt><dd>${escapeHtml(draft.app_version)}</dd><dt>Platform</dt><dd>${escapeHtml(draft.platform)}</dd><dt>Mode</dt><dd>${draft.mode}</dd>${draft.screen ? `<dt>Screen</dt><dd>${escapeHtml(draft.screen)}</dd>` : ''}</dl>
-<label class="check${logs ? '' : ' off'}"><input id="include" type="checkbox"><span class="check-text"><span class="check-label">Include recent logs</span><span class="check-desc">${logs ? 'Amounts, names and keys are masked.' : 'No logs yet.'}</span></span></label>
-${logs ? `<textarea id="logs" class="mono" rows="9" aria-label="Recent logs" maxlength="${LIMITS.logs}" spellcheck="false"></textarea>` : ''}
-<details><summary>Show exactly what is sent</summary><pre id="json"></pre></details><p class="community">Prefer to chat? <button id="discord" class="link" type="button">Join us on Discord</button></p></div>
-<div id="done" class="done" hidden><h1>Thank you. Your report was sent.</h1><p>We will investigate and fix this within 48 hours!</p><p id="reference"></p><div class="actions"><button id="close" class="primary" type="button">Close</button></div></div></main></div>
-<footer id="foot"><div id="status" class="status" role="status" aria-live="polite"></div><div class="bar"><button id="cancel" type="button">Cancel</button><button id="copy" type="button" hidden>Copy report</button><button id="email" type="button" hidden>Email instead</button><button id="send" class="primary" type="button">Send report</button></div></footer>
-</div></div><script type="application/json" id="draft">${json(draft)}</script><script nonce="onw-report">${SCRIPT}</script></body></html>`;
+<div class="scroll"><main><div id="form"><div class="head"><h1 id="title">${t("Report a problem")}</h1>${closeButton()}</div>
+<label for="description">${t("What happened?")}</label><textarea id="description" rows="5" maxlength="${LIMITS.description}"></textarea>
+<label for="email">${t("Email")} <span class="req">${t("(optional)")}</span></label><input id="email" type="email" maxlength="${LIMITS.email}" autocomplete="off" aria-describedby="email-hint"><p id="email-hint" class="hint">${t("We’ll only use it to tell you when the fix is out.")}</p>
+${draft.error ? `<label for="error">${t("Error")}</label><textarea id="error" rows="3" maxlength="${LIMITS.error}" class="mono"></textarea>` : ''}
+<p class="label">${t("Sent with the report")}</p><dl><dt>${t("Version")}</dt><dd>${escapeHtml(draft.app_version)}</dd><dt>${t("Platform")}</dt><dd>${escapeHtml(draft.platform)}</dd><dt>${t("Mode")}</dt><dd>${t(draft.mode)}</dd>${draft.screen ? `<dt>${t("Screen")}</dt><dd>${escapeHtml(draft.screen)}</dd>` : ''}</dl>
+<label class="check${logs ? '' : ' off'}"><input id="include" type="checkbox"><span class="check-text"><span class="check-label">${t("Include recent logs")}</span><span class="check-desc">${logs ? t('Amounts, names and keys are masked.') : t('No logs yet.')}</span></span></label>
+${logs ? `<textarea id="logs" class="mono" rows="9" aria-label="${t('Recent logs')}" maxlength="${LIMITS.logs}" spellcheck="false"></textarea>` : ''}
+<details><summary>${t("Show exactly what is sent")}</summary><pre id="json"></pre></details><p class="community">${t("Prefer to chat? ")}<button id="discord" class="link" type="button">${t("Join us on Discord")}</button></p></div>
+<div id="done" class="done" hidden><h1>${t("Thank you. Your report was sent.")}</h1><p>${t("We will investigate and fix this within 48 hours!")}</p><p id="reference"></p><div class="actions"><button id="close" class="primary" type="button">${t("Close")}</button></div></div></main></div>
+<footer id="foot"><div id="status" class="status" role="status" aria-live="polite"></div><div class="bar"><button id="cancel" type="button">${t("Cancel")}</button><button id="copy" type="button" hidden>${t("Copy report")}</button><button id="email" type="button" hidden>${t("Email instead")}</button><button id="send" class="primary" type="button">${t("Send report")}</button></div></footer>
+</div></div><script type="application/json" id="draft">${json(draft)}</script><script nonce="onw-report">${reportScript()}</script></body></html>`;
 }
 
 function escapeHtml(value: string): string {

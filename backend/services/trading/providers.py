@@ -54,6 +54,8 @@ def get_live_adapter(account: dict) -> LiveAdapter:
         adapter = _adapters.get(connector_id)
     if adapter is None:
         raise ConflictError(
-            "No verified live trading adapter is configured", connector_id=connector_id
+            "No verified live trading adapter is configured",
+            connector_id=connector_id,
+            message_id="trading.error.live_adapter_unconfigured",
         )
     return adapter

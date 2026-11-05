@@ -254,6 +254,7 @@ def test_current_month_stream_event_is_not_scaled_by_days_remaining(book, monkey
 
     recurring_events = {e["label"]: e for e in current["events"] if e["status"] == "recurring"}
     assert recurring_events["Salary"]["amount_base"] == pytest.approx(7000.0)
+    assert "label_message" not in recurring_events["Salary"]
 
 
 def test_current_month_stream_event_already_posted_is_not_double_counted(book, monkeypatch):
@@ -279,6 +280,16 @@ def test_an_empty_book_still_falls_back_to_the_profile_figures(book):
     proj = cashflow.build_projection(months=2, history_months=0)
     assert proj["baseline_source"] == "profile"
     assert proj["classified"] is False
+
+
+def test_flat_baseline_has_stable_default_label_ids(book):
+    book([])
+    proj = cashflow.build_projection(
+        months=2, history_months=0, income_override=1000, expense_override=500
+    )
+    events = {event["label"]: event for event in proj["months"][1]["events"]}
+    assert events["Salary"]["label_message"]["id"] == "cashflow.label.salary"
+    assert events["Living expenses"]["label_message"]["id"] == "cashflow.label.living_expenses"
 
 
 def test_classification_failure_degrades_to_the_flat_average(book, monkeypatch):

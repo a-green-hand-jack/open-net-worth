@@ -1079,6 +1079,7 @@ def test_effective_window_clamps_to_inception(patched):
     assert out["effective_start"] > out["start"]  # start is the REQUESTED start
     assert out["label"].startswith("Since ")
     assert "2026-05-10" in out["label"]
+    assert out["label_message"] == {"id": "returns.label.since", "params": {"date": "2026-05-10"}}
 
 
 def test_effective_window_no_clamp_when_book_is_long(patched):
@@ -1092,6 +1093,7 @@ def test_effective_window_no_clamp_when_book_is_long(patched):
     out = r.portfolio_returns("1Y", today=date(2026, 6, 5))
     assert out["effective_start"] == out["start"]  # no clamp
     assert out["label"] == "Last 1 year"
+    assert out["label_message"] == {"id": "returns.label.period", "params": {"period": "1Y"}}
 
 
 def test_fresh_book_below_30d_span_cumulative_only(patched):
@@ -1403,3 +1405,14 @@ def test_benchmark_price_series_sparse_btc_anchors_to_window_start(db_isolated):
     assert series[-1]["price"] == pytest.approx(84_000.0)
     # No flat-zero entries (anchoring to earliest, not fabricating zeros).
     assert all(p["price"] > 0 for p in series)
+
+
+def test_returns_label_ids_are_consumed_by_frontend():
+    import re
+    from pathlib import Path
+
+    root = Path(__file__).resolve().parents[1]
+    backend = (root / "backend/services/returns.py").read_text()
+    frontend = (root / "frontend/src/components/tabs/overview/widgets/investing.tsx").read_text()
+    ids = set(re.findall(r'"(returns\.label\.[a-zA-Z0-9_]+)"', backend))
+    assert ids and all(message_id in frontend for message_id in ids)

@@ -2,7 +2,11 @@
 
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { Builder } from './Builder'
+import { Builder, builderMessage } from './Builder'
+import { createIntl, IntlProvider } from 'react-intl'
+import messages from './builder.zh-CN.messages.json'
+import commonMessages from '../../i18n/zh-CN.json'
+import messageContract from '../../../../backend/core/builder_message_contract.json'
 
 vi.mock('../../api/builder', () => ({
   getBuilderStatus: vi.fn(),
@@ -17,6 +21,58 @@ const mockStatus = getBuilderStatus as ReturnType<typeof vi.fn>
 const mockStart = startBuilderRun as ReturnType<typeof vi.fn>
 const mockGetRun = getBuilderRun as ReturnType<typeof vi.fn>
 const mockStop = stopBuilderRun as ReturnType<typeof vi.fn>
+
+it('translates only recognized Builder metadata with valid parameters', () => {
+  const intl = createIntl({ locale: 'zh-CN', messages })
+  expect(
+    builderMessage(intl, { id: 'builder.event.started', params: { engine: 'codex' } }, 'original'),
+  ).toBe('Codex 已启动。')
+  expect(
+    builderMessage(intl, { id: 'builder.event.started', params: { engine: 'other' } }, 'original'),
+  ).toBe('original')
+  expect(
+    builderMessage(
+      intl,
+      { id: 'builder.error.demo', params: [] as unknown as Record<string, unknown> },
+      'original',
+    ),
+  ).toBe('original')
+  expect(builderMessage(intl, { id: 'external', params: {} }, 'original')).toBe('original')
+  expect(
+    builderMessage(
+      createIntl({ locale: 'en' }),
+      { id: 'builder.event.started', params: { engine: 'codex' } },
+      'original',
+    ),
+  ).toBe('original')
+})
+
+it('covers every registered backend message and rejects parameter drift', () => {
+  const intl = createIntl({ locale: 'zh-CN', messages })
+  const samples: Record<string, string | number> = {
+    engine: 'codex',
+    mode: 'plan',
+    count: 100,
+    run_id: 'build_1',
+    status: 1,
+    command: 'codex',
+  }
+  for (const [id, names] of Object.entries(messageContract)) {
+    const params = Object.fromEntries(names.map((name) => [name, samples[name]]))
+    expect(builderMessage(intl, { id, params }, 'untranslated'), id).not.toBe('untranslated')
+    expect(
+      builderMessage(intl, { id, params: { ...params, unexpected: 1 } }, 'untranslated'),
+      id,
+    ).toBe('untranslated')
+    for (const name of names) {
+      const incomplete = { ...params }
+      delete incomplete[name]
+      expect(builderMessage(intl, { id, params: incomplete }, 'untranslated'), id).toBe(
+        'untranslated',
+      )
+    }
+  }
+})
 
 const STATUS = {
   workspace: '/repo/open-net-worth',
@@ -66,6 +122,47 @@ describe('Builder', () => {
   })
 
   afterEach(() => cleanup())
+
+  it('switches the interface language without changing a user request', async () => {
+    const { rerender } = render(
+      <IntlProvider locale="en">
+        <Builder />
+      </IntlProvider>,
+    )
+    const input = await screen.findByLabelText('What should Open Net Worth change?')
+    fireEvent.change(input, { target: { value: 'My custom request' } })
+    rerender(
+      <IntlProvider locale="zh-CN" messages={{ ...commonMessages, ...messages }}>
+        <Builder />
+      </IntlProvider>,
+    )
+    expect(screen.getByRole('tab', { name: '规划' })).toBeTruthy()
+    expect(
+      (screen.getByLabelText('Open Net Worth 应该更改什么？') as HTMLTextAreaElement).value,
+    ).toBe('My custom request')
+    fireEvent.click(screen.getByRole('button', { name: '添加新功能' }))
+    expect(
+      (screen.getByLabelText('Open Net Worth 应该更改什么？') as HTMLTextAreaElement).value,
+    ).toContain('仪表盘卡片')
+  })
+
+  it('renders a known API failure in Chinese', async () => {
+    mockStart.mockRejectedValueOnce(
+      Object.assign(new Error('Builder run not found.'), {
+        messageInfo: { id: 'builder.error.runNotFound', params: {} },
+      }),
+    )
+    render(
+      <IntlProvider locale="zh-CN" messages={{ ...commonMessages, ...messages }}>
+        <Builder />
+      </IntlProvider>,
+    )
+    fireEvent.change(await screen.findByLabelText('Open Net Worth 应该更改什么？'), {
+      target: { value: 'Custom request' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: '规划此更改' }))
+    await screen.findByText('未找到构建器运行记录。')
+  })
 
   it('renders engine readiness and setup guidance without pretending a missing engine works', async () => {
     render(<Builder />)

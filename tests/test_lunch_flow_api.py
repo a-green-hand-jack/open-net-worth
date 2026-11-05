@@ -249,3 +249,20 @@ def test_disconnect_bad_request_returns_422(client, monkeypatch):
     monkeypatch.setattr(sync_svc, "disconnect_connection", _raise)
     r = client.delete("/api/lunch-flow/connections/100")
     assert r.status_code == 422
+
+
+def test_disconnect_preserves_application_message_id(client, monkeypatch):
+    from backend.core.errors import ValidationError
+    from backend.services.aggregation import lunch_flow as sync_svc
+
+    def fail(_connection_id):
+        raise ValidationError(
+            "Lunch Flow is not linked — connect a bank first.",
+            message_id="connector.error.lunchFlowNotLinked",
+        )
+
+    monkeypatch.setattr(sync_svc, "disconnect_connection", fail)
+    response = client.delete("/api/lunch-flow/connections/100")
+    assert response.status_code == 422
+    assert response.json()["message_id"] == "connector.error.lunchFlowNotLinked"
+    assert response.json()["message_params"] == {}

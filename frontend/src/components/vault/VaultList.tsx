@@ -1,3 +1,4 @@
+import { useAppIntl } from '../../i18n/useAppIntl'
 import { useState } from 'react'
 import { ActionMenu } from '../ui/ActionMenu'
 import { Skeleton } from '../ui/Skeleton'
@@ -74,22 +75,23 @@ function vaultFields(item: VaultItem): Record<string, string | number | null | u
 /** A row's ⋮ — Rename, the note, the tags, then the removals this kind allows: the same dialogs
  *  its page's Manage opens (owner: "should we have kebab menu for quick delete, rename?"). */
 function RowMenu({ item }: { item: VaultItem }) {
+  const vaultIntl = useAppIntl()
   const [action, setAction] = useState<ItemAction | null>(null)
   return (
     <>
       <ActionMenu
         className="vault-row-menu"
-        label={`More actions for ${item.title}`}
+        label={vaultIntl.formatMessage({ id: 'vault.moreActions', defaultMessage: 'More actions for {title}' }, { title: item.title })}
         title={item.title}
         trigger={<MoreVertical size={18} aria-hidden="true" />}
         items={[
-          { label: 'Rename', onSelect: () => setAction('rename') },
-          { label: item.note ? 'Edit note' : 'Add a note', onSelect: () => setAction('note') },
+          { label: vaultIntl.formatMessage({ id: 'vault.rename', defaultMessage: 'Rename' }), onSelect: () => setAction('rename') },
+          { label: item.note ? vaultIntl.formatMessage({ id: "vault.ui.299e604ccff3", defaultMessage: "Edit note" }) : vaultIntl.formatMessage({ id: "vault.ui.322c0e13ef4f", defaultMessage: "Add a note" }), onSelect: () => setAction('note') },
           {
-            label: item.tags?.length ? 'Edit tags' : 'Add tags',
+            label: item.tags?.length ? vaultIntl.formatMessage({ id: "vault.ui.4687da851c22", defaultMessage: "Edit tags" }) : vaultIntl.formatMessage({ id: "vault.ui.9c29db454e3d", defaultMessage: "Add tags" }),
             onSelect: () => setAction('tags'),
           },
-          ...removalActions(item).map((removal) => ({
+          ...removalActions(item, vaultIntl).map((removal) => ({
             label: removal.label,
             tone: removal.keeps ? ('default' as const) : ('danger' as const),
             onSelect: () => setAction(removal),
@@ -112,6 +114,7 @@ export function VaultList({
    *  drag has nowhere visible to land, and on iOS it steals the long-press (owner report). */
   draggable?: boolean
 }) {
+  const vaultIntl = useAppIntl()
   return (
     <ul className="vault-list">
       {items.map((item) => (
@@ -124,7 +127,7 @@ export function VaultList({
             label={item.title}
             item={item}
             toFields={vaultFields}
-            sublabel={vaultSublabel(item)}
+            sublabel={vaultSublabel(item, vaultIntl)}
             search={[item.filename, item.account_name].filter(Boolean).join(' ')}
             className="vault-row"
             draggable={draggable}
@@ -133,11 +136,11 @@ export function VaultList({
             <VaultKindIcon item={item} thumbnail />
             <span className="vault-row-text">
               <span className="vault-row-title">{item.title}</span>
-              <span className="vault-row-sub">{vaultSublabel(item)}</span>
+              <span className="vault-row-sub">{vaultSublabel(item, vaultIntl)}</span>
             </span>
             {item.private && (
-              <span className="vault-row-lock" title="Private — Lucius can't read it">
-                <Lock size={14} strokeWidth={1.7} aria-label="Private" />
+              <span className="vault-row-lock" title={vaultIntl.formatMessage({ id: "vault.ui.2e8d5882093e", defaultMessage: "Private — Lucius can't read it" })}>
+                <Lock size={14} strokeWidth={1.7} aria-label={vaultIntl.formatMessage({ id: "vault.ui.c63eb6720c6e", defaultMessage: "Private" })} />
               </span>
             )}
           </EntityRow>
@@ -154,8 +157,9 @@ const SUB_W = [38, 30, 42, 34, 36, 28, 40, 32]
 /** The list while it loads: rows in the list's own shape (icon tile, title, second line), so
  *  the real rows land in the same slots (owner: "we are not having skeleton loading?"). */
 export function VaultListSkeleton({ rows = 8 }: { rows?: number }) {
+  const vaultIntl = useAppIntl()
   return (
-    <div className="vault-list" role="status" aria-label="Loading documents" aria-busy="true">
+    <div className="vault-list" role="status" aria-label={vaultIntl.formatMessage({ id: "vault.ui.77266c833455", defaultMessage: "Loading documents" })} aria-busy="true">
       {Array.from({ length: rows }, (_, i) => (
         <div key={i} className="vault-row vault-row--skeleton">
           <Skeleton width={36} height={36} radius="var(--radius-md)" />

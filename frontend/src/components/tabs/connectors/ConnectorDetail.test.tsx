@@ -530,3 +530,16 @@ describe('on a phone a running connector keeps Pause in the ⋮; only a fix reac
     expect(onSetEnabled).toHaveBeenCalledWith(true)
   })
 })
+
+it('explains pause consequences in Chinese before disabling', async () => {
+  const { IntlProvider } = await import('react-intl')
+  const messages = (await import('./zh-CN.messages.json')).default
+  const onSetEnabled = vi.fn()
+  render(<IntlProvider locale="zh-CN" messages={messages}><ConnectorDetail entry={entry()} onClose={vi.fn()} onSetEnabled={onSetEnabled} onReconnect={vi.fn()} onViewDetails={vi.fn()} onEditConnection={vi.fn()} onRefreshTools={vi.fn()} onRemove={vi.fn()} onUsePrompt={vi.fn()} onSetToolPermission={vi.fn()} onSetGroupPermission={vi.fn()} /></IntlProvider>)
+  fireEvent.click(screen.getByRole('button', { name: '暂停' }))
+  expect(screen.getByText(/计划同步将停止/)).toBeTruthy()
+  expect(screen.getByText(/保存的凭据和设置会保留/)).toBeTruthy()
+  expect(onSetEnabled).not.toHaveBeenCalled()
+  fireEvent.click(screen.getAllByRole('button', { name: '暂停' }).at(-1)!)
+  expect(onSetEnabled).toHaveBeenCalledWith(false)
+})

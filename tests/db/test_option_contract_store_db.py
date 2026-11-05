@@ -96,3 +96,31 @@ def test_strike_premium_and_collateral_round_trip_exactly(db_engine):
     assert back["premium_per_share"] == tricky
     assert back["collateral_amount"] == tricky
     assert back["close_premium_per_share"] == tricky
+
+
+def test_option_preset_migration_preserves_legacy_label(db_engine, monkeypatch):
+    import importlib
+
+    from sqlalchemy import select, update
+
+    from backend.db.tables import option_contracts
+
+    store = OptionContractStore(engine=db_engine)
+    saved = store.create_contract(_contract(strategy_tag="covered_call"))
+    legacy = {key: value for key, value in saved.items() if key != "strategy_preset"}
+    with db_engine.begin() as conn:
+        conn.execute(
+            update(option_contracts)
+            .where(option_contracts.c.id == saved["id"])
+            .values(payload=legacy)
+        )
+        migration = importlib.import_module(
+            "backend.db.alembic.versions.202611051300_option_preset"
+        )
+        monkeypatch.setattr(migration.op, "get_bind", lambda: conn)
+        migration.upgrade()
+        migrated = conn.execute(
+            select(option_contracts.c.payload).where(option_contracts.c.id == saved["id"])
+        ).scalar_one()
+    assert migrated["strategy_tag"] == "covered_call"
+    assert migrated["strategy_preset"] is None

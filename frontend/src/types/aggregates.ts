@@ -295,6 +295,7 @@ export interface CashflowMonth {
 export interface CategoryAmount {
   key: string
   label: string
+  label_message?: { id: string; params: Record<string, unknown> }
   color: string
   amount: number
 }
@@ -310,6 +311,7 @@ export interface MonthPoint {
 export interface StackedSeries {
   key: string
   label: string
+  label_message?: { id: string; params: Record<string, unknown> }
   color: string
   data: number[]
 }
@@ -324,6 +326,7 @@ export interface ReportsRollup {
   expense_table: Array<{
     key: string
     label: string
+    label_message?: { id: string; params: Record<string, unknown> }
     color: string
     current: number
     average: number
@@ -548,6 +551,13 @@ export type CashFlowNodeKind = 'income' | 'total' | 'shortfall' | 'spend_group' 
 export interface CashFlowNode {
   id: string
   label: string
+  label_message?: {
+    id: string
+    params: Record<string, unknown> & {
+      group?: string
+      group_message?: { id: string; params: Record<string, unknown> }
+    }
+  }
   column: number
   kind: CashFlowNodeKind
   amount: number

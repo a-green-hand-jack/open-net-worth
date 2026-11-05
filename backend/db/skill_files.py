@@ -35,6 +35,7 @@ from pathlib import Path
 import yaml
 
 from backend.core.errors import ValidationError
+from backend.core.skill_problem import SkillProblem
 
 # ── SKILL.md (standard Agent-Skill format) ────────────────────────────────────
 
@@ -162,7 +163,7 @@ def validate_claude_extensions(value: object, *, frontmatter: bool = False) -> l
     if value is None:
         return []
     if not isinstance(value, dict):
-        return ["Claude Code metadata must be a map"]
+        return [SkillProblem("Claude Code metadata must be a map", "skills.validation.claudeMap")]
     problems: list[str] = []
     for record_key, frontmatter_key in _CLAUDE_RECORD_TO_FRONTMATTER.items():
         key = frontmatter_key if frontmatter else record_key
@@ -170,16 +171,32 @@ def validate_claude_extensions(value: object, *, frontmatter: bool = False) -> l
             continue
         raw = value[key]
         if record_key in _CLAUDE_STRING_FIELDS and not isinstance(raw, str):
-            problems.append(f"'{key}' must be a string")
+            problems.append(
+                SkillProblem(
+                    f"'{key}' must be a string", "skills.validation.fieldString", field=key
+                )
+            )
         elif record_key in _CLAUDE_BOOL_FIELDS and not isinstance(raw, bool):
-            problems.append(f"'{key}' must be a boolean")
+            problems.append(
+                SkillProblem(
+                    f"'{key}' must be a boolean", "skills.validation.fieldBoolean", field=key
+                )
+            )
         elif record_key in _CLAUDE_LIST_FIELDS and not (
             isinstance(raw, str)
             or (isinstance(raw, list) and all(isinstance(item, str) for item in raw))
         ):
-            problems.append(f"'{key}' must be a string or list of strings")
+            problems.append(
+                SkillProblem(
+                    f"'{key}' must be a string or list of strings",
+                    "skills.validation.fieldStringList",
+                    field=key,
+                )
+            )
         elif record_key == "hooks" and not isinstance(raw, dict):
-            problems.append(f"'{key}' must be a map")
+            problems.append(
+                SkillProblem(f"'{key}' must be a map", "skills.validation.fieldMap", field=key)
+            )
     return problems
 
 
@@ -239,15 +256,24 @@ def validate_openai_metadata(value: object) -> list[str]:
     if value is None or value == {}:
         return []
     if not isinstance(value, dict):
-        return ["OpenAI metadata must be a map"]
+        return [SkillProblem("OpenAI metadata must be a map", "skills.validation.openaiMap")]
     problems: list[str] = []
     for key in ("interface", "dependencies", "policy"):
         if key in value and not isinstance(value[key], dict):
-            problems.append(f"OpenAI '{key}' must be a map")
+            problems.append(
+                SkillProblem(
+                    f"OpenAI '{key}' must be a map", "skills.validation.openaiFieldMap", field=key
+                )
+            )
     policy = value.get("policy")
     if isinstance(policy, dict) and "allow_implicit_invocation" in policy:
         if not isinstance(policy["allow_implicit_invocation"], bool):
-            problems.append("OpenAI 'policy.allow_implicit_invocation' must be a boolean")
+            problems.append(
+                SkillProblem(
+                    "OpenAI 'policy.allow_implicit_invocation' must be a boolean",
+                    "skills.validation.openaiPolicyBoolean",
+                )
+            )
     return problems
 
 
@@ -258,7 +284,13 @@ def validate_openai_yaml(text: str | None) -> list[str]:
     try:
         parsed = yaml.safe_load(text)
     except yaml.YAMLError as exc:
-        return [f"agents/openai.yaml is invalid YAML: {exc}"]
+        return [
+            SkillProblem(
+                f"agents/openai.yaml is invalid YAML: {exc}",
+                "skills.validation.invalidYaml",
+                reason=str(exc),
+            )
+        ]
     return validate_openai_metadata(parsed)
 
 
@@ -313,35 +345,74 @@ def validate_skill_md_frontmatter(meta: dict) -> list[str]:
     problems: list[str] = []
     name = meta.get("name")
     if not isinstance(name, str) or not name:
-        problems.append("frontmatter 'name' is required")
+        problems.append(
+            SkillProblem("frontmatter 'name' is required", "skills.validation.nameRequired")
+        )
     else:
         if len(name) > _MAX_NAME_LEN:
-            problems.append(f"'name' exceeds {_MAX_NAME_LEN} characters")
+            problems.append(
+                SkillProblem(
+                    f"'name' exceeds {_MAX_NAME_LEN} characters",
+                    "skills.validation.nameLength",
+                    maximum=str(_MAX_NAME_LEN),
+                )
+            )
         if not _SKILL_NAME_RE.match(name):
             problems.append(
-                "'name' must be lowercase letters/numbers/hyphens with no leading, trailing, "
-                "or consecutive hyphens"
+                SkillProblem(
+                    "'name' must be lowercase letters/numbers/hyphens with no leading, trailing, "
+                    "or consecutive hyphens",
+                    "skills.validation.nameSlug",
+                )
             )
     desc = meta.get("description")
     if not isinstance(desc, str) or not desc.strip():
-        problems.append("frontmatter 'description' is required and must be non-empty")
+        problems.append(
+            SkillProblem(
+                "frontmatter 'description' is required and must be non-empty",
+                "skills.validation.descriptionRequired",
+            )
+        )
     elif len(desc) > _MAX_DESCRIPTION_LEN:
-        problems.append(f"'description' exceeds {_MAX_DESCRIPTION_LEN} characters")
+        problems.append(
+            SkillProblem(
+                f"'description' exceeds {_MAX_DESCRIPTION_LEN} characters",
+                "skills.validation.descriptionLength",
+                maximum=str(_MAX_DESCRIPTION_LEN),
+            )
+        )
     license_ = meta.get("license")
     if license_ is not None and not isinstance(license_, str):
-        problems.append("'license' must be a string")
+        problems.append(
+            SkillProblem("'license' must be a string", "skills.validation.licenseString")
+        )
     compat = meta.get("compatibility")
     if compat is not None:
         if not isinstance(compat, str):
-            problems.append("'compatibility' must be a string")
+            problems.append(
+                SkillProblem(
+                    "'compatibility' must be a string", "skills.validation.compatibilityString"
+                )
+            )
         elif len(compat) > _MAX_COMPATIBILITY_LEN:
-            problems.append(f"'compatibility' exceeds {_MAX_COMPATIBILITY_LEN} characters")
+            problems.append(
+                SkillProblem(
+                    f"'compatibility' exceeds {_MAX_COMPATIBILITY_LEN} characters",
+                    "skills.validation.compatibilityLength",
+                    maximum=str(_MAX_COMPATIBILITY_LEN),
+                )
+            )
     md = meta.get("metadata")
     if md is not None and not (
         isinstance(md, dict)
         and all(isinstance(k, str) and isinstance(v, str) for k, v in md.items())
     ):
-        problems.append("'metadata' must be a map of string keys to string values")
+        problems.append(
+            SkillProblem(
+                "'metadata' must be a map of string keys to string values",
+                "skills.validation.metadataMap",
+            )
+        )
     problems.extend(validate_claude_extensions(meta, frontmatter=True))
     return problems
 
@@ -400,7 +471,11 @@ def _resolve_in_folder(folder: Path, rel: str) -> Path:
     base = Path(os.path.realpath(folder))
     candidate = Path(os.path.realpath(folder / rel))
     if candidate != base and base not in candidate.parents:
-        raise ValidationError(f"path '{rel}' resolves outside the skill folder")
+        raise ValidationError(
+            f"path '{rel}' resolves outside the skill folder",
+            message_id="skills.validation.folderPath",
+            message_params={"path": rel},
+        )
     return candidate
 
 

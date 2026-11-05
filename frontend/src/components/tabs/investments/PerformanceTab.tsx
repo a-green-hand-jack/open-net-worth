@@ -1,4 +1,7 @@
+import { getNumberLocale } from '../../../utils/format'
 import { useState } from 'react'
+import { useAppIntl } from '../../../i18n/useAppIntl'
+import { defineMessages } from 'react-intl'
 import { Button, Cluster, EmptyState, ErrorState, TabSkeleton } from '../../ui'
 import { ChartLine } from '../../../ui/icons'
 import { LuciusCta } from '../../intro/LuciusCta'
@@ -37,7 +40,7 @@ function toPath(arr: number[], min: number, rng: number): string {
 }
 
 function fmtReturn(v: number): string {
-  return (v >= 0 ? '+' : '−') + Math.abs(v * 100).toFixed(1) + '%'
+  return (v >= 0 ? '+' : '−') + Math.abs(v * 100).toLocaleString(getNumberLocale(), { minimumFractionDigits: 1, maximumFractionDigits: 1 }) + '%'
 }
 
 interface PerfChartProps {
@@ -48,6 +51,7 @@ interface PerfChartProps {
 }
 
 function PerfChart({ series, hasBenchmark, benchLabel, period }: PerfChartProps) {
+  const { formatMessage } = useAppIntl()
   const [hi, setHi] = useState<number | null>(null)
 
   const port = series.map((p) => p.portfolio)
@@ -177,7 +181,9 @@ function PerfChart({ series, hasBenchmark, benchLabel, period }: PerfChartProps)
             <div className="mk-chart-tip-d">{dateAt(hi)}</div>
             <div className="mk-chart-tip-r">
               <i className="good" />
-              <span>Portfolio</span>
+              <span>
+                {formatMessage({ id: 'performance.ui.Portfolio', defaultMessage: 'Portfolio' })}
+              </span>
               <b className={port[hi]! >= 0 ? 'pos' : 'neg'}>{fmtReturn(port[hi]!)}</b>
             </div>
             {bench && (
@@ -204,8 +210,17 @@ interface StatInfoProps {
 }
 
 function StatInfo({ text, alignRight }: StatInfoProps) {
+  const { formatMessage } = useAppIntl()
   return (
-    <span className="stat-info" tabIndex={0} role="button" aria-label="What does this mean?">
+    <span
+      className="stat-info"
+      tabIndex={0}
+      role="button"
+      aria-label={formatMessage({
+        id: 'performance.ui.WhatDoesThisMean',
+        defaultMessage: 'What does this mean?',
+      })}
+    >
       i<span className={'stat-pop' + (alignRight ? ' r' : '')}>{text}</span>
     </span>
   )
@@ -244,6 +259,14 @@ function StatBar({ cards }: StatBarProps) {
 // and renders the exact prototype layout: StatBar → Returns panel → Risk panel.
 
 const PERIODS: ReturnPeriod[] = ['1M', '3M', 'YTD', '1Y', 'ALL']
+const periodMessages = defineMessages({
+  '7D': { id: 'performance.period.7d', defaultMessage: '7D' },
+  '1M': { id: 'performance.period.1m', defaultMessage: '1M' },
+  '3M': { id: 'performance.period.3m', defaultMessage: '3M' },
+  YTD: { id: 'performance.period.ytd', defaultMessage: 'YTD' },
+  '1Y': { id: 'performance.period.1y', defaultMessage: '1Y' },
+  ALL: { id: 'performance.period.all', defaultMessage: 'ALL' },
+})
 
 // With nothing held there is no return to show yet, and the useful thing to say is why the
 // screen is worth filling: one return across every broker, measured against the market.
@@ -262,6 +285,7 @@ export function PerformanceTab({
   onAddHolding?: () => void
   onAskLucius?: (text: string) => void
 } = {}) {
+  const { formatMessage } = useAppIntl()
   const vm = usePerformanceView()
 
   const {
@@ -294,28 +318,55 @@ export function PerformanceTab({
     <div className="mk-subt">
       {/* Loading skeleton */}
       {!noHoldings && loading && !data && (
-        <TabSkeleton variant="performance" label="Loading returns…" header={false} />
+        <TabSkeleton
+          variant="performance"
+          label={formatMessage({
+            id: 'performance.ui.LoadingReturns',
+            defaultMessage: 'Loading returns…',
+          })}
+          header={false}
+        />
       )}
 
       {/* Error */}
-      {!noHoldings && !loading && error && <ErrorState message="Couldn't load performance data." />}
+      {!noHoldings && !loading && error && (
+        <ErrorState
+          message={formatMessage({
+            id: 'performance.ui.CouldnTLoadPerformanceData',
+            defaultMessage: "Couldn't load performance data.",
+          })}
+        />
+      )}
 
       {/* Empty: nothing held yet */}
       {noHoldings && (
         <EmptyState
           fill
           icon={<ChartLine size={28} strokeWidth={1.5} aria-hidden="true" />}
-          title="Your whole portfolio vs the market"
-          body="Add your holdings from every broker and account to see one return for all of them, measured against indices like the S&P 500 and MSCI World."
+          title={formatMessage({
+            id: 'performance.ui.YourWholePortfolioVsTheMarket',
+            defaultMessage: 'Your whole portfolio vs the market',
+          })}
+          body={formatMessage({
+            id: 'performance.ui.AddYourHoldingsFromEveryBrokerAndAccountToSeeOneReturnForAllOfThemMeasuredAgainstIndicesLikeTheSP500AndMsciWorld',
+            defaultMessage:
+              'Add your holdings from every broker and account to see one return for all of them, measured against indices like the S&P 500 and MSCI World.',
+          })}
           action={
             <Cluster gap="--space-3" justify="center">
               {onAddHolding && (
                 <Button variant="primary" size="sm" onClick={onAddHolding}>
-                  Add holding
+                  {formatMessage({
+                    id: 'performance.ui.AddHolding',
+                    defaultMessage: 'Add holding',
+                  })}
                 </Button>
               )}
               <LuciusCta
-                label="Add with Lucius"
+                label={formatMessage({
+                  id: 'performance.ui.AddWithLucius',
+                  defaultMessage: 'Add with Lucius',
+                })}
                 message={ADD_ALL_MESSAGE}
                 onAskLucius={onAskLucius}
               />
@@ -327,11 +378,25 @@ export function PerformanceTab({
       {/* Empty: not enough history */}
       {!noHoldings && isEmpty && (
         <EmptyState
-          title="No return to show yet"
+          title={formatMessage({
+            id: 'performance.ui.NoReturnToShowYet',
+            defaultMessage: 'No return to show yet',
+          })}
           body={
             data?.data_quality.market_since
-              ? `Not enough price history before ${data.data_quality.market_since} to compute a return over this window.`
-              : 'Figures appear once prices have been collected across the window.'
+              ? formatMessage(
+                  {
+                    id: 'performance.insufficientHistory',
+                    defaultMessage:
+                      'Not enough price history before {date} to compute a return over this window.',
+                  },
+                  { date: data.data_quality.market_since },
+                )
+              : formatMessage({
+                  id: 'performance.ui.FiguresAppearOncePricesHaveBeenCollectedAcrossTheWindow',
+                  defaultMessage:
+                    'Figures appear once prices have been collected across the window.',
+                })
           }
         />
       )}
@@ -345,18 +410,34 @@ export function PerformanceTab({
           {/* Returns & performance panel */}
           <div className="mk-panel">
             <div className="mk-panel-head">
-              <span className="mk-panel-title">Returns &amp; performance</span>
+              <span className="mk-panel-title">
+                {formatMessage({
+                  id: 'performance.ui.ReturnsPerformance',
+                  defaultMessage: 'Returns & performance',
+                })}
+              </span>
               <span className="mk-panel-spacer" />
               {benchmarks.length > 0 && (
                 <select
                   className="mk-toolsel"
                   value={benchKey}
                   onChange={(e) => setBenchKey(e.target.value)}
-                  aria-label="Compare against a benchmark"
+                  aria-label={formatMessage({
+                    id: 'performance.ui.CompareAgainstABenchmark',
+                    defaultMessage: 'Compare against a benchmark',
+                  })}
                 >
                   {benchmarks.map((b) => (
                     <option key={b.key || 'none'} value={b.key}>
-                      {b.key ? 'vs ' + b.label : b.label}
+                      {b.key
+                        ? formatMessage(
+                            { id: 'performance.compareWith', defaultMessage: 'vs {benchmark}' },
+                            { benchmark: b.label },
+                          )
+                        : formatMessage({
+                            id: 'performance.noBenchmark',
+                            defaultMessage: 'No benchmark',
+                          })}
                     </option>
                   ))}
                 </select>
@@ -369,7 +450,7 @@ export function PerformanceTab({
                     className={period === p ? 'on' : ''}
                     onClick={() => setPeriod(p)}
                   >
-                    {p}
+                    {formatMessage(periodMessages[p])}
                   </button>
                 ))}
               </div>
@@ -384,14 +465,23 @@ export function PerformanceTab({
                 />
               ) : (
                 <EmptyState
-                  title="No chart data"
-                  body="Not enough daily points to draw a curve for this window."
+                  title={formatMessage({
+                    id: 'performance.ui.NoChartData',
+                    defaultMessage: 'No chart data',
+                  })}
+                  body={formatMessage({
+                    id: 'performance.ui.NotEnoughDailyPointsToDrawACurveForThisWindow',
+                    defaultMessage: 'Not enough daily points to draw a curve for this window.',
+                  })}
                 />
               )}
               <div className="mk-legend">
                 <span>
                   <i style={{ background: 'var(--good)' }} />
-                  Your portfolio
+                  {formatMessage({
+                    id: 'performance.ui.YourPortfolio',
+                    defaultMessage: 'Your portfolio',
+                  })}
                 </span>
                 {hasBenchmark && (
                   <span>
@@ -406,9 +496,22 @@ export function PerformanceTab({
           {/* Risk-adjusted return panel */}
           <div className="mk-panel">
             <div className="mk-panel-head">
-              <span className="mk-panel-title">Risk-adjusted return</span>
+              <span className="mk-panel-title">
+                {formatMessage({
+                  id: 'performance.ui.RiskAdjustedReturn',
+                  defaultMessage: 'Risk-adjusted return',
+                })}
+              </span>
               <span className="mk-panel-spacer" />
-              <span className="mk-panel-sub">{period} • how much risk earned this return</span>
+              <span className="mk-panel-sub">
+                {formatMessage(
+                  {
+                    id: 'performance.riskCaption',
+                    defaultMessage: '{period} • how much risk earned this return',
+                  },
+                  { period: formatMessage(periodMessages[period]) },
+                )}
+              </span>
             </div>
             <div className="mk-panel-body">
               {risk ? (
@@ -417,30 +520,58 @@ export function PerformanceTab({
                     <div className="rk-cell">
                       <div className="rk-k">
                         <span className="sk-row">
-                          Volatility (ann.)
-                          <StatInfo text="How much your daily returns swing, annualized. Higher means a bumpier ride to the same destination." />
-                        </span>
-                      </div>
-                      <div className="rk-v">
-                        {risk.vol != null ? risk.vol.toFixed(1) + '%' : '—'}
-                      </div>
-                    </div>
-                    <div className="rk-cell">
-                      <div className="rk-k">
-                        <span className="sk-row">
-                          {`Beta vs ${risk.betaSymbol}`}
+                          {formatMessage({
+                            id: 'performance.ui.VolatilityAnn',
+                            defaultMessage: 'Volatility (ann.)',
+                          })}
                           <StatInfo
-                            text={`How much you move relative to ${risk.betaSymbol}. 1.0 tracks it; above 1 amplifies its moves, below 1 dampens them.`}
+                            text={formatMessage({
+                              id: 'performance.ui.HowMuchYourDailyReturnsSwingAnnualizedHigherMeansABumpierRideToTheSameDestination',
+                              defaultMessage:
+                                'How much your daily returns swing, annualized. Higher means a bumpier ride to the same destination.',
+                            })}
                           />
                         </span>
                       </div>
-                      <div className="rk-v">{risk.beta != null ? risk.beta.toFixed(2) : '—'}</div>
+                      <div className="rk-v">
+                        {risk.vol != null ? risk.vol.toLocaleString(getNumberLocale(), { minimumFractionDigits: 1, maximumFractionDigits: 1 }) + '%' : '—'}
+                      </div>
                     </div>
                     <div className="rk-cell">
                       <div className="rk-k">
                         <span className="sk-row">
-                          Sharpe ratio
-                          <StatInfo text="Return earned per unit of risk, above the ~3.5% risk-free rate. Above 1 is good, above 2 is excellent." />
+                          {formatMessage(
+                            { id: 'performance.beta', defaultMessage: 'Beta vs {symbol}' },
+                            { symbol: risk.betaSymbol },
+                          )}
+                          <StatInfo
+                            text={formatMessage(
+                              {
+                                id: 'performance.betaHelp',
+                                defaultMessage:
+                                  'How much you move relative to {symbol}. 1.0 tracks it; above 1 amplifies its moves, below 1 dampens them.',
+                              },
+                              { symbol: risk.betaSymbol },
+                            )}
+                          />
+                        </span>
+                      </div>
+                      <div className="rk-v">{risk.beta != null ? risk.beta.toLocaleString(getNumberLocale(), { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '—'}</div>
+                    </div>
+                    <div className="rk-cell">
+                      <div className="rk-k">
+                        <span className="sk-row">
+                          {formatMessage({
+                            id: 'performance.ui.SharpeRatio',
+                            defaultMessage: 'Sharpe ratio',
+                          })}
+                          <StatInfo
+                            text={formatMessage({
+                              id: 'performance.ui.ReturnEarnedPerUnitOfRiskAboveThe35RiskFreeRateAbove1IsGoodAbove2IsExcellent',
+                              defaultMessage:
+                                'Return earned per unit of risk, above the ~3.5% risk-free rate. Above 1 is good, above 2 is excellent.',
+                            })}
+                          />
                         </span>
                       </div>
                       <div
@@ -456,21 +587,28 @@ export function PerformanceTab({
                                   : 'var(--ink)',
                         }}
                       >
-                        {risk.sharpe != null ? risk.sharpe.toFixed(2) : '—'}
+                        {risk.sharpe != null ? risk.sharpe.toLocaleString(getNumberLocale(), { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '—'}
                       </div>
                     </div>
                     <div className="rk-cell">
                       <div className="rk-k">
                         <span className="sk-row">
-                          Max drawdown
+                          {formatMessage({
+                            id: 'performance.ui.MaxDrawdown',
+                            defaultMessage: 'Max drawdown',
+                          })}
                           <StatInfo
-                            text="The worst peak-to-trough drop over this period — your deepest dip before recovering. Smaller is calmer."
+                            text={formatMessage({
+                              id: 'performance.ui.TheWorstPeakToTroughDropOverThisPeriodYourDeepestDipBeforeRecoveringSmallerIsCalmer',
+                              defaultMessage:
+                                'The worst peak-to-trough drop over this period — your deepest dip before recovering. Smaller is calmer.',
+                            })}
                             alignRight
                           />
                         </span>
                       </div>
                       <div className="rk-v" style={{ color: 'var(--bad)' }}>
-                        {risk.mdd != null ? risk.mdd.toFixed(1) + '%' : '—'}
+                        {risk.mdd != null ? risk.mdd.toLocaleString(getNumberLocale(), { minimumFractionDigits: 1, maximumFractionDigits: 1 }) + '%' : '—'}
                       </div>
                     </div>
                   </div>
@@ -478,8 +616,15 @@ export function PerformanceTab({
                 </>
               ) : (
                 <EmptyState
-                  title="Risk metrics unavailable"
-                  body="Not enough price history to compute risk-adjusted metrics for this window."
+                  title={formatMessage({
+                    id: 'performance.ui.RiskMetricsUnavailable',
+                    defaultMessage: 'Risk metrics unavailable',
+                  })}
+                  body={formatMessage({
+                    id: 'performance.ui.NotEnoughPriceHistoryToComputeRiskAdjustedMetricsForThisWindow',
+                    defaultMessage:
+                      'Not enough price history to compute risk-adjusted metrics for this window.',
+                  })}
                 />
               )}
             </div>

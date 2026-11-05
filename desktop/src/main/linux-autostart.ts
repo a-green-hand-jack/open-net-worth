@@ -1,3 +1,4 @@
+import { message as t } from './native-messages';
 import { existsSync, readFileSync } from 'node:fs';
 import { mkdir, rename, rm, writeFile } from 'node:fs/promises';
 import { posix } from 'node:path';
@@ -15,14 +16,14 @@ export function autostartPath(env: NodeJS.ProcessEnv, home: string): string {
 // Desktop Entry spec: quote an argument that has anything special, backslash-escape `"`, `` ` ``, `$`
 // and `\` inside the quotes, then double every backslash again for the file's own string escaping.
 export function execArgument(value: string): string {
-  if (/[\n\r\0]/.test(value)) throw new Error('Invalid launcher argument.');
+  if (/[\n\r\0]/.test(value)) throw new Error(t("Invalid launcher argument."));
   const escaped = value.replaceAll('%', '%%');
   if (/^[A-Za-z0-9_\-./:@%+=,]+$/.test(escaped)) return escaped;
   return `"${escaped.replace(/(["`$\\])/g, '\\$1')}"`.replaceAll('\\', '\\\\');
 }
 
 export function autostartEntry(execPath: string, args: string[]): string {
-  return ['[Desktop Entry]', 'Type=Application', 'Name=Open Net Worth', 'Comment=Start Open Net Worth quietly when you sign in',
+  return ['[Desktop Entry]', 'Type=Application', 'Name=Open Net Worth', 'Comment=Start Open Net Worth quietly when you sign in', 'Comment[zh_CN]=登录时在后台启动 Open Net Worth',
     `Exec=${[execPath, ...args].map(execArgument).join(' ')}`, 'Icon=open-net-worth', 'Terminal=false', 'X-GNOME-Autostart-enabled=true', ''].join('\n');
 }
 

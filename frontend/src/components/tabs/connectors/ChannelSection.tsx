@@ -1,3 +1,5 @@
+import { usePresetNote } from './usePresetNote'
+import { useAppIntl } from '../../../i18n/useAppIntl'
 import { useCallback, useEffect, useState } from 'react'
 import { authFetch } from '../../../api/client'
 import {
@@ -40,6 +42,7 @@ async function fetchWebhook(): Promise<WebhookChannel | null> {
 }
 
 function TestRow({ path }: { path: string }) {
+  const { formatMessage } = useAppIntl()
   const [busy, setBusy] = useState(false)
   const [result, setResult] = useState<{ ok: boolean; text: string } | null>(null)
   async function test() {
@@ -48,14 +51,14 @@ function TestRow({ path }: { path: string }) {
     try {
       const r = await authFetch(path, { method: 'POST' })
       if (!r.ok) {
-        setResult({ ok: false, text: 'Nothing to test yet — save the settings first.' })
+        setResult({ ok: false, text: formatMessage({ id: 'connectors.webhook.nothing', defaultMessage: "Nothing to test yet — save the settings first." }) })
         return
       }
       const d = await r.json()
       const err = d?.result?.error
-      setResult(err ? { ok: false, text: String(err) } : { ok: true, text: 'Test sent.' })
+      setResult(err ? { ok: false, text: String(err) } : { ok: true, text: formatMessage({ id: 'connectors.webhook.sent', defaultMessage: "Test sent." }) })
     } catch {
-      setResult({ ok: false, text: 'Could not reach the server.' })
+      setResult({ ok: false, text: formatMessage({ id: 'connectors.mcp.unreachable', defaultMessage: "Could not reach the server." }) })
     } finally {
       setBusy(false)
     }
@@ -63,7 +66,7 @@ function TestRow({ path }: { path: string }) {
   return (
     <Cluster gap="--space-3" align="center">
       <Button size="sm" variant="secondary" loading={busy} onClick={test}>
-        Send test
+        {formatMessage({ id: 'connectors.webhook.test', defaultMessage: 'Send test' })}
       </Button>
       {result && (
         <Text size="xs" tone={result.ok ? 'good' : 'bad'}>
@@ -87,6 +90,8 @@ function webhookFormOf(c: WebhookChannel): WebhookForm {
 }
 
 export function WebhookSection() {
+  const presetNote = usePresetNote()
+  const { formatMessage } = useAppIntl()
   const [cfg, setCfg] = useState<WebhookChannel | null>(null)
   // Slack/Discord are pure URL-shape presets — they only adjust the URL placeholder
   // + the where-to-find-it hint; the user pastes their own webhook URL.
@@ -150,14 +155,14 @@ export function WebhookSection() {
       })
       if (!r.ok) {
         const d = await r.json().catch(() => ({}))
-        setSaveErr(d.detail || 'Could not save the webhook channel.')
+        setSaveErr(d.detail || formatMessage({ id: 'connectors.webhook.save', defaultMessage: "Could not save the webhook channel." }))
         return false
       }
       setForm((f) => f && { ...f, url: '', secret: '' })
       load()
       return true
     } catch {
-      setSaveErr('Could not save — could not reach the server.')
+      setSaveErr(formatMessage({ id: 'connectors.email.serverFailed', defaultMessage: "Could not save — could not reach the server." }))
       return false
     } finally {
       setSaving(false)
@@ -176,14 +181,14 @@ export function WebhookSection() {
   if (error) {
     return (
       <Text size="sm" tone="bad">
-        Could not load the webhook settings.
+        {formatMessage({ id: 'connectors.webhook.load', defaultMessage: 'Could not load the webhook settings.' })}
       </Text>
     )
   }
   if (!cfg || !form) {
     return (
       <Text size="sm" tone="faint">
-        Loading…
+        {formatMessage({ id: 'connectors.email.loading', defaultMessage: 'Loading…' })}
       </Text>
     )
   }
@@ -196,11 +201,11 @@ export function WebhookSection() {
   return (
     <Stack gap="--space-4">
       <Text size="sm" tone="faint">
-        Send notifications to a URL — a Slack or Discord incoming webhook, or your own endpoint.
+        {formatMessage({ id: 'connectors.webhook.intro', defaultMessage: 'Send notifications to a URL — a Slack or Discord incoming webhook, or your own endpoint.' })}
       </Text>
       <Cluster gap="--space-2" align="center" className="conn-preset-row">
         <Text size="xs" tone="faint">
-          Preset:
+          {formatMessage({ id: 'connectors.webhook.preset', defaultMessage: 'Preset:' })}
         </Text>
         {WEBHOOK_PRESETS.map((pr) => (
           <button
@@ -215,7 +220,7 @@ export function WebhookSection() {
       </Cluster>
       {preset && (
         <Text size="xs" tone="faint">
-          {preset.note}
+          {presetNote(preset.key, preset.note)}
         </Text>
       )}
       <FormField
@@ -227,8 +232,8 @@ export function WebhookSection() {
           url.error ||
           (urlTouched.touched && !urlValid
             ? typedUrl
-              ? 'Enter a valid http:// or https:// URL.'
-              : 'A webhook URL is required.'
+              ? formatMessage({ id: 'connectors.webhook.urlInvalid', defaultMessage: "Enter a valid http:// or https:// URL." })
+              : formatMessage({ id: 'connectors.webhook.urlRequired', defaultMessage: "A webhook URL is required." })
             : undefined)
         }
       >
@@ -238,7 +243,7 @@ export function WebhookSection() {
           value={form.url}
           placeholder={
             cfg.has_url
-              ? `Saved — ${cfg.url_display}`
+              ? formatMessage({ id: 'connectors.webhook.saved', defaultMessage: 'Saved — {host}' }, { host: cfg.url_display })
               : preset?.url_placeholder || 'https://hooks.example.com/…'
           }
           onChange={(e) => set('url', e.target.value)}
@@ -246,7 +251,7 @@ export function WebhookSection() {
           {...url.fieldProps}
         />
       </FormField>
-      <FormField label="Secret header name" htmlFor="conn-wh-header">
+      <FormField label={formatMessage({ id: 'connectors.webhook.header', defaultMessage: 'Secret header name' })} htmlFor="conn-wh-header">
         <TextField
           id="conn-wh-header"
           value={form.secret_header_name}
@@ -255,7 +260,7 @@ export function WebhookSection() {
         />
       </FormField>
       <FormField
-        label="Secret"
+        label={formatMessage({ id: 'connectors.webhook.secret', defaultMessage: 'Secret' })}
         htmlFor="conn-wh-secret"
         help={secret.caption || undefined}
         error={secret.error}

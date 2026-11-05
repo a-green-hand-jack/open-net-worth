@@ -487,16 +487,32 @@ async def _notify_outcome(task: asyncio.Task) -> None:
 
     if task.cancelled():
         message = "A capture was interrupted before it finished — check the ledger and re-send it."
+        presentation = {"id": "inbox.server.captureInterrupted", "params": {}}
     elif task.exception() is not None:
         message = f"A capture failed: {task.exception()}. Nothing may have been booked."
+        presentation = {
+            "id": "inbox.server.captureFailed",
+            "params": {"reason": str(task.exception())},
+        }
     else:
         result = task.result()
         if result["ok"]:
             message = result["reply"] or "Capture finished."
+            presentation = (
+                None if result["reply"] else {"id": "inbox.server.captureFinished", "params": {}}
+            )
         else:
-            message = f"A capture wasn't booked: {failure_message(result)}."
+            reason = failure_message(result)
+            message = f"A capture wasn't booked: {reason}."
+            presentation = {"id": "inbox.server.captureNotBooked", "params": {"reason": reason}}
     _log.info("capture (background) finished: %s", message[:200])
     try:
-        await notify(message, channels=list(_NOTIFY_CHANNELS), title="Capture")
+        await notify(
+            message,
+            channels=list(_NOTIFY_CHANNELS),
+            title="Capture",
+            title_message={"id": "inbox.server.captureTitle", "params": {}},
+            summary_message=presentation,
+        )
     except Exception:  # noqa: BLE001 — the log line above is the fallback record
         _log.exception("capture: could not deliver the background outcome")

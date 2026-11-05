@@ -1,3 +1,6 @@
+import { FormattedMessage } from './FormattedMessage'
+import { useAppIntl } from '../../i18n/useAppIntl'
+import { intelTimeAgo } from './relativeTime'
 import { newsTime, safeHref } from '../../utils/format'
 import type { NewsItem } from '../../types/assetDetail'
 import { useIsMobile } from '../../hooks/useIsMobile'
@@ -24,6 +27,7 @@ export function LatestDevelopments({
   expanded = false,
   onToggle,
 }: Props) {
+  const intl = useAppIntl()
   const isMobile = useIsMobile()
   const cap = isMobile && phoneLimit != null ? phoneLimit : limit
   const rest = items.slice(offset)
@@ -35,10 +39,10 @@ export function LatestDevelopments({
   return (
     <div>
       <div className="asd-section-head">
-        <span className="asd-section-title">Latest Developments</span>
+        <span className="asd-section-title">{<FormattedMessage id="intel.static.latest_developments_dff9f8a9" defaultMessage={"Latest Developments"} />}</span>
         {canToggle && onToggle && (
           <button type="button" className="asd-view-all-btn" onClick={onToggle}>
-            {expanded ? 'Show less' : `View all (${rest.length})`}
+            {expanded ? intl.formatMessage({ id: 'miss.showLess', defaultMessage: 'Show less' }) : intl.formatMessage({ id: 'miss.viewAllCount', defaultMessage: 'View all ({count})' }, { count: rest.length })}
           </button>
         )}
       </div>
@@ -57,7 +61,7 @@ export function LatestDevelopments({
                 <span className="asd-dev-dot" aria-hidden="true">
                   •
                 </span>
-                <span className="asd-dev-time">{newsTime(item.published_at)}</span>
+                <span className="asd-dev-time">{intl.locale.startsWith('en') ? newsTime(item.published_at) : !Number.isFinite(new Date(item.published_at).getTime()) ? '' : Date.now() - new Date(item.published_at).getTime() < 86_400_000 ? intelTimeAgo(item.published_at, intl) : intl.formatDate(item.published_at, { year: 'numeric', month: 'short', day: 'numeric' })}</span>
               </div>
               <p className="asd-dev-title">{item.title}</p>
             </Tag>

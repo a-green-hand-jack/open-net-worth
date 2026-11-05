@@ -8,6 +8,8 @@
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, render, screen } from '@testing-library/react'
+import { IntlProvider } from 'react-intl'
+import messages from './zh-CN.messages.json'
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { Sidebar, type SidebarTotals } from './Sidebar'
@@ -69,6 +71,28 @@ describe('needsReconciling', () => {
 })
 
 describe('Sidebar — reconcile status', () => {
+  it('shows Chinese account and reconciliation labels without changing account names', () => {
+    const accounts = [cash('stale', 'Synthetic Account', { last_reconciled_at: '2026-06-08' })]
+    render(
+      <IntlProvider locale="zh-CN" messages={messages}>
+        <Sidebar
+          accounts={accounts}
+          groups={[{ key: 'cash', label: 'Cash', color: '#34b08a', accounts, totalBase: 0 }]}
+          totals={totals}
+          selectedId={null}
+          netWorth={0}
+          collapsed={false}
+          onSelect={noop}
+          onAdd={noop}
+          onManagePayees={noop}
+        />
+      </IntlProvider>,
+    )
+    expect(screen.getByText('Synthetic Account')).toBeTruthy()
+    expect(screen.getByText('1 个账户')).toBeTruthy()
+    expect(screen.getByText('1 个需要核对')).toBeTruthy()
+    expect(screen.getByText('需要核对')).toBeTruthy()
+  })
   function renderWith(accounts: ReturnType<typeof cash>[]) {
     return render(
       <Sidebar

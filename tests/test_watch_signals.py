@@ -395,3 +395,32 @@ def test_backfill_tops_up_every_watched_ticker_and_the_comparison_funds(monkeypa
     assert calls == [("AMD", "1Y"), ("sym:NOID", "1Y"), ("SPY", "1M"), ("XLK", "1M")]
     # Every watched equity without a known sector gets one looked up (for its sector line).
     assert sectors == ["AMD", "PRIV", "NOID"]
+
+
+def test_watch_story_presentation_survives_storage_and_wire_projection(db_isolated):
+    from backend.services import intel_stories
+
+    ctx = _ctx(
+        [_item("ACME")],
+        {"ACME": _snap(price=108.0)},
+        sectors={"ACME": "Technology"},
+        held_by_sector={"Technology": 35.0},
+    )
+    assert _emit(ctx) == 1
+    (stored,) = _watch_stories()
+    presented = stored["watch_presentation"]
+    assert presented["headline_source"] == stored["label"]
+    assert presented["summary_source"] == stored["current_summary"]
+    assert presented["headline_findings"][0]["text_message"]["id"] == "watchPulse.move"
+    assert presented["fit_message"]["params"]["percent"] == "35"
+    wire = intel_stories.get_signal(stored["id"])
+    assert wire["watch_presentation"] == presented
+    assert wire["summary"] == presented["summary_source"]
+
+    from fastapi.testclient import TestClient
+
+    from backend.main import app
+
+    response = TestClient(app).get(f"/api/intel/signals/{stored['id']}")
+    assert response.status_code == 200
+    assert response.json()["watch_presentation"] == presented

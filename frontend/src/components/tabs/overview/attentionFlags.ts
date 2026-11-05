@@ -8,7 +8,8 @@ import { fetchJson } from '../../../hooks/serverState'
 import { useInvestmentSignals } from '../../../hooks/useInvestmentSignals'
 import { useQueryCache } from '../../../state/queryCache'
 import type { SignalKind } from '../../../types/investmentSignals'
-import { cardCaveat } from '../../../utils/cardCaveat'
+import { useAppIntl } from '../../../i18n/useAppIntl'
+import type { IntlShape } from 'react-intl'
 import { fBase, fBaseWhole, fMonth, fPct } from '../../../utils/format'
 import { useAnalytics, useCommitments, useFundingCoverage } from './useWidgetData'
 
@@ -25,22 +26,37 @@ export interface AttentionFlag {
 
 const REVIEW_COUNT_URL = '/api/transactions/recently-added?needs_review=true&limit=1'
 
-const DECISION_TITLE: Partial<Record<SignalKind, string>> = {
-  concentration: 'Position concentration',
-  rebalance: 'Portfolio off target',
-  vesting: 'Upcoming vest',
-}
-
-function plural(n: number, one: string, many: string): string {
-  return n === 1 ? one : many
+function decisionTitle(kind: SignalKind, intl: IntlShape): string | null {
+  if (kind === 'concentration')
+    return intl.formatMessage({
+      id: 'attention.concentration',
+      defaultMessage: 'Position concentration',
+    })
+  if (kind === 'rebalance')
+    return intl.formatMessage({ id: 'attention.rebalance', defaultMessage: 'Portfolio off target' })
+  if (kind === 'vesting')
+    return intl.formatMessage({ id: 'attention.vesting', defaultMessage: 'Upcoming vest' })
+  return null
 }
 
 /** "due in 3 days", "due today", "overdue by 2 days". */
-function dueIn(days: number): string {
-  if (days < 0) return `overdue by ${-days} ${plural(-days, 'day', 'days')}`
-  if (days === 0) return 'due today'
-  if (days === 1) return 'due tomorrow'
-  return `due in ${days} days`
+function dueIn(days: number, intl: IntlShape): string {
+  if (days < 0)
+    return intl.formatMessage(
+      {
+        id: 'attention.overdueBy',
+        defaultMessage: 'overdue by {days, plural, one {# day} other {# days}}',
+      },
+      { days: -days },
+    )
+  if (days === 0)
+    return intl.formatMessage({ id: 'attention.dueToday', defaultMessage: 'due today' })
+  if (days === 1)
+    return intl.formatMessage({ id: 'attention.dueTomorrow', defaultMessage: 'due tomorrow' })
+  return intl.formatMessage(
+    { id: 'attention.dueIn', defaultMessage: 'due in {days} days' },
+    { days },
+  )
 }
 
 /** How many ledger transactions are waiting for review (added while the owner was away). */
@@ -55,6 +71,8 @@ function useReviewCount(): { count: number; loading: boolean } {
 }
 
 export function useAttentionFlags(): { flags: AttentionFlag[]; loading: boolean } {
+  const intl = useAppIntl()
+  const { formatMessage } = intl
   const { analytics: portfolio, loading } = useAnalytics()
   const { coverage, loading: coverageLoading } = useFundingCoverage()
   const { signals, loading: signalsLoading } = useInvestmentSignals()
@@ -75,17 +93,40 @@ export function useAttentionFlags(): { flags: AttentionFlag[]; loading: boolean 
       ? fMonth(coverage.lowest_balance_month, 'short', 'always')
       : null
     const timing = [
-      firstDip && `cash first dips below the floor in ${firstDip}`,
-      lowest && lowest !== firstDip && `bottoms out in ${lowest}`,
+      firstDip &&
+        formatMessage(
+          { id: 'attention.firstDip', defaultMessage: 'cash first dips below the floor in {date}' },
+          { date: firstDip },
+        ),
+      lowest &&
+        lowest !== firstDip &&
+        formatMessage(
+          { id: 'attention.lowest', defaultMessage: 'bottoms out in {date}' },
+          { date: lowest },
+        ),
     ]
       .filter(Boolean)
-      .join(' and ')
+      .join(formatMessage({ id: 'attention.and', defaultMessage: ' and ' }))
     flags.push({
       id: 'shortfall',
       sev: 'hi',
       icon: 'gap',
-      title: 'Funding shortfall',
-      desc: `Your commitments leave you ${fBaseWhole(coverage.total_shortfall_base)} short of your ${fBase(coverage.low_balance_threshold)} cash floor at the lowest point within the next ${coverage.horizon_months} months${coverage.spans_currencies ? ", at today's exchange rates" : ''}${timing ? `: ${timing}` : ''}.`,
+      title: formatMessage({ id: 'attention.shortfall', defaultMessage: 'Funding shortfall' }),
+      desc: formatMessage(
+        {
+          id: 'attention.shortfallBody',
+          defaultMessage:
+            "Your commitments leave you {shortfall} short of your {floor} cash floor at the lowest point within the next {months} months{fx, select, yes {, at today's exchange rates} other {}}{hasTiming, select, yes {: {timing}} other {}}.",
+        },
+        {
+          shortfall: fBaseWhole(coverage.total_shortfall_base),
+          floor: fBase(coverage.low_balance_threshold),
+          months: coverage.horizon_months,
+          fx: coverage.spans_currencies ? 'yes' : 'no',
+          hasTiming: timing ? 'yes' : 'no',
+          timing,
+        },
+      ),
       nav: { tab: 'commitments' },
     })
   }
@@ -94,11 +135,26 @@ export function useAttentionFlags(): { flags: AttentionFlag[]; loading: boolean 
       id: 'overdue',
       sev: 'hi',
       icon: 'clock',
-      title: `${overdueCount} overdue ${plural(overdueCount, 'payment', 'payments')}`,
+      title: formatMessage(
+        {
+          id: 'attention.overdue',
+          defaultMessage: '{count, plural, one {# overdue payment} other {# overdue payments}}',
+        },
+        { count: overdueCount },
+      ),
       desc:
         overdueTotal > 0
-          ? `${fBase(overdueTotal)} is past due in Commitments.`
-          : 'Past their due date in Commitments.',
+          ? formatMessage(
+              {
+                id: 'attention.overdueTotal',
+                defaultMessage: '{amount} is past due in Commitments.',
+              },
+              { amount: fBase(overdueTotal) },
+            )
+          : formatMessage({
+              id: 'attention.overdueNoTotal',
+              defaultMessage: 'Past their due date in Commitments.',
+            }),
       nav: { tab: 'commitments' },
     })
   }
@@ -110,10 +166,19 @@ export function useAttentionFlags(): { flags: AttentionFlag[]; loading: boolean 
       id: 'card-bill-' + card.account_id,
       sev: days < 0 ? 'hi' : 'md',
       icon: 'card',
-      title: `${card.label}: ${fBase(card.amount_base)} ${dueIn(days)}`,
+      title: formatMessage(
+        { id: 'attention.cardTitle', defaultMessage: '{name}: {amount} {due}' },
+        { name: card.label, amount: fBase(card.amount_base), due: dueIn(days, intl) },
+      ),
       desc: card.estimated
-        ? "Estimated from the card's statement cycle."
-        : 'Still owed on the last statement.',
+        ? formatMessage({
+            id: 'attention.cardEstimate',
+            defaultMessage: "Estimated from the card's statement cycle.",
+          })
+        : formatMessage({
+            id: 'attention.cardOwed',
+            defaultMessage: 'Still owed on the last statement.',
+          }),
       nav: { tab: 'accounts' },
     })
   }
@@ -122,8 +187,20 @@ export function useAttentionFlags(): { flags: AttentionFlag[]; loading: boolean 
       id: 'over-earmarked',
       sev: 'md',
       icon: 'cash',
-      title: 'Cash over-earmarked',
-      desc: `You've earmarked ${fBase(coverage.reconciliation.earmarked_base)} of cash but hold ${fBase(coverage.reconciliation.liquid_base)} liquid.`,
+      title: formatMessage({
+        id: 'attention.overEarmarked',
+        defaultMessage: 'Cash over-earmarked',
+      }),
+      desc: formatMessage(
+        {
+          id: 'attention.overEarmarkedBody',
+          defaultMessage: "You've earmarked {earmarked} of cash but hold {liquid} liquid.",
+        },
+        {
+          earmarked: fBase(coverage.reconciliation.earmarked_base),
+          liquid: fBase(coverage.reconciliation.liquid_base),
+        },
+      ),
     })
   }
   // The open portfolio decisions are the Investments brief's own ("N to decide"): a concentration
@@ -134,7 +211,7 @@ export function useAttentionFlags(): { flags: AttentionFlag[]; loading: boolean 
       id: 'decision-' + sig.id,
       sev: sig.kind === 'concentration' ? 'hi' : 'md',
       icon: sig.kind === 'concentration' || sig.kind === 'rebalance' ? 'pie' : 'clock',
-      title: DECISION_TITLE[sig.kind] ?? sig.tag,
+      title: decisionTitle(sig.kind, intl) ?? sig.tag,
       desc: sig.narrative,
       nav: { tab: 'investments' },
     })
@@ -144,8 +221,14 @@ export function useAttentionFlags(): { flags: AttentionFlag[]; loading: boolean 
       id: 'contingent',
       sev: 'md',
       icon: 'clock',
-      title: `${fPct(a.contingent_pct)} contingent`,
-      desc: 'Depends on unvested equity or money owed to you.',
+      title: formatMessage(
+        { id: 'attention.contingent', defaultMessage: '{percent} contingent' },
+        { percent: fPct(a.contingent_pct) },
+      ),
+      desc: formatMessage({
+        id: 'attention.contingentBody',
+        defaultMessage: 'Depends on unvested equity or money owed to you.',
+      }),
     })
   }
   if (a?.thin_cash) {
@@ -153,12 +236,29 @@ export function useAttentionFlags(): { flags: AttentionFlag[]; loading: boolean 
       id: 'thin-cash',
       sev: 'md',
       icon: 'cash',
-      title: 'Thin cash buffer',
+      title: formatMessage({ id: 'attention.thinCash', defaultMessage: 'Thin cash buffer' }),
       desc: [
         a.cash_months != null
-          ? `${fBase(a.cash_total)} in cash covers about ${a.cash_months} months of your spending.`
-          : `Only ${fBase(a.cash_total)} in liquid cash.`,
-        cardCaveat(a.cards_missing_spending),
+          ? formatMessage(
+              {
+                id: 'attention.cashMonths',
+                defaultMessage: '{amount} in cash covers about {months} months of your spending.',
+              },
+              { amount: fBase(a.cash_total), months: a.cash_months },
+            )
+          : formatMessage(
+              { id: 'attention.cashOnly', defaultMessage: 'Only {amount} in liquid cash.' },
+              { amount: fBase(a.cash_total) },
+            ),
+        a.cards_missing_spending?.length
+          ? formatMessage(
+              {
+                id: 'attention.cardCaveat',
+                defaultMessage: 'Card spending not included yet ({cards})',
+              },
+              { cards: a.cards_missing_spending.join(', ') },
+            )
+          : null,
       ]
         .filter(Boolean)
         .join(' '),
@@ -169,8 +269,17 @@ export function useAttentionFlags(): { flags: AttentionFlag[]; loading: boolean 
       id: 'review',
       sev: 'md',
       icon: 'clock',
-      title: `${reviewCount} ${plural(reviewCount, 'transaction', 'transactions')} to review`,
-      desc: 'Imported or added by Lucius. Approve them when you have a minute.',
+      title: formatMessage(
+        {
+          id: 'attention.review',
+          defaultMessage: '{count, plural, one {# transaction} other {# transactions}} to review',
+        },
+        { count: reviewCount },
+      ),
+      desc: formatMessage({
+        id: 'attention.reviewBody',
+        defaultMessage: 'Imported or added by Lucius. Approve them when you have a minute.',
+      }),
       nav: { tab: 'accounts' },
     })
   }

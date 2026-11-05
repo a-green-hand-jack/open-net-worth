@@ -1,4 +1,6 @@
+import { fFixed } from '../../utils/format'
 import { useEffect, useRef } from 'react'
+import { useAppIntl } from '../../i18n/useAppIntl'
 import {
   Chart,
   LineElement,
@@ -43,6 +45,9 @@ export function TrajectoryChart({
   loading = false,
   height = 196,
 }: TrajectoryChartProps) {
+  const intl = useAppIntl()
+  const { formatMessage } = intl
+  const localeAtBuild = useRef(intl.locale)
   const chartRef = useRef<HTMLCanvasElement>(null)
   const chartInst = useRef<Chart | null>(null)
   const trajectoryRef = useRef(trajectory)
@@ -54,13 +59,17 @@ export function TrajectoryChart({
     if (!chartRef.current || trajectory.length === 0) return
 
     // Chart chrome colors are concrete values read at build time — rebuild on theme flips.
-    if (chartInst.current && themeAtBuild.current !== theme) {
+    if (
+      chartInst.current &&
+      (themeAtBuild.current !== theme || localeAtBuild.current !== intl.locale)
+    ) {
       chartInst.current.destroy()
       chartInst.current = null
     }
     themeAtBuild.current = theme
+    localeAtBuild.current = intl.locale
 
-    const labels = trajectory.map((p) => `${p.age.toFixed(0)}`)
+    const labels = trajectory.map((p) => `${fFixed(p.age, 0)}`)
     const nwValues = trajectory.map((p) => p.nw)
     const crossIdx = trajectory.findIndex((p) => p.nw >= fireNumber)
     const fireTarget = trajectory.map(() => fireNumber)
@@ -76,7 +85,7 @@ export function TrajectoryChart({
 
     const datasets: Chart['data']['datasets'] = [
       {
-        label: 'Net worth',
+        label: formatMessage({ id: 'shared.chart.netWorth', defaultMessage: 'Net worth' }),
         data: nwValues,
         borderColor: '#34b08a',
         backgroundColor: 'rgba(52,176,138,0.08)',
@@ -89,7 +98,10 @@ export function TrajectoryChart({
         tension: 0.3,
       },
       {
-        label: `FIRE target ${fBaseCompact(fireNumber)}`,
+        label: formatMessage(
+          { id: 'shared.chart.fireTarget', defaultMessage: 'FIRE target {amount}' },
+          { amount: fBaseCompact(fireNumber) },
+        ),
         data: fireTarget,
         borderColor: 'rgba(224,160,50,0.7)',
         borderWidth: 1.5,
@@ -128,14 +140,23 @@ export function TrajectoryChart({
                 const first = items[0]
                 if (!first) return ''
                 const p = trajectoryRef.current[first.dataIndex]
-                return `Age ${p?.age.toFixed(0) ?? first.label}`
+                return formatMessage(
+                  { id: 'shared.chart.age', defaultMessage: 'Age {age}' },
+                  { age: p ? fFixed(p.age, 0) : first.label },
+                )
               },
               label: (item) => {
                 // Show FIRE target label differently
                 if (item.datasetIndex === 1) {
-                  return ` FIRE target: ${fBaseCompact(item.raw as number)}`
+                  return formatMessage(
+                    { id: 'shared.chart.fireTooltip', defaultMessage: ' FIRE target: {amount}' },
+                    { amount: fBaseCompact(item.raw as number) },
+                  )
                 }
-                return ` Net worth: ${fBaseCompact(item.raw as number)}`
+                return formatMessage(
+                  { id: 'shared.chart.netWorthTooltip', defaultMessage: ' Net worth: {amount}' },
+                  { amount: fBaseCompact(item.raw as number) },
+                )
               },
             },
           },
@@ -157,7 +178,7 @@ export function TrajectoryChart({
         },
       },
     })
-  }, [trajectory, fireNumber, theme])
+  }, [trajectory, fireNumber, theme, intl.locale, formatMessage])
 
   useEffect(() => {
     return () => {

@@ -12,6 +12,7 @@ import { canRemoveMark, fmt, fullDate } from './assetsData'
 import { SaveError, useEditorSave } from './editorKit'
 import { CorrectValueDialog } from './ValueDialogs'
 import { ChevronRight } from '../../../ui/icons'
+import { useAppIntl } from '../../../i18n/useAppIntl'
 
 export interface ValueHistoryProps {
   a: OwnedAsset
@@ -30,16 +31,37 @@ interface HistoryRow {
   label: string
 }
 
-function rowsOf(a: OwnedAsset): HistoryRow[] {
+function rowsOf(a: OwnedAsset, intl: ReturnType<typeof useAppIntl>): HistoryRow[] {
   return a.marks.map((m, i) => {
     const older = a.marks[i + 1]
     const purchase = m.kind === 'purchase'
-    const said = [purchase ? 'Bought' : m.note, m.by === 'automation' ? 'automation' : '']
+    const said = [
+      purchase
+        ? intl.formatMessage({ id: 'assets.history.bought', defaultMessage: 'Bought' })
+        : m.note,
+      m.by === 'automation'
+        ? intl.formatMessage({ id: 'assets.history.automation', defaultMessage: 'automation' })
+        : '',
+    ]
     return {
       m,
       change: older ? m.value - older.value : null,
       note: said.filter(Boolean).join(' · '),
-      label: `Edit the ${purchase ? 'purchase' : 'value'} from ${fullDate(m.date)}, ${fmt(m.value)}`,
+      label: purchase
+        ? intl.formatMessage(
+            {
+              id: 'assets.history.editPurchase',
+              defaultMessage: 'Edit the purchase from {date}, {value}',
+            },
+            { date: fullDate(m.date), value: fmt(m.value) },
+          )
+        : intl.formatMessage(
+            {
+              id: 'assets.history.editValue',
+              defaultMessage: 'Edit the value from {date}, {value}',
+            },
+            { date: fullDate(m.date), value: fmt(m.value) },
+          ),
     }
   })
 }
@@ -67,18 +89,25 @@ interface HistoryViewProps {
 
 /** Desktop: the whole row opens its editor; the trailing › is its keyboard/AT control. */
 function HistoryTable({ rows, onOpen }: HistoryViewProps) {
+  const { formatMessage } = useAppIntl()
   return (
     <div className="as-tbl-wrap">
       <div className="as-tbl-scroll">
         <table className="as-tbl" style={{ minWidth: 640 }}>
           <thead>
             <tr>
-              <th className="l">Date</th>
-              <th>Value</th>
-              <th className="l">Note</th>
-              <th>Change</th>
+              <th className="l">
+                {formatMessage({ id: 'assets.history.date', defaultMessage: 'Date' })}
+              </th>
+              <th>{formatMessage({ id: 'assets.history.value', defaultMessage: 'Value' })}</th>
+              <th className="l">
+                {formatMessage({ id: 'assets.history.note', defaultMessage: 'Note' })}
+              </th>
+              <th>{formatMessage({ id: 'assets.history.change', defaultMessage: 'Change' })}</th>
               <th>
-                <span className="ui-visually-hidden">Open</span>
+                <span className="ui-visually-hidden">
+                  {formatMessage({ id: 'assets.history.open', defaultMessage: 'Open' })}
+                </span>
               </th>
             </tr>
           </thead>
@@ -157,6 +186,7 @@ interface RemoveValueConfirmProps {
 
 /** "Remove this value?" — it waits for the server and says why a refusal refused. */
 function RemoveValueConfirm({ a, mark, onClose, onRemoved }: RemoveValueConfirmProps) {
+  const { formatMessage } = useAppIntl()
   const { saving, save, dialogError } = useEditorSave()
   async function confirm() {
     if (await save(() => api.removeMark(a.id, mark.id))) onRemoved()
@@ -164,15 +194,25 @@ function RemoveValueConfirm({ a, mark, onClose, onRemoved }: RemoveValueConfirmP
   return (
     <ConfirmDialog
       data={{
-        title: 'Remove this value?',
+        title: formatMessage({
+          id: 'assets.history.removeTitle',
+          defaultMessage: 'Remove this value?',
+        }),
         body: (
           <>
-            This removes the {fullDate(mark.date)} entry — {fmt(mark.value)}. This can&apos;t be
-            undone.
+            {formatMessage(
+              {
+                id: 'assets.history.removeWarning',
+                defaultMessage: "This removes the {date} entry — {value}. This can't be undone.",
+              },
+              { date: fullDate(mark.date), value: fmt(mark.value) },
+            )}
             <SaveError message={dialogError([])} />
           </>
         ),
-        confirmLabel: saving ? 'Removing…' : 'Remove',
+        confirmLabel: saving
+          ? formatMessage({ id: 'assets.history.removing', defaultMessage: 'Removing…' })
+          : formatMessage({ id: 'assets.history.remove', defaultMessage: 'Remove' }),
         danger: true,
         confirmDisabled: saving,
       }}
@@ -183,6 +223,7 @@ function RemoveValueConfirm({ a, mark, onClose, onRemoved }: RemoveValueConfirmP
 }
 
 export function ValueHistory({ a, onEditPurchase, onToast }: ValueHistoryProps) {
+  const intl = useAppIntl()
   const isMobile = useIsMobile()
   const [correcting, setCorrecting] = useState<AssetMark | null>(null)
   const [removing, setRemoving] = useState<AssetMark | null>(null)
@@ -191,12 +232,17 @@ export function ValueHistory({ a, onEditPurchase, onToast }: ValueHistoryProps) 
     return (
       <div className="as-tab-panel">
         <div className="as-tbl-wrap">
-          <EmptyState title="No values yet" />
+          <EmptyState
+            title={intl.formatMessage({
+              id: 'assets.history.empty',
+              defaultMessage: 'No values yet',
+            })}
+          />
         </div>
       </div>
     )
 
-  const rows = rowsOf(a)
+  const rows = rowsOf(a, intl)
   const open = (m: AssetMark) => (m.kind === 'purchase' ? onEditPurchase() : setCorrecting(m))
   const done = (message: string) => {
     setCorrecting(null)
@@ -226,7 +272,14 @@ export function ValueHistory({ a, onEditPurchase, onToast }: ValueHistoryProps) 
           a={a}
           mark={removing}
           onClose={() => setRemoving(null)}
-          onRemoved={() => done('Value removed.')}
+          onRemoved={() =>
+            done(
+              intl.formatMessage({
+                id: 'assets.history.removed',
+                defaultMessage: 'Value removed.',
+              }),
+            )
+          }
         />
       )}
     </div>

@@ -1,3 +1,6 @@
+import { skillValidation } from './skillValidation'
+import { starterField } from './starterMessages'
+import { useAppIntl } from '../../i18n/useAppIntl'
 import { useState } from 'react'
 import ReactMarkdown from 'react-markdown'
 import { SAFE_MARKDOWN_COMPONENTS } from '../ui/safeMarkdown'
@@ -51,6 +54,7 @@ export function SkillDetailPane({
   onRun,
   onBack,
 }: SkillDetailPaneProps) {
+  const { formatMessage } = useAppIntl()
   const paneClass = ['skill-detail-pane', mobileActive ? 'skill-detail-pane--mobile-active' : '']
     .filter(Boolean)
     .join(' ')
@@ -61,8 +65,11 @@ export function SkillDetailPane({
         <div className="skill-detail-pane__empty">
           <EmptyState
             icon="⚡"
-            title="Select a skill"
-            body="Choose a skill from the list to view its details."
+            title={formatMessage({ id: 'skills.detail.select', defaultMessage: 'Select a skill' })}
+            body={formatMessage({
+              id: 'skills.detail.selectHelp',
+              defaultMessage: 'Choose a skill from the list to view its details.',
+            })}
           />
         </div>
       </div>
@@ -79,7 +86,7 @@ export function SkillDetailPane({
           iconLeft={<ArrowLeft size={14} aria-hidden="true" />}
           onClick={onBack}
         >
-          Back
+          {formatMessage({ id: 'skills.detail.back', defaultMessage: 'Back' })}
         </Button>
       </div>
 
@@ -113,6 +120,16 @@ function SkillDetailContent({
 }: Omit<SkillDetailPaneProps, 'mobileActive' | 'onBack' | 'skill' | 'onChanged'> & {
   skill: Skill
 }) {
+  const intl = useAppIntl()
+  const { formatMessage, locale } = intl
+  const displayName = starterField(locale, 'name', skill.name, skill.id, skill.starter_source)
+  const displayDescription = starterField(
+    locale,
+    'description',
+    skill.description,
+    skill.id,
+    skill.starter_source,
+  )
   const userInvocable = skill.claude?.user_invocable !== false
   const modelInvocable =
     skill.claude?.disable_model_invocation !== true &&
@@ -139,15 +156,19 @@ function SkillDetailContent({
 
   // Author label
   const authorLabel =
-    skill.author === 'builtin' ? 'Open Net Worth' : skill.author === 'lucius' ? 'Lucius' : 'You'
+    skill.author === 'builtin'
+      ? 'Open Net Worth'
+      : skill.author === 'lucius'
+        ? 'Lucius'
+        : formatMessage({ id: 'skills.you', defaultMessage: 'You' })
 
   const triggerLabel = userInvocable
     ? modelInvocable
-      ? 'Slash + automatic'
-      : 'Slash only'
+      ? formatMessage({ id: 'skills.detail.slashAuto', defaultMessage: 'Slash + automatic' })
+      : formatMessage({ id: 'skills.detail.slashOnly', defaultMessage: 'Slash only' })
     : modelInvocable
-      ? 'Automatic only'
-      : 'No invocation path'
+      ? formatMessage({ id: 'skills.detail.autoOnly', defaultMessage: 'Automatic only' })
+      : formatMessage({ id: 'skills.detail.noInvocation', defaultMessage: 'No invocation path' })
 
   async function exportSkill() {
     try {
@@ -165,10 +186,22 @@ function SkillDetailContent({
     }
   }
 
-  const kebabItems: KebabItem[] = [{ label: 'Export', onClick: () => void exportSkill() }]
+  const kebabItems: KebabItem[] = [
+    {
+      label: formatMessage({ id: 'skills.detail.export', defaultMessage: 'Export' }),
+      onClick: () => void exportSkill(),
+    },
+  ]
   if (skill.author !== 'builtin') {
-    kebabItems.push({ label: 'Edit', onClick: () => onEdit(skill) })
-    kebabItems.push({ label: 'Delete', onClick: () => onDelete(skill), danger: true })
+    kebabItems.push({
+      label: formatMessage({ id: 'skills.detail.edit', defaultMessage: 'Edit' }),
+      onClick: () => onEdit(skill),
+    })
+    kebabItems.push({
+      label: formatMessage({ id: 'skills.delete', defaultMessage: 'Delete' }),
+      onClick: () => onDelete(skill),
+      danger: true,
+    })
   }
 
   return (
@@ -177,8 +210,16 @@ function SkillDetailContent({
         {/* ── Header: title + enable toggle + kebab ── */}
         <div className="skill-detail-header">
           <div className="skill-detail-header__title">
-            <Text as="h2" size="lg" weight={700} truncate title={skill.name || '(unnamed)'}>
-              {skill.name || '(unnamed)'}
+            <Text
+              as="h2"
+              size="lg"
+              weight={700}
+              truncate
+              title={
+                displayName || formatMessage({ id: 'skills.unnamed', defaultMessage: '(unnamed)' })
+              }
+            >
+              {displayName || formatMessage({ id: 'skills.unnamed', defaultMessage: '(unnamed)' })}
             </Text>
           </div>
           <div className="skill-detail-header__controls">
@@ -188,7 +229,13 @@ function SkillDetailContent({
               onChange={() => onToggleEnabled(skill)}
             />
             {kebabItems.length > 0 && (
-              <KebabMenu items={kebabItems} label={`${skill.name} actions`} />
+              <KebabMenu
+                items={kebabItems}
+                label={formatMessage(
+                  { id: 'skills.detail.actions', defaultMessage: '{name} actions' },
+                  { name: displayName },
+                )}
+              />
             )}
           </div>
         </div>
@@ -196,18 +243,27 @@ function SkillDetailContent({
         {/* ── Meta grid: Added by / Last updated / Trigger ── */}
         <div className="skill-meta-grid">
           <div className="skill-meta-cell">
-            <span className="skill-meta-cell__label">Added by</span>
+            <span className="skill-meta-cell__label">
+              {formatMessage({ id: 'skills.detail.addedBy', defaultMessage: 'Added by' })}
+            </span>
             <span className="skill-meta-cell__value">
               {authorLabel}
               {skill.author === 'builtin' && (
-                <span className="skill-meta-cell__readonly"> • read-only</span>
+                <span className="skill-meta-cell__readonly">
+                  {formatMessage({ id: 'skills.detail.readOnly', defaultMessage: ' • read-only' })}
+                </span>
               )}
             </span>
           </div>
           {(Object.keys(skill.claude ?? {}).length > 0 ||
             Object.keys(skill.openai ?? {}).length > 0) && (
             <div className="skill-meta-cell">
-              <span className="skill-meta-cell__label">Compatibility</span>
+              <span className="skill-meta-cell__label">
+                {formatMessage({
+                  id: 'skills.detail.compatibility',
+                  defaultMessage: 'Compatibility',
+                })}
+              </span>
               <span className="skill-meta-cell__value skill-compat-badges">
                 {Object.keys(skill.claude ?? {}).length > 0 && (
                   <Badge tone="neutral">Claude Code</Badge>
@@ -218,12 +274,16 @@ function SkillDetailContent({
           )}
           {skill.updated_at && (
             <div className="skill-meta-cell">
-              <span className="skill-meta-cell__label">Last updated</span>
+              <span className="skill-meta-cell__label">
+                {formatMessage({ id: 'skills.detail.updated', defaultMessage: 'Last updated' })}
+              </span>
               <span className="skill-meta-cell__value">{fDate(skill.updated_at)}</span>
             </div>
           )}
           <div className="skill-meta-cell">
-            <span className="skill-meta-cell__label">Trigger</span>
+            <span className="skill-meta-cell__label">
+              {formatMessage({ id: 'skills.detail.trigger', defaultMessage: 'Trigger' })}
+            </span>
             <span className="skill-meta-cell__value">{triggerLabel}</span>
           </div>
         </div>
@@ -232,27 +292,45 @@ function SkillDetailContent({
         {skill.description && (
           <div className="skill-description-block">
             <span className="skill-description-block__label">
-              Description{' '}
+              {formatMessage({ id: 'skills.editor.description', defaultMessage: 'Description' })}{' '}
               <span
                 className="skill-description-block__info"
-                title="The description is how Lucius decides when to use this skill"
-                aria-label="The description is how Lucius decides when to use this skill"
+                title={formatMessage({
+                  id: 'skills.detail.descriptionInfo',
+                  defaultMessage: 'The description is how Lucius decides when to use this skill',
+                })}
+                aria-label={formatMessage({
+                  id: 'skills.detail.descriptionInfo',
+                  defaultMessage: 'The description is how Lucius decides when to use this skill',
+                })}
               >
                 ⓘ
               </span>
             </span>
             <Text tone="muted" size="sm">
-              {skill.description}
+              {displayDescription}
             </Text>
           </div>
         )}
 
         {skill.validation_errors && skill.validation_errors.length > 0 && (
           <div className="skill-description-block" role="alert">
-            <span className="skill-description-block__label">Invalid skill files</span>
+            <span className="skill-description-block__label">
+              {formatMessage({
+                id: 'skills.detail.invalid',
+                defaultMessage: 'Invalid skill files',
+              })}
+            </span>
             <Text tone="bad" size="sm">
-              Invocation is disabled until these files are repaired:{' '}
-              {skill.validation_errors.join('; ')}
+              {formatMessage({
+                id: 'skills.detail.repair',
+                defaultMessage: 'Invocation is disabled until these files are repaired:',
+              })}{' '}
+              {skill.validation_messages &&
+              skill.validation_messages.map((item) => item.text).join('; ') ===
+                skill.validation_errors.join('; ')
+                ? skill.validation_messages.map((item) => skillValidation(intl, item)).join('; ')
+                : skill.validation_errors.join('; ')}
             </Text>
           </div>
         )}
@@ -277,17 +355,30 @@ function SkillDetailContent({
           disabled={!runnable}
           title={
             !skill.enabled
-              ? 'Enable the skill to run it'
+              ? formatMessage({
+                  id: 'skills.detail.enableToRun',
+                  defaultMessage: 'Enable the skill to run it',
+                })
               : !userInvocable
-                ? 'This skill can only be selected automatically'
-                : 'Runs the skill in chat — Lucius executes it and results appear there.'
+                ? formatMessage({
+                    id: 'skills.detail.autoRunOnly',
+                    defaultMessage: 'This skill can only be selected automatically',
+                  })
+                : formatMessage({
+                    id: 'skills.detail.runHelp',
+                    defaultMessage:
+                      'Runs the skill in chat — Lucius executes it and results appear there.',
+                  })
           }
           onClick={() => onRun(skill)}
         >
-          Run
+          {formatMessage({ id: 'skills.detail.run', defaultMessage: 'Run' })}
         </Button>
         <Text tone="faint" size="xs">
-          Runs the skill in chat — Lucius executes it and results appear there.
+          {formatMessage({
+            id: 'skills.detail.runHelp',
+            defaultMessage: 'Runs the skill in chat — Lucius executes it and results appear there.',
+          })}
         </Text>
       </div>
     </>
@@ -306,13 +397,18 @@ function EnableToggle({
   disabled: boolean
   onChange: () => void
 }) {
+  const { formatMessage } = useAppIntl()
   return (
     <div className="skill-enable-toggle">
       <button
         type="button"
         role="switch"
         aria-checked={enabled}
-        aria-label={enabled ? 'Disable skill' : 'Enable skill'}
+        aria-label={
+          enabled
+            ? formatMessage({ id: 'skills.detail.disable', defaultMessage: 'Disable skill' })
+            : formatMessage({ id: 'skills.detail.enable', defaultMessage: 'Enable skill' })
+        }
         disabled={disabled}
         className="skill-enable-toggle__track"
         style={{ background: enabled ? 'var(--accent)' : 'var(--surface2)' }}
@@ -326,7 +422,11 @@ function EnableToggle({
           }}
         />
       </button>
-      <span className="skill-enable-toggle__label">{enabled ? 'Enabled' : 'Disabled'}</span>
+      <span className="skill-enable-toggle__label">
+        {enabled
+          ? formatMessage({ id: 'skills.enabled', defaultMessage: 'Enabled' })
+          : formatMessage({ id: 'skills.disabled', defaultMessage: 'Disabled' })}
+      </span>
     </div>
   )
 }
@@ -388,6 +488,7 @@ function FileViewer({
   bundleError: boolean
   hasBundle: boolean
 }) {
+  const { formatMessage } = useAppIntl()
   const defaultMode: ViewMode = codeOnly ? 'code' : 'preview'
   const [mode, setMode] = useState<ViewMode>(defaultMode)
 
@@ -405,7 +506,7 @@ function FileViewer({
             <IconButton
               active={mode === 'preview'}
               onClick={() => setMode('preview')}
-              title="Preview"
+              title={formatMessage({ id: 'skills.detail.preview', defaultMessage: 'Preview' })}
             >
               {/* Eye icon */}
               <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true">
@@ -418,7 +519,11 @@ function FileViewer({
                 <circle cx="8" cy="8" r="1.8" stroke="currentColor" strokeWidth="1.4" />
               </svg>
             </IconButton>
-            <IconButton active={mode === 'code'} onClick={() => setMode('code')} title="Code">
+            <IconButton
+              active={mode === 'code'}
+              onClick={() => setMode('code')}
+              title={formatMessage({ id: 'skills.detail.code', defaultMessage: 'Code' })}
+            >
               {/* Code brackets icon */}
               <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true">
                 <path
@@ -435,15 +540,25 @@ function FileViewer({
       </div>
 
       {/* Loading / error / empty states */}
-      {awaitingBundle && bundleLoading && <Loading label="Loading file…" />}
+      {awaitingBundle && bundleLoading && (
+        <Loading
+          label={formatMessage({
+            id: 'skills.detail.loadingFile',
+            defaultMessage: 'Loading file…',
+          })}
+        />
+      )}
       {awaitingBundle && bundleError && (
         <Text tone="faint" size="xs">
-          Could not load the bundle source.
+          {formatMessage({
+            id: 'skills.detail.bundleError',
+            defaultMessage: 'Could not load the bundle source.',
+          })}
         </Text>
       )}
       {awaitingBundle && !bundleLoading && !bundleError && !hasBundle && (
         <Text tone="faint" size="xs">
-          No bundle loaded.
+          {formatMessage({ id: 'skills.detail.noBundle', defaultMessage: 'No bundle loaded.' })}
         </Text>
       )}
 
@@ -460,12 +575,19 @@ function FileViewer({
               </ReactMarkdown>
             ) : (
               <Text tone="faint" size="sm">
-                (no instructions)
+                {formatMessage({
+                  id: 'skills.detail.noInstructions',
+                  defaultMessage: '(no instructions)',
+                })}
               </Text>
             )}
           </div>
         ) : (
-          <CodeWithLines content={content || '(empty)'} />
+          <CodeWithLines
+            content={
+              content || formatMessage({ id: 'skills.detail.empty', defaultMessage: '(empty)' })
+            }
+          />
         ))}
     </Panel>
   )

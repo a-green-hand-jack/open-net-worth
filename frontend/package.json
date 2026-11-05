@@ -7,9 +7,11 @@
     "dev": "vite",
     "build": "vite build",
     "sync:connector-directory": "vite-node scripts/sync-connector-directory.ts",
+    "i18n:extract": "formatjs extract \"src/**/*.{ts,tsx}\" --ignore \"**/*.test.*\" --ignore \"**/*.spec.*\" --format simple",
+    "i18n:check": "node scripts/check-i18n.mjs && npm run i18n:visible",
     "check:connector-tools": "vite-node scripts/check-connector-tools.ts",
     "build:tokens": "node scripts/build-tokens.mjs",
-    "prebuild": "node scripts/build-tokens.mjs",
+    "prebuild": "node scripts/build-tokens.mjs && npm run i18n:check",
     "lint": "eslint .",
     "lint:css": "stylelint \"src/**/*.css\"",
     "lint:classes": "node scripts/check-css-classes.mjs",
@@ -26,7 +28,8 @@
     "acceptance-qa": "node qa/run.mjs",
     "e2e:mobile-search": "node qa/mobile-search-e2e.mjs",
     "e2e:crypto-market-data": "node qa/crypto-market-data-failover.mjs",
-    "test": "vitest run"
+    "test": "vitest run",
+    "i18n:visible": "node --test scripts/check-visible-copy.test.mjs && node scripts/check-visible-copy.mjs"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",
@@ -47,12 +50,15 @@
     "prismjs": "^1.30.0",
     "react": "^19.2.6",
     "react-dom": "^19.2.6",
+    "react-intl": "^12.1.6",
     "react-markdown": "^10.1.0",
     "remark-gfm": "^4.0.1",
     "uuid": "^14.0.0"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
+    "@formatjs/cli": "^6.18.0",
+    "@formatjs/icu-messageformat-parser": "^3.5.22",
     "@testing-library/dom": "^10.4.1",
     "@testing-library/react": "^16.3.2",
     "@types/d3-sankey": "^0.12.5",

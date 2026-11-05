@@ -19,6 +19,17 @@ from backend.services.statements.parser import parse_statement, to_upload
 from backend.services.statements.tiers import StaleSchemaError, StatementParseError
 
 
+def test_structured_skip_message_survives_preview_without_changing_reason():
+    from backend.services.import_common import RowResult, build_preview
+    from backend.services.statements.structured import _ofx_rows
+
+    row = _ofx_rows([{"date": "", "amount": "1"}], "synthetic")[0]
+    result = RowResult(line=1, skip_reason=row.skip_reason, skip_message=row.skip_message)
+    sample = build_preview([], 1, [result]).skip_samples[0]
+    assert sample["reason"] == "missing date"
+    assert sample["reason_message"] == {"id": "statement.skip.missing_date", "params": {}}
+
+
 @pytest.fixture(autouse=True)
 def _clear_seam(monkeypatch):
     monkeypatch.setattr(llm_seam, "_complete", None)

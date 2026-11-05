@@ -1,8 +1,12 @@
+import { getNumberLocale } from '../../utils/format'
+import { createIntl, type IntlShape } from 'react-intl'
 // Plain-words help for the pulse strip — what each flag means and how rows are ranked. The
 // thresholds mirror backend/services/watch_rules.py (keep them in step when those change).
 
 import { fDate, fPrice, parseDate } from '../../utils/format'
 import type { NextEvent, TrendPeriod, WatchPulseRow } from '../../types/watchPulse'
+
+const englishIntl = createIntl({ locale: 'en' })
 
 export const FINDING_HELP: Record<string, string> = {
   big_move:
@@ -92,7 +96,7 @@ export function toneColor(n: number | null | undefined): string {
 
 // A level short enough to sit either side of the bar: whole units from 1,000 up.
 export function fLevel(v: number): string {
-  return v >= 1000 ? Math.round(v).toLocaleString() : fPrice(v)
+  return v >= 1000 ? Math.round(v).toLocaleString(getNumberLocale()) : fPrice(v)
 }
 
 /** A magnitude at one decimal under 10, whole from 10 up: "1.2", "18" — decided on the ROUNDED
@@ -109,14 +113,14 @@ export function pct1(n: number): string {
   return (n < 0 && Number(shown) !== 0 ? '-' : '+') + shown + '%'
 }
 
-export function nextEventText(e: NextEvent): {
+export function nextEventText(e: NextEvent, intl: IntlShape = englishIntl): {
   main: string
   date: string
   soon: boolean
   title: string
 } {
-  const word = e.kind === 'earnings' ? 'Earnings' : 'Ex-div'
-  const when = e.in_days === 0 ? 'today' : e.in_days === 1 ? 'tomorrow' : `${e.in_days}d`
+  const word = intl.formatMessage({ id: 'intel.pulse.eventKind', defaultMessage: '{kind, select, earnings {Earnings} other {Ex-div}}' }, { kind: e.kind })
+  const when = intl.formatMessage({ id: 'intel.pulse.eventWhen', defaultMessage: '{days, plural, =0 {today} =1 {tomorrow} other {#d}}' }, { days: e.in_days })
   const date = parseDate(e.at) ? fDate(e.at) : ''
   return {
     main: `${word} ${when}`,
@@ -124,31 +128,26 @@ export function nextEventText(e: NextEvent): {
     soon: e.in_days <= 7,
     title:
       e.kind === 'earnings'
-        ? 'Next earnings report — prices often move sharply around it'
-        : 'Ex-dividend date — you must own the shares before it to receive the next dividend',
+        ? intl.formatMessage({ id: 'intel.pulse.earningsHelp', defaultMessage: 'Next earnings report — prices often move sharply around it' })
+        : intl.formatMessage({ id: 'intel.pulse.dividendHelp', defaultMessage: 'Ex-dividend date — you must own the shares before it to receive the next dividend' }),
   }
-}
-
-const KIND_WORDS: Record<string, string> = {
-  company: 'company',
-  market: 'with market',
-  sector: 'with sector',
 }
 
 /** The line under today's move: how unusual it is for THIS stock, and what drove it. */
 export function moveNote(
   move: WatchPulseRow['move'],
+  intl: IntlShape = englishIntl,
 ): { text: string; loud: boolean; title: string } | null {
   if (!move || move.z == null) return null
   const a = Math.abs(move.z)
   const usual =
-    move.usual_pct != null ? ` (it usually moves about ${move.usual_pct.toFixed(1)}% a day)` : ''
+    move.usual_pct != null ? intl.formatMessage({ id: 'intel.pulse.usualHelp', defaultMessage: ' (it usually moves about {percent}% a day)' }, { percent: move.usual_pct.toFixed(1) }) : ''
   if (a < 1.5)
-    return { text: 'normal day', loud: false, title: `An ordinary day for this stock${usual}` }
-  const kind = a >= 2 && move.kind ? ` · ${KIND_WORDS[move.kind] ?? move.kind}` : ''
+    return { text: intl.formatMessage({ id: 'intel.pulse.normal', defaultMessage: 'normal day' }), loud: false, title: intl.formatMessage({ id: 'intel.pulse.normalHelp', defaultMessage: 'An ordinary day for this stock{usual}' }, { usual }) }
+  const kind = a >= 2 && move.kind ? intl.formatMessage({ id: 'intel.pulse.moveKind', defaultMessage: ' · {kind, select, company {company} market {with market} sector {with sector} other {{kind}}}' }, { kind: move.kind }) : ''
   return {
-    text: `${compact1(a)}× usual${kind}`,
+    text: intl.formatMessage({ id: 'intel.pulse.usualMove', defaultMessage: '{multiple}× usual{kind}' }, { multiple: compact1(a), kind }),
     loud: a >= 2,
-    title: `About ${a.toFixed(1)}× this stock’s usual daily move${usual}`,
+    title: intl.formatMessage({ id: 'intel.pulse.usualMoveHelp', defaultMessage: 'About {multiple}× this stock’s usual daily move{usual}' }, { multiple: a.toFixed(1), usual }),
   }
 }

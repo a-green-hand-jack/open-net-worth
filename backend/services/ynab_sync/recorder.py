@@ -54,7 +54,12 @@ def _show(key: str, value) -> str:
 def _fields(before: Canon, after: Canon, names: dict) -> list[dict]:
     old, new = view(before, names) or {}, view(after, names) or {}
     return [
-        {"name": label, "before": _show(key, old.get(key)), "after": _show(key, new.get(key))}
+        {
+            "name": label,
+            "field_id": key,
+            "before": _show(key, old.get(key)),
+            "after": _show(key, new.get(key)),
+        }
         for key, label in _LABELS.items()
         if old.get(key) != new.get(key)
     ]
@@ -126,9 +131,11 @@ def _safe(fn):
 
 
 @_safe
-def phase(rec: Recorder, name: str) -> None:
+def phase(rec: Recorder, name: str, message_id: str) -> None:
     if rec.run_id:
-        import_runs.update(rec.run_id, phase=name)
+        import_runs.update(
+            rec.run_id, phase=name, phase_message={"message_id": message_id, "params": {}}
+        )
 
 
 @_safe
@@ -183,34 +190,64 @@ def conflict(rec: Recorder, item: dict) -> None:
             {
                 "id": item["id"],
                 "description": item["title"],
+                "description_message": item.get("title_message"),
                 "reason": item["reason"],
+                "reason_message": item.get("reason_message"),
                 "onw_value": item["onw"],
                 "ynab_value": item["ynab"],
                 "status": "open",
             },
         )
     else:
-        rec.add("errors", {"item": item["title"], "reason": item["reason"]})
+        rec.add(
+            "errors",
+            {
+                "item": item["title"],
+                "reason": item["reason"],
+                "item_message": item.get("title_message"),
+                "reason_message": item.get("reason_message"),
+            },
+        )
 
 
 @_safe
-def category_change(rec: Recorder, direction: str, text: str) -> None:
+def category_change(
+    rec: Recorder, direction: str, text: str, text_message: dict | None = None
+) -> None:
     """One category or group change, as a plain sentence: ``direction`` is ``sent`` (YNAB was
     changed) or ``pulled`` (this book was)."""
-    rec.add("category_changes", {"direction": direction, "text": text}, total="categories")
+    rec.add(
+        "category_changes",
+        {"direction": direction, "text": text, "text_message": text_message},
+        total="categories",
+    )
     if direction == "sent":
         rec.totals["categories_sent"] += 1
 
 
 @_safe
-def note(rec: Recorder, item: str, reason: str) -> None:
+def note(rec: Recorder, item: str, reason: str, reason_message: dict | None = None) -> None:
     """Something worth knowing that is not a change or a problem (an Assigned that is not synced)."""
-    rec.add("notes", {"item": item, "reason": reason})
+    rec.add("notes", {"item": item, "reason": reason, "reason_message": reason_message})
 
 
 @_safe
-def deferred(rec: Recorder, item: str, reason: str) -> None:
-    rec.add("deferred", {"item": item, "reason": reason})
+def deferred(
+    rec: Recorder,
+    item: str,
+    reason: str,
+    reason_message: dict | None = None,
+    item_message: dict | None = None,
+) -> None:
+    rec.add(
+        "deferred",
+        {
+            "item": item,
+            "reason": reason,
+            "reason_message": reason_message,
+            "item_message": item_message,
+        },
+    )
 
 
 @_safe

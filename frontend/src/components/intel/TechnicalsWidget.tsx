@@ -1,3 +1,6 @@
+import { technicalHelp } from './technicalHelp'
+import { useAppIntl } from '../../i18n/useAppIntl'
+import { FormattedMessage } from './FormattedMessage'
 import { useEffect, useState } from 'react'
 import { authFetch } from '../../api/client'
 import { Badge, InfoPopover, Panel, SegmentedControl, Skeleton, Text } from '../ui'
@@ -54,14 +57,9 @@ function leanTone(lean: Lean): BadgeTone {
   return 'warn'
 }
 
-function leanText(lean: Lean): string {
-  if (lean === 'leans_buy') return 'Leans buy'
-  if (lean === 'leans_sell') return 'Leans sell'
-  return 'Mixed'
-}
-
 /** Analysis Technicals widget — compact chart, six bipolar rows, hash-gated AI blurb. */
 export function TechnicalsWidget({ instrumentId }: Props) {
+  const intl = useAppIntl()
   const [tf, setTf] = useState<TechTf>('1Y')
   const [data, setData] = useState<TechnResponse | null>(null)
   const [loading, setLoading] = useState(true)
@@ -106,7 +104,7 @@ export function TechnicalsWidget({ instrumentId }: Props) {
     return (
       <Panel>
         <div className="asd-section-head">
-          <span className="asd-section-title">Technical Analysis</span>
+          <span className="asd-section-title">{<FormattedMessage id="intel.static.technical_analysis_3713deed" defaultMessage={"Technical Analysis"} />}</span>
         </div>
         <Skeleton height={160} />
         <div className="asd-skel-stack" style={{ marginTop: 12 }}>
@@ -126,12 +124,12 @@ export function TechnicalsWidget({ instrumentId }: Props) {
   return (
     <Panel>
       <div className="asd-section-head asd-tech-head">
-        <span className="asd-section-title">Technical Analysis</span>
+        <span className="asd-section-title">{<FormattedMessage id="intel.static.technical_analysis_3713deed" defaultMessage={"Technical Analysis"} />}</span>
         <SegmentedControl
           value={tf}
           onChange={(v) => setTf(v as TechTf)}
           options={TF_OPTS}
-          ariaLabel="Technical Analysis chart timeframe"
+          ariaLabel={intl.formatMessage({ id: 'intel.technical.timeframe', defaultMessage: 'Technical Analysis chart timeframe' })}
         />
       </div>
 
@@ -143,55 +141,55 @@ export function TechnicalsWidget({ instrumentId }: Props) {
         <div className="asd-scale-block">
           {lean && (
             <div className="asd-tech-lean">
-              <Badge tone={leanTone(lean)}>{leanText(lean)}</Badge>
+              <Badge tone={leanTone(lean)}>{intl.formatMessage({ id: 'intel.technical.lean', defaultMessage: '{lean, select, leans_buy {Leans buy} leans_sell {Leans sell} other {Mixed}}' }, { lean })}</Badge>
             </div>
           )}
           <div className="asd-scale-axis" aria-hidden="true">
-            <span>Strong sell</span>
-            <span>Sell</span>
-            <span>Neutral</span>
-            <span>Buy</span>
-            <span>Strong buy</span>
+            <span>{<FormattedMessage id="intel.static.strong_sell_17845e50" defaultMessage={"Strong sell"} />}</span>
+            <span>{<FormattedMessage id="intel.static.sell_3bac7f43" defaultMessage={"Sell"} />}</span>
+            <span>{<FormattedMessage id="intel.static.neutral_6b99dc6c" defaultMessage={"Neutral"} />}</span>
+            <span>{<FormattedMessage id="intel.static.buy_f7cec497" defaultMessage={"Buy"} />}</span>
+            <span>{<FormattedMessage id="intel.static.strong_buy_06715c29" defaultMessage={"Strong buy"} />}</span>
           </div>
           <div className="asd-scale-cols-head" aria-hidden="true">
             <span className="asd-scale-cols-spacer" />
             <span className="asd-scale-cols-track-spacer" />
             <div className="asd-scale-nums asd-scale-nums--head">
-              <span>Sell</span>
-              <span>Neutral</span>
-              <span>Buy</span>
-              <span>Now</span>
+              <span>{<FormattedMessage id="intel.static.sell_3bac7f43" defaultMessage={"Sell"} />}</span>
+              <span>{<FormattedMessage id="intel.static.neutral_6b99dc6c" defaultMessage={"Neutral"} />}</span>
+              <span>{<FormattedMessage id="intel.static.buy_f7cec497" defaultMessage={"Buy"} />}</span>
+              <span>{<FormattedMessage id="intel.static.now_a941ea2f" defaultMessage={"Now"} />}</span>
             </div>
           </div>
           {rows.map((row) => (
             <div key={row.id} className="asd-scale-row">
               <div className="asd-scale-row-label">
                 <span>{row.label}</span>
-                <InfoPopover text={row.help} width={280} />
+                <InfoPopover text={technicalHelp(row.id, row.help, intl)} width={280} />
               </div>
               <div
                 className="asd-scale-track"
                 role="img"
-                aria-label={`${row.label} score ${row.score}`}
+                aria-label={intl.formatMessage({ id: 'intel.technical.score', defaultMessage: '{label} score {score}' }, { label: row.label, score: row.score })}
               >
                 <span className="asd-scale-track-line" />
                 <span className="asd-scale-marker" style={{ left: `${scoreToPct(row.score)}%` }} />
               </div>
               <div className="asd-scale-nums">
                 <span className="asd-scale-num">
-                  <span className="asd-scale-num-label">Sell</span>
+                  <span className="asd-scale-num-label">{<FormattedMessage id="intel.static.sell_3bac7f43" defaultMessage={"Sell"} />}</span>
                   {row.scale_sell_display ?? '—'}
                 </span>
                 <span className="asd-scale-num">
-                  <span className="asd-scale-num-label">Neutral</span>
+                  <span className="asd-scale-num-label">{<FormattedMessage id="intel.static.neutral_6b99dc6c" defaultMessage={"Neutral"} />}</span>
                   {row.scale_neutral_display ?? '—'}
                 </span>
                 <span className="asd-scale-num">
-                  <span className="asd-scale-num-label">Buy</span>
+                  <span className="asd-scale-num-label">{<FormattedMessage id="intel.static.buy_f7cec497" defaultMessage={"Buy"} />}</span>
                   {row.scale_buy_display ?? '—'}
                 </span>
                 <span className="asd-scale-num asd-scale-num--ticker">
-                  <span className="asd-scale-num-label">Now</span>
+                  <span className="asd-scale-num-label">{<FormattedMessage id="intel.static.now_a941ea2f" defaultMessage={"Now"} />}</span>
                   {row.raw_display}
                 </span>
               </div>
@@ -204,22 +202,22 @@ export function TechnicalsWidget({ instrumentId }: Props) {
         {(data?.narrative || narrating) && (
           <div className="asd-pi-wrap">
             <div className="asd-pi-head">
-              <p className="asd-pi-label">Technical Analysis ✦</p>
+              <p className="asd-pi-label">{<FormattedMessage id="intel.static.technical_analysis_b301d265" defaultMessage={"Technical Analysis ✦"} />}</p>
               {narrating && (
                 <span
                   className="asd-pi-updating"
                   role="status"
-                  aria-label="Technical Analysis narrative is generating"
+                  aria-label={intl.formatMessage({ id: "intel.field.13a33d51", defaultMessage: "Technical Analysis narrative is generating" })}
                 >
                   <span className="ui-btn__spinner" aria-hidden="true" />
-                  Generating
+                  {intl.formatMessage({ id: 'intel.technical.generating', defaultMessage: 'Generating' })}
                 </span>
               )}
             </div>
             {data?.narrative ? (
               <p className="asd-pi-body">{data.narrative}</p>
             ) : (
-              <div className="asd-pi-body-skeleton" role="status" aria-label="Generating">
+              <div className="asd-pi-body-skeleton" role="status" aria-label={intl.formatMessage({ id: "intel.field.fcbce60e", defaultMessage: "Generating" })}>
                 <Skeleton height={13} width="92%" />
                 <Skeleton height={13} width="78%" />
               </div>
@@ -227,7 +225,7 @@ export function TechnicalsWidget({ instrumentId }: Props) {
           </div>
         )}
         <Text size="xs" tone="faint" className="asd-tech-caption">
-          Lean from indicator scores · daily series · via Yahoo/CoinGecko · not personal advice.
+          {intl.formatMessage({ id: 'intel.technical.caption', defaultMessage: 'Lean from indicator scores · daily series · via Yahoo/CoinGecko · not personal advice.' })}
         </Text>
       </div>
     </Panel>

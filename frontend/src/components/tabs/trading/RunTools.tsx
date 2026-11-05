@@ -1,3 +1,4 @@
+import { useTradingErrorText } from './useTradingErrorText'
 import { useLayoutEffect, useRef, useState } from 'react'
 import { tradingApi } from '../../../api/trading'
 import type { TradingRun } from '../../../types/trading'
@@ -12,7 +13,8 @@ import {
   TextArea,
   TextField,
 } from '../../ui'
-import { errorText, tradingTime } from './presentation'
+import { tradingTime } from './presentation'
+import { useAppIntl } from '../../../i18n/useAppIntl'
 
 const template = `import json, sys
 snapshot = json.load(sys.stdin)
@@ -22,6 +24,8 @@ print(json.dumps({"orders": [], "summary": "Observed the account; no trade yet."
 `
 
 export function RunTools({ run }: { run: TradingRun }) {
+  const { formatMessage } = useAppIntl()
+  const errorText = useTradingErrorText()
   const [dialog, setDialog] = useState<'agent' | 'script' | 'access' | null>(null)
   const [source, setSource] = useState(template)
   const [model, setModel] = useState('')
@@ -74,13 +78,21 @@ export function RunTools({ run }: { run: TradingRun }) {
       <Cluster>
         {run.workspace_snapshot.agent_kind === 'lucius' && (
           <Button disabled={run.state !== 'running'} onClick={() => setDialog('agent')}>
-            Run agent now
+            {formatMessage({ id: 'trading.runAgentNow', defaultMessage: 'Run agent now' })}
           </Button>
         )}
         <Button disabled={run.state !== 'running'} onClick={() => setDialog('script')}>
-          Run strategy script
+          {formatMessage({
+            id: 'trading.runStrategyScript',
+            defaultMessage: 'Run strategy script',
+          })}
         </Button>
-        <Button onClick={() => setDialog('access')}>External agent access</Button>
+        <Button onClick={() => setDialog('access')}>
+          {formatMessage({
+            id: 'trading.externalAgentAccess',
+            defaultMessage: 'External agent access',
+          })}
+        </Button>
       </Cluster>
       {dialog && (
         <Modal
@@ -88,10 +100,16 @@ export function RunTools({ run }: { run: TradingRun }) {
           onClose={close}
           title={
             dialog === 'agent'
-              ? 'Run Lucius'
+              ? formatMessage({ id: 'trading.runLucius', defaultMessage: 'Run Lucius' })
               : dialog === 'script'
-                ? 'Run strategy script'
-                : 'External agent access'
+                ? formatMessage({
+                    id: 'trading.runStrategyScript',
+                    defaultMessage: 'Run strategy script',
+                  })
+                : formatMessage({
+                    id: 'trading.externalAgentAccess',
+                    defaultMessage: 'External agent access',
+                  })
           }
           size="lg"
         >
@@ -100,11 +118,21 @@ export function RunTools({ run }: { run: TradingRun }) {
               {dialog === 'agent' && (
                 <>
                   <Text>
-                    Run one decision cycle against this run’s current observations and mandate.
+                    {formatMessage({
+                      id: 'trading.runDecisionDescription',
+                      defaultMessage:
+                        'Run one decision cycle against this run’s current observations and mandate.',
+                    })}
                   </Text>
-                  <FormField label="Model" info="Leave blank to use the configured instance model.">
+                  <FormField
+                    label={formatMessage({ id: 'trading.model', defaultMessage: 'Model' })}
+                    info={formatMessage({
+                      id: 'trading.modelDefault',
+                      defaultMessage: 'Leave blank to use the configured instance model.',
+                    })}
+                  >
                     <TextField
-                      aria-label="Model"
+                      aria-label={formatMessage({ id: 'trading.model', defaultMessage: 'Model' })}
                       value={model}
                       onChange={(e) => setModel(e.target.value)}
                     />
@@ -114,23 +142,43 @@ export function RunTools({ run }: { run: TradingRun }) {
                     onClick={() =>
                       void perform(
                         () => tradingApi.agent(run.id, model),
-                        'Decision cycle finished. Inspect Activity and Orders for results.',
+                        formatMessage({
+                          id: 'trading.decisionFinished',
+                          defaultMessage:
+                            'Decision cycle finished. Inspect Activity and Orders for results.',
+                        }),
                       )
                     }
                   >
-                    {busy ? 'Running…' : 'Run decision cycle'}
+                    {busy
+                      ? formatMessage({ id: 'trading.running', defaultMessage: 'Running…' })
+                      : formatMessage({
+                          id: 'trading.runDecision',
+                          defaultMessage: 'Run decision cycle',
+                        })}
                   </Button>
                 </>
               )}
               {dialog === 'script' && (
                 <>
                   <Text>
-                    Scripts run in an isolated container without host files or network access.
-                    Return normalized orders; the workspace validates each order before execution.
+                    {formatMessage({
+                      id: 'trading.scriptExplanation',
+                      defaultMessage:
+                        'Scripts run in an isolated container without host files or network access. Return normalized orders; the workspace validates each order before execution.',
+                    })}
                   </Text>
-                  <FormField label="Python strategy source">
+                  <FormField
+                    label={formatMessage({
+                      id: 'trading.pythonSource',
+                      defaultMessage: 'Python strategy source',
+                    })}
+                  >
                     <TextArea
-                      aria-label="Python strategy source"
+                      aria-label={formatMessage({
+                        id: 'trading.pythonSource',
+                        defaultMessage: 'Python strategy source',
+                      })}
                       mono
                       rows={14}
                       value={source}
@@ -142,64 +190,122 @@ export function RunTools({ run }: { run: TradingRun }) {
                     onClick={() =>
                       void perform(
                         () => tradingApi.script(run.id, source),
-                        'Script finished. Source, output and submitted orders are recorded in Activity.',
+                        formatMessage({
+                          id: 'trading.scriptFinished',
+                          defaultMessage:
+                            'Script finished. Source, output and submitted orders are recorded in Activity.',
+                        }),
                       )
                     }
                   >
-                    {busy ? 'Executing…' : 'Execute strategy'}
+                    {busy
+                      ? formatMessage({ id: 'trading.executing', defaultMessage: 'Executing…' })
+                      : formatMessage({
+                          id: 'trading.executeStrategy',
+                          defaultMessage: 'Execute strategy',
+                        })}
                   </Button>
                 </>
               )}
               {dialog === 'access' && (
                 <>
                   <Text>
-                    A credential can access this run’s trading tools only. It cannot authorize live
-                    trading, change the mandate, or access other runs. The credential is shown once
-                    and is discarded when this dialog closes.
+                    {formatMessage({
+                      id: 'trading.credentialExplanation',
+                      defaultMessage:
+                        'A credential can access this run’s trading tools only. It cannot authorize live trading, change the mandate, or access other runs. The credential is shown once and is discarded when this dialog closes.',
+                    })}
                   </Text>
                   {access ? (
                     <>
-                      <FormField label="Scoped credential">
-                        <TextArea aria-label="Scoped credential" readOnly value={access.token} />
+                      <FormField
+                        label={formatMessage({
+                          id: 'trading.scopedCredential',
+                          defaultMessage: 'Scoped credential',
+                        })}
+                      >
+                        <TextArea
+                          aria-label={formatMessage({
+                            id: 'trading.scopedCredential',
+                            defaultMessage: 'Scoped credential',
+                          })}
+                          readOnly
+                          value={access.token}
+                        />
                       </FormField>
-                      <Text>Endpoint: {access.endpoint}</Text>
-                      <Text>Expires: {tradingTime(access.expires_at)}</Text>
+                      <Text>
+                        {formatMessage(
+                          { id: 'trading.endpoint', defaultMessage: 'Endpoint: {endpoint}' },
+                          { endpoint: access.endpoint },
+                        )}
+                      </Text>
+                      <Text>
+                        {formatMessage(
+                          { id: 'trading.expires', defaultMessage: 'Expires: {time}' },
+                          { time: tradingTime(access.expires_at) },
+                        )}
+                      </Text>
                       <Button
                         onClick={() =>
                           void perform(
                             () => navigator.clipboard.writeText(access.token),
-                            'Credential copied.',
+                            formatMessage({
+                              id: 'trading.credentialCopied',
+                              defaultMessage: 'Credential copied.',
+                            }),
                           )
                         }
                       >
-                        Copy credential
+                        {formatMessage({
+                          id: 'trading.copyCredential',
+                          defaultMessage: 'Copy credential',
+                        })}
                       </Button>
                     </>
                   ) : (
                     <Button
                       disabled={busy}
                       onClick={() =>
-                        void perform(async () => {
-                          const generation = accessGeneration.current
-                          const result = await tradingApi.issueAccess(run.id)
-                          if (generation === accessGeneration.current) setAccess(result)
-                        }, 'Credential issued. Store it securely before closing this dialog.')
+                        void perform(
+                          async () => {
+                            const generation = accessGeneration.current
+                            const result = await tradingApi.issueAccess(run.id)
+                            if (generation === accessGeneration.current) setAccess(result)
+                          },
+                          formatMessage({
+                            id: 'trading.credentialIssued',
+                            defaultMessage:
+                              'Credential issued. Store it securely before closing this dialog.',
+                          }),
+                        )
                       }
                     >
-                      Issue run credential
+                      {formatMessage({
+                        id: 'trading.issueCredential',
+                        defaultMessage: 'Issue run credential',
+                      })}
                     </Button>
                   )}
                   <Button
                     variant="danger"
                     disabled={busy}
                     onClick={() =>
-                      void perform(async () => {
-                        await tradingApi.revokeAccess(run.id)
-                        setAccess(null)
-                      }, 'Run credentials revoked.')
+                      void perform(
+                        async () => {
+                          await tradingApi.revokeAccess(run.id)
+                          setAccess(null)
+                        },
+                        formatMessage({
+                          id: 'trading.credentialsRevoked',
+                          defaultMessage: 'Run credentials revoked.',
+                        }),
+                      )
                     }
                   >
-                    Revoke run access
+                    {formatMessage({
+                      id: 'trading.revokeAccess',
+                      defaultMessage: 'Revoke run access',
+                    })}
                   </Button>
                 </>
               )}

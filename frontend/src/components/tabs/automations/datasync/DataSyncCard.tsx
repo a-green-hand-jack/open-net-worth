@@ -1,12 +1,13 @@
+import { useAppIntl } from '../../../../i18n/useAppIntl'
 import { useState } from 'react'
 import { Clock3 } from 'lucide-react'
-import { DIRECTION_LABELS, sendSync } from '../../imports/sync'
+import { sendSync } from '../../imports/sync'
 import { AutomationMenu } from '../AutomationMenu'
 import {
-  YNAB_SYNC_BLURB,
   YNAB_SYNC_KEY,
   YNAB_SYNC_NAME,
   scheduleLabel,
+  syncDirectionLabel,
   type YnabSyncSummary,
 } from './ynabSync'
 
@@ -21,6 +22,8 @@ export function DataSyncCard({
   onOpen: () => void
   onChanged: () => void
 }) {
+  const intl = useAppIntl()
+  const { formatMessage } = intl
   const [busy, setBusy] = useState(false)
   const on = sync.stage === 'on'
   const act = async (path: string, method: string, body?: unknown) => {
@@ -43,18 +46,35 @@ export function DataSyncCard({
       <span className="a3-row-body">
         <span className="a3-row-title">
           <span className="t">{YNAB_SYNC_NAME}</span>
-          {sync.toReview > 0 && <span className="a3-tag warn">{sync.toReview} to review</span>}
-          {!on && <span className="a3-tag warn">Off</span>}
+          {sync.toReview > 0 && (
+            <span className="a3-tag warn">
+              {formatMessage(
+                { id: 'automations.sync.toReview', defaultMessage: '{count} to review' },
+                { count: sync.toReview },
+              )}
+            </span>
+          )}
+          {!on && (
+            <span className="a3-tag warn">
+              {formatMessage({ id: 'automations.sync.off', defaultMessage: 'Off' })}
+            </span>
+          )}
         </span>
         <span className="a3-row-blurb">
           {sync.planName ? `${sync.planName}: ` : ''}
-          {YNAB_SYNC_BLURB}
+          {formatMessage({
+            id: 'automations.sync.blurb',
+            defaultMessage: 'Transactions and each month’s Assigned, in step with your YNAB plan.',
+          })}
         </span>
         <span className={`a3-when${on ? '' : ' off'}`}>
           <Clock3 size={13} strokeWidth={1.7} aria-hidden="true" />
           {sync.running
-            ? 'Syncing now…'
-            : [sync.status && DIRECTION_LABELS[sync.status.direction], scheduleLabel(sync.status)]
+            ? formatMessage({ id: 'automations.sync.syncing', defaultMessage: 'Syncing now…' })
+            : [
+                sync.status && syncDirectionLabel(intl, sync.status.direction),
+                scheduleLabel(sync.status, intl),
+              ]
                 .filter(Boolean)
                 .join(' · ')}
         </span>
@@ -63,16 +83,21 @@ export function DataSyncCard({
         <AutomationMenu
           items={[
             {
-              label: 'Sync now',
+              label: formatMessage({ id: 'automations.sync.run', defaultMessage: 'Sync now' }),
               disabled: busy || !on || sync.running,
               onSelect: () => void act('/run', 'POST'),
             },
             {
-              label: on ? 'Turn off' : 'Turn on',
+              label: on
+                ? formatMessage({ id: 'automations.sync.turnOff', defaultMessage: 'Turn off' })
+                : formatMessage({ id: 'automations.sync.turnOn', defaultMessage: 'Turn on' }),
               disabled: busy || sync.running || !sync.planId,
               onSelect: () => void act('/settings', 'PUT', { enabled: !on, plan_id: sync.planId }),
             },
-            { label: 'Open', onSelect: onOpen },
+            {
+              label: formatMessage({ id: 'automations.sync.open', defaultMessage: 'Open' }),
+              onSelect: onOpen,
+            },
           ]}
         />
       </span>

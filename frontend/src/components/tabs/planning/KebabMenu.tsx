@@ -1,3 +1,4 @@
+import { useAppIntl } from '../../../i18n/useAppIntl'
 import type { ReactNode } from 'react'
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
@@ -23,7 +24,7 @@ export interface KebabItem {
 
 export function KebabMenu({
   items,
-  label = 'More actions',
+  label,
   icon,
   portal,
 }: {
@@ -42,6 +43,9 @@ export function KebabMenu({
    * the mobile bottom sheet always portals to `document.body`. */
   portal?: boolean
 }) {
+  const intl = useAppIntl()
+  const menuLabel =
+    label ?? intl.formatMessage({ id: 'common.moreActions', defaultMessage: 'More actions' })
   const [open, setOpen] = useState(false)
   const [dropUp, setDropUp] = useState(false)
   const [portalPos, setPortalPos] = useState<{ top: number; left: number } | null>(null)
@@ -137,7 +141,7 @@ export function KebabMenu({
         <button
           type="button"
           className="kebab-trigger"
-          aria-label={label}
+          aria-label={menuLabel}
           aria-haspopup="menu"
           aria-expanded={open}
           onClick={() => setOpen((o) => !o)}
@@ -157,19 +161,19 @@ export function KebabMenu({
                 className="kebab-sheet"
                 role="menu"
                 ref={menuRef}
-                aria-label={label}
+                aria-label={menuLabel}
                 {...dragHandlers}
               >
                 <div className="kebab-sheet-handle-wrap">
                   <span className="kebab-sheet-handle" />
                 </div>
                 <div className="kebab-sheet-head">
-                  <span className="kebab-sheet-title">{label}</span>
+                  <span className="kebab-sheet-title">{menuLabel}</span>
                   <button
                     type="button"
                     className="kebab-sheet-x"
                     onClick={() => setOpen(false)}
-                    aria-label="Close"
+                    aria-label={intl.formatMessage({ id: 'common.close', defaultMessage: 'Close' })}
                   >
                     <X size={18} strokeWidth={1.6} aria-hidden="true" />
                   </button>
@@ -229,7 +233,7 @@ export function KebabMenu({
       <button
         type="button"
         className="kebab-trigger"
-        aria-label={label}
+        aria-label={menuLabel}
         aria-haspopup="menu"
         aria-expanded={open}
         onClick={() => setOpen((o) => !o)}

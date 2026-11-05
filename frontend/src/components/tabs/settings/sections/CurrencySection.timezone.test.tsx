@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import * as client from '../../../../api/client'
 import { clearQueryCache } from '../../../../state/queryCache'
 import { CurrencySection } from './CurrencySection'
+import { LocaleProvider } from '../../../../i18n/LocaleProvider'
 
 function respond(profile: Record<string, unknown>) {
   return vi.spyOn(client, 'authFetch').mockImplementation(async (url, init) => {
@@ -38,7 +39,11 @@ describe('Settings time zone', () => {
       timezone_source: 'auto',
     })
     const toast = vi.fn()
-    render(<CurrencySection toast={toast} />)
+    render(
+      <LocaleProvider>
+        <CurrencySection toast={toast} />
+      </LocaleProvider>,
+    )
     await screen.findByText(/Detected from this browser/)
     const select = screen.getByDisplayValue('Asia/Singapore') as HTMLSelectElement
     fireEvent.change(select, { target: { value: 'Europe/Paris' } })
@@ -55,7 +60,11 @@ describe('Settings time zone', () => {
 
   it('offers to switch to the browser zone only when it differs from the stored one', async () => {
     respond({ base_currency: 'SGD', timezone: 'Europe/Paris', timezone_source: 'user' })
-    render(<CurrencySection toast={vi.fn()} />)
+    render(
+      <LocaleProvider>
+        <CurrencySection toast={vi.fn()} />
+      </LocaleProvider>,
+    )
     await screen.findByText(/Use this browser's \(Asia\/Singapore\)/)
   })
 })

@@ -1,3 +1,4 @@
+import { FormattedMessage } from './FormattedMessage'
 import { safeHref } from '../../utils/format'
 import { OpinionLine } from './OpinionLine'
 import type { SignalSource, StoryArc } from './storyMeta'
@@ -34,18 +35,18 @@ export function ExplainedBlock({ ex }: { ex: NonNullable<StoryArc['explained']> 
     <div className="intel-explained">
       <p className="intel-explained-lead">{ex.what_happened}</p>
       <div className="intel-explained-sec">
-        <span className="intel-explained-h">Why</span>
+        <span className="intel-explained-h">{<FormattedMessage id="intel.static.why_124fc910" defaultMessage={"Why"} />}</span>
         <p>
           {ex.why} <SourceLinks sources={ex.sources} />
         </p>
       </div>
       <div className="intel-explained-sec">
-        <span className="intel-explained-h">What it means for you</span>
+        <span className="intel-explained-h">{<FormattedMessage id="intel.static.what_it_means_for_you_ec862d7f" defaultMessage={"What it means for you"} />}</span>
         <p>{ex.what_it_means}</p>
       </div>
       {ex.worth_weighing.length > 0 && (
         <div className="intel-explained-sec">
-          <span className="intel-explained-h">Worth weighing</span>
+          <span className="intel-explained-h">{<FormattedMessage id="intel.static.worth_weighing_967b7c59" defaultMessage={"Worth weighing"} />}</span>
           <ul>
             {ex.worth_weighing.map((w, i) => (
               <li key={i}>{w}</li>
@@ -62,14 +63,14 @@ export function ReadBlock({ read }: { read: NonNullable<StoryArc['lucius_read']>
   return (
     <div className="intel-explained intel-read">
       <div className="intel-explained-sec">
-        <span className="intel-explained-h">Lucius’s read</span>
+        <span className="intel-explained-h">{<FormattedMessage id="intel.static.lucius_s_read_6a17fd3d" defaultMessage={"Lucius’s read"} />}</span>
         <p>
           {read.text} <SourceLinks sources={read.sources} />
         </p>
       </div>
       {read.watch_for.length > 0 && (
         <div className="intel-explained-sec">
-          <span className="intel-explained-h">Watch for</span>
+          <span className="intel-explained-h">{<FormattedMessage id="intel.static.watch_for_637852a0" defaultMessage={"Watch for"} />}</span>
           <ul>
             {read.watch_for.map((w, i) => (
               <li key={i}>{w}</li>

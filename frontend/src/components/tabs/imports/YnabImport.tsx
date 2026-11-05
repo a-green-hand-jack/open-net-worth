@@ -1,3 +1,8 @@
+import { importPhase } from './importMessages'
+import { formatImportCount } from './labels'
+import { useAppIntl } from '../../../i18n/useAppIntl'
+import { ynabMessage } from '../automations/datasync/ynabMessages'
+import { FormattedMessage } from './FormattedMessage'
 import { useState } from 'react'
 import { authFetch } from '../../../api/client'
 import { useQueryCache } from '../../../state/queryCache'
@@ -26,9 +31,10 @@ export function YnabImport(props: {
   onStarted: () => void
   onOpen: (id: string) => void
 }) {
+  const intl = useAppIntl()
   const status = useQueryCache<YnabStatus>('/api/ynab/status', async () => {
     const r = await authFetch('/api/ynab/status')
-    if (!r.ok) throw new Error(await detailOf(r, 'Could not read the YNAB connector.'))
+    if (!r.ok) throw new Error(await detailOf(r, intl.formatMessage({ id: 'imports.import.connectorError', defaultMessage: 'Could not read the YNAB connector.' })))
     return (await r.json()) as YnabStatus
   })
   const tokenSaved = !!status.data?.has_access_token
@@ -36,7 +42,7 @@ export function YnabImport(props: {
     '/api/ynab/budgets',
     async () => {
       const r = await authFetch('/api/ynab/budgets')
-      if (!r.ok) throw new Error(await detailOf(r, 'Could not list your YNAB plans.'))
+      if (!r.ok) throw new Error(await detailOf(r, intl.formatMessage({ id: 'imports.import.plansError', defaultMessage: 'Could not list your YNAB plans.' })))
       return ((await r.json()) as { budgets: Plan[] }).budgets
     },
     { enabled: tokenSaved },
@@ -63,13 +69,13 @@ export function YnabImport(props: {
       })
       const body = await r.json().catch(() => null)
       if (!r.ok) {
-        setStartError(messageOf(body, 'Could not read the plan.'))
+        setStartError(messageOf(body, intl.formatMessage({ id: 'imports.import.planError', defaultMessage: 'Could not read the plan.' })))
         return
       }
       props.onStarted()
       setReviewId((body as { id: string }).id)
     } catch {
-      setStartError('Could not reach the server.')
+      setStartError(intl.formatMessage({ id: 'imports.import.serverError', defaultMessage: 'Could not reach the server.' }))
     } finally {
       setBusy(false)
     }
@@ -79,11 +85,11 @@ export function YnabImport(props: {
     <>
       {status.initialLoading ? (
         <Text size="sm" tone="faint">
-          Loading…
+          {<FormattedMessage id="imports.static.8636cba2" defaultMessage={"Loading…"} />}
         </Text>
       ) : !tokenSaved ? (
         <Text size="sm" tone="faint">
-          Save your YNAB access token on the YNAB connector first.
+          {<FormattedMessage id="imports.static.015abcc3" defaultMessage={"Save your YNAB access token on the YNAB connector first."} />}
         </Text>
       ) : (
         <Stack gap="--space-4">
@@ -99,7 +105,7 @@ export function YnabImport(props: {
                 loading={busy}
                 onClick={() => void review()}
               >
-                Review…
+                {<FormattedMessage id="imports.static.8b8f9242" defaultMessage={"Review…"} />}
               </Button>
             </div>
           )}
@@ -113,7 +119,7 @@ export function YnabImport(props: {
       {reviewId && (
         <YnabReview
           runId={reviewId}
-          planLabel={planLabel(plans.data?.find((x) => x.id === planId))}
+          planLabel={plans.data?.find((x) => x.id === planId) ? planLabel(plans.data.find((x) => x.id === planId)) : intl.formatMessage({ id: 'imports.import.yourPlan', defaultMessage: 'your YNAB plan' })}
           onClose={() => setReviewId(null)}
           onStarted={props.onStarted}
         />
@@ -131,15 +137,16 @@ function PlanPicker(props: {
   disabled: boolean
   onChange: (id: string) => void
 }) {
+  const intl = useAppIntl()
   const { plans } = props
   if (plans.error) {
     return (
       <Cluster gap="--space-2">
         <Text size="sm" tone="bad">
-          {plans.error instanceof Error ? plans.error.message : 'Could not list your plans.'}
+          {plans.error instanceof Error ? plans.error.message : intl.formatMessage({ id: 'imports.import.plansShortError', defaultMessage: 'Could not list your plans.' })}
         </Text>
         <Button size="sm" onClick={() => void plans.refresh()}>
-          Retry
+          {<FormattedMessage id="imports.static.ef217ee7" defaultMessage={"Retry"} />}
         </Button>
       </Cluster>
     )
@@ -147,7 +154,7 @@ function PlanPicker(props: {
   if (plans.initialLoading) {
     return (
       <Text size="sm" tone="faint">
-        Loading your YNAB plans…
+        {<FormattedMessage id="imports.static.df99d257" defaultMessage={"Loading your YNAB plans…"} />}
       </Text>
     )
   }
@@ -158,16 +165,16 @@ function PlanPicker(props: {
   if (options.length === 0) {
     return (
       <Text size="sm" tone="warn">
-        This token can&apos;t see any YNAB plans.
+        {<FormattedMessage id="imports.static.b6a6baa2" defaultMessage={"This token can't see any YNAB plans."} />}
       </Text>
     )
   }
   return (
-    <FormField label="YNAB plan" htmlFor="imports-ynab-plan" required>
+    <FormField label={intl.formatMessage({ id: 'imports.import.plan', defaultMessage: 'YNAB plan' })} htmlFor="imports-ynab-plan" required>
       <Select
         id="imports-ynab-plan"
         value={props.planId}
-        placeholder="Choose a plan…"
+        placeholder={intl.formatMessage({ id: 'imports.import.choosePlan', defaultMessage: 'Choose a plan…' })}
         options={options}
         disabled={props.disabled}
         onChange={(e) => props.onChange(e.target.value)}
@@ -176,30 +183,24 @@ function PlanPicker(props: {
   )
 }
 
-const STRIP_LABEL = {
-  preview: 'Reading your plan',
-  import: 'Working',
-  verify: 'Working',
-  sync: 'Syncing',
-}
-
 function LiveStrip({ run, onOpen }: { run: RunSummary; onOpen: (id: string) => void }) {
+  const intl = useAppIntl()
   const { done, total } = run.progress
   return (
     <Stack gap="--space-2">
       <Cluster justify="between" gap="--space-3">
         <Text size="sm" weight={600}>
-          {STRIP_LABEL[run.kind]}: {run.phase}
+          {intl.formatMessage({ id: 'imports.run.phase', defaultMessage: '{kind, select, preview {Reading your plan} import {Working} verify {Working} other {Syncing}}: {phase}' }, { kind: run.kind, phase: importPhase(intl, run.phase_message, ynabMessage(intl, run.phase_message, run.phase)) })}
         </Text>
         <Button size="sm" variant="secondary" onClick={() => onOpen(run.id)}>
-          View live report
+          {<FormattedMessage id="imports.static.42292847" defaultMessage={"View live report"} />}
         </Button>
       </Cluster>
       {total > 0 && (
         <Meter
           value={(done / total) * 100}
-          ariaLabel="Run progress"
-          valueText={`${done} of ${total}`}
+          ariaLabel={intl.formatMessage({ id: 'imports.run.progressLabel', defaultMessage: 'Run progress' })}
+          valueText={intl.formatMessage({ id: 'imports.run.progress', defaultMessage: '{done} of {total}' }, { done: formatImportCount(done), total: formatImportCount(total) })}
         />
       )}
     </Stack>

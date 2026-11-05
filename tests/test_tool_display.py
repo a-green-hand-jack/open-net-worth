@@ -23,6 +23,123 @@ def label(name: str, tool_input: dict | None = None) -> str:
     return describe_tool_call(name, tool_input or {})["label"]
 
 
+def test_localization_identifies_registered_calls_without_changing_english():
+    import backend.ai.tools  # noqa: F401 — populate registry
+
+    display = describe_tool_call("web_search", {"query": "synthetic query"})
+    assert display["label"] == 'Search the web for "synthetic query"'
+    assert display["detail"] == ""
+    assert display["localization"] == {
+        "tool": "web_search",
+        "detail": "synthetic query",
+        "detail_mode": "search",
+    }
+
+
+def test_localization_omits_unknown_tools_and_unknown_budget_operations():
+    assert "localization" not in describe_tool_call("invented_external_tool", {"name": "private"})
+    assert "localization" not in describe_tool_call(
+        "apply_budget_verb", {"verb_id": "unknown_custom_operation"}
+    )
+    metadata = describe_tool_call(
+        "apply_budget_verb", {"verb_id": "set_caps", "engine_id": "proportional"}
+    )["localization"]
+    assert metadata["operation"] == "set_caps"
+    assert metadata["engine"] == "proportional"
+
+
+def test_registered_tools_have_localized_display_descriptors():
+    import re
+    from pathlib import Path
+
+    import backend.ai.tools  # noqa: F401 — populate registry
+    from backend.ai.tools.registry import registered_tool_names
+
+    path = (
+        Path(__file__).resolve().parents[1]
+        / "frontend/src/components/chat/toolActivity/localizedDisplay.ts"
+    )
+    descriptors = set(
+        re.findall(r"id:\s*['\"]chat\.tool\.action\.([a-z0-9_]+)['\"]", path.read_text())
+    )
+    # This tool's label is selected from the budget operation instead.
+    descriptors.add("apply_budget_operation")
+    assert set(registered_tool_names()) <= descriptors
+
+
+def test_registered_tool_schema_fields_have_localized_descriptors():
+    import re
+    from pathlib import Path
+
+    import backend.ai.tools  # noqa: F401 — populate the first-party registry
+    from backend.ai.tools.registry import build_tool_schemas
+
+    path = (
+        Path(__file__).resolve().parents[1] / "frontend/src/components/chat/approval/FieldLabels.ts"
+    )
+    descriptors = set(re.findall(r"chat\.approval\.argument\.([a-zA-Z0-9_]+)", path.read_text()))
+    fields: set[str] = set()
+
+    def walk(node):
+        if isinstance(node, dict):
+            props = node.get("properties")
+            if isinstance(props, dict):
+                fields.update(props)
+            for value in node.values():
+                walk(value)
+        elif isinstance(node, list):
+            for value in node:
+                walk(value)
+
+    for tool in build_tool_schemas():
+        walk(tool["input_schema"])
+    assert fields <= descriptors, f"missing tool field labels: {sorted(fields - descriptors)}"
+
+
+def test_tool_schema_enum_snapshot_and_open_string_safety():
+    import hashlib
+    import json
+
+    from backend.ai.tools.schema_enums import (
+        approval_marker,
+        schema_enums,
+        schema_fields,
+        schema_version,
+        snapshot,
+    )
+    from backend.scripts.sync_tool_schema_enums import OUTPUT, VERSION
+
+    assert json.loads(OUTPUT.read_text()) == snapshot()
+    assert schema_version() == hashlib.sha256(OUTPUT.read_bytes()).hexdigest()
+    assert json.loads(VERSION.read_text()) == {"sha256": schema_version()}
+    assert approval_marker("get_transactions") == {"enum_schema_version": schema_version()}
+    assert approval_marker("mcp__outside__tool") == {}
+    schema = {
+        "$defs": {"Item": {"type": "object", "properties": {"side": {"enum": ["buy", "sell"]}}}},
+        "properties": {
+            "rows": {"type": "array", "items": {"$ref": "#/$defs/Item"}},
+            "closed": {"anyOf": [{"enum": ["one", "two"]}, {"type": "null"}]},
+            "open": {"anyOf": [{"enum": ["one"]}, {"type": "string"}]},
+            "dynamic": {"type": "object", "additionalProperties": {"enum": ["one"]}},
+            "ambiguous": {
+                "anyOf": [
+                    {"type": "object"},
+                    {"type": "object", "properties": {"name": {"type": "string"}}},
+                ]
+            },
+        },
+    }
+    assert schema_enums(schema) == {"closed": ["one", "two"], "rows.*.side": ["buy", "sell"]}
+    assert schema_fields(schema) == [
+        "ambiguous",
+        "closed",
+        "dynamic",
+        "open",
+        "rows",
+        "rows.*.side",
+    ]
+
+
 # --- the derivation itself -------------------------------------------------------------
 
 
@@ -160,6 +277,7 @@ def test_untagged_tool_is_owned_by_core_and_shows_no_breadcrumb():
 def test_external_mcp_tool_owner_is_its_server():
     d = describe_tool_call("mcp__someserver__do_thing", {})
     assert d["owner_id"] == "mcp:someserver"
+    assert "localization" not in d
 
 
 # --- untrusted input -------------------------------------------------------------------

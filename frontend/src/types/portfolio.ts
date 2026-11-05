@@ -315,6 +315,7 @@ export interface PortfolioReturns {
   end: string
   effective_start: string // actual window start after clamping to inception / price_floor
   label: string // "Since 2026-03-01" when clamped; standard label otherwise
+  label_message?: { id: string; params: Record<string, unknown> } | null
   annualized: boolean // true iff effective span ≥ 360 days
   base_currency: string
   // Fractions (not %); the UI multiplies by 100. null = not enough history.
@@ -395,7 +396,8 @@ export interface RiskMetrics {
   beta_symbol: string // the symbol beta was actually computed against (e.g. "BTC")
   sharpe: number | null // (ann. return - 3.5%) / ann. vol, clamped
   max_drawdown: number | null // negative fraction (worst peak-to-trough)
-  summary: string // plain-English one-liner
+  summary: string | null // plain-English one-liner
+  summary_messages?: { id: string; params: Record<string, unknown>; text: string }[]
 }
 
 // ── Fixed income / bond summary (GET /api/fixed-income) ─────────────────────
@@ -448,6 +450,7 @@ export interface OptionContract {
   side: OptionSide
   underlying_symbol: string
   strategy_tag: string // human label, e.g. "Covered call"
+  strategy_preset: 'covered_call' | 'csp' | 'long_call' | 'long_put' | 'protective_put' | 'custom' | null
   strategy_group: OptionStrategyGroup
   contracts: number
   strike: number

@@ -1,3 +1,6 @@
+import { useAppIntl } from '../../../i18n/useAppIntl'
+import { automationRunMessage } from './runMessages'
+import type { IntlShape } from 'react-intl'
 import { Check, ChevronRight, FileText, Folder, Sparkles, X } from 'lucide-react'
 import type { AutomationRun } from '../../../api/automations'
 import { money, tokenCount } from './AutomationCostPanel'
@@ -16,6 +19,8 @@ function stepState(step: { done?: boolean; status?: string }): string {
 }
 
 export function AutomationRunCard({ run, onClose }: { run: AutomationRun; onClose: () => void }) {
+  const intl = useAppIntl()
+  const { formatMessage } = intl
   const context = contextGroups(run.context ?? {})
   // ONLY the run's own checklist. No fallback to the tool trail: "Fetch emails / List
   // accounts / Set run plan" is a record of mechanics, not progress, and showing it under
@@ -23,7 +28,7 @@ export function AutomationRunCard({ run, onClose }: { run: AutomationRun; onClos
   // set_run_plan simply has no progress to show, and shows none. The trail is still on the
   // row for debugging.
   const progress = run.plan ?? []
-  const duration = durationLabel(run.started_at, run.finished_at)
+  const duration = durationLabel(run.started_at, run.finished_at, intl)
   // The CLI reports total_cost_usd even on a Pro/Max login, where it is a LIST PRICE for
   // usage the plan already covers — Anthropic's docs say it "isn't relevant for billing".
   // The backend stamps that as cost_basis="plan_included"; showing the number without the
@@ -34,24 +39,35 @@ export function AutomationRunCard({ run, onClose }: { run: AutomationRun; onClos
     <article
       className={`a3-runcard${run.status === 'failed' ? ' bad' : ''}`}
       data-od-id="open-run"
-      aria-label={`Run ${fDateTime(run.started_at, 'short', 'always')}`}
+      aria-label={formatMessage(
+        { id: 'automations.run.label', defaultMessage: 'Run {date}' },
+        { date: fDateTime(run.started_at, 'short', 'always') },
+      )}
     >
       <div className="top">
-        <span className="when">Run • {fDateTime(run.started_at, 'short', 'always')}</span>
+        <span className="when">
+          {formatMessage(
+            { id: 'automations.run.heading', defaultMessage: 'Run • {date}' },
+            { date: fDateTime(run.started_at, 'short', 'always') },
+          )}
+        </span>
         <span className="grow" />
         <button
           type="button"
           className="a3-iconbtn sm"
           onClick={onClose}
-          aria-label="Close this run"
-          title="Close this run"
+          aria-label={formatMessage({
+            id: 'automations.run.close',
+            defaultMessage: 'Close this run',
+          })}
+          title={formatMessage({ id: 'automations.run.close', defaultMessage: 'Close this run' })}
         >
           <X size={14} />
         </button>
       </div>
       {run.error && (
         <div className="err" role="alert">
-          {run.error}
+          {automationRunMessage(intl, run.error_message, run.error)}
         </div>
       )}
       {/* A cancelled run has no `error` on purpose — being stopped is not a failure, so the
@@ -60,7 +76,7 @@ export function AutomationRunCard({ run, onClose }: { run: AutomationRun; onClos
           "Stopped" chip, a checklist frozen mid-task, and no reason anywhere (owner,
           2026-08-21). Neutral notice, not an alert. */}
       {run.status === 'cancelled' && run.summary.trim() !== '' && (
-        <div className="note">{run.summary}</div>
+        <div className="note">{automationRunMessage(intl, run.summary_message, run.summary)}</div>
       )}
       {progress.length === 0 ? (
         // A run that has not written its task list yet — or a short one that never will.
@@ -68,7 +84,7 @@ export function AutomationRunCard({ run, onClose }: { run: AutomationRun; onClos
         // later and shoving the rest of the card down the page.
         <section className="rsec">
           <div className="rsec-h">
-            <b>Progress</b>
+            <b>{formatMessage({ id: 'automations.run.progress', defaultMessage: 'Progress' })}</b>
           </div>
           <div className="a3-step-ghosts" aria-hidden="true">
             <span className="a3-step-ghost">
@@ -81,14 +97,22 @@ export function AutomationRunCard({ run, onClose }: { run: AutomationRun; onClos
             <span className="a3-step-link" />
             <span className="a3-step-ghost a3-step-ghost--pending" />
           </div>
-          <div className="a3-step-hint">Task progress appears here for longer runs.</div>
+          <div className="a3-step-hint">
+            {formatMessage({
+              id: 'automations.run.progressHelp',
+              defaultMessage: 'Task progress appears here for longer runs.',
+            })}
+          </div>
         </section>
       ) : (
         <section className="rsec">
           <div className="rsec-h">
-            <b>Progress</b>
+            <b>{formatMessage({ id: 'automations.run.progress', defaultMessage: 'Progress' })}</b>
             <span>
-              {progress.filter((step) => step.done).length} of {progress.length}
+              {formatMessage(
+                { id: 'automations.run.progressCount', defaultMessage: '{done} of {total}' },
+                { done: progress.filter((step) => step.done).length, total: progress.length },
+              )}
             </span>
           </div>
           {progress.map((step, index) => (
@@ -104,7 +128,12 @@ export function AutomationRunCard({ run, onClose }: { run: AutomationRun; onClos
       {(run.working_dir || files.length > 0) && (
         <section className="rsec">
           <div className="rsec-h">
-            <b>Working folder</b>
+            <b>
+              {formatMessage({
+                id: 'automations.run.workingFolder',
+                defaultMessage: 'Working folder',
+              })}
+            </b>
           </div>
           {run.working_dir && (
             <div className="a3-file">
@@ -129,66 +158,131 @@ export function AutomationRunCard({ run, onClose }: { run: AutomationRun; onClos
       )}
       <details className="rsec" open>
         <summary className="rsec-h as-btn">
-          <b>Context</b>
+          <b>{formatMessage({ id: 'automations.run.context', defaultMessage: 'Context' })}</b>
           <ChevronRight size={11} />
         </summary>
         <div className="a3-context-groups">
           {context.hasAny ? (
             <>
               {context.connectors.length > 0 && (
-                <ContextPills label="Connectors" values={context.connectors} />
+                <ContextPills
+                  label={formatMessage({
+                    id: 'automations.run.connectors',
+                    defaultMessage: 'Connectors',
+                  })}
+                  values={context.connectors}
+                />
               )}
               {context.accounts.length > 0 && (
-                <ContextPills label="Accounts it read" values={context.accounts} />
+                <ContextPills
+                  label={formatMessage({
+                    id: 'automations.run.accounts',
+                    defaultMessage: 'Accounts it read',
+                  })}
+                  values={context.accounts}
+                />
               )}
-              {context.skills.length > 0 && <ContextFiles label="Skills" values={context.skills} />}
+              {context.skills.length > 0 && (
+                <ContextFiles
+                  label={formatMessage({ id: 'automations.run.skills', defaultMessage: 'Skills' })}
+                  values={context.skills}
+                />
+              )}
               {context.remembered.length > 0 && (
-                <ContextFiles label="What it remembered" values={context.remembered} remembered />
+                <ContextFiles
+                  label={formatMessage({
+                    id: 'automations.run.remembered',
+                    defaultMessage: 'What it remembered',
+                  })}
+                  values={context.remembered}
+                  remembered
+                />
               )}
             </>
           ) : (
-            <p className="a3-muted">No context recorded.</p>
+            <p className="a3-muted">
+              {formatMessage({
+                id: 'automations.run.noContext',
+                defaultMessage: 'No context recorded.',
+              })}
+            </p>
           )}
         </div>
       </details>
       <section className="rsec">
         <div className="rsec-h">
-          <b>Cost of this run</b>
+          <b>{formatMessage({ id: 'automations.run.cost', defaultMessage: 'Cost of this run' })}</b>
         </div>
         {run.cost_usd == null && run.input_tokens == null && run.output_tokens == null ? (
-          <p className="a3-muted">No cost data yet.</p>
+          <p className="a3-muted">
+            {formatMessage({ id: 'automations.run.noCost', defaultMessage: 'No cost data yet.' })}
+          </p>
         ) : (
           <div className="a3-costgrid">
             <RunMetric
-              label={planIncluded ? 'Total (plan-included)' : 'Total'}
+              label={
+                planIncluded
+                  ? formatMessage({
+                      id: 'automations.run.totalIncluded',
+                      defaultMessage: 'Total (plan-included)',
+                    })
+                  : formatMessage({ id: 'automations.run.total', defaultMessage: 'Total' })
+              }
               value={money(run.cost_usd)}
             />
-            <RunMetric label="Tokens in" value={tokenCount(run.input_tokens)} />
-            <RunMetric label="Tokens out" value={tokenCount(run.output_tokens)} />
+            <RunMetric
+              label={formatMessage({ id: 'automations.run.tokensIn', defaultMessage: 'Tokens in' })}
+              value={tokenCount(run.input_tokens)}
+            />
+            <RunMetric
+              label={formatMessage({
+                id: 'automations.run.tokensOut',
+                defaultMessage: 'Tokens out',
+              })}
+              value={tokenCount(run.output_tokens)}
+            />
             {/* Cache is almost the whole story on a long run and was previously hidden, so
                 "42 in / 6.3K out" sat next to $14.20 and read as a billing error. It was
                 2.1M cache reads. */}
             {run.cache_read_tokens != null && (
-              <RunMetric label="Cache read" value={tokenCount(run.cache_read_tokens)} />
+              <RunMetric
+                label={formatMessage({
+                  id: 'automations.run.cacheRead',
+                  defaultMessage: 'Cache read',
+                })}
+                value={tokenCount(run.cache_read_tokens)}
+              />
             )}
             {run.cache_creation_tokens != null && (
-              <RunMetric label="Cache write" value={tokenCount(run.cache_creation_tokens)} />
+              <RunMetric
+                label={formatMessage({
+                  id: 'automations.run.cacheWrite',
+                  defaultMessage: 'Cache write',
+                })}
+                value={tokenCount(run.cache_creation_tokens)}
+              />
             )}
             <RunMetric
-              label="Model"
+              label={formatMessage({ id: 'automations.run.model', defaultMessage: 'Model' })}
               value={
                 [String(run.stats?.model || run.model || ''), titleCase(run.effort)]
                   .filter(Boolean)
                   .join(' • ') || '—'
               }
             />
-            <RunMetric label="Took" value={duration ?? '—'} />
+            <RunMetric
+              label={formatMessage({ id: 'automations.run.duration', defaultMessage: 'Took' })}
+              value={duration ?? '—'}
+            />
           </div>
         )}
         {planIncluded && (
           <p className="a3-muted">
-            Your Claude plan already covers this usage — the figure is what it would have cost on
-            API pricing, not a charge.
+            {formatMessage({
+              id: 'automations.run.planIncluded',
+              defaultMessage:
+                'Your Claude plan already covers this usage — the figure is what it would have cost on API pricing, not a charge.',
+            })}
           </p>
         )}
       </section>
@@ -205,12 +299,19 @@ function RunMetric({ label, value }: { label: string; value: string }) {
   )
 }
 
-function durationLabel(start: string, finish: string | null) {
+function durationLabel(start: string, finish: string | null, intl: IntlShape) {
   if (!finish) return null
   const duration = Date.parse(finish) - Date.parse(start)
   if (!Number.isFinite(duration) || duration < 0) return null
-  if (duration < 60_000) return `${Math.round(duration / 1000)}s`
-  return `${Math.floor(duration / 60_000)}m ${Math.round((duration % 60_000) / 1000)}s`
+  if (duration < 60_000)
+    return intl.formatMessage(
+      { id: 'automations.run.seconds', defaultMessage: '{seconds}s' },
+      { seconds: Math.round(duration / 1000) },
+    )
+  return intl.formatMessage(
+    { id: 'automations.run.minutesSeconds', defaultMessage: '{minutes}m {seconds}s' },
+    { minutes: Math.floor(duration / 60_000), seconds: Math.round((duration % 60_000) / 1000) },
+  )
 }
 
 function ContextPills({ label, values }: { label: string; values: string[] }) {

@@ -37,7 +37,8 @@ const EMPTY_VAULT: VaultListing = {
 const fetchVault = vi.fn<() => Promise<VaultListing>>()
 const saveArtifactToVault = vi.fn<(id: string) => Promise<unknown>>()
 const removeArtifactFromVault = vi.fn<(id: string) => Promise<void>>()
-vi.mock('../../api/vault', () => ({
+vi.mock('../../api/vault', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../../api/vault')>()),
   fetchVault: () => fetchVault(),
   saveArtifactToVault: (id: string) => saveArtifactToVault(id),
   removeArtifactFromVault: (id: string) => removeArtifactFromVault(id),

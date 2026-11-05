@@ -1,3 +1,6 @@
+import { getNumberLocale } from '../../../utils/format'
+import { useAppIntl } from '../../../i18n/useAppIntl'
+import type { IntlShape } from 'react-intl'
 import { useCallback, useEffect, useState } from 'react'
 import { useDataVersion } from '../../../hooks/useDataVersion'
 import { authFetch } from '../../../api/client'
@@ -27,12 +30,12 @@ const CACHE_KEY = 'equity'
 const today = (): string => new Date().toISOString().slice(0, 10)
 
 /** Relative-date label matching the prototype's eqRel() function. */
-function relDate(iso: string): string {
+function relDate(iso: string, intl: IntlShape): string {
   const d = Math.round((Date.parse(iso) - Date.parse(today())) / 86400000)
-  if (d === 0) return 'today'
-  if (d > 0) return `in ${d} day${d > 1 ? 's' : ''}`
+  if (d === 0) return intl.formatMessage({ id: 'equity.relative.today', defaultMessage: 'today' })
+  if (d > 0) return intl.formatMessage({ id: 'equity.relative.future', defaultMessage: 'in {count, plural, one {# day} other {# days}}' }, { count: d })
   const abs = Math.abs(d)
-  return `${abs} day${abs > 1 ? 's' : ''} ago`
+  return intl.formatMessage({ id: 'equity.relative.past', defaultMessage: '{count, plural, one {# day} other {# days}} ago' }, { count: abs })
 }
 
 // ── Summary cards ─────────────────────────────────────────────────────────────
@@ -43,7 +46,7 @@ export interface EquitySummaryCard {
   caption?: string
 }
 
-function buildSummaryCards(grants: Grant[]): EquitySummaryCard[] {
+function buildSummaryCards(grants: Grant[], intl: IntlShape): EquitySummaryCard[] {
   const active = grants.filter((g) => g.status !== 'cancelled' && g.status !== 'forfeited')
   const totalVested = active.reduce((s, g) => s + g.vested_units, 0)
   const totalUnvested = active.reduce((s, g) => s + g.unvested_units, 0)
@@ -63,13 +66,13 @@ function buildSummaryCards(grants: Grant[]): EquitySummaryCard[] {
   }
 
   return [
-    { label: 'Total grants', value: String(active.length) },
-    { label: 'Vested units', value: fNum(totalVested) },
-    { label: 'Unvested units', value: fNum(totalUnvested) },
+    { label: intl.formatMessage({ id: 'equity.totalGrants', defaultMessage: 'Total grants' }), value: fNum(active.length) },
+    { label: intl.formatMessage({ id: 'equity.vestedUnits', defaultMessage: 'Vested units' }), value: fNum(totalVested) },
+    { label: intl.formatMessage({ id: 'equity.unvestedUnits', defaultMessage: 'Unvested units' }), value: fNum(totalUnvested) },
     {
-      label: 'Next vest',
+      label: intl.formatMessage({ id: 'equity.nextVest', defaultMessage: 'Next vest' }),
       value: nextDate ? fDate(nextDate, 'short', 'always') : '—',
-      caption: nextDate ? `${nextSymbol} • ${fNum(nextUnits)} units` : undefined,
+      caption: nextDate ? intl.formatMessage({ id: 'equity.symbolUnits', defaultMessage: '{symbol} • {units} units' }, { symbol: nextSymbol, units: fNum(nextUnits) }) : undefined,
     },
   ]
 }
@@ -92,7 +95,7 @@ export interface TrancheVM {
   overdue: boolean
 }
 
-function buildTranche(t: Grant['tranches'][number], isNext: boolean): TrancheVM {
+function buildTranche(t: Grant['tranches'][number], isNext: boolean, intl: IntlShape): TrancheVM {
   const now = today()
   const overdue = !t.vested && t.vest_date <= now
   const cls: TrancheCls = t.vested ? 'is-vested' : isNext ? 'is-next' : 'is-upcoming'
@@ -100,24 +103,24 @@ function buildTranche(t: Grant['tranches'][number], isNext: boolean): TrancheVM 
   let badgeLabel: string
   let badgeTone: TrancheBadgeTone
   if (t.vested) {
-    badgeLabel = 'Vested'
+    badgeLabel = intl.formatMessage({ id: 'equity.vested', defaultMessage: 'Vested' })
     badgeTone = 'pos'
   } else if (overdue) {
-    badgeLabel = 'Overdue'
+    badgeLabel = intl.formatMessage({ id: 'equity.overdue', defaultMessage: 'Overdue' })
     badgeTone = 'neg'
   } else if (t.kind === 'performance') {
-    badgeLabel = 'Performance'
+    badgeLabel = intl.formatMessage({ id: 'equity.performance', defaultMessage: 'Performance' })
     badgeTone = 'neutral'
   } else {
-    badgeLabel = 'Upcoming'
+    badgeLabel = intl.formatMessage({ id: 'equity.upcoming', defaultMessage: 'Upcoming' })
     badgeTone = 'neutral'
   }
 
   const sub = t.vested
-    ? 'Vested'
+    ? intl.formatMessage({ id: 'equity.vested', defaultMessage: 'Vested' })
     : overdue
-      ? `Overdue • ${relDate(t.vest_date)}`
-      : relDate(t.vest_date)
+      ? intl.formatMessage({ id: 'equity.overdueRelative', defaultMessage: 'Overdue • {date}' }, { date: relDate(t.vest_date, intl) })
+      : relDate(t.vest_date, intl)
 
   return {
     id: t.id,
@@ -184,7 +187,7 @@ export interface GrantVM {
 /** Fixed-precision "CCY 20.36" formatting shared by the grant-price and current-price halves
  *  of `sinceGrantLine` — matches the pre-existing static string's precision exactly. */
 function fmtGrantPrice(n: number, currency: string): string {
-  return `${currency} ${n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+  return `${currency} ${n.toLocaleString(getNumberLocale(), { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
 }
 
 /** "Granted at …" reference line. Static when there's nothing to compare against; becomes
@@ -196,12 +199,13 @@ function fmtGrantPrice(n: number, currency: string): string {
 export function buildSinceGrantLine(
   g: Grant,
   priceByInstrument: Record<string, PriceEntry>,
+  intl?: IntlShape,
 ): string | null {
   const grantPrice = g.grant_price_per_unit
   if (grantPrice == null) return null
 
   const formattedGrant = fmtGrantPrice(grantPrice, g.currency)
-  const staticLine = `Granted at ${formattedGrant}`
+  const staticLine = intl ? intl.formatMessage({ id: 'equity.grantedAt', defaultMessage: 'Granted at {price}' }, { price: formattedGrant }) : `Granted at ${formattedGrant}`
   if (g.unvested_units <= 0 || grantPrice <= 0) return staticLine
 
   const entry = priceByInstrument[g.instrument_id]
@@ -210,10 +214,10 @@ export function buildSinceGrantLine(
 
   const pct = ((entry.price - grantPrice) / grantPrice) * 100
   const sign = pct >= 0 ? '+' : ''
-  return `${staticLine} • now ${fmtGrantPrice(entry.price, entry.currency)} • ${sign}${pct.toFixed(1)}% since grant (unvested units)`
+  return intl ? intl.formatMessage({ id: 'equity.sinceGrant', defaultMessage: '{granted} • now {current} • {percent}% since grant (unvested units)' }, { granted: staticLine, current: fmtGrantPrice(entry.price, entry.currency), percent: `${sign}${pct.toLocaleString(getNumberLocale(), { minimumFractionDigits: 1, maximumFractionDigits: 1 })}` }) : `${staticLine} • now ${fmtGrantPrice(entry.price, entry.currency)} • ${sign}${pct.toFixed(1)}% since grant (unvested units)`
 }
 
-function buildGrant(g: Grant, priceByInstrument: Record<string, PriceEntry>): GrantVM {
+function buildGrant(g: Grant, priceByInstrument: Record<string, PriceEntry>, intl: IntlShape): GrantVM {
   const sorted = [...g.tranches].sort((a, b) => a.vest_date.localeCompare(b.vest_date))
   const nextT = sorted.find((t) => !t.vested)
   const now = today()
@@ -223,19 +227,19 @@ function buildGrant(g: Grant, priceByInstrument: Record<string, PriceEntry>): Gr
   let badgeLabel: string
   let badgeTone: GrantBadgeTone
   if (g.status === 'fully_vested') {
-    badgeLabel = 'Fully vested'
+    badgeLabel = intl.formatMessage({ id: 'equity.fullyVested', defaultMessage: 'Fully vested' })
     badgeTone = 'muted'
   } else if (g.tax_event === 'deferred') {
-    badgeLabel = 'Deferred tax'
+    badgeLabel = intl.formatMessage({ id: 'equity.deferredTax', defaultMessage: 'Deferred tax' })
     badgeTone = 'warn'
   } else {
-    badgeLabel = 'Active'
+    badgeLabel = intl.formatMessage({ id: 'equity.active', defaultMessage: 'Active' })
     badgeTone = 'neutral'
   }
 
-  const tranches = sorted.map((t) => buildTranche(t, !!(nextT && t.id === nextT.id)))
+  const tranches = sorted.map((t) => buildTranche(t, !!(nextT && t.id === nextT.id), intl))
 
-  const sinceGrantLine = buildSinceGrantLine(g, priceByInstrument)
+  const sinceGrantLine = buildSinceGrantLine(g, priceByInstrument, intl)
 
   return {
     id: g.id,
@@ -350,6 +354,7 @@ export interface EquityViewModel {
 }
 
 export function useEquityView(rows: ComputedRow[] = []): EquityViewModel {
+  const intl = useAppIntl()
   const cached = _cache.get(CACHE_KEY)
   const [grants, setGrants] = useState<Grant[]>(cached?.grants ?? [])
   const [upcoming, setUpcoming] = useState<UpcomingVestItem[]>(cached?.upcoming ?? [])
@@ -411,17 +416,17 @@ export function useEquityView(rows: ComputedRow[] = []): EquityViewModel {
   }, [version, anyWriteV])
 
   const priceByInstrument = buildPriceByInstrument(rows)
-  const grantVMs = sortGrants(grants.map((g) => buildGrant(g, priceByInstrument)))
+  const grantVMs = sortGrants(grants.map((g) => buildGrant(g, priceByInstrument, intl)))
   const upcomingVMs = buildUpcoming(upcoming)
   const vestHistoryVMs = buildVestHistory(vestHistory)
   const summaryCards = loading
     ? [
-        { label: 'Total grants', value: '—' },
-        { label: 'Vested units', value: '—' },
-        { label: 'Unvested units', value: '—' },
-        { label: 'Next vest', value: '—' },
+        { label: intl.formatMessage({ id: 'equity.totalGrants', defaultMessage: 'Total grants' }), value: '—' },
+        { label: intl.formatMessage({ id: 'equity.vestedUnits', defaultMessage: 'Vested units' }), value: '—' },
+        { label: intl.formatMessage({ id: 'equity.unvestedUnits', defaultMessage: 'Unvested units' }), value: '—' },
+        { label: intl.formatMessage({ id: 'equity.nextVest', defaultMessage: 'Next vest' }), value: '—' },
       ]
-    : buildSummaryCards(grants)
+    : buildSummaryCards(grants, intl)
 
   return {
     loading,

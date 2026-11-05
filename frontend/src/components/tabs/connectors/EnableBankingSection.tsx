@@ -1,3 +1,5 @@
+import { formatConnectorBody } from './connectorServerMessages'
+import { useAppIntl } from '../../../i18n/useAppIntl'
 import { useCallback, useEffect, useState } from 'react'
 import { authFetch } from '../../../api/client'
 import {
@@ -63,6 +65,8 @@ function enableBankingFormOf(c: EnableBankingStatus): EnableBankingForm {
 }
 
 export function EnableBankingSection({ initialCountry }: { initialCountry?: string }) {
+  const intl = useAppIntl()
+  const { formatMessage } = intl
   const [cfg, setCfg] = useState<EnableBankingStatus | null>(null)
   const [form, setForm] = useState<EnableBankingForm | null>(null)
   const [error, setError] = useState(false)
@@ -112,14 +116,14 @@ export function EnableBankingSection({ initialCountry }: { initialCountry?: stri
       })
       if (!r.ok) {
         const d = await r.json().catch(() => ({}))
-        setSaveErr(d.detail || 'Could not save the credentials.')
+        setSaveErr(formatConnectorBody(intl, d, formatMessage({ id: 'connectors.alpaca.save', defaultMessage: "Could not save the credentials." })))
         return false
       }
       setForm((f) => f && { ...f, private_key: '' })
       load()
       return true
     } catch {
-      setSaveErr('Could not save — could not reach the server.')
+      setSaveErr(formatMessage({ id: 'connectors.email.serverFailed', defaultMessage: "Could not save \u2014 could not reach the server." }))
       return false
     } finally {
       setSaving(false)
@@ -136,7 +140,7 @@ export function EnableBankingSection({ initialCountry }: { initialCountry?: stri
       )
       if (!r.ok) {
         const d = await r.json().catch(() => ({}))
-        setLinkErr(d.detail || 'Could not list banks. Save your credentials first.')
+        setLinkErr(formatConnectorBody(intl, d, formatMessage({ id: 'connectors.gocardless.listError', defaultMessage: "Could not list banks. Save your credentials first." })))
         return
       }
       const data = (await r.json()) as { institutions: Institution[] }
@@ -160,7 +164,7 @@ export function EnableBankingSection({ initialCountry }: { initialCountry?: stri
       })
       if (!r.ok) {
         const d = await r.json().catch(() => ({}))
-        setLinkErr(d.detail || 'Could not start the bank link.')
+        setLinkErr(formatConnectorBody(intl, d, formatMessage({ id: 'connectors.gocardless.linkError', defaultMessage: "Could not start the bank link." })))
         return
       }
       const data = (await r.json()) as { url: string }
@@ -183,7 +187,7 @@ export function EnableBankingSection({ initialCountry }: { initialCountry?: stri
       })
       if (!r.ok) {
         const d = await r.json().catch(() => ({}))
-        setLinkErr(d.detail || 'Could not complete the bank link.')
+        setLinkErr(formatConnectorBody(intl, d, formatMessage({ id: 'connectors.enableBanking.completeFailed', defaultMessage: "Could not complete the bank link." })))
         return
       }
       setAuthCode('')
@@ -221,14 +225,14 @@ export function EnableBankingSection({ initialCountry }: { initialCountry?: stri
   if (error) {
     return (
       <Text size="sm" tone="bad">
-        Could not load the Enable Banking connector status.
+        {formatMessage({ id: 'connectors.enableBanking.load', defaultMessage: 'Could not load the Enable Banking connector status.' })}
       </Text>
     )
   }
   if (!cfg || !form) {
     return (
       <Text size="sm" tone="faint">
-        Loading…
+        {formatMessage({ id: 'connectors.email.loading', defaultMessage: 'Loading…' })}
       </Text>
     )
   }
@@ -239,36 +243,30 @@ export function EnableBankingSection({ initialCountry }: { initialCountry?: stri
   return (
     <Stack gap="--space-4">
       <Text size="sm" tone="faint">
-        Register an application with{' '}
-        <a href="https://enablebanking.com" target="_blank" rel="noreferrer">
-          Enable Banking
-        </a>{' '}
-        to get an application ID and RSA private key. Then link a bank: you&apos;ll authorise access
-        at the bank&apos;s own site and paste the code it returns into the field below.
+        {formatMessage({ id: 'connectors.enableBanking.intro', defaultMessage: "Register an application with <link>Enable Banking</link> to get an application ID and RSA private key. Then link a bank: you'll authorise access at the bank's own site and paste the code it returns into the field below." }, { link: (chunks) => <a href="https://enablebanking.com" target="_blank" rel="noreferrer">{chunks}</a> })}
       </Text>
 
       {cfg.configured && !cfg.enabled && (
         <Text size="xs" tone="warn">
-          Currently paused — saving here won&apos;t resume it. Use Resume on the connector card to
-          turn it back on.
+          {formatMessage({ id: 'connectors.alpaca.paused', defaultMessage: "Currently paused — saving here won't resume it. Use Resume on the connector card to turn it back on." })}
         </Text>
       )}
 
       <ConnectorStatusLine lastSyncedAt={cfg.last_synced_at} lastStatus={cfg.last_status} />
       {cfg.last_error && (
         <Text size="xs" tone="bad">
-          Last error: {cfg.last_error}
+          {formatMessage({ id: 'connectors.email.lastError', defaultMessage: 'Last error: {error}' }, { error: cfg.last_error })}
         </Text>
       )}
 
       <FormField
-        label="Application ID"
+        label={formatMessage({ id: 'connectors.enableBanking.appId', defaultMessage: 'Application ID' })}
         htmlFor="conn-eb-id"
         required
-        help="Your Enable Banking application id (the JWT key id)."
+        help={formatMessage({ id: 'connectors.enableBanking.idHelp', defaultMessage: 'Your Enable Banking application id (the JWT key id).' })}
         error={
           applicationIdTouched.touched && !applicationIdValid
-            ? 'An application ID is required.'
+            ? formatMessage({ id: 'connectors.enableBanking.idRequired', defaultMessage: "An application ID is required." })
             : undefined
         }
       >
@@ -282,13 +280,13 @@ export function EnableBankingSection({ initialCountry }: { initialCountry?: stri
       </FormField>
 
       <FormField
-        label="Private key (PEM)"
+        label={formatMessage({ id: 'connectors.enableBanking.key', defaultMessage: 'Private key (PEM)' })}
         htmlFor="conn-eb-key"
         required
-        help={privateKeyReveal.caption || 'Your application RSA private key, PEM format.'}
+        help={privateKeyReveal.caption || formatMessage({ id: 'connectors.enableBanking.keyHelp', defaultMessage: "Your application RSA private key, PEM format." })}
         error={
           privateKeyReveal.error ||
-          (privateKeyTouched.touched && !privateKeyValid ? 'A private key is required.' : undefined)
+          (privateKeyTouched.touched && !privateKeyValid ? formatMessage({ id: 'connectors.enableBanking.keyRequired', defaultMessage: "A private key is required." }) : undefined)
         }
       >
         {cfg.has_credentials ? (
@@ -324,9 +322,9 @@ export function EnableBankingSection({ initialCountry }: { initialCountry?: stri
 
       {/* ── Bank link flow ── */}
       <Stack gap="--space-3">
-        <Text size="sm">{cfg.has_session ? 'Linked bank' : 'Link a bank'}</Text>
+        <Text size="sm">{cfg.has_session ? formatMessage({ id: 'connectors.gcBanks.linkedBank', defaultMessage: "Linked bank" }) : formatMessage({ id: 'connectors.gocardless.linkBank', defaultMessage: "Link a bank" })}</Text>
         <Cluster gap="--space-2" align="end" wrap>
-          <FormField label="Country" htmlFor="conn-eb-country">
+          <FormField label={formatMessage({ id: 'connectors.gocardless.country', defaultMessage: 'Country' })} htmlFor="conn-eb-country">
             <TextField
               id="conn-eb-country"
               value={country}
@@ -343,12 +341,12 @@ export function EnableBankingSection({ initialCountry }: { initialCountry?: stri
             disabled={!cfg.has_credentials}
             onClick={loadBanks}
           >
-            List banks
+            {formatMessage({ id: 'connectors.gocardless.listBanks', defaultMessage: 'List banks' })}
           </Button>
         </Cluster>
 
         {institutions.length > 0 && (
-          <FormField label="Bank" htmlFor="conn-eb-bank">
+          <FormField label={formatMessage({ id: 'connectors.gocardless.bank', defaultMessage: 'Bank' })} htmlFor="conn-eb-bank">
             <Select
               id="conn-eb-bank"
               value={aspsp}
@@ -366,19 +364,19 @@ export function EnableBankingSection({ initialCountry }: { initialCountry?: stri
 
         <Cluster gap="--space-3" align="center">
           <Button size="sm" loading={linking} disabled={!aspsp} onClick={linkBank}>
-            Link bank
+            {formatMessage({ id: 'connectors.gocardless.linkButton', defaultMessage: 'Link bank' })}
           </Button>
         </Cluster>
 
         <FormField
-          label="Authorization code"
+          label={formatMessage({ id: 'connectors.enableBanking.code', defaultMessage: 'Authorization code' })}
           htmlFor="conn-eb-code"
-          help="After authenticating at your bank, paste the code from the redirect URL here, then Complete."
+          help={formatMessage({ id: 'connectors.enableBanking.codeHelp', defaultMessage: 'After authenticating at your bank, paste the code from the redirect URL here, then Complete.' })}
         >
           <TextField
             id="conn-eb-code"
             value={authCode}
-            placeholder="paste the returned code"
+            placeholder={formatMessage({ id: 'connectors.enableBanking.codePlaceholder', defaultMessage: 'paste the returned code' })}
             onChange={(e) => setAuthCode(e.target.value)}
           />
         </FormField>
@@ -390,7 +388,7 @@ export function EnableBankingSection({ initialCountry }: { initialCountry?: stri
             disabled={!authCode.trim() || !cfg.has_credentials}
             onClick={completeLink}
           >
-            Complete link
+            {formatMessage({ id: 'connectors.enableBanking.complete', defaultMessage: 'Complete link' })}
           </Button>
         </Cluster>
       </Stack>

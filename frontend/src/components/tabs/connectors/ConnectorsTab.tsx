@@ -1,3 +1,5 @@
+import { useOAuthError } from './useOAuthError'
+import { useConnectorActionMessage } from './useConnectorActionMessage'
 // Connectors — the redesigned tab shell (spec §9).
 //
 // Two-tier masthead: title + sub on their own row with a divider beneath, then a toolbar
@@ -11,6 +13,8 @@
 // RouterShell and LuciusDock host this tab, and every "Ask Lucius" affordance routes to
 // the real composer prefill.
 
+import { useAppIntl } from '../../../i18n/useAppIntl'
+import { useConnectorLabels, useConnectorName } from './useConnectorLabels'
 import { useEffect, useMemo, useRef, useState, type JSX } from 'react'
 import { useNavigate, useRouterState } from '@tanstack/react-router'
 import { authFetch } from '../../../api/client'
@@ -32,6 +36,7 @@ import { deleteMcpServer } from './mcpApi'
 import { signInWithOAuth } from './oauthSignIn'
 import { savePermissions } from './permissions'
 import { removeNativeConnector, setConnectorEnabled } from './connectorActions'
+import { formatConnectorServerMessage } from './connectorServerMessages'
 import { mcpAuthType, toEntry, toMcpEditTarget } from './adapter'
 import { CONNECTORS_KEY, useConnectors } from './useConnectors'
 import {
@@ -41,6 +46,7 @@ import {
 import { CONNECTORS_OPEN_SETUP_SPEC } from '../../../lucius/screenCommands'
 import {
   FAMILY_SECTIONS,
+  CONNECTOR_CATEGORIES,
   STATUS_FILTERS,
   type ConnectorDetailEntry,
   type FamilyTab,
@@ -52,20 +58,40 @@ import {
 const MCP_PREFIX = 'mcp:'
 
 export function ConnectorsTab(): JSX.Element {
+  const oauthErrorText = useOAuthError()
+  const actionMessage = useConnectorActionMessage()
+  const intl = useAppIntl()
+  const { formatMessage } = intl
+  const labels = useConnectorLabels()
+  const connectorName = useConnectorName()
   const { connectors, entries, initialLoading, error, refresh } = useConnectors()
   const [tab, setTab] = useState<FamilyTab>('all')
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all')
   const [query, setQuery] = useState('')
+  const queryKey = CONNECTOR_CATEGORIES.find(
+    (item) => labels.category(item).toLocaleLowerCase() === query.trim().toLocaleLowerCase(),
+  )
+  const nameKey = (
+    [
+      ['email', 'Email'],
+      ['voice', 'Voice calls'],
+      ['mcp-custom', 'Custom MCP server'],
+    ] as const
+  ).find(
+    ([id, name]) =>
+      connectorName(id, name).toLocaleLowerCase() === query.trim().toLocaleLowerCase(),
+  )?.[1]
+  const searchQuery = queryKey ?? nameKey ?? query
   // A search also lists matching connectors not added yet, so it never dead-ends in "No
   // connectors match" for something the app does support.
   const suggestions = useMemo(
     () =>
       query.trim()
-        ? filterDirectory(resolveDirectory(connectors), tab, query, 'popular').filter(
+        ? filterDirectory(resolveDirectory(connectors), tab, searchQuery, 'popular').filter(
             (d) => !d.installed && !d.generic,
           )
         : [],
-    [connectors, tab, query],
+    [connectors, tab, query, searchQuery],
   )
   // The unsearched, unfiltered list also offers up to three popular connectors per section
   // that aren't added yet — the Connectors twin of the Assets screen's "Add more".
@@ -73,7 +99,10 @@ export function ConnectorsTab(): JSX.Element {
     () => (query.trim() || statusFilter !== 'all' ? undefined : suggestionsBySection(connectors)),
     [connectors, query, statusFilter],
   )
-  const counts = useMemo(() => statusCounts(entries, { query, tab }), [entries, query, tab])
+  const counts = useMemo(
+    () => statusCounts(entries, { query: searchQuery, tab }),
+    [entries, searchQuery, tab],
+  )
   const [detailId, setDetailId] = useState<string | null>(null)
   /** The MCP server whose connection is being edited — the add flow, reopened pre-filled. */
   const [editMcpId, setEditMcpId] = useState<string | null>(null)
@@ -181,7 +210,12 @@ export function ConnectorsTab(): JSX.Element {
   function applySetup({ id, connect }: { id: string; connect: boolean }) {
     const target = setupTargetFor(connectors, id)
     if (target.kind === 'unknown') {
-      toast("Lucius suggested a connector that isn't in the directory.")
+      toast(
+        formatMessage({
+          id: 'connectors.unknownSuggestion',
+          defaultMessage: "Lucius suggested a connector that isn't in the directory.",
+        }),
+      )
       return
     }
     if (target.kind === 'add') {
@@ -228,11 +262,11 @@ export function ConnectorsTab(): JSX.Element {
   async function patchEnabled(entry: ConnectorDetailEntry, enabled: boolean) {
     const result = await setConnectorEnabled(entry, enabled)
     if (!result.ok) {
-      toast(result.error)
+      toast(actionMessage(result, connectorName(entry.id, entry.name), enabled))
       return
     }
     await reload()
-    toast(result.message)
+    toast(actionMessage(result, connectorName(entry.id, entry.name), enabled))
   }
 
   /** An OAuth MCP server reconnects with a fresh sign-in (RFC `2026-08-14-mcp-oauth` §4.7's
@@ -267,8 +301,15 @@ export function ConnectorsTab(): JSX.Element {
         await reload()
         toast(
           outcome.ok
-            ? `${entry.name} reconnected`
-            : outcome.error || `Couldn't reconnect ${entry.name}`,
+            ? formatMessage(
+                { id: 'connectors.reconnected', defaultMessage: '{name} reconnected' },
+                { name: entry.name },
+              )
+            : oauthErrorText(outcome.reason, outcome.error, outcome.status) ||
+                formatMessage(
+                  { id: 'connectors.reconnectFailed', defaultMessage: "Couldn't reconnect {name}" },
+                  { name: entry.name },
+                ),
         )
         return
       }
@@ -276,7 +317,17 @@ export function ConnectorsTab(): JSX.Element {
         method: 'POST',
       })
       await reload()
-      toast(res.ok ? `${entry.name} reconnected` : `Couldn't reach ${entry.name}`)
+      toast(
+        res.ok
+          ? formatMessage(
+              { id: 'connectors.reconnected', defaultMessage: '{name} reconnected' },
+              { name: entry.name },
+            )
+          : formatMessage(
+              { id: 'connectors.unreachable', defaultMessage: "Couldn't reach {name}" },
+              { name: entry.name },
+            ),
+      )
     } finally {
       setReconnectingId((id) => (id === entry.id ? null : id))
     }
@@ -308,12 +359,39 @@ export function ConnectorsTab(): JSX.Element {
       ? await deleteMcpServer(entry.id.slice(MCP_PREFIX.length))
       : await removeNativeConnector(entry)
     if (!res.ok) {
-      toast(res.error)
+      toast(
+        'localError' in res && res.localError === 'remove_http'
+          ? formatMessage(
+              {
+                id: 'connectors.mcp.removeHttp',
+                defaultMessage: 'Could not remove the server ({status})',
+              },
+              { status: res.localStatus ?? 0 },
+            )
+          : 'localError' in res && res.localError === 'remove'
+            ? formatMessage({
+                id: 'connectors.mcp.removeFailed',
+                defaultMessage: 'Could not remove the server — the request failed.',
+              })
+            : 'fallback' in res && res.fallback
+              ? formatMessage(
+                  { id: 'connectors.removeFailed', defaultMessage: "Couldn't remove {name}" },
+                  { name: connectorName(entry.id, entry.name) },
+                )
+              : 'serverMessage' in res
+                ? formatConnectorServerMessage(intl, res.serverMessage, res.error)
+                : res.error,
+      )
       return
     }
     setDetailId(null)
     await reload()
-    toast(`${entry.name} removed`)
+    toast(
+      formatMessage(
+        { id: 'connectors.removed', defaultMessage: '{name} removed' },
+        { name: connectorName(entry.id, entry.name) },
+      ),
+    )
   }
 
   useRegisterScreenFacts(() => {
@@ -353,9 +431,14 @@ export function ConnectorsTab(): JSX.Element {
       {/* Static chrome — up during the first load too, so only the list is a skeleton. */}
       <header ref={mastheadRef} className={'rd-masthead' + (scrolled ? ' scrolled' : '')}>
         <div className="rd-masthead-head">
-          <div className="rd-masthead-title">Connectors</div>
+          <div className="rd-masthead-title">
+            {formatMessage({ id: 'connectors.title', defaultMessage: 'Connectors' })}
+          </div>
           <div className="rd-masthead-sub">
-            Channels, data feeds, and tools wired into this instance
+            {formatMessage({
+              id: 'connectors.subtitle',
+              defaultMessage: 'Channels, data feeds, and tools wired into this instance',
+            })}
           </div>
         </div>
         <div className="rd-masthead-pinned">
@@ -365,17 +448,34 @@ export function ConnectorsTab(): JSX.Element {
               <input
                 className="rd-input"
                 type="search"
-                placeholder="Search connectors…"
+                placeholder={formatMessage({
+                  id: 'connectors.searchPlaceholder',
+                  defaultMessage: 'Search connectors…',
+                })}
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
-                aria-label="Search connectors"
+                aria-label={formatMessage({
+                  id: 'connectors.search',
+                  defaultMessage: 'Search connectors',
+                })}
               />
             </span>
-            <Btn variant="primary" onClick={() => openDirectory('all')} aria-label="Browse & add">
+            <Btn
+              variant="primary"
+              onClick={() => openDirectory('all')}
+              aria-label={formatMessage({
+                id: 'connectors.browse',
+                defaultMessage: 'Browse & add',
+              })}
+            >
               <Icons.plus />
               {/* A phone keeps search and this button on ONE line, so the label shortens there. */}
-              <span className="cn-label-wide">Browse &amp; add</span>
-              <span className="cn-label-narrow">Add</span>
+              <span className="cn-label-wide">
+                {formatMessage({ id: 'connectors.browse', defaultMessage: 'Browse & add' })}
+              </span>
+              <span className="cn-label-narrow">
+                {formatMessage({ id: 'connectors.add', defaultMessage: 'Add' })}
+              </span>
             </Btn>
           </div>
           <div className="rd-masthead-subrow">
@@ -383,19 +483,23 @@ export function ConnectorsTab(): JSX.Element {
               value={tab}
               onChange={setTab}
               tabs={[
-                { key: 'all', label: 'All', count: initialLoading ? undefined : entries.length },
-                ...FAMILY_SECTIONS.map((s) => ({ key: s.key, label: s.title })),
+                {
+                  key: 'all',
+                  label: labels.status('all'),
+                  count: initialLoading ? undefined : entries.length,
+                },
+                ...FAMILY_SECTIONS.map((s) => ({ key: s.key, label: labels.family(s.key) })),
               ]}
             />
             <div className="rd-seg cn-statusseg">
-              {STATUS_FILTERS.map(([k, label]) => (
+              {STATUS_FILTERS.map(([k]) => (
                 <button
                   key={k}
                   className={'rd-seg-b' + (statusFilter === k ? ' on' : '')}
                   aria-pressed={statusFilter === k}
                   onClick={() => setStatusFilter(k)}
                 >
-                  {label}
+                  {labels.status(k)}
                   {initialLoading || error ? null : (
                     <span
                       className={
@@ -414,13 +518,26 @@ export function ConnectorsTab(): JSX.Element {
 
       <div className="rd-content">
         {initialLoading ? (
-          <TabSkeleton variant="connectors" label="Loading connectors…" header={false} />
+          <TabSkeleton
+            variant="connectors"
+            label={formatMessage({
+              id: 'connectors.loading',
+              defaultMessage: 'Loading connectors…',
+            })}
+            header={false}
+          />
         ) : error ? (
-          <ErrorState message="Couldn't load connectors." onRetry={() => void refresh()} />
+          <ErrorState
+            message={formatMessage({
+              id: 'connectors.loadFailed',
+              defaultMessage: "Couldn't load connectors.",
+            })}
+            onRetry={() => void refresh()}
+          />
         ) : (
           <ConnectorList
             entries={entries}
-            filters={{ query, tab, statusFilter }}
+            filters={{ query: searchQuery, displayQuery: query, tab, statusFilter }}
             onOpen={(entry) => openConnector(entry.id)}
             onReconnect={(entry) => void reconnect(entry as ConnectorDetailEntry)}
             onBrowse={openDirectory}
@@ -432,18 +549,26 @@ export function ConnectorsTab(): JSX.Element {
         )}
 
         <span className="rd-help">
-          Want Claude Desktop, Cursor or ChatGPT to use your book? That&apos;s the other direction —
-          set it up in{' '}
-          <a
-            href="/settings?sub=mcp"
-            onClick={(e) => {
-              e.preventDefault()
-              void navigate({ to: '/settings', search: { sub: 'mcp' } })
-            }}
-          >
-            Settings → MCP
-          </a>
-          .
+          {formatMessage(
+            {
+              id: 'connectors.help',
+              defaultMessage:
+                "Want Claude Desktop, Cursor or ChatGPT to use your book? That's the other direction — set it up in <link>Settings → MCP</link>.",
+            },
+            {
+              link: (chunks) => (
+                <a
+                  href="/settings?sub=mcp"
+                  onClick={(e) => {
+                    e.preventDefault()
+                    void navigate({ to: '/settings', search: { sub: 'mcp' } })
+                  }}
+                >
+                  {chunks}
+                </a>
+              ),
+            },
+          )}
         </span>
       </div>
 
@@ -467,7 +592,13 @@ export function ConnectorsTab(): JSX.Element {
           onRefreshTools={() =>
             detail.mcp
               ? void reconnect(detail)
-              : toast('Built-in connectors have a fixed set of tools — nothing to rediscover.')
+              : toast(
+                  formatMessage({
+                    id: 'connectors.fixedTools',
+                    defaultMessage:
+                      'Built-in connectors have a fixed set of tools — nothing to rediscover.',
+                  }),
+                )
           }
           // Every connector now gets the real confirm-and-remove flow — MCP's own delete
           // route or the native reset-to-defaults route, dispatched inside removeConnector —
@@ -499,7 +630,14 @@ export function ConnectorsTab(): JSX.Element {
           }
           configureOnOpen={configureOnOpen}
           onConfigClosed={() => void reload()}
-          onSaved={() => toast('Configuration saved')}
+          onSaved={() =>
+            toast(
+              formatMessage({
+                id: 'connectors.configSaved',
+                defaultMessage: 'Configuration saved',
+              }),
+            )
+          }
         />
       ) : null}
 
@@ -533,7 +671,12 @@ export function ConnectorsTab(): JSX.Element {
           target={editTarget}
           onClose={() => backFromEdit()}
           onSaved={(name) => {
-            toast(`${name} updated`)
+            toast(
+              formatMessage(
+                { id: 'connectors.updated', defaultMessage: '{name} updated' },
+                { name },
+              ),
+            )
             void reload()
             backFromEdit()
           }}

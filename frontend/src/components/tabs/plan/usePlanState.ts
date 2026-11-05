@@ -15,12 +15,14 @@ const BASELINE_URL = '/api/plan/baseline'
 export interface LifeEvent {
   id: string
   label: string
+  labelSource?: 'preset_home' | 'preset_baby' | 'preset_tuition' | 'preset_inheritance' | 'preset_sabbatical' | 'default_event'
   amount: number
   age: number
 }
 
 export interface IncomeStream {
   label: string
+  labelSource?: 'default_income'
   amount: number
   age: number
   endAge?: number | null

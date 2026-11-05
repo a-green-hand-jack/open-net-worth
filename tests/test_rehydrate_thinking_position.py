@@ -62,6 +62,19 @@ def test_each_round_rehydrates_as_its_own_thinking_block_in_order(monkeypatch):
     assert contents == ["I need the ledger first.", "Nothing there, so I will say so."]
 
 
+def test_transcript_tool_rehydrates_localization_metadata(monkeypatch):
+    import backend.ai.tools  # noqa: F401 — populate registry
+
+    monkeypatch.setattr(assistant, "_load_session", lambda sid: _history())
+    messages = assistant.rehydrate_messages("sess-1")
+    tool = next(b for m in messages for b in (m.get("blocks") or []) if b["type"] == "tool")
+    assert tool["display"]["localization"] == {
+        "tool": "get_transactions",
+        "detail": "2026-08",
+        "detail_mode": "separate",
+    }
+
+
 def test_the_merged_field_is_still_populated_for_older_readers(monkeypatch):
     monkeypatch.setattr(assistant, "_load_session", lambda sid: _history())
 

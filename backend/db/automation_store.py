@@ -12,6 +12,7 @@ from __future__ import annotations
 
 from datetime import datetime, timezone, tzinfo
 
+from backend.core.automation_template_source import template_source
 from backend.core.ids import new_id
 from backend.db.payload_store import BookPayloadTableStore
 from backend.db.tables import automations
@@ -108,6 +109,7 @@ def _make_automation(data: dict) -> dict:
         "created_at": data.get("created_at") or now,
         "updated_at": data.get("updated_at") or now,
         "provenance": _copy_dict(data.get("provenance")),
+        "template_source": template_source(data.get("template_source")),
         "stats": _copy_dict(data.get("stats")),
     }
 

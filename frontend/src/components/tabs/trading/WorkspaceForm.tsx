@@ -1,3 +1,4 @@
+import { useTradingErrorText } from './useTradingErrorText'
 import { useLayoutEffect, useRef, useState, type FormEvent } from 'react'
 import { tradingApi } from '../../../api/trading'
 import type {
@@ -21,11 +22,11 @@ import {
   TextArea,
   TextField,
 } from '../../ui'
-import { errorText } from './presentation'
 import { WorkspaceReview } from './WorkspaceReview'
 import { InstrumentFields } from './InstrumentFields'
 import { DelegationEnvironment } from './DelegationEnvironment'
 import { defaultDelegation } from './delegationDraft'
+import { useAppIntl } from '../../../i18n/useAppIntl'
 
 export function WorkspaceForm({
   draft,
@@ -38,10 +39,17 @@ export function WorkspaceForm({
   onClose: () => void
   onSaved: (workspace: TradingWorkspace, runId?: string) => void
 }) {
+  const { formatMessage } = useAppIntl()
+  const errorText = useTradingErrorText()
   const [value, setValue] = useState<DelegationCreate>(
     () =>
       draft ?? {
-        ...defaultDelegation(),
+        ...defaultDelegation(
+          formatMessage({
+            id: 'trading.defaultAllocationName',
+            defaultMessage: 'Trading allocation',
+          }),
+        ),
         ...(workspace
           ? {
               workspace: {
@@ -131,7 +139,17 @@ export function WorkspaceForm({
     <Modal
       open
       onClose={onClose}
-      title={review ? 'Review trading mandate' : 'Create trading workspace'}
+      title={
+        review
+          ? formatMessage({
+              id: 'trading.reviewTradingMandate',
+              defaultMessage: 'Review trading mandate',
+            })
+          : formatMessage({
+              id: 'trading.createWorkspace',
+              defaultMessage: 'Create trading workspace',
+            })
+      }
       size="lg"
     >
       <form ref={formRef} tabIndex={-1} onSubmit={submit}>
@@ -146,49 +164,85 @@ export function WorkspaceForm({
           ) : (
             <>
               <Text tone="muted">
-                Define the delegation once. The workspace keeps its mandate, history and working
-                state as the agent researches, trades or waits.
+                {formatMessage({
+                  id: 'trading.delegationIntro',
+                  defaultMessage:
+                    'Define the delegation once. The workspace keeps its mandate, history and working state as the agent researches, trades or waits.',
+                })}
               </Text>
               {workspace && (
                 <Text size="sm" tone="muted">
-                  This existing mandate is fixed for activation. Use Amend mandate on the workspace
-                  to review changes separately.
+                  {formatMessage({
+                    id: 'trading.activationFixed',
+                    defaultMessage:
+                      'This existing mandate is fixed for activation. Use Amend mandate on the workspace to review changes separately.',
+                  })}
                 </Text>
               )}
               <fieldset className="trading-definition-fields" disabled={!!workspace}>
-                <FormField label="Name">
+                <FormField label={formatMessage({ id: 'trading.name', defaultMessage: 'Name' })}>
                   <TextField
-                    aria-label="Name"
+                    aria-label={formatMessage({ id: 'trading.name', defaultMessage: 'Name' })}
                     required
                     maxLength={120}
                     value={definition.name}
                     onChange={(e) => update({ name: e.target.value })}
                   />
                 </FormField>
-                <FormField label="Original mandate">
+                <FormField
+                  label={formatMessage({
+                    id: 'trading.originalMandate',
+                    defaultMessage: 'Original mandate',
+                  })}
+                >
                   <TextArea
-                    aria-label="Original mandate"
+                    aria-label={formatMessage({
+                      id: 'trading.originalMandate',
+                      defaultMessage: 'Original mandate',
+                    })}
                     required
                     rows={4}
                     maxLength={12000}
                     value={definition.instructions}
                     onChange={(e) => update({ instructions: e.target.value })}
-                    placeholder="Manage this allocation for one month. Research opportunities, test strategies and trade within the agreed limits."
+                    placeholder={formatMessage({
+                      id: 'trading.mandatePlaceholder',
+                      defaultMessage:
+                        'Manage this allocation for one month. Research opportunities, test strategies and trade within the agreed limits.',
+                    })}
                   />
                 </FormField>
               </fieldset>
-              <Panel title="Funds and environment">
+              <Panel
+                title={formatMessage({
+                  id: 'trading.fundsEnvironment',
+                  defaultMessage: 'Funds and environment',
+                })}
+              >
                 <DelegationEnvironment
                   value={value.environment}
                   onChange={(environment) => setValue((current) => ({ ...current, environment }))}
                 />
               </Panel>
               <fieldset className="trading-definition-fields" disabled={!!workspace}>
-                <Panel title="Delegation and limits">
+                <Panel
+                  title={formatMessage({
+                    id: 'trading.delegationLimits',
+                    defaultMessage: 'Delegation and limits',
+                  })}
+                >
                   <Stack gap="--space-4">
-                    <FormField label="Executor connection">
+                    <FormField
+                      label={formatMessage({
+                        id: 'trading.executorConnection',
+                        defaultMessage: 'Executor connection',
+                      })}
+                    >
                       <Select
-                        aria-label="Executor connection"
+                        aria-label={formatMessage({
+                          id: 'trading.executorConnection',
+                          defaultMessage: 'Executor connection',
+                        })}
                         value={definition.agent_kind}
                         onChange={(e) => {
                           const kind = e.target.value as AgentKind
@@ -198,20 +252,52 @@ export function WorkspaceForm({
                               kind === 'lucius'
                                 ? 'Lucius'
                                 : kind === 'script'
-                                  ? 'Script executor'
-                                  : 'External executor',
+                                  ? formatMessage({
+                                      id: 'trading.scriptExecutor',
+                                      defaultMessage: 'Script executor',
+                                    })
+                                  : formatMessage({
+                                      id: 'trading.externalExecutor',
+                                      defaultMessage: 'External executor',
+                                    }),
                           })
                         }}
                         options={[
-                          { value: 'lucius', label: 'Lucius (managed)' },
-                          { value: 'external', label: 'External executor (agent, CLI or team)' },
-                          { value: 'script', label: 'Script executor' },
+                          {
+                            value: 'lucius',
+                            label: formatMessage({
+                              id: 'trading.managedLucius',
+                              defaultMessage: 'Lucius (managed)',
+                            }),
+                          },
+                          {
+                            value: 'external',
+                            label: formatMessage({
+                              id: 'trading.externalExecutorOption',
+                              defaultMessage: 'External executor (agent, CLI or team)',
+                            }),
+                          },
+                          {
+                            value: 'script',
+                            label: formatMessage({
+                              id: 'trading.scriptExecutor',
+                              defaultMessage: 'Script executor',
+                            }),
+                          },
                         ]}
                       />
                     </FormField>
-                    <FormField label="Executor label">
+                    <FormField
+                      label={formatMessage({
+                        id: 'trading.executorLabel',
+                        defaultMessage: 'Executor label',
+                      })}
+                    >
                       <TextField
-                        aria-label="Executor label"
+                        aria-label={formatMessage({
+                          id: 'trading.executorLabel',
+                          defaultMessage: 'Executor label',
+                        })}
                         required
                         maxLength={120}
                         value={definition.agent_label}
@@ -220,11 +306,21 @@ export function WorkspaceForm({
                     </FormField>
                     {definition.agent_kind === 'script' && (
                       <FormField
-                        label="Initial strategy source"
-                        info="Versioned Python source runs in an isolated container. The executor can continue on scheduled wakes."
+                        label={formatMessage({
+                          id: 'trading.initialStrategySource',
+                          defaultMessage: 'Initial strategy source',
+                        })}
+                        info={formatMessage({
+                          id: 'trading.initialStrategyInfo',
+                          defaultMessage:
+                            'Versioned Python source runs in an isolated container. The executor can continue on scheduled wakes.',
+                        })}
                       >
                         <TextArea
-                          aria-label="Initial strategy source"
+                          aria-label={formatMessage({
+                            id: 'trading.initialStrategySource',
+                            defaultMessage: 'Initial strategy source',
+                          })}
                           mono
                           rows={10}
                           required
@@ -235,31 +331,62 @@ export function WorkspaceForm({
                       </FormField>
                     )}
                     <Text size="sm" tone="muted">
-                      One delegated authority may be a single agent or a team. Available controls
-                      and visibility depend on its integration. External executors connect through
-                      scoped access after creation.
+                      {formatMessage({
+                        id: 'trading.executorDescription',
+                        defaultMessage:
+                          'One delegated authority may be a single agent or a team. Available controls and visibility depend on its integration. External executors connect through scoped access after creation.',
+                      })}
                     </Text>
                     <CheckboxGroup
-                      ariaLabel="Permitted markets"
+                      ariaLabel={formatMessage({
+                        id: 'trading.permittedMarkets',
+                        defaultMessage: 'Permitted markets',
+                      })}
                       value={mandate.allowed_asset_classes}
                       onChange={(markets) =>
                         limit({ allowed_asset_classes: markets as ('stock' | 'crypto')[] })
                       }
                       options={[
-                        { value: 'stock', label: 'Stocks' },
-                        { value: 'crypto', label: 'Crypto' },
+                        {
+                          value: 'stock',
+                          label: formatMessage({ id: 'trading.stocks', defaultMessage: 'Stocks' }),
+                        },
+                        {
+                          value: 'crypto',
+                          label: formatMessage({ id: 'trading.crypto', defaultMessage: 'Crypto' }),
+                        },
                       ]}
                     />
-                    <FormField label="Market data">
+                    <FormField
+                      label={formatMessage({
+                        id: 'trading.marketData',
+                        defaultMessage: 'Market data',
+                      })}
+                    >
                       <Select
-                        aria-label="Market data"
+                        aria-label={formatMessage({
+                          id: 'trading.marketData',
+                          defaultMessage: 'Market data',
+                        })}
                         value={mandate.market_data_source ?? 'supplied'}
                         onChange={(e) =>
                           limit({ market_data_source: e.target.value as 'supplied' | 'yahoo' })
                         }
                         options={[
-                          { value: 'supplied', label: 'Supplied observations' },
-                          { value: 'yahoo', label: 'Public market data (Yahoo)' },
+                          {
+                            value: 'supplied',
+                            label: formatMessage({
+                              id: 'trading.suppliedObservations',
+                              defaultMessage: 'Supplied observations',
+                            }),
+                          },
+                          {
+                            value: 'yahoo',
+                            label: formatMessage({
+                              id: 'trading.yahooData',
+                              defaultMessage: 'Public market data (Yahoo)',
+                            }),
+                          },
                         ]}
                       />
                     </FormField>
@@ -268,20 +395,38 @@ export function WorkspaceForm({
                       onChange={(instruments) => limit({ instruments })}
                     />
                     <FormField
-                      label="Maximum order value"
-                      info="In the reporting currency; blank uses available authorized capital."
+                      label={formatMessage({
+                        id: 'trading.maximumOrderValue',
+                        defaultMessage: 'Maximum order value',
+                      })}
+                      info={formatMessage({
+                        id: 'trading.maximumOrderInfo',
+                        defaultMessage:
+                          'In the reporting currency; blank uses available authorized capital.',
+                      })}
                     >
                       <NumberField
-                        aria-label="Maximum order value"
+                        aria-label={formatMessage({
+                          id: 'trading.maximumOrderValue',
+                          defaultMessage: 'Maximum order value',
+                        })}
                         min={0.01}
                         step="any"
                         value={String(mandate.max_order_notional ?? '')}
                         onChange={(e) => limit({ max_order_notional: e.target.value || null })}
                       />
                     </FormField>
-                    <FormField label="Agent usage budget (USD)">
+                    <FormField
+                      label={formatMessage({
+                        id: 'trading.agentBudgetUsd',
+                        defaultMessage: 'Agent usage budget (USD)',
+                      })}
+                    >
                       <NumberField
-                        aria-label="Agent usage budget (USD)"
+                        aria-label={formatMessage({
+                          id: 'trading.agentBudgetUsd',
+                          defaultMessage: 'Agent usage budget (USD)',
+                        })}
                         required
                         min={0}
                         step="any"
@@ -290,11 +435,24 @@ export function WorkspaceForm({
                       />
                     </FormField>
                     <details>
-                      <summary>Execution assumptions</summary>
+                      <summary>
+                        {formatMessage({
+                          id: 'trading.executionAssumptions',
+                          defaultMessage: 'Execution assumptions',
+                        })}
+                      </summary>
                       <Stack gap="--space-4">
-                        <FormField label="Maximum quote age (seconds)">
+                        <FormField
+                          label={formatMessage({
+                            id: 'trading.maximumQuoteAge',
+                            defaultMessage: 'Maximum quote age (seconds)',
+                          })}
+                        >
                           <NumberField
-                            aria-label="Maximum quote age (seconds)"
+                            aria-label={formatMessage({
+                              id: 'trading.maximumQuoteAge',
+                              defaultMessage: 'Maximum quote age (seconds)',
+                            })}
                             required
                             min={1}
                             max={86400}
@@ -304,9 +462,17 @@ export function WorkspaceForm({
                             }
                           />
                         </FormField>
-                        <FormField label="Simulation fee (basis points)">
+                        <FormField
+                          label={formatMessage({
+                            id: 'trading.simulationFee',
+                            defaultMessage: 'Simulation fee (basis points)',
+                          })}
+                        >
                           <NumberField
-                            aria-label="Simulation fee (basis points)"
+                            aria-label={formatMessage({
+                              id: 'trading.simulationFee',
+                              defaultMessage: 'Simulation fee (basis points)',
+                            })}
                             required
                             min={0}
                             max={1000}
@@ -315,9 +481,17 @@ export function WorkspaceForm({
                             onChange={(e) => limit({ fee_bps: e.target.value })}
                           />
                         </FormField>
-                        <FormField label="Simulation slippage (basis points)">
+                        <FormField
+                          label={formatMessage({
+                            id: 'trading.simulationSlippage',
+                            defaultMessage: 'Simulation slippage (basis points)',
+                          })}
+                        >
                           <NumberField
-                            aria-label="Simulation slippage (basis points)"
+                            aria-label={formatMessage({
+                              id: 'trading.simulationSlippage',
+                              defaultMessage: 'Simulation slippage (basis points)',
+                            })}
                             required
                             min={0}
                             max={1000}
@@ -326,9 +500,17 @@ export function WorkspaceForm({
                             onChange={(e) => limit({ slippage_bps: e.target.value })}
                           />
                         </FormField>
-                        <FormField label="Maximum volume participation">
+                        <FormField
+                          label={formatMessage({
+                            id: 'trading.maximumVolumeParticipation',
+                            defaultMessage: 'Maximum volume participation',
+                          })}
+                        >
                           <NumberField
-                            aria-label="Maximum volume participation"
+                            aria-label={formatMessage({
+                              id: 'trading.maximumVolumeParticipation',
+                              defaultMessage: 'Maximum volume participation',
+                            })}
                             required
                             min={0.0001}
                             max={1}
@@ -358,7 +540,7 @@ export function WorkspaceForm({
                   setReview(null)
                 }}
               >
-                Edit draft
+                {formatMessage({ id: 'trading.editDraft', defaultMessage: 'Edit draft' })}
               </Button>
             )}
             <Button
@@ -371,12 +553,21 @@ export function WorkspaceForm({
               }
             >
               {busy
-                ? 'Checking…'
+                ? formatMessage({ id: 'trading.checking', defaultMessage: 'Checking…' })
                 : review
                   ? isLive
-                    ? 'Create and start live trading'
-                    : 'Create and start workspace'
-                  : 'Review workspace'}
+                    ? formatMessage({
+                        id: 'trading.createStartLive',
+                        defaultMessage: 'Create and start live trading',
+                      })
+                    : formatMessage({
+                        id: 'trading.createStartWorkspace',
+                        defaultMessage: 'Create and start workspace',
+                      })
+                  : formatMessage({
+                      id: 'trading.reviewWorkspace',
+                      defaultMessage: 'Review workspace',
+                    })}
             </Button>
           </Cluster>
         </Stack>

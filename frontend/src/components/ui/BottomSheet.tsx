@@ -12,6 +12,7 @@ import type { ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import { X } from '../../ui/icons'
 import { useSheetDragToDismiss } from '../../hooks/useSheetDragToDismiss'
+import { useAppIntl } from '../../i18n/useAppIntl'
 
 export interface BottomSheetProps {
   /** Dialog title, e.g. "Filter holdings" / "Date range". */
@@ -36,6 +37,7 @@ export function BottomSheet({
   tall,
   headerAction,
 }: BottomSheetProps) {
+  const { formatMessage } = useAppIntl()
   const sheetRef = useRef<HTMLDivElement>(null)
   const scrimRef = useRef<HTMLDivElement>(null)
   const dragHandlers = useSheetDragToDismiss({
@@ -81,7 +83,12 @@ export function BottomSheet({
           <span className="kebab-sheet-title">{title}</span>
           <span className="kebab-sheet-head-actions">
             {headerAction}
-            <button type="button" className="kebab-sheet-x" onClick={onClose} aria-label="Close">
+            <button
+              type="button"
+              className="kebab-sheet-x"
+              onClick={onClose}
+              aria-label={formatMessage({ id: 'common.close', defaultMessage: 'Close' })}
+            >
               <X size={18} strokeWidth={1.6} aria-hidden="true" />
             </button>
           </span>

@@ -84,6 +84,11 @@ def month_summary(ym: str) -> dict:
                     {
                         "key": c.get("key"),
                         "label": c.get("label") or "",
+                        **(
+                            {"label_message": {"id": "reports.label.uncategorized", "params": {}}}
+                            if group.get("unsorted")
+                            else {}
+                        ),
                         "color": c.get("color") or "",
                         "group_id": group.get("id") or "",
                         "group": group.get("name") or "",
@@ -108,7 +113,13 @@ def month_summary(ym: str) -> dict:
     uncategorized_in = _uncategorized_income(ym)
     if uncategorized_in > _EPSILON:
         income_rows.append(
-            {"key": "", "label": "Uncategorized income", "color": "", "amount": uncategorized_in}
+            {
+                "key": "",
+                "label": "Uncategorized income",
+                "label_message": {"id": "reports.label.uncategorizedIncome", "params": {}},
+                "color": "",
+                "amount": uncategorized_in,
+            }
         )
     expense_rows.sort(key=lambda r: r["amount"], reverse=True)
     income_rows.sort(key=lambda r: r["amount"], reverse=True)
@@ -137,6 +148,11 @@ def _history_only_rows(history: dict[str, float], claimed: set[str]) -> list[dic
             {
                 "key": cat,
                 "label": meta.get("label") or "Uncategorized",
+                **(
+                    {"label_message": {"id": "reports.label.uncategorized", "params": {}}}
+                    if not cat
+                    else {}
+                ),
                 "color": meta.get("color") or "",
                 "group_id": "",
                 "group": "",
@@ -188,6 +204,7 @@ def _stacked_series(points: list[dict], side: str, cap: int) -> list[dict]:
             )
             entry["total"] += row["amount"]
             entry["label"] = row["label"]
+            entry["label_message"] = row.get("label_message")
     ranked = sorted(totals.items(), key=lambda kv: kv[1]["total"], reverse=True)
     top = ranked[:cap]
     top_keys = {key for key, _ in top}
@@ -196,6 +213,7 @@ def _stacked_series(points: list[dict], side: str, cap: int) -> list[dict]:
         {
             "key": key,
             "label": meta["label"],
+            **({"label_message": meta["label_message"]} if meta.get("label_message") else {}),
             "color": meta["color"],
             "data": [next((r["amount"] for r in p[side] if r["key"] == key), 0.0) for p in points],
         }
@@ -250,6 +268,7 @@ def _table(points: list[dict], side: str) -> list[dict]:
                 },
             )
             entry["label"] = row["label"]
+            entry["label_message"] = row.get("label_message")
             entry["color"] = entry["color"] or row["color"]
             entry["total"] += row["amount"]
             if point["ym"] in complete_yms:
@@ -261,6 +280,7 @@ def _table(points: list[dict], side: str) -> list[dict]:
         {
             "key": key,
             "label": meta["label"],
+            **({"label_message": meta["label_message"]} if meta.get("label_message") else {}),
             "color": meta["color"],
             "current": _round2(meta["current"]),
             "average": _round2(meta["complete_total"] / months),

@@ -52,6 +52,7 @@ describe('an MCP server identity', () => {
     })
     expect(entry.sub).toMatch(/stocks, options & futures/)
     expect(entry.desc).toMatch(/hosted server/)
+    expect(entry.curatedDescriptionId).toBe('mcp-ibkr')
   })
 
   it('gives a hand-added server no paragraph under its subtitle', () => {
@@ -69,6 +70,7 @@ describe('an MCP server identity', () => {
       short_description: 'Trade at Interactive Brokers.',
     })
     expect(entry.sub).toBe('Trade at Interactive Brokers.')
+    expect(entry.curatedDescriptionId).toBeUndefined()
     expect(entry.desc).toBe('')
   })
 })

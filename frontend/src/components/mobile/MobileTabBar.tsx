@@ -31,7 +31,9 @@ import {
   NAV_ICON_PROPS,
 } from '../../ui/icons'
 import { openReportProblem } from '../../state/reportProblem'
-import { CONFIG_TABS, TAB_LABELS, type MobileNavTarget, type TabId } from '../../tabs'
+import { CONFIG_TABS, type MobileNavTarget, type TabId } from '../../tabs'
+import { useAppIntl } from '../../i18n/useAppIntl'
+import { tabLabel } from '../../i18n/navigation'
 import { useLuciusChat } from '../../state/luciusChat'
 import { Spark } from '../../lucius/identity'
 import { ConfirmDialog } from '../ui/ConfirmDialog'
@@ -55,6 +57,12 @@ const TAB_SLOTS: { id: TabId; icon: ReactElement }[] = [
 const SHEET_SECTIONS: TabId[] = ['assets', 'plan', 'commitments', 'intel']
 
 export type PriceStatus = 'live' | 'loading' | 'cached'
+
+export function priceStatusLabel(status: PriceStatus, intl: ReturnType<typeof useAppIntl>): string {
+  if (status === 'live') return intl.formatMessage({ id: 'prices.live', defaultMessage: 'Prices: live' })
+  if (status === 'loading') return intl.formatMessage({ id: 'prices.loading', defaultMessage: 'Prices: loading…' })
+  return intl.formatMessage({ id: 'prices.cached', defaultMessage: 'Prices: cached' })
+}
 
 export const PRICE_STATUS_LABEL: Record<PriceStatus, string> = {
   live: 'Prices: live',
@@ -101,6 +109,7 @@ export function MobileTabBar({
   gateway,
   stamp,
 }: Props) {
+  const intl = useAppIntl()
   const luciusOpen = selected === 'lucius'
   const inSheet = !luciusOpen && !TAB_SLOTS.some((s) => s.id === selected)
   const sheetBadgeTotal = [...SHEET_SECTIONS, ...CONFIG_TABS].reduce(
@@ -148,7 +157,7 @@ export function MobileTabBar({
     >
       <span className="mb-tab-indicator" aria-hidden="true" />
       <span className="mb-tab-icon">{icon}</span>
-      <span className="mb-tab-label">{TAB_LABELS[id]}</span>
+      <span className="mb-tab-label">{tabLabel(intl, id)}</span>
     </button>
   )
 
@@ -157,7 +166,11 @@ export function MobileTabBar({
       {/* Lucius sits in the middle of the bar (after Accounts/Investments, before
           Dashboard/More) rather than trailing at the far right — a central, equally
           weighted slot like every other destination, not an afterthought tacked on the end. */}
-      <nav className="mb-tabbar" aria-label="Primary" data-ctx-ignore>
+      <nav
+        className="mb-tabbar"
+        aria-label={intl.formatMessage({ id: 'mobile.primary', defaultMessage: 'Primary' })}
+        data-ctx-ignore
+      >
         {TAB_SLOTS.slice(0, 2).map(renderMoneySlot)}
         <button
           type="button"
@@ -185,13 +198,15 @@ export function MobileTabBar({
           // More stands in for the current page whenever that page was demoted into the
           // sheet — otherwise a demoted tab leaves the bar with no current destination.
           aria-current={inSheet ? 'page' : undefined}
-          aria-label="More"
+          aria-label={intl.formatMessage({ id: 'mobile.more', defaultMessage: 'More' })}
         >
           <span className="mb-tab-indicator" aria-hidden="true" />
           <span className="mb-tab-icon">
             <MoreHorizontal {...NAV_ICON_PROPS} />
           </span>
-          <span className="mb-tab-label">More</span>
+          <span className="mb-tab-label">
+            {intl.formatMessage({ id: 'mobile.more', defaultMessage: 'More' })}
+          </span>
           {sheetBadgeTotal > 0 && <span className="mb-tab-badge" aria-hidden="true" />}
         </button>
       </nav>
@@ -258,6 +273,7 @@ function MobileMoreSheet({
   gateway?: GatewayIdentity | null
   stamp: { asOf: string; prices: PriceStatus }
 }) {
+  const intl = useAppIntl()
   const sheetRef = useRef<HTMLDivElement>(null)
   const overlayRef = useRef<HTMLDivElement>(null)
   const [confirmingLogout, setConfirmingLogout] = useState<SignOutScope | null>(null)
@@ -278,7 +294,7 @@ function MobileMoreSheet({
     >
       <span className="mb-nav-row-icon">{icons[t]}</span>
       <span className="mb-nav-row-copy">
-        <span className="mb-nav-row-label">{TAB_LABELS[t]}</span>
+        <span className="mb-nav-row-label">{tabLabel(intl, t)}</span>
       </span>
       {(badges[t] ?? 0) > 0 && (
         <span className="mb-nav-row-badge">{(badges[t] ?? 0) > 9 ? '9+' : badges[t]}</span>
@@ -338,27 +354,35 @@ function MobileMoreSheet({
           </div>
           <div className="mb-sheet-head">
             <div className="mb-sheet-heading">
-              <Dialog.Title className="mb-sheet-title">More</Dialog.Title>
+              <Dialog.Title className="mb-sheet-title">
+                {intl.formatMessage({ id: 'mobile.more', defaultMessage: 'More' })}
+              </Dialog.Title>
               <div className="mb-sheet-stamp">
-                As of {stamp.asOf} •{' '}
+                {intl.formatMessage({ id: 'prices.asOf', defaultMessage: 'As of {time}' }, { time: stamp.asOf })} •{' '}
                 <span className={stamp.prices === 'live' ? 'mb-sheet-stamp-live' : undefined}>
-                  {PRICE_STATUS_LABEL[stamp.prices]}
+                  {priceStatusLabel(stamp.prices, intl)}
                 </span>
               </div>
             </div>
             <Dialog.Close asChild>
-              <button type="button" className="mb-sheet-x" aria-label="Close">
+              <button
+                type="button"
+                className="mb-sheet-x"
+                aria-label={intl.formatMessage({ id: 'common.close', defaultMessage: 'Close' })}
+              >
                 <X size={18} strokeWidth={1.6} aria-hidden="true" />
               </button>
             </Dialog.Close>
           </div>
           <div className="mb-sheet-body">
             <div className="mb-sheet-group">
-              <div className="mb-sheet-group-h">Actions</div>
+              <div className="mb-sheet-group-h">
+                {intl.formatMessage({ id: 'mobile.actions', defaultMessage: 'Actions' })}
+              </div>
               {actionRow(
                 'search',
                 <Search size={17} strokeWidth={1.6} aria-hidden="true" />,
-                'Search',
+                intl.formatMessage({ id: 'shell.search', defaultMessage: 'Search' }),
                 onOpenSearch,
               )}
               {actionRow(
@@ -368,13 +392,15 @@ function MobileMoreSheet({
                 ) : (
                   <Eye size={17} strokeWidth={1.6} aria-hidden="true" />
                 ),
-                amountsHidden ? 'Show amounts' : 'Hide amounts',
+                amountsHidden
+                  ? intl.formatMessage({ id: 'shell.showAmounts', defaultMessage: 'Show amounts' })
+                  : intl.formatMessage({ id: 'shell.hideAmounts', defaultMessage: 'Hide amounts' }),
                 onTogglePrivacy,
               )}
               {actionRow(
                 'feedback',
                 <Bug size={17} strokeWidth={1.6} aria-hidden="true" />,
-                'Send feedback',
+                intl.formatMessage({ id: 'shell.feedback', defaultMessage: 'Send feedback' }),
                 () => {
                   onClose()
                   // After the sheet's own close has run: it stays mounted to animate out and
@@ -384,18 +410,29 @@ function MobileMoreSheet({
               )}
             </div>
             <div className="mb-sheet-group">
-              <div className="mb-sheet-group-h">Tabs</div>
+              <div className="mb-sheet-group-h">
+                {intl.formatMessage({ id: 'mobile.tabs', defaultMessage: 'Tabs' })}
+              </div>
               {SHEET_SECTIONS.map(row)}
             </div>
             <div className="mb-sheet-group">
-              <div className="mb-sheet-group-h">Manage</div>
+              <div className="mb-sheet-group-h">
+                {intl.formatMessage({ id: 'mobile.manage', defaultMessage: 'Manage' })}
+              </div>
               {CONFIG_TABS.map(row)}
             </div>
             {authRequired && (
               <div className="mb-sheet-group">
-                <div className="mb-sheet-group-h">Account</div>
+                <div className="mb-sheet-group-h">
+                  {intl.formatMessage({ id: 'mobile.account', defaultMessage: 'Account' })}
+                </div>
                 {gateway?.email && (
-                  <div className="mb-sheet-note">Signed in as {gateway.email}</div>
+                  <div className="mb-sheet-note">
+                    {intl.formatMessage(
+                      { id: 'mobile.signedInAs', defaultMessage: 'Signed in as {email}' },
+                      { email: gateway.email },
+                    )}
+                  </div>
                 )}
                 {gateway?.portal_url && (
                   <a
@@ -407,13 +444,20 @@ function MobileMoreSheet({
                     <span className="mb-nav-row-icon">
                       <ExternalLink size={17} strokeWidth={1.6} aria-hidden="true" />
                     </span>
-                    <span className="mb-nav-row-label">Private Cloud portal</span>
+                    <span className="mb-nav-row-label">
+                      {intl.formatMessage({
+                        id: 'mobile.privatePortal',
+                        defaultMessage: 'Private Cloud portal',
+                      })}
+                    </span>
                   </a>
                 )}
                 {actionRow(
                   'logout',
                   <LogOut size={17} strokeWidth={1.6} aria-hidden="true" />,
-                  gateway ? SIGN_OUT_COPY.app.label : 'Log out',
+                  gateway
+                    ? SIGN_OUT_COPY.app.label
+                    : intl.formatMessage({ id: 'mobile.logout', defaultMessage: 'Log out' }),
                   () => setConfirmingLogout('app'),
                   true,
                 )}

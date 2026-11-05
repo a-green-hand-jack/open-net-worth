@@ -22,12 +22,15 @@ export interface ReviewItem {
   entity?: 'txn' | 'assigned' | 'start' | 'category' | 'group' | 'new_category' | 'budget'
   /** A first comparison (new pairing, changed envelope): the sides differ, nobody changed both. */
   fresh?: boolean
+  month?: string
   title: string
+  title_message?: import('./runs').RunMessage | null
   reason: string
+  reason_message?: import('./runs').RunMessage | null
   onw: Version | null
   ynab: Version | null
   // entity 'category' / 'group': what differs, in words
-  fields?: { label: string; onw: string; ynab: string }[]
+  fields?: { label: string; field_id?: string; onw: string; ynab: string; onw_message?: import('./runs').RunMessage | null; ynab_message?: import('./runs').RunMessage | null }[]
   // entity 'new_category': what YNAB's category could go with (a 'choose' item) ...
   options?: { ref: string; name: string }[]
   // ... or a category here YNAB would not take (a 'failed' item has no YNAB side)
@@ -48,6 +51,7 @@ export interface LastRun {
   error: string | null
   requests: number
   summary: string
+  summary_message?: import('./runs').RunMessage | null
   run_id: string | null
 }
 export interface SyncStatus {

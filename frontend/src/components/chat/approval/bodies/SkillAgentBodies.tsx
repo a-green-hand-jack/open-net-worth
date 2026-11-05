@@ -1,3 +1,7 @@
+import { fieldLabel } from '../FieldLabels'
+import type { IntlShape } from 'react-intl'
+import { useAppIntl } from '../../../../i18n/useAppIntl'
+import { FormattedMessage } from '../FormattedMessage'
 import { useMemo, useState } from 'react'
 import { diffLines } from 'diff'
 import type { ProposedChange, TextEditDisplay } from '../../../../types/chat'
@@ -18,7 +22,7 @@ type Display = NonNullable<ProposedChange['display']>
 const fieldName = (field: string) => field.replace(/_/g, ' ')
 // A prompt with and without a final newline would otherwise show its last line as changed.
 const endLine = (text: string) => (text.endsWith('\n') ? text : `${text}\n`)
-const toolsText = (tools: string[]) => (tools.length > 0 ? tools.join(', ') : 'none')
+const toolsText = (tools: string[], intl: IntlShape) => (tools.length > 0 ? tools.join(', ') : intl.formatMessage({ id: 'chat.agent.none', defaultMessage: 'none' }))
 const clip = (text: string, max = 60) => {
   const flat = text.replace(/\s+/g, ' ').trim()
   return flat.length > max ? `${flat.slice(0, max - 1).trimEnd()}…` : flat
@@ -27,10 +31,11 @@ const clip = (text: string, max = 60) => {
 // The auto-apply grant (P3-AG4) means the agent may APPLY, not just propose — so it is a
 // full-weight fact, never folded away. Absent/empty ⇒ propose-only.
 function AutoApplyGrant({ grant }: { grant: Display['auto_apply'] }) {
+  const intl = useAppIntl()
   if (!grant || grant.capabilities.length === 0) {
     return (
-      <ApprovalFact label="Auto-apply" tone="muted">
-        Propose only
+      <ApprovalFact label={<FormattedMessage id="chat.approval.field.auto_apply" defaultMessage="Auto-apply" />} tone="muted">
+        {intl.formatMessage({ id: 'chat.agent.proposeOnly', defaultMessage: 'Propose only' })}
       </ApprovalFact>
     )
   }
@@ -38,26 +43,26 @@ function AutoApplyGrant({ grant }: { grant: Display['auto_apply'] }) {
   return (
     <>
       <ApprovalFact
-        label="Auto-apply"
+        label={<FormattedMessage id="chat.approval.field.auto_apply" defaultMessage="Auto-apply" />}
         tone="bad"
-        title="The agent may apply these changes itself, not only propose them."
+        title={intl.formatMessage({ id: 'chat.approval.autoApplyHint', defaultMessage: 'The agent may apply these changes itself, not only propose them.' })}
       >
-        May apply: {grant.capabilities.join(', ')}
+        {intl.formatMessage({ id: 'chat.agent.mayApply', defaultMessage: 'May apply: {capabilities}' }, { capabilities: grant.capabilities.join(', ') })}
       </ApprovalFact>
       {unattended.length > 0 && (
         <ApprovalFact
-          label="Unattended"
+          label={<FormattedMessage id="chat.approval.field.unattended" defaultMessage="Unattended" />}
           tone="warn"
-          title="Capabilities the agent may use on runs with no one watching."
+          title={intl.formatMessage({ id: 'chat.approval.unattendedHint', defaultMessage: 'Capabilities the agent may use on runs with no one watching.' })}
         >
           {unattended.join(', ')}
         </ApprovalFact>
       )}
       {grant.max_writes_per_run != null && (
-        <ApprovalFact label="Max writes per run">{grant.max_writes_per_run}</ApprovalFact>
+        <ApprovalFact label={<FormattedMessage id="chat.approval.field.max_writes_per_run" defaultMessage="Max writes per run" />}>{grant.max_writes_per_run}</ApprovalFact>
       )}
       {grant.max_amount_base != null && (
-        <ApprovalFact label="Max amount">{fmt(grant.max_amount_base)}</ApprovalFact>
+        <ApprovalFact label={<FormattedMessage id="chat.approval.field.max_amount" defaultMessage="Max amount" />}>{fmt(grant.max_amount_base)}</ApprovalFact>
       )}
     </>
   )
@@ -81,10 +86,11 @@ export function TextEditCell({ edit }: { edit: TextEditDisplay }) {
 }
 
 function PromptText({ preview, full }: { preview?: string; full?: string }) {
+  const intl = useAppIntl()
   const text = full || preview || ''
   if (!text) return null
   return (
-    <ApprovalDetails summary={`Prompt · ${clip(text)}`}>
+    <ApprovalDetails summary={intl.formatMessage({ id: 'chat.agent.promptSummary', defaultMessage: 'Prompt · {preview}' }, { preview: clip(text) })}>
       <ApprovalDiff>
         {text.split('\n').map((line, i) => (
           <ApprovalDiffLine key={i} kind="added">
@@ -105,6 +111,7 @@ function PromptDiffCell({
   newPreview?: string
   newFull?: string
 }) {
+  const intl = useAppIntl()
   const [expanded, setExpanded] = useState(false)
   const hasDiff = oldFull != null && newFull != null
   const rows = useMemo(() => {
@@ -120,9 +127,9 @@ function PromptDiffCell({
   if (!hasDiff) return <PromptText preview={newPreview} full={newFull} />
   const count = (kind: 'added' | 'removed') => rows.filter((r) => r.kind === kind).length
   return (
-    <ApprovalSection title="Prompt rewritten">
+    <ApprovalSection title={intl.formatMessage({ id: 'chat.agent.promptRewritten', defaultMessage: 'Prompt rewritten' })}>
       <ApprovalToggle onClick={() => setExpanded((e) => !e)}>
-        {expanded ? 'Hide diff' : `Show diff · +${count('added')} −${count('removed')} lines`}
+        {expanded ? intl.formatMessage({ id: 'chat.agent.hideDiff', defaultMessage: 'Hide diff' }) : intl.formatMessage({ id: 'chat.agent.showDiff', defaultMessage: 'Show diff · +{added} −{removed} lines' }, { added: count('added'), removed: count('removed') })}
       </ApprovalToggle>
       {expanded && (
         <ApprovalDiff>
@@ -138,16 +145,17 @@ function PromptDiffCell({
 }
 
 export function AgentCreatePreview({ change }: { change: ProposedChange }) {
+  const intl = useAppIntl()
   const d = change.display || {}
   const prompt = change.agent?.prompt
   return (
     <>
       <ApprovalMeta items={[d.description]} />
       <ApprovalFacts>
-        <ApprovalFact label="Tools">{toolsText(d.allowed_tools || [])}</ApprovalFact>
-        {d.model && <ApprovalFact label="Model">{d.model}</ApprovalFact>}
+        <ApprovalFact label={<FormattedMessage id="chat.approval.field.tools" defaultMessage="Tools" />}>{toolsText(d.allowed_tools || [], intl)}</ApprovalFact>
+        {d.model && <ApprovalFact label={<FormattedMessage id="chat.approval.field.model" defaultMessage="Model" />}>{d.model}</ApprovalFact>}
         {d.channels && d.channels.length > 0 && (
-          <ApprovalFact label="Channels">{d.channels.join(', ')}</ApprovalFact>
+          <ApprovalFact label={<FormattedMessage id="chat.approval.field.channels" defaultMessage="Channels" />}>{d.channels.join(', ')}</ApprovalFact>
         )}
         <AutoApplyGrant grant={d.auto_apply} />
       </ApprovalFacts>
@@ -172,21 +180,22 @@ const AGENT_FIELDS_SHOWN = [
 ]
 
 function AgentUpdateFacts({ d, fields }: { d: Display; fields: string[] }) {
+  const intl = useAppIntl()
   const empty = (v: unknown) => (v == null || v === '' ? '—' : String(v))
   return (
     <ApprovalFacts>
       {d.description != null && (
-        <ApprovalFact label="Description">{empty(d.description)}</ApprovalFact>
+        <ApprovalFact label={<FormattedMessage id="chat.approval.field.description" defaultMessage="Description" />}>{empty(d.description)}</ApprovalFact>
       )}
       {d.allowed_tools != null && (
-        <ApprovalFact label="Tools">{toolsText(d.allowed_tools)}</ApprovalFact>
+        <ApprovalFact label={<FormattedMessage id="chat.approval.field.tools" defaultMessage="Tools" />}>{toolsText(d.allowed_tools, intl)}</ApprovalFact>
       )}
-      {d.model !== undefined && <ApprovalFact label="Model">{empty(d.model)}</ApprovalFact>}
+      {d.model !== undefined && <ApprovalFact label={<FormattedMessage id="chat.approval.field.model" defaultMessage="Model" />}>{empty(d.model)}</ApprovalFact>}
       {d.channels !== undefined && (
-        <ApprovalFact label="Channels">{empty(d.channels?.join(', '))}</ApprovalFact>
+        <ApprovalFact label={<FormattedMessage id="chat.approval.field.channels" defaultMessage="Channels" />}>{empty(d.channels?.join(', '))}</ApprovalFact>
       )}
       {d.enabled !== undefined && (
-        <ApprovalFact label="Enabled">{d.enabled ? 'Yes' : 'No'}</ApprovalFact>
+        <ApprovalFact label={<FormattedMessage id="chat.approval.field.enabled" defaultMessage="Enabled" />}>{d.enabled ? <FormattedMessage id="chat.approval.yes" defaultMessage="Yes" /> : <FormattedMessage id="chat.approval.no" defaultMessage="No" />}</ApprovalFact>
       )}
       {fields.includes('auto_apply') && <AutoApplyGrant grant={d.auto_apply} />}
     </ApprovalFacts>
@@ -194,16 +203,17 @@ function AgentUpdateFacts({ d, fields }: { d: Display; fields: string[] }) {
 }
 
 export function AgentUpdatePreview({ change }: { change: ProposedChange }) {
+  const intl = useAppIntl()
   const d = change.display || {}
   const fields = d.changed_fields || []
-  const others = fields.filter((f) => !AGENT_FIELDS_SHOWN.includes(f)).map(fieldName)
+  const others = fields.filter((f) => !AGENT_FIELDS_SHOWN.includes(f)).map((field) => fieldLabel(field, intl, fieldName(field)).toLowerCase())
   const newFullPrompt = change.changes?.prompt
   return (
     <>
-      <ApprovalMeta items={[others.length > 0 && `Also changes ${others.join(', ')}`]} />
+      <ApprovalMeta items={[others.length > 0 && intl.formatMessage({ id: 'chat.agent.alsoChanges', defaultMessage: 'Also changes {fields}' }, { fields: others.join(', ') })]} />
       <AgentUpdateFacts d={d} fields={fields} />
       {d.prompt_edit ? (
-        <ApprovalSection title="Prompt edit">
+        <ApprovalSection title={intl.formatMessage({ id: 'chat.approval.promptEdit', defaultMessage: 'Prompt edit' })}>
           <TextEditCell edit={d.prompt_edit} />
         </ApprovalSection>
       ) : d.prompt_preview != null ? (
@@ -218,17 +228,18 @@ export function AgentUpdatePreview({ change }: { change: ProposedChange }) {
 }
 
 export function SkillUpdateBody({ change }: { change: ProposedChange }) {
+  const intl = useAppIntl()
   const d = change.display || {}
   const fields = d.changed_fields || []
   return (
     <>
       {fields.length > 0 && (
         <ApprovalFacts>
-          <ApprovalFact label="Changes">{fields.map(fieldName).join(', ')}</ApprovalFact>
+          <ApprovalFact label={<FormattedMessage id="chat.approval.field.changes" defaultMessage="Changes" />}>{fields.map((field) => fieldLabel(field, intl, fieldName(field)).toLowerCase()).join(', ')}</ApprovalFact>
         </ApprovalFacts>
       )}
       {d.body_edit && (
-        <ApprovalSection title="Body edit">
+        <ApprovalSection title={intl.formatMessage({ id: 'chat.approval.bodyEdit', defaultMessage: 'Body edit' })}>
           <TextEditCell edit={d.body_edit} />
         </ApprovalSection>
       )}

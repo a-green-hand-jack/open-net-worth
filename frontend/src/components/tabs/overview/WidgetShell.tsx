@@ -9,6 +9,7 @@
 
 import { useEffect, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
+import { useAppIntl } from '../../../i18n/useAppIntl'
 import { MoreVertical } from 'lucide-react'
 import { Panel } from '../../ui'
 import { KebabMenu } from '../planning/KebabMenu'
@@ -66,6 +67,7 @@ function WidgetTitle({
   placeholder?: string
   onCommit?: (value: string | undefined) => void
 }) {
+  const { formatMessage } = useAppIntl()
   const [renaming, setRenaming] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
   useEffect(() => {
@@ -75,6 +77,10 @@ function WidgetTitle({
   if (renaming && editable && onCommit) {
     const commit = (raw: string) => {
       const v = raw.trim()
+      if (v === text) {
+        setRenaming(false)
+        return
+      }
       onCommit(!v || v === placeholder ? undefined : v)
       setRenaming(false)
     }
@@ -84,7 +90,7 @@ function WidgetTitle({
         className="ov-title-edit"
         defaultValue={typeof text === 'string' ? text : ''}
         placeholder={placeholder}
-        aria-label="Widget title"
+        aria-label={formatMessage({ id: 'overview.widget.title', defaultMessage: 'Widget title' })}
         onClick={(e) => e.stopPropagation()}
         onPointerDown={(e) => e.stopPropagation()}
         onDoubleClick={(e) => e.stopPropagation()}
@@ -100,7 +106,14 @@ function WidgetTitle({
     <span
       className={editable ? 'ov-widget-title-rename' : undefined}
       style={{ display: 'inline-flex', alignItems: 'center', gap: 7, minWidth: 0 }}
-      title={editable ? 'Double-click to rename' : undefined}
+      title={
+        editable
+          ? formatMessage({
+              id: 'overview.section.renameHelp',
+              defaultMessage: 'Double-click to rename',
+            })
+          : undefined
+      }
       onDoubleClick={
         editable
           ? (e) => {
@@ -156,6 +169,7 @@ export function WidgetShell({
   subhead,
   children,
 }: WidgetShellProps) {
+  const { formatMessage } = useAppIntl()
   const ctx = useGridItemContext()
   // Default lead = the widget's own def icon (item 10) — a widget that passes
   // its own `lead` explicitly (e.g. the daily briefing's Lucius spark) wins.
@@ -173,18 +187,33 @@ export function WidgetShell({
     />
   )
   // Compact dropdown, not SegmentedControl — never wraps onto its own line.
-  const toggle = chart ? <ChartToggleMenu ariaLabel="Chart type" {...chart} /> : null
+  const toggle = chart ? (
+    <ChartToggleMenu
+      ariaLabel={formatMessage({ id: 'overview.chartType', defaultMessage: 'Chart type' })}
+      {...chart}
+    />
+  ) : null
   const mobileMenuItems =
     ctx && !ctx.editing
       ? [
           ...(ctx.primaryMenuItems || []),
           ...(ctx.onOpenFullscreen
-            ? [{ label: 'Full screen', onClick: ctx.onOpenFullscreen }]
+            ? [
+                {
+                  label: formatMessage({
+                    id: 'overview.fullScreen',
+                    defaultMessage: 'Full screen',
+                  }),
+                  onClick: ctx.onOpenFullscreen,
+                },
+              ]
             : []),
           ...(ctx.onToggleCollapse
             ? [
                 {
-                  label: ctx.collapsed ? 'Expand' : 'Collapse',
+                  label: ctx.collapsed
+                    ? formatMessage({ id: 'overview.expand', defaultMessage: 'Expand' })
+                    : formatMessage({ id: 'overview.collapse', defaultMessage: 'Collapse' }),
                   onClick: ctx.onToggleCollapse,
                 },
               ]
@@ -199,7 +228,7 @@ export function WidgetShell({
         <KebabMenu
           portal
           items={mobileMenuItems}
-          label="Widget options"
+          label={formatMessage({ id: 'overview.widget.options', defaultMessage: 'Widget options' })}
           icon={<MoreVertical size={16} strokeWidth={1.8} aria-hidden="true" />}
         />
       </span>

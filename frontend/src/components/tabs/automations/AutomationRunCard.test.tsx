@@ -12,6 +12,8 @@ import { afterEach, describe, expect, it } from 'vitest'
 import { cleanup, render, screen } from '@testing-library/react'
 import { AutomationRunCard } from './AutomationRunCard'
 import type { AutomationRun } from '../../../api/automations'
+import { IntlProvider } from 'react-intl'
+import messages from './zh-CN.messages.json'
 
 afterEach(cleanup)
 
@@ -64,6 +66,24 @@ describe('AutomationRunCard cost panel', () => {
 })
 
 describe('AutomationRunCard: a cancelled run explains itself', () => {
+  it('translates a marked system interruption without changing the task text', () => {
+    render(
+      <IntlProvider locale="zh-CN" messages={messages}>
+        <AutomationRunCard
+          run={makeRun({
+            status: 'failed',
+            error:
+              'The server restarted while this Automation was running; the interrupted turn was closed safely. No unconfirmed action was applied.',
+            error_message: { id: 'automations.run.restartInterrupted', params: {} },
+            plan: [{ label: 'My custom task', done: false }],
+          })}
+          onClose={() => {}}
+        />
+      </IntlProvider>,
+    )
+    expect(screen.getByRole('alert').textContent).toContain('服务器')
+    expect(screen.getByText('My custom task')).toBeTruthy()
+  })
   // A cancelled run carries `error: null` on purpose — being stopped is not a failure, so
   // the red banner would be wrong. But the card rendered NOTHING else either: the
   // explanation went to `summary`, and no component read `summary` at all. The owner got a

@@ -16,6 +16,7 @@ import type {
 } from '../../../types/trading'
 import { Button, Cluster, EmptyState, Select, Stack, Text } from '../../ui'
 import { tradingMoney, tradingTime } from './presentation'
+import { useAppIntl } from '../../../i18n/useAppIntl'
 
 const keyOf = (item: TradingObservation['instrument']) =>
   `${item.venue}:${item.asset_class}:${item.symbol}:${item.currency}`
@@ -32,6 +33,7 @@ export function TradingMarketChart({
   highlightedFillIds?: string[]
   onSelect: (selection: EvidenceSelection) => void
 }) {
+  const { formatMessage } = useAppIntl()
   const [selectedKey, setSelectedKey] = useState('')
   const instruments = [
     ...new Map(observations.map((item) => [keyOf(item.instrument), item.instrument])).entries(),
@@ -132,7 +134,7 @@ export function TradingMarketChart({
                   position: order.side === 'buy' ? ('belowBar' as const) : ('aboveBar' as const),
                   color: css(order.side === 'buy' ? '--good' : '--bad'),
                   shape: order.side === 'buy' ? ('arrowUp' as const) : ('arrowDown' as const),
-                  text: `${highlightedFillIds.includes(fill.id) ? 'Selected · ' : ''}${order.side} ${fill.quantity}`,
+                  text: `${highlightedFillIds.includes(fill.id) ? `${formatMessage({ id: 'trading.selected', defaultMessage: 'Selected' })} · ` : ''}${order.side === 'buy' ? formatMessage({ id: 'trading.buy', defaultMessage: 'Buy' }) : formatMessage({ id: 'trading.sell', defaultMessage: 'Sell' })} ${fill.quantity}`,
                 },
               ]
             : []
@@ -151,7 +153,11 @@ export function TradingMarketChart({
       dispose = () => {}
       frame = requestAnimationFrame(() =>
         setChartError(
-          'The chart could not be rendered. Recorded data and fills remain available below.',
+          formatMessage({
+            id: 'trading.chartError',
+            defaultMessage:
+              'The chart could not be rendered. Recorded data and fills remain available below.',
+          }),
         ),
       )
     }
@@ -159,12 +165,19 @@ export function TradingMarketChart({
       cancelAnimationFrame(frame)
       dispose()
     }
-  }, [plottedRows, rows, hasCandles, theme, linkedFills, fills, onSelect, highlightedFillIds])
+  }, [plottedRows, rows, hasCandles, theme, linkedFills, fills, onSelect, highlightedFillIds, formatMessage])
   if (!rows.length)
     return (
       <EmptyState
-        title="No market data received yet"
-        body="Source status and historical availability must be established before prices or candles can be shown."
+        title={formatMessage({
+          id: 'trading.noMarketData',
+          defaultMessage: 'No market data received yet',
+        })}
+        body={formatMessage({
+          id: 'trading.noMarketDataBody',
+          defaultMessage:
+            'Source status and historical availability must be established before prices or candles can be shown.',
+        })}
       />
     )
   const latest = rows.at(-1)!
@@ -172,7 +185,10 @@ export function TradingMarketChart({
     <Stack gap="--space-4">
       <Cluster justify="between">
         <Select
-          aria-label="Chart instrument"
+          aria-label={formatMessage({
+            id: 'trading.chartInstrument',
+            defaultMessage: 'Chart instrument',
+          })}
           value={key}
           onChange={(e) => setSelectedKey(e.target.value)}
           options={instruments.map(([id, instrument]) => ({
@@ -182,34 +198,89 @@ export function TradingMarketChart({
         />
         <Text weight={600} tone={latest.current_quote_authorized === false ? 'warn' : 'ink'}>
           {latest.current_quote_authorized === false
-            ? 'Current quote unverified'
+            ? formatMessage({
+                id: 'trading.currentQuoteUnverified',
+                defaultMessage: 'Current quote unverified',
+              })
             : tradingMoney(latest.price, latest.instrument.currency)}
         </Text>
       </Cluster>
       {latest.current_quote_authorized === false && (
         <Text size="sm" tone="warn">
-          Recorded market history is retained below. This observation is not verified as a current
-          quote.
+          {formatMessage({
+            id: 'trading.unverifiedQuoteBody',
+            defaultMessage:
+              'Recorded market history is retained below. This observation is not verified as a current quote.',
+          })}
         </Text>
       )}
       <Text size="xs" tone="muted">
         {hasCandles
-          ? `OHLCV candles · ${bars.length} recorded bars`
-          : 'Quote series · OHLCV unavailable'}{' '}
-        · {latest.interval ?? 'Interval not supplied'} · {latest.source ?? 'Source not recorded'} ·
-        UTC
+          ? formatMessage(
+              {
+                id: 'trading.recordedBars',
+                defaultMessage:
+                  'OHLCV candles · {count, plural, one {# recorded bar} other {# recorded bars}}',
+              },
+              { count: bars.length },
+            )
+          : formatMessage({
+              id: 'trading.quoteSeries',
+              defaultMessage: 'Quote series · OHLCV unavailable',
+            })}{' '}
+        ·{' '}
+        {latest.interval ??
+          formatMessage({
+            id: 'trading.intervalMissing',
+            defaultMessage: 'Interval not supplied',
+          })}{' '}
+        ·{' '}
+        {latest.source ??
+          formatMessage({
+            id: 'trading.sourceMissing',
+            defaultMessage: 'Source not recorded',
+          })}{' '}
+        · UTC
       </Text>
       <div
         ref={root}
         className="trading-market-chart"
         role="img"
-        aria-label={`${latest.instrument.symbol} ${hasCandles ? 'candlestick and volume' : 'quote'} chart`}
+        aria-label={
+          hasCandles
+            ? formatMessage(
+                {
+                  id: 'trading.candleChartLabel',
+                  defaultMessage: '{symbol} candlestick and volume chart',
+                },
+                { symbol: latest.instrument.symbol },
+              )
+            : formatMessage(
+                { id: 'trading.quoteChartLabel', defaultMessage: '{symbol} quote chart' },
+                { symbol: latest.instrument.symbol },
+              )
+        }
       />
       {chartError && <Text tone="warn">{chartError}</Text>}
       <Text size="xs" tone="muted">
-        Observed {tradingTime(latest.timestamp)} · Available {tradingTime(latest.available_at)} ·
-        Received {tradingTime(latest.received_at)} ·{' '}
-        {latest.source_version ?? 'Source version not recorded'}
+        {formatMessage(
+          {
+            id: 'trading.observationTimes',
+            defaultMessage:
+              'Observed {observed} · Available {available} · Received {received} · {source}',
+          },
+          {
+            observed: tradingTime(latest.timestamp),
+            available: tradingTime(latest.available_at),
+            received: tradingTime(latest.received_at),
+            source:
+              latest.source_version ??
+              formatMessage({
+                id: 'trading.sourceVersionMissing',
+                defaultMessage: 'Source version not recorded',
+              }),
+          },
+        )}
       </Text>
       <Cluster>
         {linkedFills.map(({ fill, order }) => (
@@ -219,40 +290,68 @@ export function TradingMarketChart({
             variant="ghost"
             onClick={() => onSelect({ kind: 'fill', id: fill.id })}
           >
-            {order.side === 'buy' ? 'Buy' : 'Sell'} {String(fill.quantity)}{' '}
-            {order.instrument.symbol} @ {tradingMoney(fill.price, order.instrument.currency)}
+            {order.side === 'buy'
+              ? formatMessage({ id: 'trading.buy', defaultMessage: 'Buy' })
+              : formatMessage({ id: 'trading.sell', defaultMessage: 'Sell' })}{' '}
+            {String(fill.quantity)} {order.instrument.symbol} @{' '}
+            {tradingMoney(fill.price, order.instrument.currency)}
           </Button>
         ))}
       </Cluster>
       {hasCandles && rows.length > bars.length && (
         <Text size="xs" tone="muted">
-          {rows.length - bars.length} quote updates are retained in recorded data. They are not
-          converted into candles. Missing intervals remain gaps.
+          {formatMessage(
+            {
+              id: 'trading.quoteUpdatesRetained',
+              defaultMessage:
+                '{count, plural, one {# quote update is} other {# quote updates are}} retained in recorded data. They are not converted into candles. Missing intervals remain gaps.',
+            },
+            { count: rows.length - bars.length },
+          )}
         </Text>
       )}
       <details>
-        <summary>Recorded market data</summary>
+        <summary>
+          {formatMessage({
+            id: 'trading.recordedMarketData',
+            defaultMessage: 'Recorded market data',
+          })}
+        </summary>
         <div className="trading-table-wrap">
           <table className="trading-table">
             <thead>
               <tr>
-                <th>Time (UTC)</th>
-                <th>Open</th>
-                <th>High</th>
-                <th>Low</th>
-                <th>Close / quote</th>
-                <th>Volume</th>
+                <th>{formatMessage({ id: 'trading.timeUtc', defaultMessage: 'Time (UTC)' })}</th>
+                <th>{formatMessage({ id: 'trading.open', defaultMessage: 'Open' })}</th>
+                <th>{formatMessage({ id: 'trading.high', defaultMessage: 'High' })}</th>
+                <th>{formatMessage({ id: 'trading.low', defaultMessage: 'Low' })}</th>
+                <th>
+                  {formatMessage({ id: 'trading.closeQuote', defaultMessage: 'Close / quote' })}
+                </th>
+                <th>{formatMessage({ id: 'trading.volume', defaultMessage: 'Volume' })}</th>
               </tr>
             </thead>
             <tbody>
               {rows.map((row) => (
                 <tr key={row.id ?? row.timestamp}>
                   <td>{new Date(row.timestamp).toISOString()}</td>
-                  <td>{row.open ?? 'Unavailable'}</td>
-                  <td>{row.high ?? 'Unavailable'}</td>
-                  <td>{row.low ?? 'Unavailable'}</td>
+                  <td>
+                    {row.open ??
+                      formatMessage({ id: 'trading.unavailable', defaultMessage: 'Unavailable' })}
+                  </td>
+                  <td>
+                    {row.high ??
+                      formatMessage({ id: 'trading.unavailable', defaultMessage: 'Unavailable' })}
+                  </td>
+                  <td>
+                    {row.low ??
+                      formatMessage({ id: 'trading.unavailable', defaultMessage: 'Unavailable' })}
+                  </td>
                   <td>{row.close ?? row.price}</td>
-                  <td>{row.volume ?? 'Unavailable'}</td>
+                  <td>
+                    {row.volume ??
+                      formatMessage({ id: 'trading.unavailable', defaultMessage: 'Unavailable' })}
+                  </td>
                 </tr>
               ))}
             </tbody>

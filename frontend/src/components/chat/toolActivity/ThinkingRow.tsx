@@ -1,3 +1,4 @@
+import { useAppIntl } from '../../../i18n/useAppIntl'
 // Reasoning, drawn as one more step on the activity rail — because that is what it is.
 //
 // Lives HERE, not in MessageBubble, so `ToolActivity` can render a thought in its true place
@@ -24,6 +25,7 @@ export function ThinkingRow({ text, streaming }: { text: string; streaming?: boo
   //
   // `null` means "nobody has decided", so a click at any point wins permanently — including
   // folding it mid-stream, which then stays folded when the turn ends.
+  const intl = useAppIntl()
   const [choice, setChoice] = useState<boolean | null>(null)
   const open = choice ?? Boolean(streaming)
   const contentRef = useRef<HTMLDivElement>(null)
@@ -61,7 +63,7 @@ export function ThinkingRow({ text, streaming }: { text: string; streaming?: boo
               text rendered in full directly beneath it, so leaving it up prints those lines
               twice (owner report, 2026-08-22). */}
           {!showPreview ? (
-            <span className="msg-toolact__text">{streaming ? 'Thinking…' : 'Thought process'}</span>
+            <span className="msg-toolact__text">{streaming ? intl.formatMessage({ id: 'chat.tool.thinking', defaultMessage: 'Thinking…' }) : intl.formatMessage({ id: 'chat.tool.thought', defaultMessage: 'Thought process' })}</span>
           ) : (
             /* Never pre-shortened here: a truncation done in JS would bake a different
                sentence into the DOM. CSS line-clamp does it, and the full text is one

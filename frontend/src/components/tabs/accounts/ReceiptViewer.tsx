@@ -3,6 +3,7 @@
 // same fetch-then-render state machine (shared via useFileViewerState/FileViewerBody rather
 // than forked) — the one addition is the 'image' branch, since a receipt (unlike a
 // statement) is very often a photographed paper receipt.
+import { useAppIntl } from '../../../i18n/useAppIntl'
 import { Modal } from '../../ui/Modal'
 import { Button } from '../../ui/Button'
 import { FileViewerBody, useFileViewerState } from './StatementsSection'
@@ -21,6 +22,7 @@ export function ReceiptViewer({
   receipt: ReceiptViewerTarget
   onClose: () => void
 }) {
+  const { formatMessage } = useAppIntl()
   const ext = (receipt.filename || '').split('.').pop()?.toLowerCase() || ''
   const isImage = !!receipt.mediaType && receipt.mediaType.startsWith('image/')
   const state = useFileViewerState(`/api/receipts/${receipt.id}/file`, ext, isImage)
@@ -30,7 +32,7 @@ export function ReceiptViewer({
       open
       onClose={onClose}
       size="xl"
-      title={receipt.filename || 'Receipt'}
+      title={receipt.filename || formatMessage({ id: 'accounts.receipt.viewerTitle', defaultMessage: 'Receipt' })}
       footer={
         <Button
           size="sm"
@@ -42,7 +44,7 @@ export function ReceiptViewer({
             a.click()
           }}
         >
-          <Download size={14} aria-hidden="true" /> Download original
+          <Download size={14} aria-hidden="true" /> {formatMessage({ id: 'accounts.receipt.download', defaultMessage: 'Download original' })}
         </Button>
       }
     >

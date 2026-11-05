@@ -127,13 +127,34 @@ def _move_finding(d: float, thr: float, bench: dict | None) -> dict | None:
         return None
     up = d > 0
     text = f"{'Up' if up else 'Down'} {abs(d):.1f}% today"
+    rel = None
     if bench and bench.get("day_pct") is not None:
         rel = d - bench["day_pct"]
         if abs(rel) >= REL_STRENGTH_MIN_PTS:
             text += f", {abs(rel):.1f} pts {'ahead of' if rel > 0 else 'behind'} {bench['symbol']}"
     severity = "high" if abs(d) >= 2 * thr else "medium"
     f = _finding(
-        "big_move", "good" if up else "bad", 30 + min(40.0, abs(d) / thr * 10), severity, text
+        "big_move",
+        "good" if up else "bad",
+        30 + min(40.0, abs(d) / thr * 10),
+        severity,
+        text,
+        message_id="move_with_benchmark"
+        if rel is not None and abs(rel) >= REL_STRENGTH_MIN_PTS
+        else "move",
+        params={
+            "direction": "up" if up else "down",
+            "percent": f"{abs(d):.1f}",
+            **(
+                {
+                    "gap": f"{abs(rel):.1f}",
+                    "comparison": bench["symbol"],
+                    "relative": "ahead" if rel > 0 else "behind",
+                }
+                if rel is not None and abs(rel) >= REL_STRENGTH_MIN_PTS
+                else {}
+            ),
+        },
     )
     f["meta"] = {"z": None, "move_kind": None}
     return f
@@ -146,23 +167,51 @@ def _range_findings(snap: dict, d: float | None) -> list[dict]:
     out: list[dict] = []
     if from_high is not None:
         if from_high >= -0.1:
-            out.append(_finding("breakout", "good", 26, "medium", "At a 52-week high"))
+            out.append(
+                _finding(
+                    "breakout", "good", 26, "medium", "At a 52-week high", message_id="breakout"
+                )
+            )
         elif from_high >= -NEAR_EXTREME_PCT:
             out.append(
                 _finding(
-                    "near_high", "info", 10, "low", f"{abs(from_high):.1f}% below its 52-week high"
+                    "near_high",
+                    "info",
+                    10,
+                    "low",
+                    f"{abs(from_high):.1f}% below its 52-week high",
+                    message_id="below_high",
+                    params={"percent": f"{abs(from_high):.1f}"},
                 )
             )
     breakdown = from_low is not None and from_low <= 0.1
     if breakdown:
-        out.append(_finding("breakdown", "bad", 26, "medium", "At a 52-week low"))
+        out.append(
+            _finding("breakdown", "bad", 26, "medium", "At a 52-week low", message_id="breakdown")
+        )
     elif from_low is not None and from_low <= NEAR_LOW_PCT:
         out.append(
-            _finding("near_low", "info", 10, "low", f"{from_low:.1f}% above its 52-week low")
+            _finding(
+                "near_low",
+                "info",
+                10,
+                "low",
+                f"{from_low:.1f}% above its 52-week low",
+                message_id="above_low",
+                params={"percent": f"{from_low:.1f}"},
+            )
         )
     if from_high is not None and from_high <= -DISCOUNT_PCT and not breakdown:
         out.append(
-            _finding("discount", "warn", 15, "low", f"{abs(from_high):.0f}% below its 52-week high")
+            _finding(
+                "discount",
+                "warn",
+                15,
+                "low",
+                f"{abs(from_high):.0f}% below its 52-week high",
+                message_id="below_high",
+                params={"percent": f"{abs(from_high):.0f}"},
+            )
         )
     return out
 
@@ -183,11 +232,27 @@ def _average_findings(snap: dict) -> list[dict]:
             continue
         if prev < avg <= price:
             out.append(
-                _finding(up_kind, "good", weight, "medium", f"Reclaimed its {label} average")
+                _finding(
+                    up_kind,
+                    "good",
+                    weight,
+                    "medium",
+                    f"Reclaimed its {label} average",
+                    message_id="reclaim_average",
+                    params={"days": label.split("-")[0]},
+                )
             )
         elif prev >= avg > price:
             out.append(
-                _finding(down_kind, "bad", weight, "medium", f"Fell below its {label} average")
+                _finding(
+                    down_kind,
+                    "bad",
+                    weight,
+                    "medium",
+                    f"Fell below its {label} average",
+                    message_id="lost_average",
+                    params={"days": label.split("-")[0]},
+                )
             )
     return out
 
@@ -201,7 +266,15 @@ def _volume_finding(snap: dict, pace: float | None) -> dict | None:
         if intraday
         else f"Volume {pace:.1f}× its 3-month average"
     )
-    f = _finding("volume", "info", 10 + min(10.0, pace), "low", text)
+    f = _finding(
+        "volume",
+        "info",
+        10 + min(10.0, pace),
+        "low",
+        text,
+        message_id="volume_pace" if intraday else "volume_average",
+        params={"pace": f"{pace:.1f}"},
+    )
     f["meta"] = {"pace": round(pace, 2)}
     return f
 
@@ -212,7 +285,15 @@ def _earnings_finding(snap: dict, now: datetime, thesis: str = "") -> dict | Non
         return None
     when = "today" if n == 0 else "tomorrow" if n == 1 else f"in {n} days"
     text = f"Earnings {when}" + (" — check your thesis" if thesis else "")
-    return _finding("earnings_soon", "info", 14 + (EARNINGS_WINDOW_DAYS - n), "low", text)
+    return _finding(
+        "earnings_soon",
+        "info",
+        14 + (EARNINGS_WINDOW_DAYS - n),
+        "low",
+        text,
+        message_id="earnings",
+        params={"days": n, "thesis": "yes" if thesis else "no"},
+    )
 
 
 NEXT_EVENT_WINDOW_DAYS = 60
@@ -240,6 +321,12 @@ def _alert_finding(snap: dict, alerts: list[dict]) -> dict | None:
         12,
         "low",
         f"{abs(near['distance_pct']):.1f}% {side} your {near['level']:g} alert",
+        message_id="alert_near",
+        params={
+            "percent": f"{abs(near['distance_pct']):.1f}",
+            "side": side,
+            "level": f"{near['level']:g}",
+        },
     )
 
 
@@ -268,6 +355,8 @@ def evaluate(
                 20,
                 "low",
                 f"{d:+.0f}% looks like a stock split — prices may be adjusting",
+                message_id="possible_split",
+                params={"percent": f"{d:+.0f}"},
             ),
             _earnings_finding(snap, now, thesis),
         ]
@@ -344,6 +433,14 @@ def portfolio_fit(sector: str | None, held_by_sector: dict[str, float]) -> dict 
         "after_starter_pct": round(after, 1),
         "rank": rank,
         "note": note,
+        "note_message": {
+            "id": "watchPulse.fit",
+            "params": {
+                "state": "new" if pct <= 0 else "largest" if rank == 1 else "existing",
+                "percent": f"{pct:.0f}",
+                "sector": sector,
+            },
+        },
     }
 
 

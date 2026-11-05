@@ -58,3 +58,13 @@ describe('DataInHero', () => {
     expect(screen.getByRole('button', { name: 'Add an account myself' })).toBeTruthy()
   })
 })
+
+it('shows Chinese actions without changing the Lucius message', async () => {
+  const { IntlProvider } = await import('react-intl')
+  const { default: messages } = await import('../tabs/imports/zh-CN.messages.json')
+  const ask = vi.fn()
+  render(<IntlProvider locale="zh-CN" messages={messages}><DataInHero title="开始" body="添加账户" onAddAccount={vi.fn()} luciusMessage="Help me set up my accounts" onAskLucius={ask} /></IntlProvider>)
+  expect(screen.getByRole('button', { name: '自行添加账户' })).toBeTruthy()
+  fireEvent.click(screen.getByRole('button', { name: '与 Lucius 一起添加' }))
+  expect(ask).toHaveBeenCalledWith('Help me set up my accounts')
+})

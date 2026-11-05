@@ -110,6 +110,17 @@ def test_historical_months_resolves_category_label_not_raw_id(monkeypatch):
     assert len(rows) == 1
     [event] = rows[0]["events"]
     assert event["category"] == "Groceries"
+    assert "label_message" not in event and "category_message" not in event
+
+    # Historical user text can equal an application default and must remain user text.
+    txn["description"] = "Expense"
+    txn["category"] = None
+    [named] = cashflow._historical_months("USD", 1, 1000.0)[0]["events"]
+    assert named["label"] == "Expense" and "label_message" not in named
+    assert named["category_message"]["id"] == "cashflow.category.expenses"
+    txn["description"] = ""
+    [fallback] = cashflow._historical_months("USD", 1, 1000.0)[0]["events"]
+    assert fallback["label_message"]["id"] == "cashflow.label.expense"
 
 
 # ---------------------------------------------------------------------------
@@ -210,6 +221,11 @@ def test_current_month_recurring_baseline_is_prorated_to_remaining_days(
     )
     assert recurring["Irregular income"]["amount_base"] < 3_000.0
     assert recurring["Everyday spending"]["amount_base"] < 1_000.0
+    assert recurring["Irregular income"]["label_message"]["id"] == "cashflow.label.irregular_income"
+    assert (
+        recurring["Everyday spending"]["label_message"]["id"] == "cashflow.label.everyday_spending"
+    )
+    assert recurring["Everyday spending"]["note_message"]["id"] == "cashflow.note.variable"
 
 
 def test_current_month_balance_does_not_double_count_elapsed_actuals(monkeypatch, _pinned_july_7):

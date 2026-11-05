@@ -133,11 +133,21 @@ def test_missing_live_authority_saves_reviewed_draft_without_activation():
         end_at=None,
         observations=[],
     )
-    assert delegation.review_delegation(data)["ready"] is False
+    review = delegation.review_delegation(data)
+    assert review["ready"] is False
+    assert review["issue_messages"][0]["id"] == "trading.notice.live_authorization_required"
+    assert review["issue_messages"][0]["default_message"] == review["issues"][0]
+    assert review["issue_messages"][0]["params"] == {}
     result = asyncio.run(delegation.create_delegation(data))
     assert result["started"] is False
     assert result["run"]["state"] == "ready"
     assert "authorization" in result["activation_error"]["message"]
+    assert (
+        result["activation_error"]["localized"]["id"] == "trading.error.live_authorization_required"
+    )
+    assert result["run"]["last_agent_error_message"] == result["activation_error"]["localized"]
+    overview = delegation.workspace_overview(result["workspace"]["id"])
+    assert overview["current_work"]["blocker_message"] == result["activation_error"]["localized"]
 
 
 def test_files_are_versioned_and_scoped_to_host_identity():

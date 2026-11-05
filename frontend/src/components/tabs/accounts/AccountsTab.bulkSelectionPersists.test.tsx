@@ -17,6 +17,9 @@
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, fireEvent, render, waitFor, within } from '@testing-library/react'
+import { IntlProvider } from 'react-intl'
+import messages from './zh-CN.messages.json'
+import commonMessages from '../../../i18n/zh-CN.json'
 import { AccountsTab } from './AccountsTab'
 import type { ApiAccount, ApiTxn } from './types'
 
@@ -95,9 +98,9 @@ const openMore = () => fireEvent.click(inBar().getByRole('button', { name: /More
 const item = (name: RegExp) => inBar().getByRole('button', { name })
 const reviewItem = () => item(/Mark as Reviewed/i)
 
-async function boot(rows: ApiTxn[]) {
+async function boot(rows: ApiTxn[], chinese = false) {
   setupMocks(rows)
-  render(<AccountsTab />)
+  render(chinese ? <IntlProvider locale="zh-CN" messages={{ ...commonMessages, ...messages }}><AccountsTab /></IntlProvider> : <AccountsTab />)
   await waitFor(() => expect(document.querySelector('.acct-reg-head .acct-cb')).toBeTruthy())
   await waitFor(() => expect(document.querySelectorAll('.acct-tr').length).toBe(rows.length))
 }
@@ -167,4 +170,34 @@ describe('Bulk bar — the selection survives a completed action', () => {
     expect(unclear).toHaveProperty('disabled', true)
     expect(unclear.getAttribute('title')).toMatch(/no selected transaction is cleared/i)
   })
+})
+
+it('reports skipped rows and their reason after a partially successful bulk update', async () => {
+  await boot([makeTxn('t1', true), makeTxn('t2', true)])
+  const original = mockAuthFetch.getMockImplementation()!
+  mockAuthFetch.mockImplementation((url: string, init?: RequestInit) => {
+    if (url === '/api/transactions/bulk-update') return Promise.resolve(okJson({
+      updated: ['t1'], not_found: [], skipped: [{ id: 't2', reason: 'no applicable change', reason_message: { id: 'ledger.bulk.no_change', params: {} } }], count: 1,
+    }))
+    return original(url, init)
+  })
+  selectAll()
+  openMore()
+  fireEvent.click(reviewItem())
+  await waitFor(() => expect(document.body.textContent).toContain('1 skipped: no applicable change'))
+})
+
+it('reports a structured skipped reason in Chinese after a partial bulk update', async () => {
+  await boot([makeTxn('t1', true), makeTxn('t2', true)], true)
+  const original = mockAuthFetch.getMockImplementation()!
+  mockAuthFetch.mockImplementation((url: string, init?: RequestInit) => {
+    if (url === '/api/transactions/bulk-update') return Promise.resolve(okJson({
+      updated: ['t1'], not_found: [], skipped: [{ id: 't2', reason: 'no applicable change', reason_message: { id: 'ledger.bulk.no_change', params: {} } }], count: 1,
+    }))
+    return original(url, init)
+  })
+  selectAll()
+  fireEvent.click(inBar().getByRole('button', { name: '更多' }))
+  fireEvent.click(inBar().getByRole('button', { name: '标记为已审核' }))
+  await waitFor(() => expect(document.body.textContent).toContain('跳过 1 笔：没有适用的更改'))
 })

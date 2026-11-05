@@ -18,6 +18,7 @@ import { Skeleton } from '../../ui/Skeleton'
 import { usePortfolioDrivers } from '../../../hooks/usePortfolioDrivers'
 import { DriverChips } from '../../shared/DriverChips'
 import { INTEL_SUBTAB_KEY } from '../../../hooks/useIntelStoryIndex'
+import { useAppIntl } from '../../../i18n/useAppIntl'
 
 interface Props {
   d: DerivedBook
@@ -82,13 +83,16 @@ function BriefSkeleton({
   compact: boolean
   rootRef: RefObject<HTMLElement | null>
 }) {
+  const { formatMessage } = useAppIntl()
   return (
     <section ref={rootRef} className="intel-brief-card" aria-busy="true">
       <div className="intel-brief-head">
         <span className="lx-mark">
           <Sparkles size={13} />
         </span>
-        <span className="intel-brief-title">Portfolio brief</span>
+        <span className="intel-brief-title">
+          {formatMessage({ id: 'investments.brief.title', defaultMessage: 'Portfolio brief' })}
+        </span>
       </div>
       <div className="intel-brief-body">
         <div className="brief-lead">
@@ -126,6 +130,7 @@ export function Brief({
   onNavigate,
   onOpenAssetDetail,
 }: Props) {
+  const { formatMessage } = useAppIntl()
   const mountedAt = useRef(new Date())
   const { data: driversData, loading: driversLoading } = usePortfolioDrivers()
   // The secondary bullets fold behind a disclosure on a phone or when Lucius narrows the
@@ -158,8 +163,17 @@ export function Brief({
         <span className="lx-mark">
           <Sparkles size={13} />
         </span>
-        <span className="intel-brief-title">Portfolio brief</span>
-        {decisionsCount > 0 && <span className="intel-brief-pill">{decisionsCount} to decide</span>}
+        <span className="intel-brief-title">
+          {formatMessage({ id: 'investments.brief.title', defaultMessage: 'Portfolio brief' })}
+        </span>
+        {decisionsCount > 0 && (
+          <span className="intel-brief-pill">
+            {formatMessage(
+              { id: 'investments.brief.toDecide', defaultMessage: '{count} to decide' },
+              { count: decisionsCount },
+            )}
+          </span>
+        )}
         {onNavigate && (
           <a
             className="intel-brief-ask intel-brief-ask--intel"
@@ -176,7 +190,7 @@ export function Brief({
               onNavigate('intel')
             }}
           >
-            Intel{' '}
+            {formatMessage({ id: 'inbox.intel', defaultMessage: 'Intel' })}{' '}
             <span className="intel-brief-ask-spark">
               <ArrowRight size={12} aria-hidden="true" />
             </span>
@@ -207,7 +221,12 @@ export function Brief({
               <span className={`brief-more-caret${moreOpen ? ' is-open' : ''}`} aria-hidden>
                 <ChevronRight size={12} />
               </span>
-              {moreOpen ? 'Show less' : `${shownMore.length} more`}
+              {moreOpen
+                ? formatMessage({ id: 'inbox.showLess', defaultMessage: 'Show less' })
+                : formatMessage(
+                    { id: 'investments.brief.more', defaultMessage: '{count} more' },
+                    { count: shownMore.length },
+                  )}
             </button>
           )}
           {shownMore.length > 0 && (!compact || moreOpen) && (

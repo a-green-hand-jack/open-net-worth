@@ -31,8 +31,8 @@ def get_scenarios() -> list[dict]:
 # (e.g. snake_case ``end_age``) is silently invisible to the sim, so it is REFUSED with a
 # corrective message instead of coerced (the create_transaction convention: the caller —
 # usually the AI — fixes its output and retries; nothing is silently rewritten).
-_STREAM_ITEM_KEYS = frozenset({"label", "amount", "age", "endAge"})
-_EVENT_ITEM_KEYS = frozenset({"id", "label", "amount", "age"})
+_STREAM_ITEM_KEYS = frozenset({"label", "labelSource", "amount", "age", "endAge"})
+_EVENT_ITEM_KEYS = frozenset({"id", "label", "labelSource", "amount", "age"})
 
 
 def _snake_to_camel(key: str) -> str:
@@ -73,7 +73,27 @@ def _validate_item_fields(data: dict) -> None:
                     f"(allowed: {', '.join(sorted(allowed))})"
                 )
             _validate_age(kind, item, "age", required=True)
+            if kind == "events" and "labelSource" in item:
+                source_labels = {
+                    "preset_home": "🏠 Home",
+                    "preset_baby": "👶 New baby",
+                    "preset_tuition": "🎓 Tuition",
+                    "preset_inheritance": "💰 Inheritance",
+                    "preset_sabbatical": "✈️ Sabbatical",
+                    "default_event": "Event",
+                }
+                source = item["labelSource"]
+                if (
+                    not isinstance(source, str)
+                    or source not in source_labels
+                    or item.get("label") != source_labels[source]
+                ):
+                    raise ValidationError("invalid life event label source")
             if kind == "streams":
+                if "labelSource" in item and (
+                    item["labelSource"] != "default_income" or item.get("label") != "Income"
+                ):
+                    raise ValidationError("invalid income stream label source")
                 _validate_age(kind, item, "endAge", required=False)
 
 

@@ -8,7 +8,17 @@ from backend.services.ynab_migration import apply, source
 from backend.services.ynab_migration.mapping import RTA_CATEGORY, SOURCE, amt
 
 
-def _row(group, label, expected, actual, note="", unit="money"):
+def _row(
+    group,
+    label,
+    expected,
+    actual,
+    note="",
+    unit="money",
+    label_message=None,
+    note_message=None,
+    note_details=None,
+):
     ok = (
         expected == actual
         if isinstance(expected, (int, str))
@@ -22,6 +32,19 @@ def _row(group, label, expected, actual, note="", unit="money"):
         "ok": ok,
         "note": note,
         "unit": unit,
+        "label_message": label_message,
+        "note_message": note_message,
+        "note_details": note_details,
+        "expected_message": {"message_id": "ynab.import.value.present", "params": {}}
+        if label_message
+        and label_message.get("message_id")
+        in {"ynab.import.check.account", "ynab.import.check.envelope"}
+        else None,
+        "actual_message": {"message_id": "ynab.import.value.missing", "params": {}}
+        if label_message
+        and label_message.get("message_id")
+        in {"ynab.import.check.account", "ynab.import.check.envelope"}
+        else None,
     }
 
 
@@ -38,7 +61,18 @@ def verify_accounts(plan: dict, ynab_accounts: list[dict]) -> list[dict]:
     for pa in plan["accounts"]:
         name, row = pa["payload"]["name"], onw.get(pa["id"])
         if row is None:
-            out.append(_row("account", f"{name}: account", "present", "missing"))
+            out.append(
+                _row(
+                    "account",
+                    f"{name}: account",
+                    "present",
+                    "missing",
+                    label_message={
+                        "message_id": "ynab.import.check.account",
+                        "params": {"name": name},
+                    },
+                )
+            )
             continue
         y = live.get(pa["id"], {})
         balance = amt(y.get("balance", 0))
@@ -52,6 +86,13 @@ def verify_accounts(plan: dict, ynab_accounts: list[dict]) -> list[dict]:
                 ""
                 if abs(ysum - balance) < apply.TOL
                 else f"YNAB's transactions sum to {ysum:,.2f}",
+                label_message={"message_id": "ynab.import.check.balance", "params": {"name": name}},
+                note_message=None
+                if abs(ysum - balance) < apply.TOL
+                else {
+                    "message_id": "ynab.import.note.transactionSum",
+                    "params": {"amount": f"{ysum:,.2f}"},
+                },
             )
         )
         adjust = pa["cleared_adjust"]
@@ -68,6 +109,16 @@ def verify_accounts(plan: dict, ynab_accounts: list[dict]) -> list[dict]:
                 round(cleared + adjust, 2),
                 float(row.get("cleared_balance", 0)),
                 note,
+                label_message={
+                    "message_id": "ynab.import.check.clearedBalance",
+                    "params": {"name": name},
+                },
+                note_message={
+                    "message_id": "ynab.import.note.clearedAdjustment",
+                    "params": {"cleared": f"{cleared:g}", "adjustment": f"{adjust:+.2f}"},
+                }
+                if adjust
+                else None,
             )
         )
         out.append(_count_row(name, pa, row["id"], txns, openings))
@@ -86,11 +137,37 @@ def _count_row(name: str, pa: dict, account_id: str, txns: list[dict], openings)
     note = f"YNAB has {pa['ynab_rows']}"
     if not own:
         return _row(
-            "account", f"{name}: transactions", pa["expected_rows"], len(mine), note, "count"
+            "account",
+            f"{name}: transactions",
+            pa["expected_rows"],
+            len(mine),
+            note,
+            "count",
+            label_message={
+                "message_id": "ynab.import.check.transactions",
+                "params": {"name": name},
+            },
+            note_message={
+                "message_id": "ynab.import.note.ynabRows",
+                "params": {"count": str(pa["ynab_rows"])},
+            },
         )
     note += f"; {len(own)} more here are this account's own, not in YNAB"
     return _row(
-        "account", f"{name}: YNAB transactions", pa["expected_rows"] - 1, len(ynabs), note, "count"
+        "account",
+        f"{name}: YNAB transactions",
+        pa["expected_rows"] - 1,
+        len(ynabs),
+        note,
+        "count",
+        label_message={
+            "message_id": "ynab.import.check.ynabTransactions",
+            "params": {"name": name},
+        },
+        note_message={
+            "message_id": "ynab.import.note.ynabRowsWithOwn",
+            "params": {"count": str(pa["ynab_rows"]), "own": str(len(own))},
+        },
     )
 
 
@@ -116,7 +193,18 @@ def verify_budget(store, plan_id: str, plan: dict, env_ids: dict[str, dict]) -> 
                 unsynced.append(cat["label"])
             continue
         if env is None or env not in rows:
-            out.append(_row("envelope", f"{cat['label']}: envelope", "present", "missing"))
+            out.append(
+                _row(
+                    "envelope",
+                    f"{cat['label']}: envelope",
+                    "present",
+                    "missing",
+                    label_message={
+                        "message_id": "ynab.import.check.envelope",
+                        "params": {"name": cat["label"]},
+                    },
+                )
+            )
             continue
         out.append(
             _row(
@@ -124,6 +212,10 @@ def verify_budget(store, plan_id: str, plan: dict, env_ids: dict[str, dict]) -> 
                 f"{cat['label']}: assigned {month}",
                 amt(ycat["budgeted"]),
                 float(rows[env]["assigned"]),
+                label_message={
+                    "message_id": "ynab.import.check.assigned",
+                    "params": {"name": cat["label"], "month": month},
+                },
             )
         )
         out.append(
@@ -132,38 +224,63 @@ def verify_budget(store, plan_id: str, plan: dict, env_ids: dict[str, dict]) -> 
                 f"{cat['label']}: available {month}",
                 amt(ycat["balance"]),
                 float(rows[env]["available"]),
+                label_message={
+                    "message_id": "ynab.import.check.available",
+                    "params": {"name": cat["label"], "month": month},
+                },
             )
         )
     out += _special_rows(plan, ycats, rows, table, month)
+    ready_note, ready_message = _ready_note(unsynced)
     out.append(
         _row(
             "ready",
             f"Ready to Assign {month}",
             amt(ymonth["to_be_budgeted"]),
             float(table["ready_to_assign"]),
-            _ready_note(unsynced),
+            ready_note,
+            label_message={"message_id": "ynab.import.check.ready", "params": {"month": month}},
+            note_message=ready_message,
         )
     )
     return out
 
 
-def _ready_note(unsynced: list[str]) -> str:
+def _ready_note(unsynced: list[str]) -> tuple[str, dict | None]:
     """Why Ready to Assign can rightly differ: money YNAB doesn't hold here, or Assigned that
     isn't synced. Empty when neither applies."""
     reasons = []
-    if any(
+    extra_accounts = any(
         not a.get("archived")
         and not any(e.get("source") == SOURCE for e in a.get("external_ids") or [])
         for a in ledger_service.accounts.query_accounts(include_archived=False)
-    ):
+    )
+    if extra_accounts:
         reasons.append("this book also has accounts YNAB doesn't")
     if unsynced:
         names = ", ".join(unsynced[:3]) + (" and others" if len(unsynced) > 3 else "")
         reasons.append(f"the Assigned of {names} isn't synced")
-    return f"Can differ, as {' and '.join(reasons)}." if reasons else ""
+    if not reasons:
+        return "", None
+    key = (
+        "readyBoth"
+        if extra_accounts and unsynced
+        else "readyAccounts"
+        if extra_accounts
+        else "readyUnsynced"
+    )
+    params = (
+        {"names": ", ".join(unsynced[:3]), "others": "yes" if len(unsynced) > 3 else "no"}
+        if unsynced
+        else {}
+    )
+    return f"Can differ, as {' and '.join(reasons)}.", {
+        "message_id": f"ynab.import.note.{key}",
+        "params": params,
+    }
 
 
-def _line_diff(plan: dict, month: str, cid: str, cat_id: str | None) -> str:
+def _line_diff(plan: dict, month: str, cid: str, cat_id: str | None) -> tuple[str, str, str, dict]:
     """Which transactions only one side counts for this category and month."""
     ynab = plan.get("lines", {}).get(f"{month}|{cid}", {})
     here: dict[str, float] = {}
@@ -178,9 +295,21 @@ def _line_diff(plan: dict, month: str, cid: str, cat_id: str | None) -> str:
             continue
         for r in t.get("external_refs") or []:
             here[r.get("ref")] = amount
-    only_ynab = [f"{amt(v):,.2f} [{k[:8]}]" for k, v in ynab.items() if k not in here]
-    only_here = [f"{v:,.2f} [{k[:8]}]" for k, v in here.items() if k not in ynab and ":" not in k]
-    return f" · only in YNAB: {only_ynab[:6]} · only here: {only_here[:6]}"
+    ynab_items = [{"amount": amt(v), "ref": k[:8]} for k, v in ynab.items() if k not in here][:6]
+    here_items = [
+        {"amount": float(v), "ref": k[:8]}
+        for k, v in here.items()
+        if k not in ynab and ":" not in k
+    ][:6]
+    only_ynab = [f"{item['amount']:,.2f} [{item['ref']}]" for item in ynab_items]
+    only_here = [f"{item['amount']:,.2f} [{item['ref']}]" for item in here_items]
+    left, right = str(only_ynab[:6]), str(only_here[:6])
+    return (
+        f" · only in YNAB: {left} · only here: {right}",
+        left,
+        right,
+        {"onlyYnab": ynab_items, "onlyHere": here_items},
+    )
 
 
 def first_divergence(plan: dict, env_ids: dict[str, dict], until: str) -> list[dict]:
@@ -208,6 +337,9 @@ def first_divergence(plan: dict, env_ids: dict[str, dict], until: str) -> list[d
             ):
                 continue
             pending.discard(cid)
+            diff_text, only_ynab, only_here, note_details = _line_diff(
+                plan, month, cid, env_ids[cid].get("category")
+            )
             out.append(
                 _row(
                     "history",
@@ -215,7 +347,28 @@ def first_divergence(plan: dict, env_ids: dict[str, dict], until: str) -> list[d
                     balance,
                     float(row["available"]),
                     f"available · activity YNAB {activity:,.2f} here {row['activity']:,.2f}"
-                    + _line_diff(plan, month, cid, env_ids[cid].get("category")),
+                    + diff_text,
+                    label_message={
+                        "message_id": "ynab.import.check.firstDiffersCard"
+                        if cid in plan.get("card_categories", {})
+                        else "ynab.import.check.firstDiffers",
+                        "params": {
+                            "name": plan["card_categories"][cid]
+                            if cid in plan.get("card_categories", {})
+                            else labels[cid],
+                            "month": month,
+                        },
+                    },
+                    note_message={
+                        "message_id": "ynab.import.note.historyActivity",
+                        "params": {
+                            "activity": f"{activity:,.2f}",
+                            "here": f"{row['activity']:,.2f}",
+                            "onlyYnab": only_ynab,
+                            "onlyHere": only_here,
+                        },
+                    },
+                    note_details=note_details,
                 )
             )
         if not rta_done and abs(amt(hist["rta"]) - table["ready_to_assign"]) >= apply.TOL:
@@ -226,6 +379,10 @@ def first_divergence(plan: dict, env_ids: dict[str, dict], until: str) -> list[d
                     f"Ready to Assign: first differs {month}",
                     amt(hist["rta"]),
                     float(table["ready_to_assign"]),
+                    label_message={
+                        "message_id": "ynab.import.check.readyFirstDiffers",
+                        "params": {"month": month},
+                    },
                 )
             )
     return out
@@ -257,6 +414,17 @@ def _special_rows(plan, ycats, rows, table, month) -> list[dict]:
                 actual,
                 f"YNAB activity {amt(ycat.get('activity', 0)):,.2f}, "
                 f"assigned {amt(ycat.get('budgeted', 0)):,.2f}",
+                label_message={
+                    "message_id": "ynab.import.check.available",
+                    "params": {"name": name, "month": month},
+                },
+                note_message={
+                    "message_id": "ynab.import.note.activityAssigned",
+                    "params": {
+                        "activity": f"{amt(ycat.get('activity', 0)):,.2f}",
+                        "assigned": f"{amt(ycat.get('budgeted', 0)):,.2f}",
+                    },
+                },
             )
         )
     return out

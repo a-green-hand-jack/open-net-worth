@@ -267,3 +267,19 @@ def test_watched_rows_without_a_line_or_sector_ask_for_history(monkeypatch):
     )
     watch_pulse.build_pulse()
     assert asked == [["NEW", "NOSECTOR"]]
+
+
+def test_endpoint_preserves_finding_message_metadata(client, monkeypatch):
+    context = _ctx(
+        [_item("ACME")],
+        {"ACME": {"price": 94.0, "prev_close": 100.0}},
+        bench={"symbol": "INDEX", "day_pct": 1.0},
+    )
+    monkeypatch.setattr(watch_signals, "gather_context", lambda now=None, **kw: context)
+    monkeypatch.setattr(watch_pulse, "_live_stories_by_ticker", lambda: {})
+    response = client.get("/api/intel/watch-pulse")
+    assert response.status_code == 200
+    finding = next(f for f in response.json()["rows"][0]["findings"] if f["kind"] == "big_move")
+    assert finding["text"] == "Down 6.0% today, 7.0 pts behind INDEX"
+    assert finding["text_message"]["id"] == "watchPulse.move_with_benchmark"
+    assert finding["text_message"]["params"]["relative"] == "behind"

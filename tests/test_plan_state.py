@@ -449,3 +449,114 @@ def test_scenario_events_get_ids(store):
         scen["id"], {"name": "s", "events": [{"label": "Y", "amount": -2, "age": 41}]}
     )
     assert updated["events"][0]["id"]
+
+
+def test_event_label_source_round_trips_without_inference(client):
+    original = {
+        "name": "Synthetic plan",
+        "events": [
+            {"label": "🏠 Home", "age": 45, "amount": -100, "labelSource": "preset_home"},
+            {"label": "🏠 Home", "age": 46, "amount": -200},
+            {"label": "Event", "age": 47, "amount": -300, "labelSource": "default_event"},
+        ],
+    }
+    created = client.post("/api/plan/scenarios", json=original)
+    assert created.status_code == 201
+    rows = client.get("/api/plan/scenarios").json()["scenarios"][0]["events"]
+    assert rows[0]["labelSource"] == "preset_home"
+    assert rows[1]["label"] == "🏠 Home" and "labelSource" not in rows[1]
+    assert rows[2]["labelSource"] == "default_event"
+    rows[0]["label"] = "Custom name"
+    invalid = client.put(
+        f"/api/plan/scenarios/{created.json()['id']}", json={**created.json(), "events": rows}
+    )
+    assert invalid.status_code == 422
+    del rows[0]["labelSource"]
+    updated = client.put(
+        f"/api/plan/scenarios/{created.json()['id']}", json={**created.json(), "events": rows}
+    )
+    assert updated.status_code == 200
+    assert updated.json()["events"][0]["label"] == "Custom name"
+    assert "labelSource" not in updated.json()["events"][0]
+
+
+def test_event_label_source_does_not_change_simulation_identity():
+    from backend.models.retirement import OutlookLevers
+    from backend.services.retirement_plan import _comparable
+
+    plain = {"events": [{"label": "🏠 Home", "amount": -100, "age": 45}]}
+    marked = {
+        "events": [{"label": "🏠 Home", "labelSource": "preset_home", "amount": -100, "age": 45}]
+    }
+    assert _comparable(plain) == _comparable(marked)
+    assert (
+        OutlookLevers(**marked).model_dump(exclude_none=True)["events"][0]["labelSource"]
+        == "preset_home"
+    )
+
+
+def test_income_label_source_round_trips_and_never_changes_simulation(client):
+    from backend.models.retirement import OutlookLevers
+    from backend.services.retirement_plan import _comparable
+
+    streams = [
+        {"label": "Income", "labelSource": "default_income", "amount": 100, "age": 40},
+        {"label": "Income", "amount": 200, "age": 41},
+    ]
+    created = client.post("/api/plan/scenarios", json={"name": "Synthetic", "streams": streams})
+    assert created.status_code == 201
+    baseline = client.put("/api/plan/baseline", json={"streams": streams})
+    assert baseline.status_code == 200
+    assert (
+        client.get("/api/plan/baseline").json()["baseline"]["streams"][0]["labelSource"]
+        == "default_income"
+    )
+    rows = client.get("/api/plan/scenarios").json()["scenarios"][0]["streams"]
+    assert rows[0]["labelSource"] == "default_income"
+    assert "labelSource" not in rows[1]
+    assert (
+        OutlookLevers(streams=streams).model_dump(exclude_none=True)["streams"][0]["labelSource"]
+        == "default_income"
+    )
+    assert _comparable({"streams": streams}) == _comparable(
+        {"streams": [{k: v for k, v in row.items() if k != "labelSource"} for row in streams]}
+    )
+    rows[0]["label"] = "Renamed"
+    assert (
+        client.put(
+            f"/api/plan/scenarios/{created.json()['id']}", json={**created.json(), "streams": rows}
+        ).status_code
+        == 422
+    )
+    del rows[0]["labelSource"]
+    assert (
+        client.put(
+            f"/api/plan/scenarios/{created.json()['id']}", json={**created.json(), "streams": rows}
+        ).status_code
+        == 200
+    )
+
+
+@pytest.mark.parametrize(
+    ("source", "label"),
+    [
+        ("preset_home", "🏠 Home"),
+        ("preset_baby", "👶 New baby"),
+        ("preset_tuition", "🎓 Tuition"),
+        ("preset_inheritance", "💰 Inheritance"),
+        ("preset_sabbatical", "✈️ Sabbatical"),
+        ("default_event", "Event"),
+    ],
+)
+def test_known_event_label_sources_round_trip(client, source, label):
+    result = client.post(
+        "/api/plan/scenarios",
+        json={
+            "name": "Plan",
+            "events": [
+                {"label": label, "labelSource": source, "amount": -100, "age": 50},
+            ],
+        },
+    )
+    assert result.status_code == 201
+    assert result.json()["events"][0]["labelSource"] == source

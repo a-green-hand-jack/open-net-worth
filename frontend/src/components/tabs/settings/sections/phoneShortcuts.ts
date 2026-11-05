@@ -37,26 +37,43 @@ export function isOwnComputer(url: string): boolean {
 }
 
 /** Why the phone can't use ``url`` (or can only partly), or null when it looks reachable. */
-export function addressWarning(url: string): string | null {
+export type AddressWarning = 'invalid' | 'loopback' | 'local' | 'http'
+
+export function addressWarningKind(url: string): AddressWarning | null {
   let parsed: URL
   try {
     parsed = new URL(url)
   } catch {
-    return 'Enter a full address, like https://…'
+    return 'invalid'
   }
   if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
-    return 'Enter a full address, like https://…'
+    return 'invalid'
   }
   const host = parsed.hostname
   if (LOOPBACK.test(host)) {
-    return "Your phone can't open this computer's own address. Use your tunnel, Tailscale or HTTPS address."
+    return 'loopback'
   }
   if (TAILNET.test(host)) return null
   if (PRIVATE_LAN.test(host)) {
-    return 'Only works on your home Wi-Fi, not at the shop.'
+    return 'local'
   }
   if (parsed.protocol === 'http:') {
-    return 'Use https:// — plain http:// sends your token unencrypted.'
+    return 'http'
   }
   return null
+}
+
+export function addressWarning(url: string): string | null {
+  switch (addressWarningKind(url)) {
+    case 'invalid':
+      return 'Enter a full address, like https://…'
+    case 'loopback':
+      return "Your phone can't open this computer's own address. Use your tunnel, Tailscale or HTTPS address."
+    case 'local':
+      return 'Only works on your home Wi-Fi, not at the shop.'
+    case 'http':
+      return 'Use https:// — plain http:// sends your token unencrypted.'
+    default:
+      return null
+  }
 }

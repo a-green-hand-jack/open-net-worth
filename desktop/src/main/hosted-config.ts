@@ -1,3 +1,4 @@
+import { message as t } from './native-messages';
 import { isIP } from 'node:net';
 
 export const DEFAULT_PORTAL = 'https://cloud.opennetworth.ai';
@@ -16,18 +17,18 @@ function loopbackHost(host: string): boolean {
 
 function portal(value: string): string {
   let url: URL;
-  try { url = new URL(value.trim()); } catch { throw new Error('The hosted sign-in address is not a valid URL.'); }
-  if (!['http:', 'https:'].includes(url.protocol) || url.username || url.password || url.pathname !== '/' || url.search || url.hash) throw new Error('The hosted sign-in address must be an origin without a path or credentials.');
-  if (url.protocol === 'http:' && !loopbackHost(url.host)) throw new Error('The hosted sign-in address must use HTTPS.');
+  try { url = new URL(value.trim()); } catch { throw new Error(t("The hosted sign-in address is not a valid URL.")); }
+  if (!['http:', 'https:'].includes(url.protocol) || url.username || url.password || url.pathname !== '/' || url.search || url.hash) throw new Error(t("The hosted sign-in address must be an origin without a path or credentials."));
+  if (url.protocol === 'http:' && !loopbackHost(url.host)) throw new Error(t("The hosted sign-in address must use HTTPS."));
   return url.origin;
 }
 
 function instance(value: string): Pick<HostedConfig, 'instanceScheme' | 'instanceDomain'> {
   const match = /^(?:(https?):\/\/)?([^/?#@\s]+)\/?$/i.exec(value.trim());
   const domain = match?.[2]?.toLowerCase();
-  if (!match || !domain || !DOMAIN.test(domain)) throw new Error('The Private Cloud domain is not valid.');
+  if (!match || !domain || !DOMAIN.test(domain)) throw new Error(t("The Private Cloud domain is not valid."));
   const scheme = (match[1]?.toLowerCase() ?? 'https') as 'http' | 'https';
-  if (scheme === 'http' && !loopbackHost(domain)) throw new Error('The Private Cloud domain must use HTTPS.');
+  if (scheme === 'http' && !loopbackHost(domain)) throw new Error(t("The Private Cloud domain must use HTTPS."));
   return { instanceScheme: scheme, instanceDomain: domain };
 }
 
@@ -40,7 +41,7 @@ export function hostedConfig(env: NodeJS.ProcessEnv = process.env): HostedConfig
 export function validSlug(value: unknown): value is string { return typeof value === 'string' && SLUG.test(value); }
 
 export function instanceOrigin(config: HostedConfig, slug: string): string {
-  if (!validSlug(slug)) throw new Error('The Private Cloud name is not valid.');
+  if (!validSlug(slug)) throw new Error(t("The Private Cloud name is not valid."));
   return `${config.instanceScheme}://${slug}.${config.instanceDomain}`;
 }
 

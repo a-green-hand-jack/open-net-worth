@@ -30,6 +30,7 @@ Contract shape (full schema in backend/models/option.py):
     collateral_account_id    : str | None
     collateral_amount        : float | None
     strategy_tag             : str = ""
+    strategy_preset          : str | None = None  # explicit UI preset; None means unknown/custom
     idempotency_key          : str | None
     note                     : str = ""
     realized_premium_base    : float | None (snapshot only — RECOMPUTED on read)
@@ -160,6 +161,7 @@ def _make_option_contract(data: dict) -> dict:
         "collateral_account_id": data.get("collateral_account_id") or None,
         "collateral_amount": _opt_float(data.get("collateral_amount")),
         "strategy_tag": str(data.get("strategy_tag") or ""),
+        "strategy_preset": data.get("strategy_preset") or None,
         "idempotency_key": data.get("idempotency_key") or None,
         "note": str(data.get("note") or ""),
         # Snapshot only — RECOMPUTED on read (never trusted for monetary math).

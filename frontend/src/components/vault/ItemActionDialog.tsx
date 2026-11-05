@@ -1,3 +1,5 @@
+import { vaultError } from './vaultErrors'
+import { useAppIntl } from '../../i18n/useAppIntl'
 import { useState } from 'react'
 import { removeVaultItem, type VaultItem } from '../../api/vault'
 import { refreshVault } from '../../hooks/useVault'
@@ -40,6 +42,7 @@ function RemoveConfirm({
   onClose: () => void
   onRemoved?: () => void
 }) {
+  const vaultIntl = useAppIntl()
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const confirm = async () => {
@@ -51,14 +54,14 @@ function RemoveConfirm({
       onClose()
       onRemoved?.()
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e))
+      setError(vaultError(e, vaultIntl))
       setBusy(false)
     }
   }
   return (
     <ConfirmDialog
       data={{
-        title: `${action.label}?`,
+        title: vaultIntl.formatMessage({ id: 'vault.removeTitle', defaultMessage: '{action}?' }, { action: action.label }),
         body: (
           <>
             {action.body}

@@ -16,7 +16,7 @@
 import { useMemo, useState } from 'react'
 import { BudgetTab } from '../../budget'
 import type { RegisterFilter } from '../../budget'
-import { applyBudgetVerb, fetchEngineDraft } from '../api'
+import { applyBudgetVerb, fetchEngineDraft, BudgetVerbRequestError } from '../api'
 import { currentYm } from '../period'
 import { MethodExplainer } from '../MethodExplainer'
 import { AmountReview } from '../setup/AmountReview'
@@ -24,19 +24,9 @@ import { SetupModal, SetupPrompt } from '../setup/SetupFlow'
 import { SetupChooser } from '../setup/SetupChooser'
 import { proposedAmountRows } from '../setup/amountRows'
 import type { BudgetEngineDescriptor, EnvelopeDraftRow } from '../types'
+import { useAppIntl } from '../../../../../i18n/useAppIntl'
 
 const SET_TARGETS = 'set_targets'
-
-const COPY = {
-  prompt: 'What does each envelope need every month?',
-  toggleLabel: (label: string) => `Give ${label} a monthly target`,
-  amountLabel: (label: string) => `${label} monthly target`,
-  unit: 'targets',
-  honesty:
-    'Drafted from your recent spending — each target is the median of what you actually spent, ' +
-    'not something Lucius reviewed. Check anything that looks off before applying.',
-  lowConfidence: 'check amount',
-}
 
 export function ZeroBasedPane({
   descriptor,
@@ -55,6 +45,33 @@ export function ZeroBasedPane({
   onOpenRegister?: (filter: RegisterFilter) => void
   categoriesVersion?: number
 }) {
+  const { formatMessage } = useAppIntl()
+  const COPY = {
+    prompt: formatMessage({
+      id: 'plan.zeroSetup.prompt',
+      defaultMessage: 'What does each envelope need every month?',
+    }),
+    toggleLabel: (label: string) =>
+      formatMessage(
+        { id: 'plan.zeroSetup.toggle', defaultMessage: 'Give {label} a monthly target' },
+        { label },
+      ),
+    amountLabel: (label: string) =>
+      formatMessage(
+        { id: 'plan.zeroSetup.amount', defaultMessage: '{label} monthly target' },
+        { label },
+      ),
+    unit: formatMessage({ id: 'plan.zeroSetup.unit', defaultMessage: 'targets' }),
+    honesty: formatMessage({
+      id: 'plan.zeroSetup.honesty',
+      defaultMessage:
+        'Drafted from your recent spending — each target is the median of what you actually spent, not something Lucius reviewed. Check anything that looks off before applying.',
+    }),
+    lowConfidence: formatMessage({
+      id: 'plan.zeroSetup.lowConfidence',
+      defaultMessage: 'check amount',
+    }),
+  }
   const period = useMemo(() => currentYm(), [])
   const [open, setOpen] = useState(false)
   const [rows, setRows] = useState<EnvelopeDraftRow[] | null>(null)
@@ -73,13 +90,25 @@ export function ZeroBasedPane({
       const res = await fetchEngineDraft(descriptor.id, period)
       const drafted = proposedAmountRows(res.proposed_state)
       if (!drafted.length) {
-        setDraftError('No envelopes to target yet — create one in your budget first.')
+        setDraftError(
+          formatMessage({
+            id: 'plan.zeroSetup.noEnvelopes',
+            defaultMessage: 'No envelopes to target yet — create one in your budget first.',
+          }),
+        )
         return
       }
       setPreselected(withSelection)
       setRows(drafted)
     } catch (e) {
-      setDraftError(e instanceof Error ? e.message : 'Could not read your spending — try again.')
+      setDraftError(
+        e instanceof Error
+          ? e.message
+          : formatMessage({
+              id: 'plan.zeroSetup.readFailed',
+              defaultMessage: 'Could not read your spending — try again.',
+            }),
+      )
     } finally {
       setDrafting(false)
     }
@@ -101,11 +130,35 @@ export function ZeroBasedPane({
       const failed = res?.failed?.length ?? 0
       toast(
         failed > 0
-          ? `Set ${res.applied ?? 0} targets — ${failed} couldn't be saved.`
-          : `Set ${res.applied ?? targets.length} monthly targets. Now assign your money.`,
+          ? formatMessage(
+              {
+                id: 'plan.zeroSetup.partial',
+                defaultMessage: "Set {applied} targets — {failed} couldn't be saved.",
+              },
+              { applied: res.applied ?? 0, failed },
+            )
+          : formatMessage(
+              {
+                id: 'plan.zeroSetup.success',
+                defaultMessage: 'Set {applied} monthly targets. Now assign your money.',
+              },
+              { applied: res.applied ?? targets.length },
+            ),
       )
     } catch (e) {
-      setApplyError(e instanceof Error ? e.message : 'Could not save your targets — try again.')
+      setApplyError(
+        e instanceof BudgetVerbRequestError
+          ? formatMessage(
+              { id: 'plan.model.requestFailed', defaultMessage: 'Request failed ({status})' },
+              { status: e.status },
+            )
+          : e instanceof Error
+            ? e.message
+            : formatMessage({
+                id: 'plan.zeroSetup.saveFailed',
+                defaultMessage: 'Could not save your targets — try again.',
+              }),
+      )
     } finally {
       setApplying(false)
     }
@@ -123,7 +176,11 @@ export function ZeroBasedPane({
       {!configured && (
         <SetupPrompt
           name={descriptor.name}
-          description="Give every envelope a monthly target first — then assign your money against them."
+          description={formatMessage({
+            id: 'plan.zeroSetup.description',
+            defaultMessage:
+              'Give every envelope a monthly target first — then assign your money against them.',
+          })}
           onSetUp={() => setOpen(true)}
         />
       )}
@@ -137,7 +194,10 @@ export function ZeroBasedPane({
           the pane keeps a compact prompt and both steps run in the modal. */}
       <SetupModal
         open={open || !!rows}
-        title={`Set up ${descriptor.name}`}
+        title={formatMessage(
+          { id: 'plan.zeroSetup.title', defaultMessage: 'Set up {name}' },
+          { name: descriptor.name },
+        )}
         subtitle={rows ? undefined : descriptor.description}
         onClose={closeSetup}
       >
@@ -161,8 +221,11 @@ export function ZeroBasedPane({
             onStartBlank={() => loadRows(false)}
             onAskLucius={() =>
               onAskLucius(
-                'Help me set up my zero-based budget — look at my spending history, propose a ' +
-                  'monthly target for each envelope, and explain why you chose it.',
+                formatMessage({
+                  id: 'plan.zeroSetup.askLucius',
+                  defaultMessage:
+                    'Help me set up my zero-based budget — look at my spending history, propose a monthly target for each envelope, and explain why you chose it.',
+                }),
               )
             }
           />

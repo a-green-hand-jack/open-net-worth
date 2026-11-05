@@ -1,4 +1,7 @@
+import { getNumberLocale } from '../../../utils/format'
 import { useEffect, useMemo, useState } from 'react'
+import { defineMessages } from 'react-intl'
+import { useAppIntl } from '../../../i18n/useAppIntl'
 import {
   Modal,
   FormField,
@@ -19,13 +22,36 @@ import {
   deriveFromPreset,
   totalPremium,
   cspCollateral,
-  validateDraft,
+  validateDraftKey,
   draftToPayload,
   type StrategyPreset,
   type OpenOptionDraft,
 } from './optionForm'
 import { ACCOUNTS_KEY, fetchJson } from '../../../hooks/serverState'
 import { fetchCachedQuery } from '../../../state/queryCache'
+import { presetMessages } from './optionPresetMessages'
+
+const draftMessages = defineMessages({
+  underlying: {
+    id: 'recordOption.validation.underlying',
+    defaultMessage: 'Pick the underlying instrument.',
+  },
+  account: {
+    id: 'recordOption.validation.account',
+    defaultMessage: 'Pick the securities account.',
+  },
+  strike: { id: 'recordOption.validation.strike', defaultMessage: 'Strike must be > 0.' },
+  expiry: { id: 'recordOption.validation.expiry', defaultMessage: 'Pick the expiry date.' },
+  contracts: { id: 'recordOption.validation.contracts', defaultMessage: 'Contracts must be > 0.' },
+  multiplier: {
+    id: 'recordOption.validation.multiplier',
+    defaultMessage: 'Multiplier must be a positive whole number.',
+  },
+  premium: {
+    id: 'recordOption.validation.premium',
+    defaultMessage: 'Premium per share cannot be negative.',
+  },
+})
 
 interface Props {
   onClose: () => void
@@ -52,6 +78,7 @@ function toLocalISODate(): string {
 }
 
 export function RecordOptionModal({ onClose, onDone }: Props) {
+  const { formatMessage } = useAppIntl()
   const [accounts, setAccounts] = useState<AccountLite[]>([])
   const [instruments, setInstruments] = useState<InstrumentLite[]>([])
   const [preset, setPreset] = useState<StrategyPreset>('covered_call')
@@ -104,6 +131,7 @@ export function RecordOptionModal({ onClose, onDone }: Props) {
     premium_currency: effCurrency,
     open_date: openDate,
     strategy_tag: derived?.strategy_tag ?? 'custom',
+    strategy_preset: preset,
     premium_account_id: premiumAccountId,
     note,
   }
@@ -119,9 +147,9 @@ export function RecordOptionModal({ onClose, onDone }: Props) {
       : null
 
   async function submit(allowDuplicate: boolean) {
-    const validation = validateDraft(draft)
+    const validation = validateDraftKey(draft)
     if (validation) {
-      setError(validation)
+      setError(formatMessage(draftMessages[validation]))
       return
     }
     setSubmitting(true)
@@ -132,7 +160,14 @@ export function RecordOptionModal({ onClose, onDone }: Props) {
       onDone()
     } catch (e) {
       setDuplicate(e instanceof DuplicateOptionError)
-      setError(e instanceof Error ? e.message : 'Could not record the option.')
+      setError(
+        e instanceof Error
+          ? e.message
+          : formatMessage({
+              id: 'recordOption.ui.CouldNotRecordTheOption',
+              defaultMessage: 'Could not record the option.',
+            }),
+      )
       setSubmitting(false)
     }
   }
@@ -140,53 +175,88 @@ export function RecordOptionModal({ onClose, onDone }: Props) {
   const footer = (
     <Cluster gap="--space-3" justify="between">
       <Button variant="ghost" onClick={onClose} disabled={submitting}>
-        Cancel
+        {formatMessage({ id: 'recordOption.ui.Cancel', defaultMessage: 'Cancel' })}
       </Button>
       <Cluster gap="--space-2">
         {duplicate && (
           <Button variant="secondary" onClick={() => void submit(true)} disabled={submitting}>
-            Record anyway
+            {formatMessage({ id: 'recordOption.ui.RecordAnyway', defaultMessage: 'Record anyway' })}
           </Button>
         )}
         <Button variant="primary" onClick={() => void submit(false)} loading={submitting}>
-          Record option
+          {formatMessage({ id: 'recordOption.ui.RecordOption', defaultMessage: 'Record option' })}
         </Button>
       </Cluster>
     </Cluster>
   )
 
   return (
-    <Modal open onClose={onClose} title="Record option" size="lg" footer={footer}>
+    <Modal
+      open
+      onClose={onClose}
+      title={formatMessage({ id: 'recordOption.ui.RecordOption', defaultMessage: 'Record option' })}
+      size="lg"
+      footer={footer}
+    >
       <Stack gap="--space-4">
-        <FormField label="Strategy" htmlFor="opt-preset">
+        <FormField
+          label={formatMessage({ id: 'recordOption.ui.Strategy', defaultMessage: 'Strategy' })}
+          htmlFor="opt-preset"
+        >
           <Select
             id="opt-preset"
             value={preset}
             onChange={(e) => setPreset(e.target.value as StrategyPreset)}
-            options={STRATEGY_PRESETS.map((p) => ({ value: p.value, label: p.label }))}
+            options={STRATEGY_PRESETS.map((p) => ({
+              value: p.value,
+              label: formatMessage(presetMessages[p.value]),
+            }))}
             data-autofocus
           />
         </FormField>
 
         {preset === 'custom' && (
           <Cluster gap="--space-4">
-            <FormField label="Type">
+            <FormField
+              label={formatMessage({ id: 'recordOption.ui.Type', defaultMessage: 'Type' })}
+            >
               <SegmentedControl
-                ariaLabel="Option type"
+                ariaLabel={formatMessage({
+                  id: 'recordOption.ui.OptionType',
+                  defaultMessage: 'Option type',
+                })}
                 options={[
-                  { value: 'call', label: 'Call' },
-                  { value: 'put', label: 'Put' },
+                  {
+                    value: 'call',
+                    label: formatMessage({ id: 'recordOption.ui.Call', defaultMessage: 'Call' }),
+                  },
+                  {
+                    value: 'put',
+                    label: formatMessage({ id: 'recordOption.ui.Put', defaultMessage: 'Put' }),
+                  },
                 ]}
                 value={optionType}
                 onChange={setOptionType}
               />
             </FormField>
-            <FormField label="Side" help="Short = written/sold (a liability)">
+            <FormField
+              label={formatMessage({ id: 'recordOption.ui.Side', defaultMessage: 'Side' })}
+              help={formatMessage({
+                id: 'recordOption.ui.ShortWrittenSoldALiability',
+                defaultMessage: 'Short = written/sold (a liability)',
+              })}
+            >
               <SegmentedControl
-                ariaLabel="Side"
+                ariaLabel={formatMessage({ id: 'recordOption.ui.Side', defaultMessage: 'Side' })}
                 options={[
-                  { value: 'long', label: 'Long' },
-                  { value: 'short', label: 'Short' },
+                  {
+                    value: 'long',
+                    label: formatMessage({ id: 'recordOption.ui.Long', defaultMessage: 'Long' }),
+                  },
+                  {
+                    value: 'short',
+                    label: formatMessage({ id: 'recordOption.ui.Short', defaultMessage: 'Short' }),
+                  },
                 ]}
                 value={side}
                 onChange={setSide}
@@ -195,13 +265,23 @@ export function RecordOptionModal({ onClose, onDone }: Props) {
           </Cluster>
         )}
 
-        <FormField label="Underlying" htmlFor="opt-underlying" required>
+        <FormField
+          label={formatMessage({ id: 'recordOption.ui.Underlying', defaultMessage: 'Underlying' })}
+          htmlFor="opt-underlying"
+          required
+        >
           <Select
             id="opt-underlying"
             value={underlyingId}
             onChange={(e) => setUnderlyingId(e.target.value)}
             options={[
-              { value: '', label: 'Select an instrument…' },
+              {
+                value: '',
+                label: formatMessage({
+                  id: 'recordOption.ui.SelectAnInstrument',
+                  defaultMessage: 'Select an instrument…',
+                }),
+              },
               ...instruments.map((i) => ({
                 value: i.id,
                 label: i.name ? `${i.symbol} — ${i.name}` : i.symbol,
@@ -211,24 +291,37 @@ export function RecordOptionModal({ onClose, onDone }: Props) {
         </FormField>
 
         <FormField
-          label="Account"
+          label={formatMessage({ id: 'recordOption.ui.Account', defaultMessage: 'Account' })}
           htmlFor="opt-account"
           required
-          help="Securities account holding the contract (custodian model)."
+          help={formatMessage({
+            id: 'recordOption.ui.SecuritiesAccountHoldingTheContractCustodianModel',
+            defaultMessage: 'Securities account holding the contract (custodian model).',
+          })}
         >
           <Select
             id="opt-account"
             value={accountId}
             onChange={(e) => setAccountId(e.target.value)}
             options={[
-              { value: '', label: 'Select an account…' },
+              {
+                value: '',
+                label: formatMessage({
+                  id: 'recordOption.ui.SelectAnAccount',
+                  defaultMessage: 'Select an account…',
+                }),
+              },
               ...accounts.map((a) => ({ value: a.id, label: a.name })),
             ]}
           />
         </FormField>
 
         <Cluster gap="--space-4">
-          <FormField label="Strike" htmlFor="opt-strike" required>
+          <FormField
+            label={formatMessage({ id: 'recordOption.ui.Strike', defaultMessage: 'Strike' })}
+            htmlFor="opt-strike"
+            required
+          >
             <NumberField
               id="opt-strike"
               min={0}
@@ -237,7 +330,11 @@ export function RecordOptionModal({ onClose, onDone }: Props) {
               onChange={(e) => setStrike(e.target.value)}
             />
           </FormField>
-          <FormField label="Expiry" htmlFor="opt-expiry" required>
+          <FormField
+            label={formatMessage({ id: 'recordOption.ui.Expiry', defaultMessage: 'Expiry' })}
+            htmlFor="opt-expiry"
+            required
+          >
             <TextField
               id="opt-expiry"
               type="date"
@@ -245,7 +342,11 @@ export function RecordOptionModal({ onClose, onDone }: Props) {
               onChange={(e) => setExpiry(e.target.value)}
             />
           </FormField>
-          <FormField label="Contracts" htmlFor="opt-contracts" required>
+          <FormField
+            label={formatMessage({ id: 'recordOption.ui.Contracts', defaultMessage: 'Contracts' })}
+            htmlFor="opt-contracts"
+            required
+          >
             <NumberField
               id="opt-contracts"
               min={0}
@@ -254,7 +355,17 @@ export function RecordOptionModal({ onClose, onDone }: Props) {
               onChange={(e) => setContracts(e.target.value)}
             />
           </FormField>
-          <FormField label="Multiplier" htmlFor="opt-multiplier" help="Shares per contract">
+          <FormField
+            label={formatMessage({
+              id: 'recordOption.ui.Multiplier',
+              defaultMessage: 'Multiplier',
+            })}
+            htmlFor="opt-multiplier"
+            help={formatMessage({
+              id: 'recordOption.ui.SharesPerContract',
+              defaultMessage: 'Shares per contract',
+            })}
+          >
             <NumberField
               id="opt-multiplier"
               min={1}
@@ -267,9 +378,15 @@ export function RecordOptionModal({ onClose, onDone }: Props) {
 
         <Cluster gap="--space-4">
           <FormField
-            label="Premium / share"
+            label={formatMessage({
+              id: 'recordOption.ui.PremiumShare',
+              defaultMessage: 'Premium / share',
+            })}
             htmlFor="opt-premium"
-            help="OCC quote: 2.50 on 1 contract = 250 cash"
+            help={formatMessage({
+              id: 'recordOption.ui.OccQuote250On1Contract250Cash',
+              defaultMessage: 'OCC quote: 2.50 on 1 contract = 250 cash',
+            })}
           >
             <NumberField
               id="opt-premium"
@@ -279,14 +396,20 @@ export function RecordOptionModal({ onClose, onDone }: Props) {
               onChange={(e) => setPremiumPerShare(e.target.value)}
             />
           </FormField>
-          <FormField label="Currency" htmlFor="opt-ccy">
+          <FormField
+            label={formatMessage({ id: 'recordOption.ui.Currency', defaultMessage: 'Currency' })}
+            htmlFor="opt-ccy"
+          >
             <TextField
               id="opt-ccy"
               value={effCurrency}
               onChange={(e) => setPremiumCurrency(e.target.value.toUpperCase())}
             />
           </FormField>
-          <FormField label="Open date" htmlFor="opt-open-date">
+          <FormField
+            label={formatMessage({ id: 'recordOption.ui.OpenDate', defaultMessage: 'Open date' })}
+            htmlFor="opt-open-date"
+          >
             <TextField
               id="opt-open-date"
               type="date"
@@ -297,12 +420,23 @@ export function RecordOptionModal({ onClose, onDone }: Props) {
         </Cluster>
 
         <FormField
-          label="Book premium cash leg to"
+          label={formatMessage({
+            id: 'recordOption.ui.BookPremiumCashLegTo',
+            defaultMessage: 'Book premium cash leg to',
+          })}
           htmlFor="opt-premium-account"
           help={
             effSide === 'short'
-              ? 'Optional: the wallet the received premium lands in (books an income transaction).'
-              : 'Optional: the wallet the paid premium leaves from (books an expense transaction).'
+              ? formatMessage({
+                  id: 'recordOption.ui.OptionalTheWalletTheReceivedPremiumLandsInBooksAnIncomeTransaction',
+                  defaultMessage:
+                    'Optional: the wallet the received premium lands in (books an income transaction).',
+                })
+              : formatMessage({
+                  id: 'recordOption.ui.OptionalTheWalletThePaidPremiumLeavesFromBooksAnExpenseTransaction',
+                  defaultMessage:
+                    'Optional: the wallet the paid premium leaves from (books an expense transaction).',
+                })
           }
         >
           <Select
@@ -310,26 +444,39 @@ export function RecordOptionModal({ onClose, onDone }: Props) {
             value={premiumAccountId}
             onChange={(e) => setPremiumAccountId(e.target.value)}
             options={[
-              { value: '', label: "Don't book a cash leg" },
+              {
+                value: '',
+                label: formatMessage({
+                  id: 'recordOption.ui.DonTBookACashLeg',
+                  defaultMessage: "Don't book a cash leg",
+                }),
+              },
               ...accounts.map((a) => ({ value: a.id, label: a.name })),
             ]}
           />
         </FormField>
 
-        <FormField label="Note" htmlFor="opt-note">
+        <FormField
+          label={formatMessage({ id: 'recordOption.ui.Note', defaultMessage: 'Note' })}
+          htmlFor="opt-note"
+        >
           <TextArea id="opt-note" rows={2} value={note} onChange={(e) => setNote(e.target.value)} />
         </FormField>
 
         <p className="opt-form-preview">
-          Total premium:{' '}
+          {formatMessage({ id: 'recordOption.totalPremium', defaultMessage: 'Total premium:' })}{' '}
           <b>
-            {premiumTotal.toLocaleString()} {effCurrency}
+            {premiumTotal.toLocaleString(getNumberLocale())} {effCurrency}
           </b>
           {collateral != null && collateral > 0 && (
             <>
-              {' • '}CSP collateral:{' '}
+              {' • '}
+              {formatMessage({
+                id: 'recordOption.collateral',
+                defaultMessage: 'CSP collateral:',
+              })}{' '}
               <b>
-                {collateral.toLocaleString()} {effCurrency}
+                {collateral.toLocaleString(getNumberLocale())} {effCurrency}
               </b>
             </>
           )}

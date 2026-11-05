@@ -2,6 +2,8 @@ import { open } from 'node:fs/promises';
 import { join } from 'node:path';
 import { SUPPORT_EMAIL } from './report-config';
 import { redactLogLines, redactText, type RedactionContext } from './report-redact';
+import { message as t } from './native-messages';
+import { getDesktopLocale } from './desktop-locale';
 
 // The wire shape of a problem report, with the same limits the receiving endpoint and the browser
 // path (backend/models/problem_report.py) enforce. Nothing here rewrites a field: the user's
@@ -78,9 +80,9 @@ const KEYS = ['description', 'contact_email', 'app_version', 'platform', 'mode',
 const EMAIL = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
 
 function text(value: unknown, field: string, max: number, required = false): string {
-  if (typeof value !== 'string') throw new Error(`The report's ${field} is missing.`);
-  if (value.length > max) throw new Error(`The report's ${field} is too long (over ${max} characters).`);
-  if (required && !value.trim()) throw new Error(`The report's ${field} is empty.`);
+  if (typeof value !== 'string') throw new Error(t("The report's {field} is missing.", getDesktopLocale(), { field: t(field) }));
+  if (value.length > max) throw new Error(t("The report's {field} is too long (over {max} characters).", getDesktopLocale(), { field: t(field), max }));
+  if (required && !value.trim()) throw new Error(t("The report's {field} is empty.", getDesktopLocale(), { field: t(field) }));
   return value;
 }
 
@@ -91,13 +93,13 @@ function optional(value: unknown, field: string, max: number): string | null {
 // The same rules as the receiving endpoint, applied before anything leaves, so a report that
 // would be refused there is refused here with the same words. Returns a fresh object; never edits a field.
 export function validateReport(value: unknown): ReportPayload {
-  if (!value || typeof value !== 'object' || Array.isArray(value)) throw new Error('The report is malformed.');
+  if (!value || typeof value !== 'object' || Array.isArray(value)) throw new Error(t('The report is malformed.'));
   const record = value as Record<string, unknown>;
-  if (Object.keys(record).some(key => !(KEYS as readonly string[]).includes(key))) throw new Error('The report has fields that are not part of a report.');
-  if (!text(record.description, 'description', LIMITS.description).trim()) throw new Error('Describe what went wrong.');
+  if (Object.keys(record).some(key => !(KEYS as readonly string[]).includes(key))) throw new Error(t('The report has fields that are not part of a report.'));
+  if (!text(record.description, 'description', LIMITS.description).trim()) throw new Error(t('Describe what went wrong.'));
   const email = optional(record.contact_email, 'email address', LIMITS.email);
-  if (email !== null && !EMAIL.test(email)) throw new Error('That email address doesn’t look right.');
-  if (!['desktop', 'web', 'server'].includes(record.mode as string)) throw new Error('The report has an unknown mode.');
+  if (email !== null && !EMAIL.test(email)) throw new Error(t('That email address doesn’t look right.'));
+  if (!['desktop', 'web', 'server'].includes(record.mode as string)) throw new Error(t('The report has an unknown mode.'));
   return {
     description: record.description as string,
     contact_email: email,
@@ -113,17 +115,17 @@ export function validateReport(value: unknown): ReportPayload {
 export class ReportDeliveryError extends Error {}
 
 const refusal = (status: number): string => status === 429
-  ? 'Too many reports from this connection. Try again in a while.'
+  ? t('Too many reports from this connection. Try again in a while.')
   : [400, 413, 422].includes(status)
-    ? 'The report server refused this report as too large or malformed. Shorten it and try again.'
-    : 'The report server could not take this report. Try again.';
+    ? t('The report server refused this report as too large or malformed. Shorten it and try again.')
+    : t('The report server could not take this report. Try again.');
 
 // POSTs exactly `report` — the previewed, user-edited payload. A redirect is never followed.
 export async function sendReport(report: ReportPayload, endpoint: string, fetchImpl: typeof fetch = fetch): Promise<{ id: string | null }> {
   let response: Response;
   try {
     response = await fetchImpl(endpoint, { method: 'POST', headers: { 'Content-Type': 'application/json', Accept: 'application/json' }, body: JSON.stringify(report), redirect: 'error', credentials: 'omit', signal: AbortSignal.timeout(15_000) });
-  } catch { throw new ReportDeliveryError('Couldn’t reach the report server. Check your connection.'); }
+  } catch { throw new ReportDeliveryError(t('Couldn’t reach the report server. Check your connection.')); }
   if (!response.ok) throw new ReportDeliveryError(refusal(response.status));
   const body = await response.json().catch(() => null) as { id?: unknown } | null;
   return { id: typeof body?.id === 'string' ? body.id : null };

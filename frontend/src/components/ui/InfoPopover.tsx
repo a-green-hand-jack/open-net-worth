@@ -1,5 +1,6 @@
 import { useEffect, useId, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
+import { useAppIntl } from '../../i18n/useAppIntl'
 
 const GAP = 4
 const EDGE = 8
@@ -51,6 +52,7 @@ export function InfoPopover({
   triggerClassName = '',
   label,
 }: InfoPopoverProps) {
+  const intl = useAppIntl()
   const [revealed, setRevealed] = useState(false)
   const [pinned, setPinned] = useState(false)
   const triggerRef = useRef<HTMLButtonElement>(null)
@@ -133,7 +135,7 @@ export function InfoPopover({
             e.currentTarget.blur()
           }
         }}
-        aria-label={label ?? (children != null ? undefined : 'More information')}
+        aria-label={label ?? (children != null ? undefined : intl.formatMessage({ id: 'shared.infoPopover.moreInformation', defaultMessage: 'More information' }))}
         aria-expanded={open}
         aria-controls={bubbleId}
       >

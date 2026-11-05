@@ -1,5 +1,6 @@
 import type { TradingInstrument } from '../../../types/trading'
 import { Button, Cluster, FormField, Panel, Select, Stack, TextField } from '../../ui'
+import { useAppIntl } from '../../../i18n/useAppIntl'
 
 export function InstrumentFields({
   instruments,
@@ -8,6 +9,7 @@ export function InstrumentFields({
   instruments: TradingInstrument[]
   onChange: (value: TradingInstrument[]) => void
 }) {
+  const { formatMessage } = useAppIntl()
   function update(index: number, patch: Partial<TradingInstrument>) {
     onChange(instruments.map((item, i) => (i === index ? { ...item, ...patch } : item)))
   }
@@ -15,51 +17,91 @@ export function InstrumentFields({
     <Stack gap="--space-4">
       {instruments.map((item, index) => (
         <Panel
-          title={`Instrument ${index + 1}`}
+          title={formatMessage(
+            { id: 'trading.instrumentNumber', defaultMessage: 'Instrument {number}' },
+            { number: index + 1 },
+          )}
           key={index}
           actions={
             <Button
               variant="ghost"
               onClick={() => onChange(instruments.filter((_, i) => i !== index))}
             >
-              Remove instrument {index + 1}
+              {formatMessage(
+                { id: 'trading.removeInstrument', defaultMessage: 'Remove instrument {number}' },
+                { number: index + 1 },
+              )}
             </Button>
           }
         >
           <Stack gap="--space-4">
-            <FormField label="Symbol">
+            <FormField label={formatMessage({ id: 'trading.symbol', defaultMessage: 'Symbol' })}>
               <TextField
-                aria-label={`Instrument ${index + 1} symbol`}
+                aria-label={formatMessage(
+                  { id: 'trading.instrumentSymbol', defaultMessage: 'Instrument {number} symbol' },
+                  { number: index + 1 },
+                )}
                 required
                 maxLength={32}
                 value={item.symbol}
                 onChange={(e) => update(index, { symbol: e.target.value.toUpperCase() })}
               />
             </FormField>
-            <FormField label="Asset class">
+            <FormField
+              label={formatMessage({ id: 'trading.assetClass', defaultMessage: 'Asset class' })}
+            >
               <Select
-                aria-label={`Instrument ${index + 1} asset class`}
+                aria-label={formatMessage(
+                  {
+                    id: 'trading.instrumentAssetClass',
+                    defaultMessage: 'Instrument {number} asset class',
+                  },
+                  { number: index + 1 },
+                )}
                 value={item.asset_class}
                 onChange={(e) =>
                   update(index, { asset_class: e.target.value as 'stock' | 'crypto' })
                 }
                 options={[
-                  { value: 'stock', label: 'Stock' },
-                  { value: 'crypto', label: 'Crypto' },
+                  {
+                    value: 'stock',
+                    label: formatMessage({ id: 'trading.stock', defaultMessage: 'Stock' }),
+                  },
+                  {
+                    value: 'crypto',
+                    label: formatMessage({ id: 'trading.crypto', defaultMessage: 'Crypto' }),
+                  },
                 ]}
               />
             </FormField>
-            <FormField label="Venue">
+            <FormField label={formatMessage({ id: 'trading.venue', defaultMessage: 'Venue' })}>
               <TextField
-                aria-label={`Instrument ${index + 1} venue`}
+                aria-label={formatMessage(
+                  {
+                    id: 'trading.instrumentVenueNumber',
+                    defaultMessage: 'Instrument {number} venue',
+                  },
+                  { number: index + 1 },
+                )}
                 required
                 value={item.venue}
                 onChange={(e) => update(index, { venue: e.target.value })}
               />
             </FormField>
-            <FormField label="Quote currency">
+            <FormField
+              label={formatMessage({
+                id: 'trading.quoteCurrency',
+                defaultMessage: 'Quote currency',
+              })}
+            >
               <TextField
-                aria-label={`Instrument ${index + 1} currency`}
+                aria-label={formatMessage(
+                  {
+                    id: 'trading.instrumentCurrency',
+                    defaultMessage: 'Instrument {number} currency',
+                  },
+                  { number: index + 1 },
+                )}
                 required
                 pattern="[A-Z]{3,8}"
                 value={item.currency}
@@ -78,7 +120,10 @@ export function InstrumentFields({
             ])
           }
         >
-          Add permitted instrument
+          {formatMessage({
+            id: 'trading.addInstrument',
+            defaultMessage: 'Add permitted instrument',
+          })}
         </Button>
       </Cluster>
     </Stack>

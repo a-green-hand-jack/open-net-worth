@@ -1,3 +1,4 @@
+import { useAppIntl } from '../../i18n/useAppIntl'
 import { useEffect, useRef, useState, type CSSProperties } from 'react'
 import { DRAG_IGNORE_PROPS } from '../../hooks/useSheetDragToDismiss'
 import { usePinchZoom } from '../../hooks/usePinchZoom'
@@ -28,11 +29,12 @@ function PageImage({
   title: string
   onRatio?: (ratio: number) => void
 }) {
+  const vaultIntl = useAppIntl()
   const shown = usePageImage(itemId, page)
   if (shown.error)
     return (
       <p className="vault-pages-error">
-        Can't show page {page}: {shown.error}
+        {vaultIntl.formatMessage({ id: "vault.ui.dc07f70c4e58", defaultMessage: "Can't show page" })} {page}: {shown.error}
       </p>
     )
   if (!shown.url) return null
@@ -40,7 +42,7 @@ function PageImage({
     <img
       className="vault-reader-img"
       src={shown.url}
-      alt={`${title}, page ${page} of ${count}`}
+      alt={vaultIntl.formatMessage({ id: 'vault.pageAlt', defaultMessage: '{title}, page {page} of {count}' }, { title, page, count })}
       onLoad={(e) => onRatio?.(e.currentTarget.naturalWidth / e.currentTarget.naturalHeight)}
     />
   )
@@ -96,6 +98,7 @@ export function DocumentReader({
   /** The element that scrolls the pages — the modal body, or the import's file pane. */
   scroller?: string
 }) {
+  const vaultIntl = useAppIntl()
   const first = usePageImage(itemId, 1) // tells us how many pages there are
   const count = first.count ?? 1
   const [ratio, setRatio] = useState(A4)
@@ -126,7 +129,7 @@ export function DocumentReader({
       ?.scrollIntoView({ behavior: 'smooth', block: 'start' })
 
   if (first.error)
-    return <p className="vault-pages-error">Can't show this document here: {first.error}</p>
+    return <p className="vault-pages-error">{vaultIntl.formatMessage({ id: "vault.ui.4e8a54305d18", defaultMessage: "Can't show this document here:" })} {first.error}</p>
   return (
     <div className="vault-reader" ref={rootRef}>
       <div
@@ -150,11 +153,11 @@ export function DocumentReader({
       </div>
       {/* Zoomed in, the pages pan sideways past it; a double-tap goes back to the whole page. */}
       {count > 1 && zoom === 1 && (
-        <div className="vault-reader-bar" role="group" aria-label="Pages">
+        <div className="vault-reader-bar" role="group" aria-label={vaultIntl.formatMessage({ id: "vault.ui.9046da16aea9", defaultMessage: "Pages" })}>
           <button
             type="button"
             className="vault-icon-btn"
-            aria-label="Previous page"
+            aria-label={vaultIntl.formatMessage({ id: "vault.ui.1208ec01f223", defaultMessage: "Previous page" })}
             disabled={current <= 1}
             onClick={() => jump(current - 1)}
           >
@@ -166,7 +169,7 @@ export function DocumentReader({
           <button
             type="button"
             className="vault-icon-btn"
-            aria-label="Next page"
+            aria-label={vaultIntl.formatMessage({ id: "vault.ui.c08ac736a5e2", defaultMessage: "Next page" })}
             disabled={current >= count}
             onClick={() => jump(current + 1)}
           >

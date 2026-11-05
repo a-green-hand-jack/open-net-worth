@@ -10,6 +10,7 @@
 // persists the change — the detail page against the saved config, the MCP add flow
 // against a local draft that is only written when the server is created.
 
+import { useAppIntl } from '../../../i18n/useAppIntl'
 import { useEffect, useRef, useState, type JSX } from 'react'
 import { Badge, Btn } from './primitives'
 import { icon, Icons } from './icons'
@@ -42,6 +43,20 @@ export function PermissionLadder({
   onSetGroup,
   levels = LEVELS,
 }: PermissionLadderProps): JSX.Element {
+  const { formatMessage } = useAppIntl()
+  const label = (value: string) => {
+    switch (value) {
+      case 'Always allow': return formatMessage({ id: 'connectors.permission.always', defaultMessage: 'Always allow' })
+      case 'Needs approval': return formatMessage({ id: 'connectors.permission.approval', defaultMessage: 'Needs approval' })
+      case 'Ask': return formatMessage({ id: 'connectors.permission.ask', defaultMessage: 'Ask' })
+      case 'Blocked': return formatMessage({ id: 'connectors.permission.blocked', defaultMessage: 'Blocked' })
+      case 'Block': return formatMessage({ id: 'connectors.permission.block', defaultMessage: 'Block' })
+      case 'Custom': return formatMessage({ id: 'connectors.permission.custom', defaultMessage: 'Custom' })
+      case 'Read-only tools': return formatMessage({ id: 'connectors.permission.read', defaultMessage: 'Read-only tools' })
+      case 'Write & delete tools': return formatMessage({ id: 'connectors.permission.write', defaultMessage: 'Write & delete tools' })
+      default: return value
+    }
+  }
   // Every group starts EXPANDED (2026-08-18, owner request — spec §4's collapse-past-6-tools
   // default read as hiding real tool names behind an extra click). A later refresh that
   // lengthens a group still does not re-collapse it under the user, and their own toggles
@@ -101,7 +116,7 @@ export function PermissionLadder({
                 >
                   <Icons.chev />
                 </span>
-                {g.name}
+                {label(g.name)}
                 <Badge>{g.tools.length}</Badge>
               </span>
               <span className="rd-kebab">
@@ -111,7 +126,7 @@ export function PermissionLadder({
                   onClick={() => setGroupMenu(groupMenu === g.name ? null : g.name)}
                   style={{ fontSize: 12.5 }}
                 >
-                  <GroupIcon /> {levels[level].label}{' '}
+                  <GroupIcon /> {label(levels[level].label)}{' '}
                   <span style={{ display: 'inline-flex', width: 12, height: 12 }}>
                     <Icons.chev />
                   </span>
@@ -130,7 +145,7 @@ export function PermissionLadder({
                             setGroupMenu(null)
                           }}
                         >
-                          <ItemIcon /> {levels[lv].label}
+                          <ItemIcon /> {label(levels[lv].label)}
                         </button>
                       )
                     })}
@@ -153,8 +168,8 @@ export function PermissionLadder({
                           <button
                             key={lv}
                             className={'cn-permbtn' + (on ? ` on ${levels[lv].tone}` : '')}
-                            title={levels[lv].label}
-                            aria-label={`${t}: ${levels[lv].label}`}
+                            title={label(levels[lv].label)}
+                            aria-label={`${t}: ${label(levels[lv].label)}`}
                             aria-pressed={on}
                             onClick={() => onSetTool(t, lv)}
                           >

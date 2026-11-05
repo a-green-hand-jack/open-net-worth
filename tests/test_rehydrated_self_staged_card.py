@@ -116,6 +116,38 @@ def test_a_generically_gated_call_reloads_as_the_card_it_staged(monkeypatch):
     assert reloaded == live
     assert reloaded["type"] == "tool_permission"
     assert reloaded["display"]["arguments"] == {"message": "hi"}
+    from backend.ai.tools.schema_enums import schema_version
+
+    assert reloaded["enum_schema_version"] == schema_version()
+
+
+def test_external_mcp_approval_does_not_claim_first_party_schema():
+    tool_use_context.set_tool_use_id(TOOL_USE_ID)
+    chat_session.set_session_id(SESSION)
+    try:
+        _, change = _confirm_gate.stage_generic("mcp__outside__tool", {"status": "active"})
+    finally:
+        tool_use_context.set_tool_use_id(None)
+        chat_session.clear_session_id()
+    assert "enum_schema_version" not in change
+
+
+def test_v2_generic_card_preserves_schema_version_after_reload(monkeypatch):
+    from backend.ai.tools import _confirm_gate_v2
+    from backend.ai.tools.schema_enums import schema_version
+
+    tool_use_context.set_tool_use_id(TOOL_USE_ID)
+    chat_session.set_session_id(SESSION)
+    try:
+        _, change = _confirm_gate_v2.stage_generic("telegram_send_message", {"message": "hi"})
+    finally:
+        tool_use_context.set_tool_use_id(None)
+        chat_session.clear_session_id()
+    assert change["enum_schema_version"] == schema_version()
+    assert _reloaded_card(monkeypatch, "telegram_send_message", {"message": "hi"}) == {
+        **change,
+        "id": TOOL_USE_ID,
+    }
 
 
 def test_an_entry_staged_before_the_card_was_kept_falls_back_to_raw_arguments(monkeypatch):
@@ -133,6 +165,7 @@ def test_an_entry_staged_before_the_card_was_kept_falls_back_to_raw_arguments(mo
     reloaded = _reloaded_card(monkeypatch, "dispose_lots", {"position_id": "p1"})
 
     assert reloaded["type"] == "tool_permission"
+    assert "enum_schema_version" not in reloaded
     assert reloaded["display"] == {"tool": "dispose_lots", "arguments": {"position_id": "p1"}}
     assert reloaded["id"] == reloaded["tool_use_id"] == TOOL_USE_ID
 

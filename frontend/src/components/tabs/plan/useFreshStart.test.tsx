@@ -15,7 +15,11 @@ vi.mock('../../../api/client', () => ({ authFetch: vi.fn() }))
 import { authFetch } from '../../../api/client'
 import { clearQueryCache } from '../../../state/queryCache'
 import { useFreshStart } from './useFreshStart'
+import { FreshStartDialog } from './FreshStartDialog'
 import { fBaseCents } from './planData'
+import { IntlProvider } from 'react-intl'
+import messages from './zh-CN.messages.json'
+import commonMessages from '../../../i18n/zh-CN.json'
 
 const mockAuthFetch = authFetch as ReturnType<typeof vi.fn>
 const MONTH = '2026-09'
@@ -97,6 +101,18 @@ async function openDialog(toast = vi.fn()) {
 }
 
 describe('the kebab item', () => {
+  it('explains the reset consequences in Chinese', async () => {
+    wireApi()
+    render(
+      <IntlProvider locale="zh-CN" messages={{ ...commonMessages, ...messages }}>
+        <Harness toast={vi.fn()} />
+      </IntlProvider>,
+    )
+    fireEvent.click(await screen.findByRole('button', { name: '从 2026年9月 重新开始…' }))
+    expect(await screen.findByText(/本月分配将被清除/)).toBeTruthy()
+    expect(screen.getByText(/交易不会改变/)).toBeTruthy()
+  })
+
   it('names the current month and opens the dialog', async () => {
     wireApi()
     await openDialog()
@@ -195,6 +211,31 @@ describe('the confirm dialog', () => {
     expect(
       (screen.getByRole('button', { name: 'Start fresh' }) as HTMLButtonElement).disabled,
     ).toBe(true)
+  })
+
+  it('localizes a status-only preview failure and preserves server-provided details', async () => {
+    mockAuthFetch.mockResolvedValueOnce({ ok: false, status: 503, json: async () => ({}) })
+    const renderDialog = () =>
+      render(
+        <IntlProvider locale="zh-CN" messages={{ ...commonMessages, ...messages }}>
+          <FreshStartDialog
+            month={MONTH}
+            rolloverStart={null}
+            onConfirm={vi.fn()}
+            onCancel={vi.fn()}
+          />
+        </IntlProvider>,
+      )
+    const first = renderDialog()
+    expect(await screen.findByText('请求失败（503）')).toBeTruthy()
+    first.unmount()
+    mockAuthFetch.mockResolvedValueOnce({
+      ok: false,
+      status: 400,
+      json: async () => ({ detail: 'External detail' }),
+    })
+    renderDialog()
+    expect(await screen.findByText('External detail')).toBeTruthy()
   })
 })
 

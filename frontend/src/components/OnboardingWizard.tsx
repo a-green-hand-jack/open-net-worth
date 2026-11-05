@@ -1,4 +1,6 @@
 import { useState } from 'react'
+import { useAppIntl } from '../i18n/useAppIntl'
+import { useAccountTypeLabel, useAccountTypeMeaning } from './tabs/accounts/useAccountTypeLabel'
 import type { KeyboardEvent } from 'react'
 import { authFetch } from '../api/client'
 import {
@@ -16,7 +18,7 @@ import {
 } from './ui'
 import type { SelectOption } from './ui'
 import { Spark } from '../lucius/identity'
-import { ACCOUNT_TYPES, TYPE_LABELS, TYPE_MEANING } from './tabs/accounts/categories'
+import { ACCOUNT_TYPES } from './tabs/accounts/categories'
 
 // First-run onboarding wizard (P3-ON / ON1). A stepped <Modal> composed entirely
 // from the ui/ kit. Triggered by App.tsx's existing is_fresh / setup-status flow.
@@ -45,26 +47,12 @@ const CURRENCIES = [
 ]
 const CURRENCY_OPTIONS: SelectOption[] = CURRENCIES.map((c) => ({ value: c, label: c }))
 
-const ACCOUNT_TYPE_OPTIONS: SelectOption[] = ACCOUNT_TYPES.map((t) => ({
-  value: t,
-  label: `${TYPE_LABELS[t]} — ${TYPE_MEANING[t]}`,
-}))
-
 type StartChoice = 'empty' | 'demo'
 
 // The wizard is a fixed 6-step sequence. The demo branch skips the first-account
 // step (demo data already populates accounts), so progress is measured against the
 // steps that are actually reachable on the chosen path — never a misleading
 // "6 of 6" after only doing 5 things.
-const STEP_TITLES = [
-  'Welcome to Open Net Worth',
-  'Set a password',
-  'Connect your AI assistant',
-  'Choose your base currency',
-  'How do you want to start?',
-  'Add your first account',
-  "You're all set",
-]
 const STEP_WELCOME = 0
 const STEP_PASSWORD = 1
 const STEP_AI = 2
@@ -72,12 +60,6 @@ const STEP_CURRENCY = 3
 const STEP_START = 4
 const STEP_ACCOUNT = 5
 const STEP_DONE = 6
-
-const AI_PROVIDER_OPTIONS: SelectOption[] = [
-  { value: 'anthropic', label: 'Anthropic' },
-  { value: 'openai', label: 'OpenAI (GPT)' },
-  { value: 'ollama', label: 'Ollama (local, no key needed)' },
-]
 
 export interface OnboardingWizardProps {
   onDone: () => void
@@ -98,6 +80,35 @@ export function OnboardingWizard({
   defaultCurrency = 'USD',
   onProfileChanged,
 }: OnboardingWizardProps) {
+  const { formatMessage } = useAppIntl()
+  const typeLabel = useAccountTypeLabel()
+  const typeMeaning = useAccountTypeMeaning()
+  const ACCOUNT_TYPE_OPTIONS: SelectOption[] = ACCOUNT_TYPES.map((t) => ({
+    value: t,
+    label: `${typeLabel(t)} — ${typeMeaning(t)}`,
+  }))
+  const STEP_TITLES = [
+    formatMessage({ id: 'firstrun.wizard.title0', defaultMessage: 'Welcome to Open Net Worth' }),
+    formatMessage({ id: 'firstrun.wizard.title1', defaultMessage: 'Set a password' }),
+    formatMessage({ id: 'firstrun.wizard.title2', defaultMessage: 'Connect your AI assistant' }),
+    formatMessage({ id: 'firstrun.wizard.title3', defaultMessage: 'Choose your base currency' }),
+    formatMessage({ id: 'firstrun.wizard.title4', defaultMessage: 'How do you want to start?' }),
+    formatMessage({ id: 'firstrun.wizard.title5', defaultMessage: 'Add your first account' }),
+    formatMessage({ id: 'firstrun.wizard.title6', defaultMessage: "You're all set" }),
+  ]
+
+  const AI_PROVIDER_OPTIONS: SelectOption[] = [
+    { value: 'anthropic', label: 'Anthropic' },
+    { value: 'openai', label: 'OpenAI (GPT)' },
+    {
+      value: 'ollama',
+      label: formatMessage({
+        id: 'firstrun.wizard.ollamaOption',
+        defaultMessage: 'Ollama (local, no key needed)',
+      }),
+    },
+  ]
+
   const [step, setStep] = useState(STEP_WELCOME)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -139,7 +150,12 @@ export function OnboardingWizard({
 
   function skipToChat() {
     finish()
-    onOpenChat('Help me get set up — what should I do first?')
+    onOpenChat(
+      formatMessage({
+        id: 'firstrun.wizard.chatPrompt',
+        defaultMessage: 'Help me get set up — what should I do first?',
+      }),
+    )
   }
 
   function goBack() {
@@ -154,15 +170,30 @@ export function OnboardingWizard({
   async function submitPassword() {
     setError(null)
     if (!password) {
-      setError('Enter a password, or skip this step.')
+      setError(
+        formatMessage({
+          id: 'firstrun.wizard.enterPassword',
+          defaultMessage: 'Enter a password, or skip this step.',
+        }),
+      )
       return
     }
     if (password.length < 8) {
-      setError('Use at least 8 characters.')
+      setError(
+        formatMessage({
+          id: 'firstrun.wizard.passwordLength',
+          defaultMessage: 'Use at least 8 characters.',
+        }),
+      )
       return
     }
     if (password !== confirm) {
-      setError('Passwords do not match.')
+      setError(
+        formatMessage({
+          id: 'firstrun.wizard.passwordMismatch',
+          defaultMessage: 'Passwords do not match.',
+        }),
+      )
       return
     }
     setBusy(true)
@@ -174,7 +205,16 @@ export function OnboardingWizard({
       })
       if (!res.ok) {
         const data = await res.json().catch(() => null)
-        setError(data?.detail || `Could not set password (${res.status}). Try again.`)
+        setError(
+          data?.detail ||
+            formatMessage(
+              {
+                id: 'firstrun.wizard.passwordHttp',
+                defaultMessage: 'Could not set password ({status}). Try again.',
+              },
+              { status: res.status },
+            ),
+        )
         return
       }
       onAuthChanged() // re-check auth status so the SPA stays coherent
@@ -182,7 +222,12 @@ export function OnboardingWizard({
       setConfirm('')
       setStep(STEP_AI)
     } catch {
-      setError('Could not reach the server. Check your connection and try again.')
+      setError(
+        formatMessage({
+          id: 'firstrun.wizard.network',
+          defaultMessage: 'Could not reach the server. Check your connection and try again.',
+        }),
+      )
     } finally {
       setBusy(false)
     }
@@ -199,7 +244,12 @@ export function OnboardingWizard({
     setAiError(null)
     const needsKey = aiProvider !== 'ollama'
     if (needsKey && !aiKey.trim()) {
-      setAiError('Paste your API key, or choose Ollama to skip.')
+      setAiError(
+        formatMessage({
+          id: 'firstrun.wizard.keyRequired',
+          defaultMessage: 'Paste your API key, or choose Ollama to skip.',
+        }),
+      )
       return
     }
     setAiSaving(true)
@@ -221,7 +271,12 @@ export function OnboardingWizard({
       setAiKey('')
       setStep(STEP_CURRENCY)
     } catch {
-      setAiError('Could not reach the server. Check your connection and try again.')
+      setAiError(
+        formatMessage({
+          id: 'firstrun.wizard.network',
+          defaultMessage: 'Could not reach the server. Check your connection and try again.',
+        }),
+      )
     } finally {
       setAiSaving(false)
     }
@@ -236,7 +291,12 @@ export function OnboardingWizard({
   async function submitCurrency() {
     setError(null)
     if (!currency.trim()) {
-      setError('Pick a base currency.')
+      setError(
+        formatMessage({
+          id: 'firstrun.wizard.currencyRequired',
+          defaultMessage: 'Pick a base currency.',
+        }),
+      )
       return
     }
     setBusy(true)
@@ -248,13 +308,27 @@ export function OnboardingWizard({
       })
       if (!res.ok) {
         const data = await res.json().catch(() => null)
-        setError(data?.detail || `Could not save currency (${res.status}). Try again.`)
+        setError(
+          data?.detail ||
+            formatMessage(
+              {
+                id: 'firstrun.wizard.currencyHttp',
+                defaultMessage: 'Could not save currency ({status}). Try again.',
+              },
+              { status: res.status },
+            ),
+        )
         return
       }
       onProfileChanged()
       setStep(STEP_START)
     } catch {
-      setError('Could not reach the server. Check your connection and try again.')
+      setError(
+        formatMessage({
+          id: 'firstrun.wizard.network',
+          defaultMessage: 'Could not reach the server. Check your connection and try again.',
+        }),
+      )
     } finally {
       setBusy(false)
     }
@@ -272,7 +346,16 @@ export function OnboardingWizard({
       const res = await authFetch('/api/demo/seed', { method: 'POST' })
       if (!res.ok) {
         const data = await res.json().catch(() => null)
-        setError(data?.detail || `Could not load demo data (${res.status}). Try again.`)
+        setError(
+          data?.detail ||
+            formatMessage(
+              {
+                id: 'firstrun.wizard.demoHttp',
+                defaultMessage: 'Could not load demo data ({status}). Try again.',
+              },
+              { status: res.status },
+            ),
+        )
         return
       }
       onProfileChanged()
@@ -280,7 +363,12 @@ export function OnboardingWizard({
       setDemoLoaded(true)
       setStep(STEP_DONE)
     } catch {
-      setError('Could not reach the server. Check your connection and try again.')
+      setError(
+        formatMessage({
+          id: 'firstrun.wizard.network',
+          defaultMessage: 'Could not reach the server. Check your connection and try again.',
+        }),
+      )
     } finally {
       setBusy(false)
     }
@@ -289,7 +377,12 @@ export function OnboardingWizard({
   async function submitAccount() {
     setError(null)
     if (!acctName.trim()) {
-      setError('Give the account a name.')
+      setError(
+        formatMessage({
+          id: 'firstrun.wizard.accountRequired',
+          defaultMessage: 'Give the account a name.',
+        }),
+      )
       return
     }
     setBusy(true)
@@ -308,12 +401,26 @@ export function OnboardingWizard({
       })
       if (!res.ok) {
         const data = await res.json().catch(() => null)
-        setError(data?.detail || `Could not create account (${res.status}). Try again.`)
+        setError(
+          data?.detail ||
+            formatMessage(
+              {
+                id: 'firstrun.wizard.accountHttp',
+                defaultMessage: 'Could not create account ({status}). Try again.',
+              },
+              { status: res.status },
+            ),
+        )
         return
       }
       setStep(STEP_DONE)
     } catch {
-      setError('Could not reach the server. Check your connection and try again.')
+      setError(
+        formatMessage({
+          id: 'firstrun.wizard.network',
+          defaultMessage: 'Could not reach the server. Check your connection and try again.',
+        }),
+      )
     } finally {
       setBusy(false)
     }
@@ -332,8 +439,17 @@ export function OnboardingWizard({
 
   const balanceLabel =
     acctType === 'credit'
-      ? `Current balance owed (${currency.toUpperCase()})`
-      : `Current balance (${currency.toUpperCase()})`
+      ? formatMessage(
+          {
+            id: 'firstrun.wizard.balanceOwed',
+            defaultMessage: 'Current balance owed ({currency})',
+          },
+          { currency: currency.toUpperCase() },
+        )
+      : formatMessage(
+          { id: 'firstrun.wizard.balance', defaultMessage: 'Current balance ({currency})' },
+          { currency: currency.toUpperCase() },
+        )
 
   // ── Step bodies ──
 
@@ -362,12 +478,18 @@ export function OnboardingWizard({
               </svg>
             </div>
             <Text as="p" tone="muted">
-              A self-hosted wealth manager that tracks your accounts, investments, spending, and net
-              worth — all on your own machine.
+              {formatMessage({
+                id: 'firstrun.wizard.welcome',
+                defaultMessage:
+                  'A self-hosted wealth manager that tracks your accounts, investments, spending, and net worth — all on your own machine.',
+              })}
             </Text>
             <Text as="p" tone="muted">
-              This quick setup takes about a minute. You can change anything later, and Lucius (your
-              AI assistant) can help with the rest in conversation.
+              {formatMessage({
+                id: 'firstrun.wizard.setupTime',
+                defaultMessage:
+                  'This quick setup takes about a minute. You can change anything later, and Lucius (your AI assistant) can help with the rest in conversation.',
+              })}
             </Text>
           </Stack>
         )
@@ -375,31 +497,61 @@ export function OnboardingWizard({
         return (
           <Stack gap="--space-5">
             <Text as="p" tone="muted">
-              Optional — only needed if you expose this instance to your network. Leave both fields
-              blank to skip. You can add or change the password anytime in{' '}
-              <Text as="span" tone="faint" size="sm">
-                Settings &rsaquo; Security
-              </Text>
-              .
+              {formatMessage(
+                {
+                  id: 'firstrun.wizard.passwordHelp',
+                  defaultMessage:
+                    'Optional — only needed if you expose this instance to your network. Leave both fields blank to skip. You can add or change the password anytime in <settings>Settings › Security</settings>.',
+                },
+                {
+                  settings: (chunks) => (
+                    <Text as="span" tone="faint" size="sm">
+                      {chunks}
+                    </Text>
+                  ),
+                },
+              )}
             </Text>
-            <FormField label="New password" htmlFor="onb-pw" help="At least 8 characters.">
+            <FormField
+              label={formatMessage({
+                id: 'firstrun.wizard.newPassword',
+                defaultMessage: 'New password',
+              })}
+              htmlFor="onb-pw"
+              help={formatMessage({
+                id: 'firstrun.wizard.minimum',
+                defaultMessage: 'At least 8 characters.',
+              })}
+            >
               <PasswordField
                 id="onb-pw"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 onKeyDown={onPasswordKeyDown}
                 autoComplete="new-password"
-                placeholder="Leave blank to skip"
+                placeholder={formatMessage({
+                  id: 'firstrun.wizard.skipPlaceholder',
+                  defaultMessage: 'Leave blank to skip',
+                })}
               />
             </FormField>
-            <FormField label="Confirm password" htmlFor="onb-pw2">
+            <FormField
+              label={formatMessage({
+                id: 'firstrun.wizard.confirmPassword',
+                defaultMessage: 'Confirm password',
+              })}
+              htmlFor="onb-pw2"
+            >
               <PasswordField
                 id="onb-pw2"
                 value={confirm}
                 onChange={(e) => setConfirm(e.target.value)}
                 onKeyDown={onPasswordKeyDown}
                 autoComplete="new-password"
-                placeholder="Repeat the password above"
+                placeholder={formatMessage({
+                  id: 'firstrun.wizard.confirmPlaceholder',
+                  defaultMessage: 'Repeat the password above',
+                })}
               />
             </FormField>
           </Stack>
@@ -408,15 +560,25 @@ export function OnboardingWizard({
         return (
           <Stack gap="--space-5">
             <Text as="p" tone="muted">
-              Lucius, your AI assistant, needs a language model to answer questions and help manage
-              your finances. Pick a provider and paste your API key — or choose Ollama if you run a
-              local model. You can change this later in{' '}
-              <Text as="span" tone="faint" size="sm">
-                Settings &rsaquo; AI Model
-              </Text>
-              .
+              {formatMessage(
+                {
+                  id: 'firstrun.wizard.aiHelp',
+                  defaultMessage:
+                    'Lucius, your AI assistant, needs a language model to answer questions and help manage your finances. Pick a provider and paste your API key — or choose Ollama if you run a local model. You can change this later in <settings>Settings › AI Model</settings>.',
+                },
+                {
+                  settings: (chunks) => (
+                    <Text as="span" tone="faint" size="sm">
+                      {chunks}
+                    </Text>
+                  ),
+                },
+              )}
             </Text>
-            <FormField label="Provider" htmlFor="onb-ai-provider">
+            <FormField
+              label={formatMessage({ id: 'firstrun.wizard.provider', defaultMessage: 'Provider' })}
+              htmlFor="onb-ai-provider"
+            >
               <Select
                 id="onb-ai-provider"
                 options={AI_PROVIDER_OPTIONS}
@@ -430,9 +592,12 @@ export function OnboardingWizard({
             </FormField>
             {aiProvider !== 'ollama' && (
               <FormField
-                label="API key"
+                label={formatMessage({ id: 'firstrun.wizard.apiKey', defaultMessage: 'API key' })}
                 htmlFor="onb-ai-key"
-                help="Kept on this machine, used only to call this provider."
+                help={formatMessage({
+                  id: 'firstrun.wizard.keyHelp',
+                  defaultMessage: 'Kept on this machine, used only to call this provider.',
+                })}
               >
                 <PasswordField
                   id="onb-ai-key"
@@ -445,8 +610,11 @@ export function OnboardingWizard({
             )}
             {aiProvider === 'ollama' && (
               <Text as="p" size="sm" tone="faint">
-                Ollama runs locally — no key needed. Make sure Ollama is running before you start
-                chatting with Lucius.
+                {formatMessage({
+                  id: 'firstrun.wizard.ollamaHelp',
+                  defaultMessage:
+                    'Ollama runs locally — no key needed. Make sure Ollama is running before you start chatting with Lucius.',
+                })}
               </Text>
             )}
             {aiError && (
@@ -460,10 +628,19 @@ export function OnboardingWizard({
         return (
           <Stack gap="--space-5">
             <Text as="p" tone="muted">
-              All net worth totals and reports display in this currency. Accounts in other
-              currencies still convert automatically — you can change this later in your profile.
+              {formatMessage({
+                id: 'firstrun.wizard.currencyHelp',
+                defaultMessage:
+                  'All net worth totals and reports display in this currency. Accounts in other currencies still convert automatically — you can change this later in your profile.',
+              })}
             </Text>
-            <FormField label="Base currency" htmlFor="onb-ccy">
+            <FormField
+              label={formatMessage({
+                id: 'firstrun.wizard.baseCurrency',
+                defaultMessage: 'Base currency',
+              })}
+              htmlFor="onb-ccy"
+            >
               <Select
                 id="onb-ccy"
                 options={CURRENCY_OPTIONS}
@@ -478,7 +655,10 @@ export function OnboardingWizard({
         return (
           <Stack gap="--space-6">
             <Text as="p" tone="muted">
-              Start with your own data, or explore a pre-loaded demo first.
+              {formatMessage({
+                id: 'firstrun.wizard.startHelp',
+                defaultMessage: 'Start with your own data, or explore a pre-loaded demo first.',
+              })}
             </Text>
             <div className="onb-choice-cards">
               <button
@@ -487,11 +667,17 @@ export function OnboardingWizard({
                 onClick={() => setStartChoice('empty')}
               >
                 <Text size="sm" weight={600}>
-                  Start empty
+                  {formatMessage({
+                    id: 'firstrun.wizard.startEmpty',
+                    defaultMessage: 'Start empty',
+                  })}
                 </Text>
                 <Text size="xs" tone="muted" as="p">
-                  A blank slate. Add your own accounts, holdings, and transactions — or ask Lucius
-                  to help.
+                  {formatMessage({
+                    id: 'firstrun.wizard.emptyHelp',
+                    defaultMessage:
+                      'A blank slate. Add your own accounts, holdings, and transactions — or ask Lucius to help.',
+                  })}
                 </Text>
               </button>
               <button
@@ -501,13 +687,24 @@ export function OnboardingWizard({
               >
                 <Cluster justify="between" align="center">
                   <Text size="sm" weight={600}>
-                    Load demo data
+                    {formatMessage({
+                      id: 'firstrun.wizard.demo',
+                      defaultMessage: 'Load demo data',
+                    })}
                   </Text>
-                  <span className="onb-choice-card__tag">Removable</span>
+                  <span className="onb-choice-card__tag">
+                    {formatMessage({
+                      id: 'firstrun.wizard.removable',
+                      defaultMessage: 'Removable',
+                    })}
+                  </span>
                 </Cluster>
                 <Text size="xs" tone="muted" as="p">
-                  Explore a fully populated app with sample accounts, investments, budgets, and
-                  transactions. Clear it anytime — your data is never touched.
+                  {formatMessage({
+                    id: 'firstrun.wizard.demoHelp',
+                    defaultMessage:
+                      'Explore a fully populated app with sample accounts, investments, budgets, and transactions. Clear it anytime — your data is never touched.',
+                  })}
                 </Text>
               </button>
             </div>
@@ -517,20 +714,38 @@ export function OnboardingWizard({
         return (
           <Stack gap="--space-5">
             <Text as="p" tone="muted">
-              Add your first account to anchor your net worth — or skip and add accounts later via
-              Lucius or the Accounts tab.
+              {formatMessage({
+                id: 'firstrun.wizard.accountHelp',
+                defaultMessage:
+                  'Add your first account to anchor your net worth — or skip and add accounts later via Lucius or the Accounts tab.',
+              })}
             </Text>
-            <FormField label="Account name" htmlFor="onb-acct">
+            <FormField
+              label={formatMessage({
+                id: 'firstrun.wizard.accountName',
+                defaultMessage: 'Account name',
+              })}
+              htmlFor="onb-acct"
+            >
               <TextField
                 id="onb-acct"
                 value={acctName}
                 onChange={(e) => setAcctName(e.target.value)}
                 onKeyDown={onAccountKeyDown}
-                placeholder="e.g. Everyday Checking"
+                placeholder={formatMessage({
+                  id: 'firstrun.wizard.accountPlaceholder',
+                  defaultMessage: 'e.g. Everyday Checking',
+                })}
                 autoFocus
               />
             </FormField>
-            <FormField label="Account type" htmlFor="onb-acct-type">
+            <FormField
+              label={formatMessage({
+                id: 'firstrun.wizard.accountType',
+                defaultMessage: 'Account type',
+              })}
+              htmlFor="onb-acct-type"
+            >
               <Select
                 id="onb-acct-type"
                 options={ACCOUNT_TYPE_OPTIONS}
@@ -541,7 +756,10 @@ export function OnboardingWizard({
             <FormField
               label={balanceLabel}
               htmlFor="onb-acct-bal"
-              help="Current balance. You can update it anytime."
+              help={formatMessage({
+                id: 'firstrun.wizard.balanceHelp',
+                defaultMessage: 'Current balance. You can update it anytime.',
+              })}
             >
               <NumberField
                 id="onb-acct-bal"
@@ -571,33 +789,58 @@ export function OnboardingWizard({
             {demoLoaded ? (
               <>
                 <Text as="p" tone="muted">
-                  Demo data is loaded. The dashboard shows sample accounts, investments, budgets,
-                  and a few months of transactions so you can explore every feature.
+                  {formatMessage({
+                    id: 'firstrun.wizard.demoDone',
+                    defaultMessage:
+                      'Demo data is loaded. The dashboard shows sample accounts, investments, budgets, and a few months of transactions so you can explore every feature.',
+                  })}
                 </Text>
                 <Text as="p" tone="faint" size="sm">
-                  When you&rsquo;re ready to use your own data, the{' '}
-                  <Text as="span" weight={500}>
-                    Clear demo &amp; start fresh
-                  </Text>{' '}
-                  banner at the top will wipe the sample data and reopen this wizard.
+                  {formatMessage(
+                    {
+                      id: 'firstrun.wizard.clearDemoHelp',
+                      defaultMessage:
+                        'When you’re ready to use your own data, the <action>Clear demo & start fresh</action> banner at the top will wipe the sample data and reopen this wizard.',
+                    },
+                    {
+                      action: (chunks) => (
+                        <Text as="span" weight={500}>
+                          {chunks}
+                        </Text>
+                      ),
+                    },
+                  )}
                 </Text>
               </>
             ) : (
               <>
                 <Text as="p" tone="muted">
-                  You&rsquo;re set. Open the dashboard to see your net worth, or ask Lucius to help
-                  you go further.
+                  {formatMessage({
+                    id: 'firstrun.wizard.done',
+                    defaultMessage:
+                      'You’re set. Open the dashboard to see your net worth, or ask Lucius to help you go further.',
+                  })}
                 </Text>
                 <Text as="p" tone="faint" size="sm">
-                  Suggested next steps: add more accounts, import a statement (
-                  <Text as="span" weight={500}>
-                    Settings → Data
-                  </Text>
-                  ), set a spending budget (Planning tab), or configure an AI provider (
-                  <Text as="span" weight={500}>
-                    Settings → AI Model
-                  </Text>
-                  ).
+                  {formatMessage(
+                    {
+                      id: 'firstrun.wizard.nextSteps',
+                      defaultMessage:
+                        'Suggested next steps: add more accounts, import a statement (<data>Settings → Data</data>), set a spending budget (Planning tab), or configure an AI provider (<ai>Settings → AI Model</ai>).',
+                    },
+                    {
+                      data: (chunks) => (
+                        <Text as="span" weight={500}>
+                          {chunks}
+                        </Text>
+                      ),
+                      ai: (chunks) => (
+                        <Text as="span" weight={500}>
+                          {chunks}
+                        </Text>
+                      ),
+                    },
+                  )}
                 </Text>
               </>
             )}
@@ -613,7 +856,7 @@ export function OnboardingWizard({
   const back =
     step !== STEP_WELCOME && step !== STEP_DONE ? (
       <Button variant="ghost" onClick={goBack} disabled={busy}>
-        Back
+        {formatMessage({ id: 'firstrun.wizard.back', defaultMessage: 'Back' })}
       </Button>
     ) : (
       <span />
@@ -627,12 +870,18 @@ export function OnboardingWizard({
             <Button
               variant="ghost"
               onClick={skipToChat}
-              title="Open the dashboard immediately and start chatting with Lucius"
+              title={formatMessage({
+                id: 'firstrun.wizard.skipDashboardHelp',
+                defaultMessage: 'Open the dashboard immediately and start chatting with Lucius',
+              })}
             >
-              Skip to dashboard
+              {formatMessage({
+                id: 'firstrun.wizard.skipDashboard',
+                defaultMessage: 'Skip to dashboard',
+              })}
             </Button>
             <Button variant="primary" onClick={() => setStep(STEP_PASSWORD)}>
-              Get started
+              {formatMessage({ id: 'firstrun.wizard.getStarted', defaultMessage: 'Get started' })}
             </Button>
           </Cluster>
         )
@@ -642,10 +891,16 @@ export function OnboardingWizard({
             {back}
             <Cluster>
               <Button variant="secondary" onClick={skipPassword} disabled={busy}>
-                Skip — no password
+                {formatMessage({
+                  id: 'firstrun.wizard.skipPassword',
+                  defaultMessage: 'Skip — no password',
+                })}
               </Button>
               <Button variant="primary" onClick={submitPassword} loading={busy}>
-                Set password &amp; continue
+                {formatMessage({
+                  id: 'firstrun.wizard.setPassword',
+                  defaultMessage: 'Set password & continue',
+                })}
               </Button>
             </Cluster>
           </Cluster>
@@ -656,10 +911,15 @@ export function OnboardingWizard({
             {back}
             <Cluster>
               <Button variant="secondary" onClick={skipAi} disabled={aiSaving}>
-                Skip for now
+                {formatMessage({ id: 'firstrun.wizard.skipNow', defaultMessage: 'Skip for now' })}
               </Button>
               <Button variant="primary" onClick={submitAi} loading={aiSaving}>
-                {aiProvider === 'ollama' ? 'Use Ollama' : 'Save & continue'}
+                {aiProvider === 'ollama'
+                  ? formatMessage({ id: 'firstrun.wizard.useOllama', defaultMessage: 'Use Ollama' })
+                  : formatMessage({
+                      id: 'firstrun.wizard.saveContinue',
+                      defaultMessage: 'Save & continue',
+                    })}
               </Button>
             </Cluster>
           </Cluster>
@@ -669,7 +929,7 @@ export function OnboardingWizard({
           <Cluster justify="between">
             {back}
             <Button variant="primary" onClick={submitCurrency} loading={busy}>
-              Continue
+              {formatMessage({ id: 'firstrun.wizard.continue', defaultMessage: 'Continue' })}
             </Button>
           </Cluster>
         )
@@ -678,7 +938,9 @@ export function OnboardingWizard({
           <Cluster justify="between">
             {back}
             <Button variant="primary" onClick={submitStartChoice} loading={busy}>
-              {startChoice === 'demo' ? 'Load demo data' : 'Continue'}
+              {startChoice === 'demo'
+                ? formatMessage({ id: 'firstrun.wizard.demo', defaultMessage: 'Load demo data' })
+                : formatMessage({ id: 'firstrun.wizard.continue', defaultMessage: 'Continue' })}
             </Button>
           </Cluster>
         )
@@ -691,12 +953,16 @@ export function OnboardingWizard({
                 variant="secondary"
                 onClick={() => setStep(STEP_DONE)}
                 disabled={busy}
-                title="You can add accounts later from the Accounts tab or by asking Lucius"
+                title={formatMessage({
+                  id: 'firstrun.wizard.skipAccountHelp',
+                  defaultMessage:
+                    'You can add accounts later from the Accounts tab or by asking Lucius',
+                })}
               >
-                Skip for now
+                {formatMessage({ id: 'firstrun.wizard.skipNow', defaultMessage: 'Skip for now' })}
               </Button>
               <Button variant="primary" onClick={submitAccount} loading={busy}>
-                Add account
+                {formatMessage({ id: 'firstrun.wizard.addAccount', defaultMessage: 'Add account' })}
               </Button>
             </Cluster>
           </Cluster>
@@ -709,12 +975,21 @@ export function OnboardingWizard({
               className="fi-lucius"
               iconLeft={<Spark size={15} ariaHidden />}
               onClick={skipToChat}
-              title="Open chat with Lucius pre-filled to help you get started"
+              title={formatMessage({
+                id: 'firstrun.wizard.openChatHelp',
+                defaultMessage: 'Open chat with Lucius pre-filled to help you get started',
+              })}
             >
-              Ask Lucius to help
+              {formatMessage({
+                id: 'firstrun.wizard.askLucius',
+                defaultMessage: 'Ask Lucius to help',
+              })}
             </Button>
             <Button variant="primary" onClick={finish}>
-              Open dashboard
+              {formatMessage({
+                id: 'firstrun.wizard.openDashboard',
+                defaultMessage: 'Open dashboard',
+              })}
             </Button>
           </Cluster>
         )
@@ -780,7 +1055,10 @@ export function OnboardingWizard({
             ))}
           </div>
           <Text size="xs" tone="faint">
-            Step {ordinal + 1} of {stepsOnPath.length}
+            {formatMessage(
+              { id: 'firstrun.wizard.progress', defaultMessage: 'Step {step} of {total}' },
+              { step: ordinal + 1, total: stepsOnPath.length },
+            )}
           </Text>
           {stepBody()}
         </Stack>

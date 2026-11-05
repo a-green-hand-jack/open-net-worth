@@ -1,5 +1,6 @@
 import { useRuns, type RunSummary } from '../../imports/runs'
 import { INTERVAL_LABELS, useSyncStatus, type SyncStatus } from '../../imports/sync'
+import type { IntlShape } from 'react-intl'
 
 // The YNAB data sync, seen as an Automation. It is a data sync (fixed rules, no AI model), so
 // it has no row in the Automations table: its schedule and runs live on /api/ynab/sync and
@@ -71,7 +72,50 @@ export function useYnabSync(
   }
 }
 
-export function scheduleLabel(status: SyncStatus | undefined): string {
+export function scheduleLabel(status: SyncStatus | undefined, intl?: IntlShape): string {
+  if (intl && !intl.locale.startsWith('en')) {
+    if (!status?.enabled)
+      return intl.formatMessage({ id: 'automations.sync.off', defaultMessage: 'Off' })
+    switch (status.interval) {
+      case '15m':
+        return intl.formatMessage({
+          id: 'automations.sync.every15',
+          defaultMessage: 'Every 15 minutes',
+        })
+      case '30m':
+        return intl.formatMessage({
+          id: 'automations.sync.every30',
+          defaultMessage: 'Every 30 minutes',
+        })
+      case '1h':
+        return intl.formatMessage({
+          id: 'automations.sync.everyHour',
+          defaultMessage: 'Every hour',
+        })
+      case '6h':
+        return intl.formatMessage({
+          id: 'automations.sync.every6',
+          defaultMessage: 'Every 6 hours',
+        })
+      case 'daily':
+        return intl.formatMessage({ id: 'automations.sync.daily', defaultMessage: 'Once a day' })
+      case 'manual':
+        return intl.formatMessage({ id: 'automations.sync.manual', defaultMessage: 'Manual only' })
+    }
+  }
   if (!status?.enabled) return 'Off'
   return INTERVAL_LABELS[status.interval] ?? status.interval
+}
+
+export function syncDirectionLabel(intl: IntlShape, direction: SyncStatus['direction']): string {
+  switch (direction) {
+    case 'both':
+      return intl.formatMessage({ id: 'automations.sync.both', defaultMessage: 'Both ways' })
+    case 'from_ynab':
+      return intl.formatMessage({ id: 'automations.sync.from', defaultMessage: 'From YNAB' })
+    case 'to_ynab':
+      return intl.formatMessage({ id: 'automations.sync.to', defaultMessage: 'To YNAB' })
+    default:
+      return direction
+  }
 }

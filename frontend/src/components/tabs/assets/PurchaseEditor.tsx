@@ -6,7 +6,7 @@ import type { OwnedAsset } from '../../../types/assets'
 import { localIso } from '../../../utils/format'
 import { Modal, Stack } from '../../ui'
 import * as api from './api'
-import { purchaseCopy } from './assetCategoryRules'
+import { useAppIntl } from '../../../i18n/useAppIntl'
 import { errorKeysOf, purchaseErrors, purchaseFromAsset, type PurchaseValue } from './assetForms'
 import { firstValuedOn } from './assetsData'
 import { EditorFooter, SaveError, useEditorSave } from './editorKit'
@@ -22,6 +22,7 @@ export interface PurchaseEditorProps {
 }
 
 export function PurchaseEditor({ a, onClose, onSaved }: PurchaseEditorProps) {
+  const { formatMessage } = useAppIntl()
   const today = localIso()
   const firstValue = firstValuedOn(a)
   const maxDate = firstValue && firstValue < today ? firstValue : today
@@ -31,9 +32,27 @@ export function PurchaseEditor({ a, onClose, onSaved }: PurchaseEditorProps) {
 
   async function onSave() {
     const { cost, costDate } = latest.current
-    if (!check(purchaseErrors(latest.current, today))) return
+    const errors = purchaseErrors(latest.current, today)
+    if (
+      !check({
+        cost: errors.cost
+          ? formatMessage({
+              id: 'assets.purchase.positive',
+              defaultMessage: 'Enter a value greater than 0, or leave it blank.',
+            })
+          : undefined,
+        cost_date: errors.cost_date
+          ? formatMessage({
+              id: 'assets.value.notFuture',
+              defaultMessage: "Pick a date that isn't in the future.",
+            })
+          : undefined,
+      })
+    )
+      return
     const changes = { cost, cost_date: costDate || null }
-    if (await save(() => api.updateAsset(a.id, changes))) onSaved('Purchase updated.')
+    if (await save(() => api.updateAsset(a.id, changes)))
+      onSaved(formatMessage({ id: 'assets.purchase.updated', defaultMessage: 'Purchase updated.' }))
   }
 
   return (
@@ -41,11 +60,20 @@ export function PurchaseEditor({ a, onClose, onSaved }: PurchaseEditorProps) {
       className="as-modal"
       open
       onClose={onClose}
-      title={purchaseCopy(a.category).cardTitle}
+      title={
+        a.category === 'policy'
+          ? formatMessage({ id: 'assets.sections.premiums', defaultMessage: 'Premiums paid' })
+          : formatMessage({ id: 'assets.sections.purchase', defaultMessage: 'Purchase' })
+      }
       subtitle={a.name}
       size="sm"
       footer={
-        <EditorFooter saving={saving} label="Save changes" onCancel={onClose} onSave={onSave} />
+        <EditorFooter
+          saving={saving}
+          label={formatMessage({ id: 'assets.details.save', defaultMessage: 'Save changes' })}
+          onCancel={onClose}
+          onSave={onSave}
+        />
       }
     >
       <Stack gap="--space-6">

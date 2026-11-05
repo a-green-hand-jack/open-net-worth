@@ -41,7 +41,9 @@ def test_a_manual_run_is_a_record_with_its_sent_change_itemized(stub):
     (change,) = rec["txn_changes"]
     assert (change["direction"], change["action"], change["payee"]) == ("sent", "updated", "Bistro")
     assert change["currency"] == "USD" and change["txn_id"] == row("Bistro")["id"]
-    assert {"name": "Memo", "before": "", "after": "team dinner"} in change["fields"]
+    assert {"name": "Memo", "field_id": "memo", "before": "", "after": "team dinner"} in change[
+        "fields"
+    ]
     assert rec["totals"] == {
         "sent": 1,
         "pulled": 0,
@@ -66,6 +68,7 @@ def test_a_pulled_change_shows_each_field_before_and_after(stub):
     assert (change["direction"], change["action"]) == ("pulled", "updated")
     names = {f["name"]: f for f in change["fields"]}
     assert names["Memo"]["after"] == "from ynab" and names["Amount"]["after"] == "-70.00"
+    assert names["Memo"]["field_id"] == "memo" and names["Amount"]["field_id"] == "amount"
 
 
 def test_assigned_moves_and_review_items_are_recorded(stub):
@@ -84,6 +87,11 @@ def test_assigned_moves_and_review_items_are_recorded(stub):
     (conflict,) = rec["conflicts"]
     assert conflict["status"] == "open" and conflict["onw_value"]["memo"] == "mine"
     assert conflict["id"] == ynab_sync.status()["conflicts"][0]["id"]
+    assert conflict["reason_message"] == {
+        "message_id": "ynab.sync.reason.bothChanged",
+        "params": {},
+    }
+    assert ynab_sync.status()["conflicts"][0]["reason_message"] == conflict["reason_message"]
     assert rec["totals"]["assigned"] == 2 and rec["totals"]["conflicts"] == 1
 
 

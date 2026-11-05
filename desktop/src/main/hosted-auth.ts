@@ -1,3 +1,4 @@
+import { message as t } from './native-messages';
 import { createHash, randomBytes } from 'node:crypto';
 import { DEEP_LINK_SCHEME, validSlug } from './hosted-config';
 
@@ -24,13 +25,13 @@ export interface DeepLink { slug: string; code: string; state: string }
 // Errors never echo the link: its query holds a one-time code.
 export function parseDeepLink(raw: string): DeepLink {
   let url: URL;
-  try { url = new URL(raw); } catch { throw new HostedLinkError('malformed', 'The sign-in link is not valid.'); }
-  if (url.protocol !== `${DEEP_LINK_SCHEME}:` || url.hostname !== 'auth' || url.username || url.password) throw new HostedLinkError('malformed', 'The sign-in link is not valid.');
+  try { url = new URL(raw); } catch { throw new HostedLinkError('malformed', t("The sign-in link is not valid.")); }
+  if (url.protocol !== `${DEEP_LINK_SCHEME}:` || url.hostname !== 'auth' || url.username || url.password) throw new HostedLinkError('malformed', t("The sign-in link is not valid."));
   const slug = url.searchParams.get('slug');
   const code = url.searchParams.get('code');
   const state = url.searchParams.get('state');
-  if (!validSlug(slug)) throw new HostedLinkError('malformed', 'The sign-in link names an invalid address.');
-  if (!code || !CODE.test(code) || !state || !STATE.test(state)) throw new HostedLinkError('malformed', 'The sign-in link is not valid.');
+  if (!validSlug(slug)) throw new HostedLinkError('malformed', t("The sign-in link names an invalid address."));
+  if (!code || !CODE.test(code) || !state || !STATE.test(state)) throw new HostedLinkError('malformed', t("The sign-in link is not valid."));
   return { slug, code, state };
 }
 
@@ -59,7 +60,7 @@ export class PendingSignIns<T = undefined> {
     this.sweep();
     const entry = this.entries.get(state);
     this.entries.delete(state);
-    if (!entry) throw new HostedLinkError('unknown', 'This sign-in link has expired or was not started by this app.');
+    if (!entry) throw new HostedLinkError('unknown', t("This sign-in link has expired or was not started by this app."));
     return { verifier: entry.verifier, context: entry.context };
   }
 

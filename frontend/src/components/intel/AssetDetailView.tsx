@@ -1,3 +1,6 @@
+import { intelTimeAgo } from './relativeTime'
+import { useAppIntl } from '../../i18n/useAppIntl'
+import { FormattedMessage } from './FormattedMessage'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useNavigate, useSearch } from '@tanstack/react-router'
 import { entityRefProps } from '../../utils/mentionable'
@@ -20,8 +23,8 @@ import {
   fPrice,
   getCurrencySymbol,
   countryFlag,
-  timeAgo,
   getDateLocale,
+  getNumberLocale,
   fDate,
   fDateTime,
 } from '../../utils/format'
@@ -100,6 +103,7 @@ interface Props {
 }
 
 export function AssetDetailView({ instrumentId, seedName, seedTicker }: Props) {
+  const intl = useAppIntl()
   const navigate = useNavigate()
   // strict: false — this view mounts on both /quote/$symbol and /asset/$instrumentId.
   const search = useSearch({ strict: false }) as { sub?: string }
@@ -284,7 +288,7 @@ export function AssetDetailView({ instrumentId, seedName, seedTicker }: Props) {
 
   // Static nav chrome — no data dependency, so it renders for real even during the
   // first-load skeleton (the user can switch tabs / go back while the body loads).
-  const subTabs = <Tabs<DetailTab> tabs={DETAIL_TABS} value={activeTab} onChange={setActiveTab} />
+  const subTabs = <Tabs<DetailTab> tabs={DETAIL_TABS.map((tab) => ({ ...tab, label: tab.key === 'overview' ? intl.formatMessage({ id: 'intel.asset.overview', defaultMessage: 'Overview' }) : tab.key === 'analysis' ? intl.formatMessage({ id: 'intel.asset.analysis', defaultMessage: 'Analysis' }) : intl.formatMessage({ id: 'intel.asset.position', defaultMessage: 'Position' }) }))} value={activeTab} onChange={setActiveTab} />
 
   if (loading) {
     return (
@@ -296,7 +300,7 @@ export function AssetDetailView({ instrumentId, seedName, seedTicker }: Props) {
     return (
       <div className="asd-error">
         <ErrorState
-          message="Could not load asset data. The instrument may not be found or the server is unavailable."
+          message={intl.formatMessage({ id: 'intel.asset.loadFailed', defaultMessage: "Could not load asset data. The instrument may not be found or the server is unavailable." })}
           onRetry={refresh}
         />
       </div>
@@ -467,7 +471,7 @@ export function AssetDetailView({ instrumentId, seedName, seedTicker }: Props) {
         role="button"
         tabIndex={0}
         className="asd-pos-card-link"
-        aria-label="Open the Position tab"
+        aria-label={intl.formatMessage({ id: 'intel.asset.openPosition', defaultMessage: "Open the Position tab" })}
         onClick={() => setActiveTab('position')}
         onKeyDown={(e) => {
           if (e.key === 'Enter' || e.key === ' ') {
@@ -490,7 +494,7 @@ export function AssetDetailView({ instrumentId, seedName, seedTicker }: Props) {
         role="button"
         tabIndex={0}
         className="asd-pos-card-link"
-        aria-label="Open the Position tab"
+        aria-label={intl.formatMessage({ id: 'intel.asset.openPosition', defaultMessage: "Open the Position tab" })}
         onClick={() => setActiveTab('position')}
         onKeyDown={(e) => {
           if (e.key === 'Enter' || e.key === ' ') {
@@ -508,9 +512,9 @@ export function AssetDetailView({ instrumentId, seedName, seedTicker }: Props) {
       </div>
     ) : (
       data.has_ticker && (
-        <Panel title="Your Position" className="asd-rail-panel">
+        <Panel title={intl.formatMessage({ id: 'intel.asset.yourPosition', defaultMessage: "Your Position" })} className="asd-rail-panel">
           <Text size="sm" tone="muted">
-            You don&apos;t hold {asset.ticker ?? asset.name}.
+            {intl.formatMessage({ id: 'miss.notHeld', defaultMessage: "You don't hold {asset}." }, { asset: asset.ticker ?? asset.name })}
           </Text>
         </Panel>
       )
@@ -574,21 +578,21 @@ export function AssetDetailView({ instrumentId, seedName, seedTicker }: Props) {
           about THAT content's provenance, so it travels with it into the Analysis tab
           on mobile instead of being left behind, orphaned, in the desktop-only rail. */}
       <Text size="xs" tone="faint" className="asd-rail-disclaimer">
-        {data.last_refreshed_at ? `Data via ${data.asset.asset_class} search. ` : ''}
+        {data.last_refreshed_at ? intl.formatMessage({ id: 'intel.asset.dataVia', defaultMessage: 'Data via {assetClass} search. ' }, { assetClass: data.asset.asset_class }) : ''}
         {price.state === 'live' && price.provider
-          ? `Live via ${price.provider === 'yahoo' ? 'Yahoo Finance' : 'CoinGecko'}${price.as_of ? ` • Updated ${timeAgo(price.as_of)}` : ''}. `
+          ? intl.formatMessage({ id: 'intel.asset.liveVia', defaultMessage: 'Live via {provider}{updated}. ' }, { provider: price.provider === 'yahoo' ? 'Yahoo Finance' : 'CoinGecko', updated: price.as_of ? intl.formatMessage({ id: 'intel.asset.liveUpdated', defaultMessage: ' • Updated {time}' }, { time: intelTimeAgo(price.as_of, intl) }) : '' })
           : ''}
-        Company facts are AI-generated and may be inaccurate.
+        {intl.formatMessage({ id: 'intel.asset.aiDisclaimer', defaultMessage: 'Company facts are AI-generated and may be inaccurate.' })}
       </Text>
       {/* On-chart TradingView logo is hidden on both charts (assetPriceChartLwc.ts,
           TechnicalsWidget) via `attributionLogo: false` — its license lets us do that in
           exchange for keeping this written notice + link visible somewhere on the page. */}
       <Text size="xs" tone="faint" className="asd-rail-disclaimer">
-        Charted with{' '}
+        {intl.formatMessage({ id: 'intel.asset.chartedWith', defaultMessage: 'Charted with' })}{' '}
         <a href="https://www.tradingview.com/" target="_blank" rel="noopener noreferrer">
           TradingView Lightweight Charts™
         </a>
-        . Copyright © 2025 TradingView, Inc.
+        {intl.formatMessage({ id: 'intel.asset.copyright', defaultMessage: '. Copyright © 2025 TradingView, Inc.' })}
       </Text>
     </>
   )
@@ -626,12 +630,12 @@ export function AssetDetailView({ instrumentId, seedName, seedTicker }: Props) {
             </span>
           ) : refreshing || keyIssuesPassActive(data) ? (
             <span className="asd-updated-at" role="status">
-              Updating analysis…
+              {intl.formatMessage({ id: 'intel.asset.updatingAnalysis', defaultMessage: 'Updating analysis…' })}
             </span>
           ) : (
             data.last_refreshed_at && (
               <span className="asd-updated-at" title={fDateTime(data.last_refreshed_at)}>
-                Analysis updated {timeAgo(data.last_refreshed_at)}
+                {intl.formatMessage({ id: 'intel.asset.analysisUpdated', defaultMessage: 'Analysis updated {time}' }, { time: intelTimeAgo(data.last_refreshed_at, intl) })}
               </span>
             )
           )}
@@ -642,13 +646,13 @@ export function AssetDetailView({ instrumentId, seedName, seedTicker }: Props) {
             disabled={refreshing}
             className="asd-refresh-btn"
             iconLeft={<RotateCcw size={14} />}
-            aria-label={refreshing ? 'Refreshing' : 'Refresh'}
-            title="Refresh"
+            aria-label={refreshing ? intl.formatMessage({ id: 'intel.asset.refreshingShort', defaultMessage: 'Refreshing' }) : intl.formatMessage({ id: 'intel.asset.refresh', defaultMessage: 'Refresh' })}
+            title={intl.formatMessage({ id: 'intel.asset.refresh', defaultMessage: "Refresh" })}
           >
             {/* Text collapses at narrow widths (icon stays) — see the container query in
                 index.css (owner ask 2026-08-31: "small screen ... not showing too many
                 buttons like that"). */}
-            <span className="asd-refresh-btn-label">{refreshing ? 'Refreshing…' : 'Refresh'}</span>
+            <span className="asd-refresh-btn-label">{refreshing ? intl.formatMessage({ id: 'intel.asset.refreshing', defaultMessage: 'Refreshing…' }) : intl.formatMessage({ id: 'intel.asset.refresh', defaultMessage: 'Refresh' })}</span>
           </Button>
         </div>
         {/* Exchange/session state — its own full-width row within `.asd-header` (a direct
@@ -692,7 +696,7 @@ export function AssetDetailView({ instrumentId, seedName, seedTicker }: Props) {
               {effChangePct != null && (
                 <span className={`asd-price-pct-pill ${priceTone}`} data-ctx-fact="Today">
                   {trendArrow(effChangePct)}
-                  {Math.abs(effChangePct).toFixed(2)}%
+                  {Math.abs(effChangePct).toLocaleString(getNumberLocale(), { minimumFractionDigits: 2, maximumFractionDigits: 2 })}%
                 </span>
               )}
             </div>
@@ -710,13 +714,13 @@ export function AssetDetailView({ instrumentId, seedName, seedTicker }: Props) {
                       const Icon = price.extended_session === 'pre' ? Sunrise : Sunset
                       return <Icon size={12} className="asd-price-extended-icon" />
                     })()}
-                    {price.extended_session === 'pre' ? 'Pre-market: ' : 'After hours: '}
+                    {price.extended_session === 'pre' ? intl.formatMessage({ id: 'intel.asset.preMarket', defaultMessage: 'Pre-market: ' }) : intl.formatMessage({ id: 'intel.asset.afterHours', defaultMessage: 'After hours: ' })}
                   </>
                 ) : closedWithAfterHours ? (
                   // Perplexity's own caption for this layout: "At close: 18 Sep".
-                  'At close: '
+                  intl.formatMessage({ id: 'intel.asset.atClose', defaultMessage: 'At close: ' })
                 ) : (
-                  'As of '
+                  intl.formatMessage({ id: 'intel.asset.asOf', defaultMessage: 'As of ' })
                 )}
                 {/* The exchange's OWN local time, not the viewer's browser timezone — a
                     market-close timestamp read in the viewer's own zone can land on a
@@ -808,7 +812,7 @@ export function AssetDetailView({ instrumentId, seedName, seedTicker }: Props) {
                     {close.change_pct != null && (
                       <span className={`asd-price-pct-pill ${closeTone}`}>
                         {trendArrow(close.change_pct)}
-                        {Math.abs(close.change_pct).toFixed(2)}%
+                        {Math.abs(close.change_pct).toLocaleString(getNumberLocale(), { minimumFractionDigits: 2, maximumFractionDigits: 2 })}%
                       </span>
                     )}
                   </div>
@@ -819,7 +823,7 @@ export function AssetDetailView({ instrumentId, seedName, seedTicker }: Props) {
                         between "At close" and its immediately-following colon
                         (owner-reproduced live bug, 2026-09-01: "At close : Aug 31"). */}
                     <span>
-                      At close
+                      {intl.formatMessage({ id: 'remaining.atClose', defaultMessage: 'At close' })}
                       {close.as_of && (
                         <>
                           {/* Unlike the Pre-market/After-hours caption above, this close can be
@@ -889,14 +893,14 @@ export function AssetDetailView({ instrumentId, seedName, seedTicker }: Props) {
                     {ah.change_pct != null && (
                       <span className={`asd-price-pct-pill ${ahTone}`}>
                         {trendArrow(ah.change_pct)}
-                        {Math.abs(ah.change_pct).toFixed(2)}%
+                        {Math.abs(ah.change_pct).toLocaleString(getNumberLocale(), { minimumFractionDigits: 2, maximumFractionDigits: 2 })}%
                       </span>
                     )}
                   </div>
                   <span className="asd-price-caption">
                     <Sunset size={12} className="asd-price-extended-icon" />
                     <span>
-                      After hours
+                      {intl.formatMessage({ id: 'remaining.afterHours', defaultMessage: 'After hours' })}
                       {ah.as_of && (
                         <>
                           {`: ${new Date(ah.as_of).toLocaleTimeString(getDateLocale(), {
@@ -1008,12 +1012,12 @@ export function AssetDetailView({ instrumentId, seedName, seedTicker }: Props) {
                   // same labels ResearchingStatus shows for the news skeleton) read as noisy and
                   // inconsistent across devices on this card specifically — always show the same
                   // short, plain label here instead, regardless of refresh_stage.
-                  const progressLabel = 'Generating'
+                  const progressLabel = intl.formatMessage({ id: 'intel.asset.generating', defaultMessage: 'Generating' })
                   const generating = generatingLuciusTake
                   return (
                     <div className="asd-pi-wrap">
                       <div className="asd-pi-head">
-                        <p className="asd-pi-label">Lucius's take on your position ✦</p>
+                        <p className="asd-pi-label">{<FormattedMessage id="intel.static.lucius_s_take_on_your_position_92ce8d75" defaultMessage={"Lucius's take on your position ✦"} />}</p>
                         {/* Card-scoped counterpart to the page-level RefreshingBanner (owner
                             clarification, ADR addendum "an on-demand top-up"): the banner alone
                             doesn't make clear THIS card is what's being refreshed. */}
@@ -1021,10 +1025,10 @@ export function AssetDetailView({ instrumentId, seedName, seedTicker }: Props) {
                           <span
                             className="asd-pi-updating"
                             role="status"
-                            aria-label="Lucius's take is updating in the background"
+                            aria-label={intl.formatMessage({ id: 'intel.asset.takeUpdating', defaultMessage: "Lucius's take is updating in the background" })}
                           >
                             <span className="ui-btn__spinner" aria-hidden="true" />
-                            {generating ? progressLabel : 'Updating'}
+                            {generating ? progressLabel : intl.formatMessage({ id: 'intel.asset.updating', defaultMessage: 'Updating' })}
                           </span>
                         )}
                       </div>
@@ -1082,7 +1086,7 @@ export function AssetDetailView({ instrumentId, seedName, seedTicker }: Props) {
               {hasNews && (
                 <Panel>
                   <div className="asd-section-head">
-                    <span className="asd-section-title">Stories &amp; Analysis</span>
+                    <span className="asd-section-title">{<FormattedMessage id="intel.static.stories_analysis_afb418a7" defaultMessage={"Stories & Analysis"} />}</span>
                   </div>
                   <NewsCardGrid items={news} limit={STORY_CARD_COUNT} />
                 </Panel>
@@ -1104,7 +1108,7 @@ export function AssetDetailView({ instrumentId, seedName, seedTicker }: Props) {
               {hasIssues && (
                 <Panel>
                   <div className="asd-section-head">
-                    <span className="asd-section-title">Key Issues</span>
+                    <span className="asd-section-title">{<FormattedMessage id="intel.static.key_issues_839538fb" defaultMessage={"Key Issues"} />}</span>
                   </div>
                   <KeyIssuesAccordion issues={key_issues} />
                 </Panel>
@@ -1113,14 +1117,14 @@ export function AssetDetailView({ instrumentId, seedName, seedTicker }: Props) {
               {keyIssuesGenerating && (
                 <Panel>
                   <div className="asd-section-head">
-                    <span className="asd-section-title">Key Issues</span>
+                    <span className="asd-section-title">{<FormattedMessage id="intel.static.key_issues_839538fb" defaultMessage={"Key Issues"} />}</span>
                     <span
                       className="asd-pi-updating"
                       role="status"
-                      aria-label="Key issues are generating"
+                      aria-label={intl.formatMessage({ id: 'intel.asset.issuesGenerating', defaultMessage: "Key issues are generating" })}
                     >
                       <span className="ui-btn__spinner" aria-hidden="true" />
-                      Generating
+                      {intl.formatMessage({ id: 'intel.asset.generating', defaultMessage: 'Generating' })}
                     </span>
                   </div>
                   <div className="asd-skel-stack">
@@ -1137,16 +1141,16 @@ export function AssetDetailView({ instrumentId, seedName, seedTicker }: Props) {
                 !refreshing &&
                 !backgroundRefreshing && (
                   <EmptyState
-                    title="No news or analysis yet"
+                    title={intl.formatMessage({ id: 'intel.asset.noNews', defaultMessage: "No news or analysis yet" })}
                     body={
                       data.has_ticker
-                        ? 'Click Refresh to fetch the latest news and key issues for this asset.'
-                        : 'This asset has no ticker symbol, so automated news fetching is unavailable.'
+                        ? intl.formatMessage({ id: 'intel.asset.refreshHelp', defaultMessage: 'Click Refresh to fetch the latest news and key issues for this asset.' })
+                        : intl.formatMessage({ id: 'intel.asset.noTickerHelp', defaultMessage: 'This asset has no ticker symbol, so automated news fetching is unavailable.' })
                     }
                     action={
                       data.has_ticker ? (
                         <Button variant="primary" size="sm" onClick={refresh} disabled={refreshing}>
-                          {refreshing ? 'Refreshing…' : 'Refresh now'}
+                          {refreshing ? intl.formatMessage({ id: 'intel.asset.refreshing', defaultMessage: 'Refreshing…' }) : intl.formatMessage({ id: 'intel.asset.refreshNow', defaultMessage: 'Refresh now' })}
                         </Button>
                       ) : undefined
                     }
@@ -1161,21 +1165,21 @@ export function AssetDetailView({ instrumentId, seedName, seedTicker }: Props) {
               {hasIssues ? (
                 <Panel>
                   <div className="asd-section-head">
-                    <span className="asd-section-title">Key Issues</span>
+                    <span className="asd-section-title">{<FormattedMessage id="intel.static.key_issues_839538fb" defaultMessage={"Key Issues"} />}</span>
                   </div>
                   <KeyIssuesAccordion issues={key_issues} />
                 </Panel>
               ) : keyIssuesGenerating ? (
                 <Panel>
                   <div className="asd-section-head">
-                    <span className="asd-section-title">Key Issues</span>
+                    <span className="asd-section-title">{<FormattedMessage id="intel.static.key_issues_839538fb" defaultMessage={"Key Issues"} />}</span>
                     <span
                       className="asd-pi-updating"
                       role="status"
-                      aria-label="Key issues are generating"
+                      aria-label={intl.formatMessage({ id: 'intel.asset.issuesGenerating', defaultMessage: "Key issues are generating" })}
                     >
                       <span className="ui-btn__spinner" aria-hidden="true" />
-                      Generating
+                      {intl.formatMessage({ id: 'intel.asset.generating', defaultMessage: 'Generating' })}
                     </span>
                   </div>
                   <div className="asd-skel-stack">
@@ -1186,12 +1190,12 @@ export function AssetDetailView({ instrumentId, seedName, seedTicker }: Props) {
                 </Panel>
               ) : (
                 <EmptyState
-                  title="No key issues yet"
-                  body="Lucius hasn't written the bull and bear case for this asset yet. Refresh to try again."
+                  title={intl.formatMessage({ id: 'intel.asset.noIssues', defaultMessage: "No key issues yet" })}
+                  body={intl.formatMessage({ id: 'intel.asset.noIssuesHelp', defaultMessage: "Lucius hasn't written the bull and bear case for this asset yet. Refresh to try again." })}
                   action={
                     data.has_ticker ? (
                       <Button variant="primary" size="sm" onClick={refresh} disabled={refreshing}>
-                        {refreshing ? 'Refreshing…' : 'Refresh now'}
+                        {refreshing ? intl.formatMessage({ id: 'intel.asset.refreshing', defaultMessage: 'Refreshing…' }) : intl.formatMessage({ id: 'intel.asset.refreshNow', defaultMessage: 'Refresh now' })}
                       </Button>
                     ) : undefined
                   }
@@ -1241,11 +1245,11 @@ export function AssetDetailView({ instrumentId, seedName, seedTicker }: Props) {
               />
             ) : (
               <EmptyState
-                title="No position in this asset"
-                body={`You don't currently hold ${asset.ticker ?? asset.name}. Record your first acquisition to start tracking it here.`}
+                title={intl.formatMessage({ id: 'intel.asset.noPosition', defaultMessage: "No position in this asset" })}
+                body={intl.formatMessage({ id: 'intel.asset.noPositionHelp', defaultMessage: "You don't currently hold {asset}. Record your first acquisition to start tracking it here." }, { asset: asset.ticker ?? asset.name })}
                 action={
                   <Button variant="primary" size="sm" onClick={() => setAddLotOpen(true)}>
-                    Add lot
+                    {intl.formatMessage({ id: 'intel.asset.addLot', defaultMessage: 'Add lot' })}
                   </Button>
                 }
               />
@@ -1292,8 +1296,8 @@ export function AssetDetailView({ instrumentId, seedName, seedTicker }: Props) {
             className={`asd-rail-handle${railSnapped ? ' asd-rail-handle--snapped' : ''}`}
             role="separator"
             aria-orientation="vertical"
-            aria-label="Resize side panel"
-            title="Drag to resize · drag back or double-click for the default width"
+            aria-label={intl.formatMessage({ id: 'intel.asset.resize', defaultMessage: "Resize side panel" })}
+            title={intl.formatMessage({ id: 'intel.asset.resizeHelp', defaultMessage: "Drag to resize · drag back or double-click for the default width" })}
             {...railHandleProps}
           />
           {yourPositionBlock}
@@ -1325,6 +1329,7 @@ export function AssetDetailView({ instrumentId, seedName, seedTicker }: Props) {
 // within the next six weeks — the window in which it changes what you'd do.
 const EARNINGS_WINDOW_DAYS = 45
 function EarningsChip({ iso }: { iso?: string }) {
+  const intl = useAppIntl()
   if (!iso) return null
   const when = new Date(iso)
   if (isNaN(when.getTime())) return null
@@ -1335,14 +1340,14 @@ function EarningsChip({ iso }: { iso?: string }) {
   const days = Math.round((day.getTime() - today.getTime()) / 86_400_000)
   if (days < 0 || days > EARNINGS_WINDOW_DAYS) return null
   const date = fDate(when)
-  const text = days === 0 ? 'Earnings today' : days === 1 ? 'Earnings tomorrow' : `Earnings ${date}`
+  const text = days === 0 ? intl.formatMessage({ id: 'intel.asset.earnToday', defaultMessage: 'Earnings today' }) : days === 1 ? intl.formatMessage({ id: 'intel.asset.earnTomorrow', defaultMessage: 'Earnings tomorrow' }) : intl.formatMessage({ id: 'intel.asset.earnDate', defaultMessage: 'Earnings {date}' }, { date })
   return (
     <span
       className="asd-earnings-chip"
-      title={`Next earnings report: ${fDateTime(when, 'short', 'always')}`}
+      title={intl.formatMessage({ id: 'intel.asset.nextEarnings', defaultMessage: 'Next earnings report: {date}' }, { date: fDateTime(when, 'short', 'always') })}
     >
       {text}
-      {days > 1 && days <= 14 && <span className="asd-earnings-chip-in"> · in {days} days</span>}
+      {days > 1 && days <= 14 && <span className="asd-earnings-chip-in"> {intl.formatMessage({ id: 'intel.asset.inDays', defaultMessage: '· in {days} days' }, { days })}</span>}
     </span>
   )
 }

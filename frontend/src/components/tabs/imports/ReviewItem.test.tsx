@@ -128,3 +128,29 @@ describe('an Assigned compared for the first time', () => {
     expect(screen.getByText('Changed in both')).toBeTruthy()
   })
 })
+
+it('localizes marked category fields and preserves user values', async () => {
+  const { IntlProvider } = await import('react-intl')
+  const { default: messages } = await import('./zh-CN.messages.json')
+  const { default: automationMessages } = await import('../automations/zh-CN.messages.json')
+  const item: ReviewItem = { id: 'c_test', kind: 'conflict', entity: 'category', title: 'Groceries', reason: 'Original reason', onw: null, ynab: null, fields: [{ label: 'Visibility', field_id: 'hidden', onw: 'Hidden', ynab: 'Shown', onw_message: { message_id: 'ynab.sync.value.hidden', params: {} }, ynab_message: { message_id: 'ynab.sync.value.shown', params: {} } }] }
+  render(<IntlProvider locale="zh-CN" messages={{ ...automationMessages, ...messages }}><ReviewCard item={item} busy={false} onKeep={vi.fn()} /></IntlProvider>)
+  expect(screen.getByText('Groceries')).toBeTruthy()
+  expect(screen.getByText('已隐藏')).toBeTruthy()
+  expect(screen.getByText('已显示')).toBeTruthy()
+  expect(screen.getByText('Original reason')).toBeTruthy()
+})
+
+it('translates a marked starting-balance warning without changing its two actions or values', async () => {
+  const { IntlProvider } = await import('react-intl')
+  const { default: imports } = await import('./zh-CN.messages.json')
+  const { default: automations } = await import('../automations/zh-CN.messages.json')
+  const item: ReviewItem = { id: 'start', kind: 'before_start', entity: 'start', title: 'Checking', reason: 'old warning', reason_message: { message_id: 'ynab.sync.reason.beforeStart', params: { count: '1', account: 'Checking', start: '2026-01-01', now: '100', earliest: '2025-12-01', counted: '90', difference: '10', nowValue: 100, countedValue: 90, differenceValue: 10, currency: '' } }, onw: null, ynab: null, start: '2026-01-01', earliest: '2025-12-01', balance_now: 100, balance_counted: 90 }
+  const keep = vi.fn()
+  render(<IntlProvider locale="zh-CN" messages={{ ...automations, ...imports }}><ReviewCard item={item} busy={false} onKeep={keep} /></IntlProvider>)
+  expect(screen.getByText(/Checking.*2026-01-01/)).toBeTruthy()
+  fireEvent.click(screen.getByRole('button', { name: '将期初余额移至 2025-12-01' }))
+  expect(keep).toHaveBeenCalledWith('ynab')
+  fireEvent.click(screen.getByRole('button', { name: '保留为历史记录' }))
+  expect(keep).toHaveBeenCalledWith('onw')
+})

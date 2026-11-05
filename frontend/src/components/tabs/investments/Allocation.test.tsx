@@ -1,7 +1,9 @@
 // @vitest-environment jsdom
 
-import { describe, it, expect, afterEach } from 'vitest'
-import { render, cleanup } from '@testing-library/react'
+import { describe, it, expect, afterEach, vi } from 'vitest'
+import { render, cleanup, fireEvent, screen } from '@testing-library/react'
+import { IntlProvider } from 'react-intl'
+import zh from '../../../i18n/zh-CN.json'
 import { Allocation } from './Allocation'
 import type { DerivedBook } from './useInvestmentsBook'
 
@@ -10,6 +12,18 @@ afterEach(cleanup)
 // Allocation reads only `alloc`/`onSaveTargets`/`d.thresholdPp` — every other DerivedBook field
 // is unused here.
 const D = { thresholdPp: 5 } as unknown as DerivedBook
+
+it('saves stable asset class keys after editing targets in Chinese', () => {
+  const save = vi.fn()
+  render(
+    <IntlProvider locale="zh-CN" messages={zh}>
+      <Allocation d={D} onSaveTargets={save} alloc={[{ cls: 'equity', cur: 100, tgt: 100 }]} />
+    </IntlProvider>,
+  )
+  fireEvent.click(screen.getByRole('button', { name: '调整' }))
+  fireEvent.click(screen.getByRole('button', { name: '保存目标' }))
+  expect(save).toHaveBeenCalledWith({ equity: 1 })
+})
 
 describe('Allocation — Lucius entity wiring', () => {
   it('renders each allocation slice as a draggable allocation_slice mention entity', () => {

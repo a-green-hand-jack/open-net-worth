@@ -21,6 +21,7 @@ import { LUCIUS_SETUP, useAssetsIntro } from './assetsIntro'
 import { LuciusCta } from '../../intro/LuciusCta'
 import { useLuciusChatOptional } from '../../../state/luciusChat'
 import { useViewScroll } from '../../../hooks/useViewScroll'
+import { useAppIntl } from '../../../i18n/useAppIntl'
 import './assets.css'
 
 export interface AssetsProps {
@@ -46,9 +47,8 @@ const NAV_TARGETS: Record<string, string> = {
   automations: 'automations',
 }
 
-const SAVE_FAILED = "That didn't save — try again."
-
 export function Assets(props: AssetsProps) {
+  const intl = useAppIntl()
   const { onAskLucius, onNavigate, selectedId, onSelect, selectedCat, onSelectCat, luciusOpen } =
     props
   const {
@@ -125,7 +125,14 @@ export function Assets(props: AssetsProps) {
       await api.uploadPhoto(id, file)
     } catch (e) {
       // The server's own reason (e.g. "The photo must be an image.") — never a generic line.
-      showToast(e instanceof Error ? e.message : SAVE_FAILED)
+      showToast(
+        e instanceof Error
+          ? e.message
+          : intl.formatMessage({
+              id: 'assets.saveFailed',
+              defaultMessage: "That didn't save — try again.",
+            }),
+      )
     }
   }
 
@@ -177,7 +184,13 @@ export function Assets(props: AssetsProps) {
       <Container size="wide">
         <div className="as-page">
           <div className="as-wrap">
-            <TabSkeleton variant="assets" label="Loading assets…" />
+            <TabSkeleton
+              variant="assets"
+              label={intl.formatMessage({
+                id: 'assets.loading',
+                defaultMessage: 'Loading assets…',
+              })}
+            />
           </div>
         </div>
       </Container>
@@ -190,7 +203,13 @@ export function Assets(props: AssetsProps) {
     return (
       <Container size="wide">
         <ErrorState
-          message={error ?? 'The server returned an invalid assets payload.'}
+          message={
+            error ??
+            intl.formatMessage({
+              id: 'assets.invalidPayload',
+              defaultMessage: 'The server returned an invalid assets payload.',
+            })
+          }
           onRetry={refresh}
         />
       </Container>
@@ -226,8 +245,11 @@ export function Assets(props: AssetsProps) {
           ) : emptyBook ? (
             <div className="as-empty-book">
               <PageHeader
-                title="Assets"
-                subtitle="Cash, investments, and things you own"
+                title={intl.formatMessage({ id: 'nav.assets', defaultMessage: 'Assets' })}
+                subtitle={intl.formatMessage({
+                  id: 'assets.emptySubtitle',
+                  defaultMessage: 'Cash, investments, and things you own',
+                })}
                 actions={
                   <div className="as-empty-actions">
                     <Button
@@ -236,10 +258,13 @@ export function Assets(props: AssetsProps) {
                       data-tour="assets-add"
                       onClick={() => setAddOpen(true)}
                     >
-                      Add asset
+                      {intl.formatMessage({ id: 'assets.add', defaultMessage: 'Add asset' })}
                     </Button>
                     <LuciusCta
-                      label="Set up with Lucius"
+                      label={intl.formatMessage({
+                        id: 'assets.setupLucius',
+                        defaultMessage: 'Set up with Lucius',
+                      })}
                       message={LUCIUS_SETUP}
                       onAskLucius={onAskLucius}
                     />
@@ -265,12 +290,15 @@ export function Assets(props: AssetsProps) {
                   each class's own mobile media-query comment for why. */}
               <div className="as-head">
                 <PageHeader
-                  title="Assets"
-                  subtitle="Everything belongs to you"
+                  title={intl.formatMessage({ id: 'nav.assets', defaultMessage: 'Assets' })}
+                  subtitle={intl.formatMessage({
+                    id: 'assets.subtitle',
+                    defaultMessage: 'Everything belongs to you',
+                  })}
                   actions={
                     <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                       <Button variant="primary" size="sm" onClick={() => setAddOpen(true)}>
-                        Add asset
+                        {intl.formatMessage({ id: 'assets.add', defaultMessage: 'Add asset' })}
                       </Button>
                     </div>
                   }
@@ -298,8 +326,16 @@ export function Assets(props: AssetsProps) {
                       onCat={setCat}
                     />
                     {cat === 'all' && moreCats.length > 0 && (
-                      <section className="as-more" aria-label="Add more">
-                        <h3 className="as-more-h">Add more</h3>
+                      <section
+                        className="as-more"
+                        aria-label={intl.formatMessage({
+                          id: 'assets.addMore',
+                          defaultMessage: 'Add more',
+                        })}
+                      >
+                        <h3 className="as-more-h">
+                          {intl.formatMessage({ id: 'assets.addMore', defaultMessage: 'Add more' })}
+                        </h3>
                         <EmptyPreview
                           cats={moreCats}
                           accounts={false}

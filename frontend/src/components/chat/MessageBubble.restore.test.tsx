@@ -10,6 +10,8 @@ import { describe, it, expect, vi, afterEach, beforeEach } from 'vitest'
 import { cleanup, fireEvent, render, waitFor, within } from '@testing-library/react'
 import { MessageBubble } from './MessageBubble'
 import type { Message } from '../../types/chat'
+import { IntlProvider } from 'react-intl'
+import messages from './zh-CN.messages.json'
 
 afterEach(cleanup)
 
@@ -26,6 +28,13 @@ function renderMessage(over: Partial<Message>, onRestore = vi.fn()) {
 }
 
 describe('MessageBubble — Restore control', () => {
+  it('explains the impact of restoring in Chinese', async () => {
+    const view = render(<IntlProvider locale="zh-CN" messages={messages}><MessageBubble message={{ id: 'm1', role: 'user', text: 'test', checkpointId: 'cp_1' }} onSendMessage={vi.fn()} onPreviewCheckpoint={vi.fn().mockResolvedValue({ changes: [{ file: 'transactions.json', delta: 2 }], cross_session_changes: [] })} onRestoreCheckpoint={vi.fn()} /></IntlProvider>)
+    fireEvent.click(view.getByText('恢复'))
+    await waitFor(() => expect(view.getByText('恢复 2 项 交易.')).toBeTruthy())
+    expect(view.getByText(/撤销此消息及之后的所有更改/)).toBeTruthy()
+    expect(view.getByText('恢复数据并回退对话')).toBeTruthy()
+  })
   it('shows Restore on a checkpointed message', () => {
     const { container } = renderMessage({ checkpointId: 'cp_1' })
     expect(container.querySelector('.msg-restore-trigger')).not.toBeNull()

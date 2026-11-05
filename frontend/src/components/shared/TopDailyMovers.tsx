@@ -1,4 +1,5 @@
 import type { KeyboardEvent } from 'react'
+import { useAppIntl } from '../../i18n/useAppIntl'
 import type { ComputedRow } from '../../types/portfolio'
 import { EntityRow } from '../../lucius/EntityRow'
 import { fBase, fPct, fPrice, plClass, priceDigits } from '../../utils/format'
@@ -68,6 +69,7 @@ export function TopDailyMovers({
   preAggregated,
   maxAbs: maxAbsProp,
 }: Props) {
+  const { formatMessage } = useAppIntl()
   const dayRows = preAggregated
     ? rows
     : aggregateByInstrument(rows.filter((r) => r._daily_pl != null))
@@ -130,19 +132,34 @@ export function TopDailyMovers({
       </div>
       {extra > 0 && (
         <div className="top-movers-more">
-          +{extra} more position{extra === 1 ? '' : 's'} moved today
+          {formatMessage(
+            {
+              id: 'shared.movers.more',
+              defaultMessage:
+                '+{count, plural, one {# more position} other {# more positions}} moved today',
+            },
+            { count: extra },
+          )}
         </div>
       )}
       <div className="panel-caption">
         <Text as="p" size="xs" tone="faint">
-          Day-over-day change for market-tracked positions. Flat or unpriced holdings are excluded.
+          {formatMessage({
+            id: 'shared.movers.caption',
+            defaultMessage:
+              'Day-over-day change for market-tracked positions. Flat or unpriced holdings are excluded.',
+          })}
         </Text>
       </div>
     </>
   )
 
   if (hideHeader) return body
-  return <Panel title="Today's movers">{body}</Panel>
+  return (
+    <Panel title={formatMessage({ id: 'shared.movers.title', defaultMessage: "Today's movers" })}>
+      {body}
+    </Panel>
+  )
 }
 
 function MoverRow({

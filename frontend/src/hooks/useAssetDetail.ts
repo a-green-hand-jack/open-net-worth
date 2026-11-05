@@ -1,3 +1,4 @@
+import { useAppIntl } from '../i18n/useAppIntl'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useDataVersion } from './useDataVersion'
 import { authFetch } from '../api/client'
@@ -60,12 +61,16 @@ interface UseAssetDetailResult {
 
 // Backend `reason` (asset_brief.refresh_asset_brief) -> a short human explanation for why an
 // explicit Refresh tap didn't actually trigger a new search+LLM pass.
-const REFRESH_DECLINED_MESSAGES: Record<string, string> = {
-  rate_limited: 'Just refreshed — try again shortly',
-  fresh: 'Already up to date',
-  search_unconfigured: "Search isn't configured",
-  no_ticker: 'No ticker to research',
-  refresh_failed: 'Refresh failed — try again',
+export function refreshNoticeText(reason: string, intl: ReturnType<typeof useAppIntl>): string {
+  switch (reason) {
+    case 'rate_limited': return intl.formatMessage({ id: 'intel.refresh.rateLimited', defaultMessage: 'Just refreshed — try again shortly' })
+    case 'fresh': return intl.formatMessage({ id: 'intel.refresh.fresh', defaultMessage: 'Already up to date' })
+    case 'search_unconfigured': return intl.formatMessage({ id: 'intel.refresh.searchUnconfigured', defaultMessage: "Search isn't configured" })
+    case 'no_ticker': return intl.formatMessage({ id: 'intel.refresh.noTicker', defaultMessage: 'No ticker to research' })
+    case 'refresh_failed': return intl.formatMessage({ id: 'intel.refresh.failed', defaultMessage: 'Refresh failed — try again' })
+    case '': return intl.formatMessage({ id: 'intel.refresh.unavailable', defaultMessage: 'Refresh unavailable' })
+    default: return reason
+  }
 }
 const REFRESH_NOTICE_MS = 4000
 
@@ -90,11 +95,12 @@ const REFRESH_NOTICE_MS = 4000
 const BACKGROUND_REFRESH_WATCH_MS = 8 * 60_000
 
 export function useAssetDetail(instrumentId: string): UseAssetDetailResult {
+  const intl = useAppIntl()
   const [data, setData] = useState<AssetDetail | null>(null)
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
   const [error, setError] = useState(false)
-  const [refreshNotice, setRefreshNotice] = useState<string | null>(null)
+  const [refreshReason, setRefreshNotice] = useState<string | null>(null)
   // Prevent double-refresh on concurrent effects
   const refreshingRef = useRef(false)
   // See BACKGROUND_REFRESH_WATCH_MS above — true only while this hook is WATCHING a
@@ -104,10 +110,10 @@ export function useAssetDetail(instrumentId: string): UseAssetDetailResult {
   const [watchEpoch, setWatchEpoch] = useState(0)
 
   useEffect(() => {
-    if (!refreshNotice) return
+    if (refreshReason === null) return
     const timer = setTimeout(() => setRefreshNotice(null), REFRESH_NOTICE_MS)
     return () => clearTimeout(timer)
-  }, [refreshNotice])
+  }, [refreshReason])
 
   // The asset this hook is CURRENTLY mounted for. A slow async op (a refresh's refetch, the 60s
   // poll, a late initial GET) captures the id it began with and commits to the live view ONLY if
@@ -169,7 +175,7 @@ export function useAssetDetail(instrumentId: string): UseAssetDetailResult {
           // rewritten — that is progress, not "try again shortly".
           if (body.refreshed === false && !body.take_refreshing) {
             setRefreshNotice(
-              (body.reason && REFRESH_DECLINED_MESSAGES[body.reason]) || 'Refresh unavailable',
+              typeof body.reason === 'string' ? body.reason : '',
             )
           }
         }
@@ -336,6 +342,6 @@ export function useAssetDetail(instrumentId: string): UseAssetDetailResult {
     error,
     refresh: manualRefresh,
     refetch,
-    refreshNotice,
+    refreshNotice: refreshReason === null ? null : refreshNoticeText(refreshReason, intl),
   }
 }

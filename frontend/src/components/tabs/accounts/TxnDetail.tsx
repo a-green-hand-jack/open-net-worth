@@ -1,11 +1,14 @@
+import { getNumberLocale } from '../../../utils/format'
 // TxnDetail.tsx — transaction detail drawer: View ⇄ Edit modes
 import * as Dialog from '@radix-ui/react-dialog'
 import { Fragment, useState, useEffect, useMemo, useCallback, useRef } from 'react'
+import { defineMessages } from 'react-intl'
+import { useAppIntl } from '../../../i18n/useAppIntl'
+import { useAuditLabel } from './useAuditLabel'
 import { StatementViewer } from './StatementsSection'
 import { ReceiptsSection } from './ReceiptsSection'
 import { CcyPicker } from './ds'
 import {
-  SOURCE_META,
   ACTION_VERB,
   catOptionsFor,
   normalizeTags,
@@ -68,17 +71,22 @@ interface ChangeCtx {
   acctMap: Record<string, Account>
   catMap: Record<string, Category>
   payeeMap: Record<string, string>
+  yes: string
+  no: string
+  uncategorized: string
+  kindLabels: Record<string, string>
 }
 function fmtChangeVal(field: string, v: unknown, ctx: ChangeCtx): string {
   if (v == null || v === '') return '—'
-  if (typeof v === 'boolean') return v ? 'Yes' : 'No'
+  if (typeof v === 'boolean') return v ? ctx.yes : ctx.no
   // Resolve ids to human labels; fall back to the raw id when unresolvable (e.g. deleted) —
   // EXCEPT category, whose id is an opaque `cat_xxx` that must never paint to the user.
   if (field.endsWith('account_id')) return ctx.acctMap[String(v)]?.name ?? String(v)
   if (field === 'payee_id') return ctx.payeeMap[String(v)] ?? String(v)
-  if (field === 'category') return ctx.catMap[String(v)]?.label ?? 'Uncategorized'
+  if (field === 'category') return ctx.catMap[String(v)]?.label ?? ctx.uncategorized
+  if (field === 'kind') return ctx.kindLabels[String(v)] ?? String(v)
   if (Array.isArray(v)) return v.length ? v.map((x) => fmtChangeItem(x, ctx)).join(', ') : '—'
-  if (typeof v === 'number') return v.toLocaleString(undefined, { maximumFractionDigits: 2 })
+  if (typeof v === 'number') return v.toLocaleString(getNumberLocale(), { maximumFractionDigits: 2 })
   if (typeof v === 'object') return JSON.stringify(v)
   return String(v)
 }
@@ -89,12 +97,12 @@ function fmtChangeItem(x: unknown, ctx: ChangeCtx): string {
   const o = x as { category?: unknown; amount?: unknown; memo?: unknown }
   if (!('category' in o) && !('amount' in o)) return JSON.stringify(x)
   const label = o.category
-    ? (ctx.catMap[String(o.category)]?.label ?? 'Uncategorized')
-    : 'Uncategorized'
+    ? (ctx.catMap[String(o.category)]?.label ?? ctx.uncategorized)
+    : ctx.uncategorized
   const amt =
     typeof o.amount === 'number'
       ? ' ' +
-        o.amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+        o.amount.toLocaleString(getNumberLocale(), { minimumFractionDigits: 2, maximumFractionDigits: 2 })
       : ''
   return `${label}${amt}${o.memo ? ` (${String(o.memo)})` : ''}`
 }
@@ -264,7 +272,17 @@ function ActorIcon({ type }: { type: string }) {
 }
 // The badge classifies a NAMED actor ("Transaction & Trade Logger" → Agent). When the name
 // already is the type ("Automation", "System"), it would only repeat itself — so it stays out.
+const actorBadgeMessages = defineMessages({
+  lucius: { id: 'accounts.actorBadge.lucius', defaultMessage: 'AI' },
+  automation: { id: 'accounts.actorBadge.automation', defaultMessage: 'Automation' },
+  agent: { id: 'accounts.actorBadge.agent', defaultMessage: 'Agent' },
+  bank: { id: 'accounts.actorBadge.bank', defaultMessage: 'Sync' },
+  import: { id: 'accounts.actorBadge.import', defaultMessage: 'Import' },
+  system: { id: 'accounts.actorBadge.system', defaultMessage: 'System' },
+  opening: { id: 'accounts.actorBadge.opening', defaultMessage: 'Starting balance' },
+})
 function ActorBadge({ type, name }: { type: string; name?: string }) {
+  const { formatMessage } = useAppIntl()
   const L: Record<string, string> = {
     lucius: 'AI',
     automation: 'Automation',
@@ -275,8 +293,10 @@ function ActorBadge({ type, name }: { type: string; name?: string }) {
     opening: 'Starting balance',
   }
   const label = L[type]
-  if (!label || (name && name.trim().toLowerCase() === label.toLowerCase())) return null
-  return <span className={`acct-detail-badge ${type}`}>{label}</span>
+  if (!label) return null
+  const localized = Object.hasOwn(actorBadgeMessages, type) ? formatMessage(actorBadgeMessages[type as keyof typeof actorBadgeMessages]) : label
+  if (name && [label, localized].some((value) => name.trim().toLowerCase() === value.toLowerCase())) return null
+  return <span className={`acct-detail-badge ${type}`}>{localized}</span>
 }
 function DRow({ label, children }: { label: string; children: React.ReactNode }) {
   return (
@@ -337,6 +357,7 @@ function EditBody({
   onCancel,
   actionError,
 }: EditBodyProps) {
+  const { formatMessage } = useAppIntl()
   const isInc0 = txn.kind === 'income'
   // The kind's own leg first, but whichever leg HAS the money if not: an income stored on the
   // from-leg (written before the ledger refused that shape) opened as amount 0 with no
@@ -522,7 +543,7 @@ function EditBody({
     // so a refused save read as a tap that did nothing.
     setSaveError(null)
     void Promise.resolve(onSave(txn.id, patch)).catch((error: unknown) =>
-      setSaveError(error instanceof Error ? error.message : 'Couldn’t save the transaction'),
+      setSaveError(error instanceof Error ? error.message : formatMessage({ id: 'accounts.editTxn.saveFailed', defaultMessage: "Couldn’t save the transaction" })),
     )
   }
 
@@ -548,18 +569,18 @@ function EditBody({
   const splitError = !splitMode
     ? ''
     : splits.some((l) => !l.category)
-      ? 'Each split line needs a category'
+      ? formatMessage({ id: 'accounts.editTxn.splitCategory', defaultMessage: "Each split line needs a category" })
       : splits.some((l) => (parseFloat(l.amount) || 0) <= 0)
-        ? 'Each split line needs an amount above 0'
+        ? formatMessage({ id: 'accounts.editTxn.splitAmount', defaultMessage: "Each split line needs an amount above 0" })
         : Math.abs(splitRemaining) > 0.01
-          ? `Lines must sum to ${fCur(splitTotal, ccy, { cents: true })}`
+          ? formatMessage({ id: 'accounts.editTxn.splitTotal', defaultMessage: 'Lines must sum to {amount}' }, { amount: fCur(splitTotal, ccy, { cents: true }) })
           : ''
   return (
     <>
       <div className="acct-edit-body">
         {isAdjustment ? (
           <div className="acct-edit-adjbadge">
-            Balance adjustment<span>corrects this account's balance</span>
+            {formatMessage({ id: 'accounts.editTxn.adjustment', defaultMessage: 'Balance adjustment' })}<span>{formatMessage({ id: 'accounts.editTxn.adjustmentHint', defaultMessage: "corrects this account's balance" })}</span>
           </div>
         ) : (
           <div className="acct-edit-seg">
@@ -569,19 +590,19 @@ function EditBody({
                 className={`acct-edit-seg-btn${f.kind === k ? ` on ${k}` : ''}`}
                 onClick={() => switchKind(k)}
               >
-                {k === 'investment' ? 'Invest' : k.charAt(0).toUpperCase() + k.slice(1)}
+                {k === 'investment' ? formatMessage({ id: 'accounts.editTxn.invest', defaultMessage: "Invest" }) : formatMessage(detailKindMessages[k])}
               </button>
             ))}
           </div>
         )}
-        <Field label="Amount">
+        <Field label={formatMessage({ id: 'accounts.editTxn.amount', defaultMessage: "Amount" })}>
           <div className="acct-edit-amt">
             {isAdjustment ? (
               <button
                 type="button"
                 className={`acct-edit-sign tog ${dir === 'increase' ? 'pos' : 'neg'}`}
                 onClick={() => setDir((d) => (d === 'increase' ? 'decrease' : 'increase'))}
-                title="Switch raise / lower"
+                title={formatMessage({ id: 'accounts.editTxn.switchAdjustment', defaultMessage: "Switch raise / lower" })}
               >
                 <SignGlyph positive={dir === 'increase'} />
               </button>
@@ -590,8 +611,8 @@ function EditBody({
                 type="button"
                 className={`acct-edit-sign tog ${investSell ? 'pos' : 'neg'}`}
                 onClick={() => setInvestSell((v) => !v)}
-                title={investSell ? 'Sell — switch to buy' : 'Buy — switch to sell'}
-                aria-label="Switch buy / sell"
+                title={investSell ? formatMessage({ id: 'accounts.editTxn.sellSwitch', defaultMessage: "Sell — switch to buy" }) : formatMessage({ id: 'accounts.editTxn.buySwitch', defaultMessage: "Buy — switch to sell" })}
+                aria-label={formatMessage({ id: 'accounts.editTxn.switchInvestment', defaultMessage: "Switch buy / sell" })}
               >
                 <SignGlyph positive={investSell} />
               </button>
@@ -613,8 +634,8 @@ function EditBody({
         </Field>
         {(ccy !== baseCurrency || (isTransfer && toCcy !== baseCurrency)) && !isAdjustment && (
           <Field
-            label={`Value in ${baseCurrency}`}
-            hint="The value you actually transacted at — locked, not auto-converted at today's rate"
+            label={formatMessage({ id: 'accounts.editTxn.valueIn', defaultMessage: 'Value in {currency}' }, { currency: baseCurrency })}
+            hint={formatMessage({ id: 'accounts.editTxn.baseHint', defaultMessage: "The value you actually transacted at — locked, not auto-converted at today's rate" })}
           >
             <div className="acct-edit-amt">
               <span className="acct-edit-ccy">{baseCurrency}</span>
@@ -630,7 +651,7 @@ function EditBody({
           </Field>
         )}
         {!isTransfer && !isAdjustment && (
-          <Field label="Original charge" hint="If you were billed in another currency">
+          <Field label={formatMessage({ id: 'accounts.editTxn.original', defaultMessage: "Original charge" })} hint={formatMessage({ id: 'accounts.editTxn.originalHint', defaultMessage: "If you were billed in another currency" })}>
             <div className="acct-edit-orig">
               <input
                 className="acct-edit-in"
@@ -646,8 +667,8 @@ function EditBody({
         )}
         {isTransfer && f.toAccount && toCcy !== ccy && (
           <Field
-            label={`Received (${toCcy})`}
-            hint="Amount that arrived, in the destination currency"
+            label={formatMessage({ id: 'accounts.editTxn.received', defaultMessage: 'Received ({currency})' }, { currency: toCcy })}
+            hint={formatMessage({ id: 'accounts.editTxn.receivedHint', defaultMessage: "Amount that arrived, in the destination currency" })}
           >
             <input
               className="acct-edit-in"
@@ -659,7 +680,7 @@ function EditBody({
             />
           </Field>
         )}
-        <Field label="Date">
+        <Field label={formatMessage({ id: 'accounts.editTxn.date', defaultMessage: "Date" })}>
           <AddDateField
             value={f.date}
             onChange={(v: string) => set('date', v)}
@@ -673,7 +694,7 @@ function EditBody({
                   resetting toAmount to mirror the current Amount keeps the (possibly
                   newly-revealed) Received field from silently carrying over a number from the
                   OLD currency pairing under a new currency label. */}
-              <Field label="From">
+              <Field label={formatMessage({ id: 'accounts.editTxn.from', defaultMessage: "From" })}>
                 <AddAccountSelect
                   accounts={accounts}
                   value={f.account}
@@ -681,7 +702,7 @@ function EditBody({
                   advance={() => {}}
                 />
               </Field>
-              <Field label="To">
+              <Field label={formatMessage({ id: 'accounts.editTxn.to', defaultMessage: "To" })}>
                 <AddAccountSelect
                   accounts={accounts}
                   value={f.toAccount}
@@ -693,8 +714,8 @@ function EditBody({
               </Field>
             </div>
             <Field
-              label="Category (optional)"
-              hint="Label — affects the budget only when one side is off-budget"
+              label={formatMessage({ id: 'accounts.editTxn.categoryOptional', defaultMessage: "Category (optional)" })}
+              hint={formatMessage({ id: 'accounts.editTxn.categoryHint', defaultMessage: "Label — affects the budget only when one side is off-budget" })}
             >
               <AddCategoryField
                 value={f.category}
@@ -707,7 +728,7 @@ function EditBody({
             </Field>
           </>
         ) : isAdjustment ? (
-          <Field label="Account">
+          <Field label={formatMessage({ id: 'accounts.editTxn.account', defaultMessage: "Account" })}>
             <AddAccountSelect
               accounts={accounts}
               value={f.account}
@@ -717,7 +738,7 @@ function EditBody({
           </Field>
         ) : splitMode ? (
           <>
-            <Field label="Account">
+            <Field label={formatMessage({ id: 'accounts.editTxn.account', defaultMessage: "Account" })}>
               <AddAccountSelect
                 accounts={accounts}
                 value={f.account}
@@ -737,7 +758,7 @@ function EditBody({
           </>
         ) : (
           <div className="acct-edit-grid2">
-            <Field label="Account">
+            <Field label={formatMessage({ id: 'accounts.editTxn.account', defaultMessage: "Account" })}>
               <AddAccountSelect
                 accounts={accounts}
                 value={f.account}
@@ -745,7 +766,7 @@ function EditBody({
                 advance={() => {}}
               />
             </Field>
-            <Field label="Category (optional)">
+            <Field label={formatMessage({ id: 'accounts.editTxn.categoryOptional', defaultMessage: "Category (optional)" })}>
               <AddCategoryField
                 value={f.category}
                 options={catOpts}
@@ -756,7 +777,7 @@ function EditBody({
               />
               {canSplit && (
                 <button type="button" className="acct-edit-splitlink" onClick={enterSplit}>
-                  Split into multiple categories
+                  {formatMessage({ id: 'accounts.editTxn.split', defaultMessage: "Split into multiple categories" })}
                 </button>
               )}
             </Field>
@@ -764,8 +785,8 @@ function EditBody({
         )}
         {!isTransfer && !isAdjustment && (
           <Field
-            label="Payee"
-            hint={isInvestment ? 'The broker or platform' : 'Who you paid / who paid you'}
+            label={formatMessage({ id: 'accounts.editTxn.payee', defaultMessage: "Payee" })}
+            hint={isInvestment ? formatMessage({ id: 'accounts.editTxn.brokerHint', defaultMessage: "The broker or platform" }) : formatMessage({ id: 'accounts.editTxn.payeeHint', defaultMessage: "Who you paid / who paid you" })}
           >
             <AddPayeeField
               value={f.payee}
@@ -789,42 +810,42 @@ function EditBody({
         )}
         <hr className="acct-edit-divider" />
         <Field
-          label="Description"
-          hint="The merchant / bank text. Used for matching, rules & payees — keep it the stable merchant name."
+          label={formatMessage({ id: 'accounts.editTxn.description', defaultMessage: "Description" })}
+          hint={formatMessage({ id: 'accounts.editTxn.descriptionHint', defaultMessage: "The merchant / bank text. Used for matching, rules & payees — keep it the stable merchant name." })}
         >
           <textarea
             className="acct-edit-in acct-note-area"
             value={f.description}
             onChange={(e) => set('description', e.target.value)}
-            placeholder="Merchant or bank description"
+            placeholder={formatMessage({ id: 'accounts.editTxn.descriptionPlaceholder', defaultMessage: "Merchant or bank description" })}
             rows={2}
           />
         </Field>
         <Field
-          label="Memo"
-          hint="A personal note for this transaction — what you ordered, who you were with. Never affects matching."
+          label={formatMessage({ id: 'accounts.editTxn.memo', defaultMessage: "Memo" })}
+          hint={formatMessage({ id: 'accounts.editTxn.memoHint', defaultMessage: "A personal note for this transaction — what you ordered, who you were with. Never affects matching." })}
         >
           <textarea
             className="acct-edit-in acct-note-area"
             value={f.memo}
             onChange={(e) => set('memo', e.target.value)}
-            placeholder="e.g. 2 lattes + croissant"
+            placeholder={formatMessage({ id: 'accounts.editTxn.memoPlaceholder', defaultMessage: "e.g. 2 lattes + croissant" })}
             rows={2}
           />
         </Field>
         <Field
-          label="Tags"
-          hint="lowercase-with-hyphens • comma-separated (japan-trip, reimbursable…)"
+          label={formatMessage({ id: 'accounts.editTxn.tags', defaultMessage: "Tags" })}
+          hint={formatMessage({ id: 'accounts.editTxn.tagsHint', defaultMessage: "lowercase-with-hyphens • comma-separated (japan-trip, reimbursable…)" })}
         >
           <input
             className="acct-edit-in"
             value={f.tags}
             onChange={(e) => set('tags', liveTagFormat(e.target.value))}
             onBlur={() => set('tags', normalizeTags(f.tags).join(', '))}
-            placeholder="japan-trip, reimbursable"
+            placeholder={formatMessage({ id: 'accounts.editTxn.tagsPlaceholder', defaultMessage: "japan-trip, reimbursable" })}
           />
         </Field>
-        <Field label="Cleared">
+        <Field label={formatMessage({ id: 'accounts.editTxn.cleared', defaultMessage: "Cleared" })}>
           <ClearedCheck cleared={cleared} locked={txn.source === 'opening'} onChange={setCleared} />
         </Field>
       </div>
@@ -836,10 +857,10 @@ function EditBody({
           </span>
         )}
         <button className="acct-detail-edit" onClick={save} disabled={!!splitError}>
-          Save changes
+          {formatMessage({ id: 'accounts.editTxn.save', defaultMessage: "Save changes" })}
         </button>
         <button className="acct-detail-del ghost" onClick={onCancel}>
-          Cancel
+          {formatMessage({ id: 'accounts.editTxn.cancel', defaultMessage: "Cancel" })}
         </button>
       </div>
     </>
@@ -850,11 +871,6 @@ function sourceEntryKey(entry: SourceEntry, index: number): string {
   return entry.kind === 'email'
     ? entry.messageId || String(index)
     : `${entry.provider}:${entry.unavailable ? index : entry.providerAccountId}`
-}
-
-function unlinkLabel(entry: SourceEntry, count: number): string {
-  if (count === 1) return 'Unlink source'
-  return entry.kind === 'email' ? 'Unlink email' : `Unlink ${entry.providerLabel}`
 }
 
 // ── View mode ─────────────────────────────────────────────────────────────────
@@ -887,6 +903,69 @@ interface ViewBodyProps {
   pending?: boolean
   actionError?: string | null
 }
+const detailActionMessages = defineMessages({
+  created: { id: 'accounts.detailAction.created', defaultMessage: 'Created' },
+  imported: { id: 'accounts.detailAction.imported', defaultMessage: 'Imported' },
+  reconciled: { id: 'accounts.detailAction.reconciled', defaultMessage: 'Reconciled' },
+  updated: { id: 'accounts.detailAction.updated', defaultMessage: 'Edited' },
+  recategorised: { id: 'accounts.detailAction.recategorised', defaultMessage: 'Recategorised' },
+  flagged: { id: 'accounts.detailAction.flagged', defaultMessage: 'Flagged for review' },
+  reviewed: { id: 'accounts.detailAction.reviewed', defaultMessage: 'Marked reviewed' },
+  approved: { id: 'accounts.detailAction.approved', defaultMessage: 'Approved' },
+  rejected: { id: 'accounts.detailAction.rejected', defaultMessage: 'Rejected' },
+  split: { id: 'accounts.detailAction.split', defaultMessage: 'Split' },
+  merged: { id: 'accounts.detailAction.merged', defaultMessage: 'Merged' },
+  reverted: { id: 'accounts.detailAction.reverted', defaultMessage: 'Reverted' },
+  deleted: { id: 'accounts.detailAction.deleted', defaultMessage: 'Deleted' },
+})
+const detailChangeMessages = defineMessages({
+  'Amount': { id: 'accounts.detailChange.amount', defaultMessage: 'Amount' },
+  'Base amount': { id: 'accounts.detailChange.baseAmount', defaultMessage: 'Base amount' },
+  'Category': { id: 'accounts.detailChange.category', defaultMessage: 'Category' },
+  'Payee': { id: 'accounts.detailChange.payee', defaultMessage: 'Payee' },
+  'Note': { id: 'accounts.detailChange.note', defaultMessage: 'Note' },
+  'Description': { id: 'accounts.detailChange.description', defaultMessage: 'Description' },
+  'Memo': { id: 'accounts.detailChange.memo', defaultMessage: 'Memo' },
+  'Date': { id: 'accounts.detailChange.date', defaultMessage: 'Date' },
+  'Cleared': { id: 'accounts.detailChange.cleared', defaultMessage: 'Cleared' },
+  'Hidden': { id: 'accounts.detailChange.hidden', defaultMessage: 'Hidden' },
+  'Type': { id: 'accounts.detailChange.type', defaultMessage: 'Type' },
+  'Tags': { id: 'accounts.detailChange.tags', defaultMessage: 'Tags' },
+  'From account': { id: 'accounts.detailChange.fromAccount', defaultMessage: 'From account' },
+  'To account': { id: 'accounts.detailChange.toAccount', defaultMessage: 'To account' },
+  'Currency': { id: 'accounts.detailChange.currency', defaultMessage: 'Currency' },
+  'Original amount': { id: 'accounts.detailChange.originalAmount', defaultMessage: 'Original amount' },
+  'Original currency': { id: 'accounts.detailChange.originalCurrency', defaultMessage: 'Original currency' },
+  'Split': { id: 'accounts.detailChange.split', defaultMessage: 'Split' },
+})
+
+const detailKindMessages = defineMessages({
+  expense: { id: 'accounts.reviewKind.expense', defaultMessage: 'Expense' },
+  income: { id: 'accounts.reviewKind.income', defaultMessage: 'Income' },
+  transfer: { id: 'accounts.reviewKind.transfer', defaultMessage: 'Transfer' },
+  investment: { id: 'accounts.reviewKind.investment', defaultMessage: 'Investment' },
+  adjustment: { id: 'accounts.reviewKind.adjustment', defaultMessage: 'Balance adjustment' },
+})
+
+const detailSourceMessages = defineMessages({
+  manual: { id: 'accounts.detailSource.manual', defaultMessage: 'Manual entry' },
+  bank: { id: 'accounts.detailSource.bank', defaultMessage: 'Bank sync' },
+  import: { id: 'accounts.detailSource.import', defaultMessage: 'Imported (file)' },
+  reconcile: { id: 'accounts.detailSource.reconcile', defaultMessage: 'Reconcile' },
+  ai: { id: 'accounts.detailSource.ai', defaultMessage: 'Lucius (AI)' },
+  automation: { id: 'accounts.detailSource.automation', defaultMessage: 'Automation' },
+  agent: { id: 'accounts.detailSource.agent', defaultMessage: 'Agent' },
+})
+const detailActorMessages = defineMessages({
+  manual: { id: 'accounts.detailActor.manual', defaultMessage: 'You' },
+  bank: { id: 'accounts.detailActor.bank', defaultMessage: 'Bank feed' },
+  import: { id: 'accounts.detailActor.import', defaultMessage: 'File import' },
+  reconcile: { id: 'accounts.detailActor.reconcile', defaultMessage: 'System' },
+  ai: { id: 'accounts.detailActor.ai', defaultMessage: 'Lucius' },
+  automation: { id: 'accounts.detailActor.automation', defaultMessage: 'Automation' },
+  agent: { id: 'accounts.detailActor.agent', defaultMessage: 'Agent' },
+})
+
 function ViewBody({
   txn,
   acctMap,
@@ -911,13 +990,16 @@ function ViewBody({
   pending = false,
   actionError,
 }: ViewBodyProps) {
-  const changeCtx: ChangeCtx = { acctMap, catMap, payeeMap }
+  const { formatMessage } = useAppIntl()
+  const auditLabel = useAuditLabel()
+  const unlinkLabel = (entry: SourceEntry, count: number) => count === 1 ? formatMessage({ id: 'accounts.detail.unlink', defaultMessage: 'Unlink source' }) : entry.kind === 'email' ? formatMessage({ id: 'accounts.detail.unlinkEmail', defaultMessage: 'Unlink email' }) : formatMessage({ id: 'accounts.detail.unlinkNamed', defaultMessage: 'Unlink {provider}' }, { provider: entry.providerLabel })
+  const changeCtx: ChangeCtx = { acctMap, catMap, payeeMap, yes: formatMessage({ id: 'accounts.detail.yes', defaultMessage: 'Yes' }), no: formatMessage({ id: 'accounts.detail.no', defaultMessage: 'No' }), uncategorized: formatMessage({ id: 'accounts.detail.uncategorized', defaultMessage: 'Uncategorized' }), kindLabels: Object.fromEntries(Object.entries(detailKindMessages).map(([key, descriptor]) => [key, formatMessage(descriptor)])) }
   // Bound once: noUncheckedIndexedAccess makes [0] possibly-undefined, and the resolver
   // already sorts the covering statement first (the cycle this row genuinely belongs to).
   const primaryStatement = statementLinks[0]
-  const meta = SOURCE_META[txn.source] ?? SOURCE_META.manual!
   const creatorType = SRC_TO_TYPE[txn.source] ?? 'you'
-  const creator = { name: activity?.addedBy ?? meta.addedBy, type: creatorType }
+  const sourceKey = Object.hasOwn(detailSourceMessages, txn.source) ? txn.source as keyof typeof detailSourceMessages : 'manual'
+  const creator = { name: activity ? auditLabel(activity.addedByMessage, activity.addedBy) : formatMessage(detailActorMessages[sourceKey]), type: creatorType }
   const [viewStatementId, setViewStatementId] = useState<string | null>(null)
   const [idCopied, setIdCopied] = useState(false)
   // Per-email full-body toggles, keyed by message id — each email expands independently.
@@ -954,13 +1036,13 @@ function ViewBody({
   const flagEvent = [...events].reverse().find((e) => e.action === 'flagged')
   let reviewReason: string
   if (flagEvent) {
-    const faName = flagEvent.actorName || (actors ?? {})[flagEvent.actor]?.name || flagEvent.actor
-    reviewReason = faName + ' flagged this' + (flagEvent.note ? ' — ' + flagEvent.note : '')
-  } else if (creatorType === 'lucius') reviewReason = "Lucius suggested this — confirm it's right."
+    const faName = auditLabel(flagEvent.actorNameMessage, flagEvent.actorName || (actors ?? {})[flagEvent.actor]?.name || flagEvent.actor)
+    reviewReason = formatMessage({ id: 'accounts.detail.flagged', defaultMessage: '{name} flagged this{note}' }, { name: faName, note: flagEvent.note ? ' — ' + flagEvent.note : '' })
+  } else if (creatorType === 'lucius') reviewReason = formatMessage({ id: 'accounts.detail.luciusReason', defaultMessage: "Lucius suggested this — confirm it's right." })
   else if (creatorType === 'agent')
-    reviewReason = creator.name + " added this automatically — confirm it's right."
-  else if (creatorType === 'import') reviewReason = "Imported automatically — confirm it's right."
-  else reviewReason = 'Confirm the details are right.'
+    reviewReason = formatMessage({ id: 'accounts.detail.agentReason', defaultMessage: "{name} added this automatically — confirm it's right." }, { name: creator.name })
+  else if (creatorType === 'import') reviewReason = formatMessage({ id: 'accounts.detail.importReason', defaultMessage: "Imported automatically — confirm it's right." })
+  else reviewReason = formatMessage({ id: 'accounts.detail.confirmReason', defaultMessage: 'Confirm the details are right.' })
 
   const isIncome = txn.kind === 'income',
     isTransfer = txn.kind === 'transfer' || txn.kind === 'adjustment'
@@ -1073,10 +1155,10 @@ function ViewBody({
         </div>
         <div className="acct-detail-foot">
           <button className="acct-detail-edit" disabled>
-            Edit transaction
+            {formatMessage({ id: 'accounts.detail.edit', defaultMessage: "Edit transaction" })}
           </button>
           <button className="acct-detail-del" disabled>
-            Delete
+            {formatMessage({ id: 'accounts.detail.delete', defaultMessage: "Delete" })}
           </button>
         </div>
       </>
@@ -1091,13 +1173,13 @@ function ViewBody({
           <span className="acct-detail-skel acct-detail-skel--date" />
         </div>
         <div className="acct-detail-rows">
-          {['Type', 'Account', 'Category', 'Source'].map((label) => (
+          {[formatMessage({ id: 'accounts.detail.type', defaultMessage: 'Type' }), formatMessage({ id: 'accounts.detail.account', defaultMessage: 'Account' }), formatMessage({ id: 'accounts.detail.category', defaultMessage: 'Category' }), formatMessage({ id: 'accounts.detail.source', defaultMessage: 'Source' })].map((label) => (
             <DRow key={label} label={label}>
               <span className="acct-detail-skel" />
             </DRow>
           ))}
         </div>
-        <div className="acct-detail-sec">Activity</div>
+        <div className="acct-detail-sec">{formatMessage({ id: 'accounts.detail.activity', defaultMessage: "Activity" })}</div>
         <div className="acct-detail-timeline-skel">
           {[0, 1].map((i) => (
             <div key={i} className="acct-detail-skel-row">
@@ -1108,10 +1190,10 @@ function ViewBody({
         </div>
         <div className="acct-detail-foot">
           <button className="acct-detail-edit" disabled>
-            Edit transaction
+            {formatMessage({ id: 'accounts.detail.edit', defaultMessage: "Edit transaction" })}
           </button>
           <button className="acct-detail-del" disabled>
-            Delete
+            {formatMessage({ id: 'accounts.detail.delete', defaultMessage: "Delete" })}
           </button>
         </div>
       </>
@@ -1144,15 +1226,14 @@ function ViewBody({
                 className="acct-detail-base"
                 title={
                   locked
-                    ? `Locked at the transaction-date rate • ${todayStr} at today's rate`
+                    ? formatMessage({ id: 'accounts.visible.lockedFx', defaultMessage: 'Locked at the transaction-date rate • {amount} at today’s rate' }, { amount: todayStr })
                     : (fx.est ?? '') + ' • reporting rate, ≈ today'
                 }
               >
                 ≈ {fCur(shown, baseCurrency, { cents: true })}
                 <span className="acct-detail-base-sub">
                   {' '}
-                  in {baseCurrency}
-                  {locked ? '' : ' • today'}
+                  {formatMessage({ id: 'accounts.visible.inCurrency', defaultMessage: 'in {currency}{today, select, yes { • today} other {}}' }, { currency: baseCurrency, today: locked ? 'no' : 'yes' })}
                 </span>
               </div>
             )
@@ -1163,16 +1244,16 @@ function ViewBody({
           txn.toAmount != null && (
             <div
               className="acct-detail-base"
-              title="Amount that arrived, in the destination currency"
+              title={formatMessage({ id: 'accounts.editTxn.receivedHint', defaultMessage: 'Amount that arrived, in the destination currency' })}
             >
               → {fCur(txn.toAmount, txn.toCurrency, { cents: true })}
-              <span className="acct-detail-base-sub"> received in {txn.toCurrency}</span>
+              <span className="acct-detail-base-sub"> {formatMessage({ id: 'accounts.visible.receivedIn', defaultMessage: 'received in {currency}' }, { currency: txn.toCurrency })}</span>
             </div>
           )}
         <div className="acct-detail-payee">
           {isTransfer ? (
             txn.kind === 'adjustment' ? (
-              'Balance adjustment'
+              formatMessage({ id: 'accounts.reviewKind.adjustment', defaultMessage: 'Balance adjustment' })
             ) : (
               <span>
                 {from ? from.name : '—'}
@@ -1189,25 +1270,25 @@ function ViewBody({
       {txn.needsReview && (
         <div className="acct-detail-review">
           <div className="acct-detail-review-t">
-            <b>Needs your review</b>
+            <b>{formatMessage({ id: 'accounts.detail.review', defaultMessage: "Needs your review" })}</b>
             <span>{reviewReason}</span>
           </div>
           <div className="acct-detail-review-actions">
             <button className="acct-detail-review-btn reject" onClick={() => onDelete(txn)}>
-              Reject
+              {formatMessage({ id: 'accounts.detail.reject', defaultMessage: "Reject" })}
             </button>
             <button className="acct-detail-review-btn approve" onClick={() => onMarkReviewed(txn)}>
-              Approve
+              {formatMessage({ id: 'accounts.detail.approve', defaultMessage: "Approve" })}
             </button>
           </div>
         </div>
       )}
       <div className="acct-detail-rows">
-        <DRow label="Type">
-          <span className={`acct-detail-kind ${txn.kind}`}>{KIND_LABEL[txn.kind] ?? txn.kind}</span>
+        <DRow label={formatMessage({ id: 'accounts.detail.type', defaultMessage: "Type" })}>
+          <span className={`acct-detail-kind ${txn.kind}`}>{Object.hasOwn(detailKindMessages, txn.kind) ? formatMessage(detailKindMessages[txn.kind as keyof typeof detailKindMessages]) : (KIND_LABEL[txn.kind] ?? txn.kind)}</span>
         </DRow>
-        <DRow label="Account">{chip(acct)}</DRow>
-        <DRow label="Cleared">
+        <DRow label={formatMessage({ id: 'accounts.detail.account', defaultMessage: "Account" })}>{chip(acct)}</DRow>
+        <DRow label={formatMessage({ id: 'accounts.detail.cleared', defaultMessage: "Cleared" })}>
           <ClearedCheck
             cleared={txn.cleared}
             locked={isStartingBalance || !onToggleCleared || pending}
@@ -1215,11 +1296,11 @@ function ViewBody({
           />
         </DRow>
         {txn.kind !== 'adjustment' && (
-          <DRow label="Category">
+          <DRow label={formatMessage({ id: 'accounts.detail.category', defaultMessage: "Category" })}>
             {isSplit ? (
               <span className="acct-detail-splitcat">
                 <span className="acct-detail-splithead">
-                  {splitGlyph}Split across {txn.splits.length} categories
+                  {splitGlyph}{formatMessage({ id: 'accounts.detail.splitCount', defaultMessage: 'Split across {count} categories' }, { count: txn.splits.length })}
                 </span>
                 <SplitLines
                   splits={txn.splits}
@@ -1235,25 +1316,25 @@ function ViewBody({
                 {cat.label ?? txn.category}
               </span>
             ) : txn.kind === 'investment' || txn.kind === 'transfer' ? (
-              <span className="acct-payee-sub">None</span>
+              <span className="acct-payee-sub">{formatMessage({ id: 'accounts.detail.none', defaultMessage: "None" })}</span>
             ) : (
               <span
                 className="acct-unsorted"
-                title="No category — this won't count toward any budget envelope"
+                title={formatMessage({ id: 'accounts.detail.noCategoryHint', defaultMessage: "No category — this won't count toward any budget envelope" })}
               >
-                Uncategorized
+                {formatMessage({ id: 'accounts.detail.uncategorized', defaultMessage: "Uncategorized" })}
               </span>
             )}
           </DRow>
         )}
-        <DRow label="Description">
+        <DRow label={formatMessage({ id: 'accounts.detail.description', defaultMessage: "Description" })}>
           {description ? (
             <span style={{ whiteSpace: 'pre-wrap' }}>{description}</span>
           ) : (
             <span className="acct-payee-sub">—</span>
           )}
         </DRow>
-        <DRow label="Memo">
+        <DRow label={formatMessage({ id: 'accounts.detail.memo', defaultMessage: "Memo" })}>
           {memo ? (
             <span style={{ whiteSpace: 'pre-wrap' }}>{memo}</span>
           ) : (
@@ -1261,7 +1342,7 @@ function ViewBody({
           )}
         </DRow>
         {/* Always shown, like Memo — an empty row is how people learn tags exist. */}
-        <DRow label="Tags">
+        <DRow label={formatMessage({ id: 'accounts.detail.tags', defaultMessage: "Tags" })}>
           {txn.tags.length > 0 ? (
             <span className="acct-detail-tags">
               {txn.tags.map((tg) => (
@@ -1275,10 +1356,10 @@ function ViewBody({
           )}
         </DRow>
         {txn.origCurrency && txn.origCurrency !== currency && (
-          <DRow label="Original charge">
+          <DRow label={formatMessage({ id: 'accounts.detail.original', defaultMessage: "Original charge" })}>
             {fCur(txn.origAmount ?? 0, txn.origCurrency)}
             {fx.fact && (
-              <span className="acct-detail-fxfact" title="Your card's actual settled rate">
+              <span className="acct-detail-fxfact" title={formatMessage({ id: 'accounts.detail.settledRate', defaultMessage: "Your card's actual settled rate" })}>
                 {' '}
                 • {fx.fact}
               </span>
@@ -1286,7 +1367,7 @@ function ViewBody({
           </DRow>
         )}
         {txn.kind === 'income' && isRefundTxn(txn.kind, txn.category, catMap) && (
-          <DRow label="Refund">Returned to {cat?.label ?? 'budget'} envelope</DRow>
+          <DRow label={formatMessage({ id: 'accounts.detail.refund', defaultMessage: "Refund" })}>{formatMessage({ id: 'accounts.detail.returned', defaultMessage: 'Returned to {category} envelope' }, { category: cat?.label ?? formatMessage({ id: 'accounts.detail.budget', defaultMessage: 'budget' }) })}</DRow>
         )}
       </div>
       {/* key={txn.id}: the drawer never unmounts on a row switch (this component's own
@@ -1295,52 +1376,52 @@ function ViewBody({
           next one instead of resetting. The hook's own list re-fetches on txnId regardless;
           keying just makes the WHOLE section (local state included) start fresh per row. */}
       <ReceiptsSection key={txn.id} txnId={txn.id} />
-      <div className="acct-detail-sec">Provenance</div>
+      <div className="acct-detail-sec">{formatMessage({ id: 'accounts.detail.provenance', defaultMessage: "Provenance" })}</div>
       <div className="acct-detail-rows">
-        <DRow label="ID">
+        <DRow label={formatMessage({ id: 'accounts.detail.id', defaultMessage: "ID" })}>
           <button
             type="button"
             className={`acct-detail-id${idCopied ? ' copied' : ''}`}
-            aria-label={`Copy transaction ID ${txn.id}`}
-            title="Copy transaction ID"
+            aria-label={formatMessage({ id: 'accounts.detail.copyNamedId', defaultMessage: 'Copy transaction ID {id}' }, { id: txn.id })}
+            title={formatMessage({ id: 'accounts.detail.copyId', defaultMessage: "Copy transaction ID" })}
             onClick={copyTransactionId}
           >
-            {idCopied ? 'Copied' : txn.id}
+            {idCopied ? formatMessage({ id: 'accounts.detail.copied', defaultMessage: 'Copied' }) : txn.id}
           </button>
         </DRow>
-        <DRow label="Source">
+        <DRow label={formatMessage({ id: 'accounts.detail.source', defaultMessage: "Source" })}>
           <span className="acct-detail-src">
             <DSourceIcon source={txn.source} />
-            {meta.label}
+            {formatMessage(detailSourceMessages[sourceKey])}
           </span>
         </DRow>
-        <DRow label="Added by">
+        <DRow label={formatMessage({ id: 'accounts.detail.addedBy', defaultMessage: "Added by" })}>
           {loading ? (
             <span className="acct-detail-skel" />
           ) : (
             <span className="acct-detail-src">
               <span>
                 {creator.name}
-                {activity?.via && <span className="acct-detail-via"> • via {activity.via}</span>}
+                {activity?.via && <span className="acct-detail-via">{formatMessage({ id: 'accounts.detail.via', defaultMessage: ' • via {channel}' }, { channel: auditLabel(activity.viaMessage, activity.via) })}</span>}
               </span>
               <ActorBadge type={creator.type} name={creator.name} />
             </span>
           )}
         </DRow>
         {activity?.import?.filename && (
-          <DRow label="From">
+          <DRow label={formatMessage({ id: 'accounts.detail.from', defaultMessage: "From" })}>
             <span className="acct-detail-src">
               <button
                 type="button"
                 className="acct-detail-stmt"
-                title="View the statement"
+                title={formatMessage({ id: 'accounts.detail.viewStatement', defaultMessage: "View the statement" })}
                 onClick={() => setViewStatementId(activity.import!.statementId!)}
               >
                 {activity.import.filename}
               </button>
               <span className="acct-payee-sub">
                 {' '}
-                • batch {activity.import.batchId.slice(0, 12)}…
+                {formatMessage({ id: 'accounts.visible.batch', defaultMessage: '• batch {id}…' }, { id: activity.import.batchId.slice(0, 12) })}
               </span>
             </span>
           </DRow>
@@ -1349,33 +1430,33 @@ function ViewBody({
           <DRow
             label={
               statementLinks.length > 1
-                ? `On statements (${statementLinks.length})`
-                : 'On statement'
+                ? formatMessage({ id: 'accounts.detail.onStatements', defaultMessage: 'On statements ({count})' }, { count: statementLinks.length })
+                : formatMessage({ id: 'accounts.detail.onStatement', defaultMessage: 'On statement' })
             }
           >
             <span className="acct-detail-src">
               <button
                 type="button"
                 className="acct-detail-stmt"
-                title="View the statement"
+                title={formatMessage({ id: 'accounts.detail.viewStatement', defaultMessage: "View the statement" })}
                 onClick={() => setViewStatementId(primaryStatement.statementId)}
               >
                 {primaryStatement.label}
               </button>
               {primaryStatement.reference && (
-                <span className="acct-payee-sub"> • ref {primaryStatement.reference}</span>
+                <span className="acct-payee-sub"> {formatMessage({ id: 'accounts.visible.reference', defaultMessage: '• ref {reference}' }, { reference: primaryStatement.reference })}</span>
               )}
             </span>
           </DRow>
         )}
-        <DRow label="Created">{fmtDateTime(txn.createdAt)}</DRow>
-        <DRow label="Last edited">
+        <DRow label={formatMessage({ id: 'accounts.detail.created', defaultMessage: "Created" })}>{fmtDateTime(txn.createdAt)}</DRow>
+        <DRow label={formatMessage({ id: 'accounts.detail.edited', defaultMessage: "Last edited" })}>
           {loading ? (
             <span className="acct-detail-skel" />
           ) : edited ? (
             fmtDateTime(activity?.updatedAt)
           ) : (
-            <span className="acct-payee-sub">Never edited</span>
+            <span className="acct-payee-sub">{formatMessage({ id: 'accounts.detail.neverEdited', defaultMessage: "Never edited" })}</span>
           )}
         </DRow>
       </div>
@@ -1383,15 +1464,15 @@ function ViewBody({
         <>
           <div className="acct-detail-sec">
             {source.status === 'ok' && source.data.length > 1
-              ? `Source (${source.data.length})`
-              : 'Source'}
+              ? formatMessage({ id: 'accounts.detail.sourceCount', defaultMessage: 'Source ({count})' }, { count: source.data.length })
+              : formatMessage({ id: 'accounts.detail.source', defaultMessage: 'Source' })}
           </div>
           {source.status === 'loading' && (
             <div className="acct-detail-rows">
-              <DRow label="Provider">
+              <DRow label={formatMessage({ id: 'accounts.detail.provider', defaultMessage: "Provider" })}>
                 <span className="acct-detail-skel" />
               </DRow>
-              <DRow label="Fetched">
+              <DRow label={formatMessage({ id: 'accounts.detail.fetched', defaultMessage: "Fetched" })}>
                 <span className="acct-detail-skel" />
               </DRow>
             </div>
@@ -1416,19 +1497,18 @@ function ViewBody({
                     <div className="acct-detail-source-block">
                       {entry.unavailable ? (
                         <div className="acct-detail-email-empty">
-                          Snapshot unavailable — this transaction was booked from email before
-                          snapshots were kept (or the original message is no longer stored).
+                          {formatMessage({ id: 'accounts.detail.emailUnavailable', defaultMessage: 'Snapshot unavailable — this transaction was booked from email before snapshots were kept (or the original message is no longer stored).' })}
                         </div>
                       ) : (
                         <>
                           <div className="acct-detail-rows">
-                            <DRow label="Subject">
+                            <DRow label={formatMessage({ id: 'accounts.detail.subject', defaultMessage: "Subject" })}>
                               {entry.subject || (
-                                <span className="acct-payee-sub">(no subject)</span>
+                                <span className="acct-payee-sub">{formatMessage({ id: 'accounts.detail.noSubject', defaultMessage: '(no subject)' })}</span>
                               )}
                             </DRow>
-                            <DRow label="From">{entry.from}</DRow>
-                            <DRow label="Received">{fmtDateTime(entry.receivedAt)}</DRow>
+                            <DRow label={formatMessage({ id: 'accounts.detail.from', defaultMessage: "From" })}>{entry.from}</DRow>
+                            <DRow label={formatMessage({ id: 'accounts.detail.received', defaultMessage: "Received" })}>{fmtDateTime(entry.receivedAt)}</DRow>
                           </div>
                           <button
                             type="button"
@@ -1437,7 +1517,7 @@ function ViewBody({
                             aria-controls={`src-email-body-${key}`}
                             onClick={toggle}
                           >
-                            {open ? 'Hide full email' : 'Show full email'}{' '}
+                            {open ? formatMessage({ id: 'accounts.detail.hideEmail', defaultMessage: "Hide full email" }) : formatMessage({ id: 'accounts.detail.showEmail', defaultMessage: "Show full email" })}{' '}
                             {open ? (
                               <ChevronUp size={12} aria-hidden="true" />
                             ) : (
@@ -1456,12 +1536,12 @@ function ViewBody({
                               onClick={() => setPendingUnlink({ entry, key })}
                             >
                               {unlinkingKey === key
-                                ? 'Unlinking…'
+                                ? formatMessage({ id: 'accounts.detail.unlinking', defaultMessage: 'Unlinking…' })
                                 : unlinkLabel(entry, unlinkableSources.length)}
                             </button>
                             {unlinkErrorKey === key && (
                               <span className="acct-detail-unlink-error">
-                                Couldn't unlink this source.
+                                {formatMessage({ id: 'accounts.detail.unlinkFailed', defaultMessage: "Couldn't unlink this source." })}
                               </span>
                             )}
                           </div>
@@ -1483,15 +1563,14 @@ function ViewBody({
                   <div className="acct-detail-source-block">
                     {entry.unavailable ? (
                       <div className="acct-detail-email-empty">
-                        Snapshot unavailable — this transaction was booked before evidence was kept
-                        (or the original record is no longer stored).
+                        {formatMessage({ id: 'accounts.visible.snapshotUnavailable', defaultMessage: 'Snapshot unavailable — this transaction was booked before evidence was kept (or the original record is no longer stored).' })}
                       </div>
                     ) : (
                       <>
                         <div className="acct-detail-rows">
-                          <DRow label="Provider">{entry.providerLabel}</DRow>
-                          <DRow label="Provider account">{acctName}</DRow>
-                          <DRow label="Fetched">{fmtDateTime(entry.fetchedAt)}</DRow>
+                          <DRow label={formatMessage({ id: 'accounts.detail.provider', defaultMessage: "Provider" })}>{entry.providerLabel}</DRow>
+                          <DRow label={formatMessage({ id: 'accounts.detail.providerAccount', defaultMessage: "Provider account" })}>{acctName}</DRow>
+                          <DRow label={formatMessage({ id: 'accounts.detail.fetched', defaultMessage: "Fetched" })}>{fmtDateTime(entry.fetchedAt)}</DRow>
                         </div>
                         <button
                           type="button"
@@ -1500,7 +1579,7 @@ function ViewBody({
                           aria-controls={`src-raw-${key}`}
                           onClick={toggle}
                         >
-                          {open ? 'Hide raw fields' : 'Show raw fields'}{' '}
+                          {open ? formatMessage({ id: 'accounts.detail.hideFields', defaultMessage: "Hide raw fields" }) : formatMessage({ id: 'accounts.detail.showFields', defaultMessage: "Show raw fields" })}{' '}
                           {open ? (
                             <ChevronUp size={12} aria-hidden="true" />
                           ) : (
@@ -1525,12 +1604,12 @@ function ViewBody({
                             onClick={() => setPendingUnlink({ entry, key })}
                           >
                             {unlinkingKey === key
-                              ? 'Unlinking…'
+                              ? formatMessage({ id: 'accounts.detail.unlinking', defaultMessage: 'Unlinking…' })
                               : unlinkLabel(entry, unlinkableSources.length)}
                           </button>
                           {unlinkErrorKey === key && (
                             <span className="acct-detail-unlink-error">
-                              Couldn't unlink this source.
+                              {formatMessage({ id: 'accounts.detail.unlinkFailed', defaultMessage: "Couldn't unlink this source." })}
                             </span>
                           )}
                         </div>
@@ -1542,9 +1621,9 @@ function ViewBody({
             })}
           {source.status === 'error' && (
             <div className="acct-detail-email-empty">
-              Couldn't load the source details.{' '}
+              {formatMessage({ id: 'accounts.detail.sourceFailed', defaultMessage: "Couldn't load the source details." })}{' '}
               <button type="button" className="acct-detail-stmt" onClick={onRetrySource}>
-                Retry
+                {formatMessage({ id: 'accounts.detail.retry', defaultMessage: 'Retry' })}
               </button>
             </div>
           )}
@@ -1552,7 +1631,7 @@ function ViewBody({
       )}
       {loading && (
         <>
-          <div className="acct-detail-sec">Activity</div>
+          <div className="acct-detail-sec">{formatMessage({ id: 'accounts.detail.activity', defaultMessage: "Activity" })}</div>
           <div className="acct-detail-timeline-skel">
             {[0, 1].map((i) => (
               <div key={i} className="acct-detail-skel-row">
@@ -1565,12 +1644,12 @@ function ViewBody({
       )}
       {!loading && events.length > 0 && (
         <>
-          <div className="acct-detail-sec">Activity</div>
+          <div className="acct-detail-sec">{formatMessage({ id: 'accounts.detail.activity', defaultMessage: "Activity" })}</div>
           <ol className="acct-detail-timeline">
             {events.map((e, i) => {
               // Server resolves actor TYPE (icon/badge) + display name; `actors` is a legacy fallback.
               const actorType = e.actor || (actors ?? {})[e.actor]?.type || 'you'
-              const actorName = e.actorName || (actors ?? {})[e.actor]?.name || e.actor
+              const actorName = auditLabel(e.actorNameMessage, e.actorName || (actors ?? {})[e.actor]?.name || e.actor)
               return (
                 <li className="acct-detail-tl" key={i}>
                   <span className={`acct-detail-tl-ic ${actorType}`}>
@@ -1579,25 +1658,17 @@ function ViewBody({
                   <div className="acct-detail-tl-body">
                     <div className="acct-detail-tl-head">
                       <span className="acct-detail-tl-verb">
-                        {ACTION_VERB[e.action] ?? e.action}
+                        {Object.hasOwn(detailActionMessages, e.action) ? formatMessage(detailActionMessages[e.action as keyof typeof detailActionMessages]) : (ACTION_VERB[e.action] ?? e.action)}
                       </span>
                       <span className="acct-detail-tl-actor">
                         {actorName}
-                        {e.via ? ' • via ' + e.via : ''}
+                        {e.via ? formatMessage({ id: 'accounts.detail.via', defaultMessage: ' • via {channel}' }, { channel: auditLabel(e.viaMessage, e.via) }) : ''}
                       </span>
                       <ActorBadge type={actorType} name={actorName} />
                     </div>
                     {e.import?.filename ? (
                       <div className="acct-detail-tl-note">
-                        from{' '}
-                        <button
-                          type="button"
-                          className="acct-detail-stmt"
-                          title="View the statement"
-                          onClick={() => setViewStatementId(e.import!.statementId!)}
-                        >
-                          {e.import.filename}
-                        </button>
+                        {formatMessage({ id: 'accounts.visible.fromFile', defaultMessage: 'from <file>{name}</file>' }, { name: e.import.filename, file: (chunks) => <button type="button" className="acct-detail-stmt" title={formatMessage({ id: 'accounts.detail.viewStatement', defaultMessage: 'View the statement' })} onClick={() => setViewStatementId(e.import!.statementId!)}>{chunks}</button> })}
                       </div>
                     ) : e.import?.description ? (
                       <div className="acct-detail-tl-note">{e.import.description}</div>
@@ -1611,7 +1682,7 @@ function ViewBody({
                           <ul className="acct-detail-tl-changes">
                             {chs.map((c, j) => (
                               <li key={j}>
-                                <span className="f">{CHANGE_FIELD_LABEL[c.field] ?? c.field}</span>{' '}
+                                <span className="f">{CHANGE_FIELD_LABEL[c.field] && Object.hasOwn(detailChangeMessages, CHANGE_FIELD_LABEL[c.field] ?? '') ? formatMessage(detailChangeMessages[CHANGE_FIELD_LABEL[c.field] as keyof typeof detailChangeMessages]) : (CHANGE_FIELD_LABEL[c.field] ?? c.field)}</span>{' '}
                                 <span className="from">
                                   {fmtChangeVal(c.field, c.from, changeCtx)}
                                 </span>
@@ -1638,7 +1709,7 @@ function ViewBody({
           </span>
         )}
         <button className="acct-detail-edit" onClick={onEdit}>
-          Edit transaction
+          {formatMessage({ id: 'accounts.detail.edit', defaultMessage: "Edit transaction" })}
         </button>
         {onToggleHidden && (
           <button
@@ -1647,8 +1718,8 @@ function ViewBody({
             onClick={() => onToggleHidden(txn, !txn.hidden)}
             title={
               txn.hidden
-                ? 'Show this transaction in the register again'
-                : 'Hide from the register. It still counts in every balance, budget and report.'
+                ? formatMessage({ id: 'accounts.detail.showAgain', defaultMessage: "Show this transaction in the register again" })
+                : formatMessage({ id: 'accounts.detail.hideHint', defaultMessage: "Hide from the register. It still counts in every balance, budget and report." })
             }
           >
             {txn.hidden ? (
@@ -1656,7 +1727,7 @@ function ViewBody({
             ) : (
               <EyeOff size={14} aria-hidden="true" />
             )}
-            {txn.hidden ? 'Unhide' : 'Hide'}
+            {txn.hidden ? formatMessage({ id: 'accounts.detail.unhide', defaultMessage: "Unhide" }) : formatMessage({ id: 'accounts.detail.hide', defaultMessage: "Hide" })}
           </button>
         )}
         <button
@@ -1664,7 +1735,7 @@ function ViewBody({
           disabled={isStartingBalance}
           onClick={() => onDelete(txn)}
         >
-          Delete
+          {formatMessage({ id: 'accounts.detail.delete', defaultMessage: "Delete" })}
         </button>
       </div>
       {viewStatementId && (
@@ -1672,9 +1743,9 @@ function ViewBody({
       )}
       <ConfirmModal
         open={!!pendingUnlink}
-        title="Unlink source?"
-        body="This removes the source link from this transaction. The transaction itself will not be deleted."
-        confirmLabel="Unlink source"
+        title={formatMessage({ id: 'accounts.detail.unlinkTitle', defaultMessage: "Unlink source?" })}
+        body={formatMessage({ id: 'accounts.detail.unlinkBody', defaultMessage: "This removes the source link from this transaction. The transaction itself will not be deleted." })}
+        confirmLabel={formatMessage({ id: 'accounts.detail.unlink', defaultMessage: "Unlink source" })}
         danger
         onClose={() => setPendingUnlink(null)}
         onConfirm={() => {
@@ -1700,9 +1771,6 @@ function isStackedOnDrawer(drawer: Element | null, target: EventTarget | null): 
 
 // ── Main component ────────────────────────────────────────────────────────────
 // What "cleared" means — asked often enough that the checkbox carries its own explanation.
-const CLEARED_EXPLAINER =
-  'Tick this once your bank shows the transaction as posted, not pending. It helps you check that your balance matches the bank’s.'
-
 // Cleared checkbox. The Starting Balance is always cleared (the ledger refuses unclearing it).
 function ClearedCheck({
   cleared,
@@ -1713,19 +1781,20 @@ function ClearedCheck({
   locked: boolean
   onChange: (cleared: boolean) => void
 }) {
+  const { formatMessage } = useAppIntl()
   return (
     <span className="acct-detail-cleared">
       <Checkbox
         checked={cleared}
         disabled={locked}
-        label={<span className="sr-only">Cleared</span>}
+        label={<span className="sr-only">{formatMessage({ id: 'accounts.detail.cleared', defaultMessage: 'Cleared' })}</span>}
         onChange={(e) => onChange(e.target.checked)}
       />
       {/* The bank's own words for the two states. */}
       <span className={cleared ? undefined : 'acct-detail-pending'}>
-        {cleared ? 'Posted' : 'Pending'}
+        {cleared ? formatMessage({ id: 'accounts.detail.posted', defaultMessage: 'Posted' }) : formatMessage({ id: 'accounts.detail.pending', defaultMessage: 'Pending' })}
       </span>
-      <InfoPopover text={CLEARED_EXPLAINER} width={210} />
+      <InfoPopover text={formatMessage({ id: 'accounts.detail.clearedHelp', defaultMessage: 'Tick this once your bank shows the transaction as posted, not pending. It helps you check that your balance matches the bank’s.' })} width={210} />
     </span>
   )
 }
@@ -1774,6 +1843,7 @@ export default function TxnDetail({
   // drawer that opened pending keeps the sheet's full height for its whole life instead
   // (a filled drawer reaches that ceiling on a phone anyway). Read once: the flag must not
   // flip off when the row arrives.
+  const { formatMessage } = useAppIntl()
   const [openedPending] = useState(loading)
   // Category map built from server data — labels/colors for pills and diffs.
   const catMap = useMemo(
@@ -2040,13 +2110,13 @@ export default function TxnDetail({
             className={`acct-detail-wrap${isMobile ? ' sheet' : ''}${liftAboveModal ? ' above-modal' : ''}`}
             onClick={editing ? undefined : handleBackdropClick}
           >
-            <Dialog.Title className="ui-visually-hidden">Transaction details</Dialog.Title>
+            <Dialog.Title className="ui-visually-hidden">{formatMessage({ id: 'accounts.detail.title', defaultMessage: 'Transaction details' })}</Dialog.Title>
             {!isMobile && (
               <div
                 className="acct-detail-resize"
                 style={{ right: `calc(var(--chat-width, 0px) + ${width}px)` }}
                 onPointerDown={onResizePointerDown}
-                title="Drag to resize"
+                title={formatMessage({ id: 'accounts.detail.resize', defaultMessage: 'Drag to resize' })}
               />
             )}
             <aside
@@ -2066,9 +2136,9 @@ export default function TxnDetail({
               )}
               <div className="acct-detail-top" {...DRAG_SURFACE_PROPS}>
                 <span className="acct-detail-kicker">
-                  {editing ? 'Edit transaction' : 'Transaction'}
+                  {editing ? formatMessage({ id: 'accounts.detail.edit', defaultMessage: 'Edit transaction' }) : formatMessage({ id: 'accounts.detail.transaction', defaultMessage: 'Transaction' })}
                 </span>
-                <button className="acct-detail-x" onClick={dismiss} aria-label="Close">
+                <button className="acct-detail-x" onClick={dismiss} aria-label={formatMessage({ id: 'accounts.detail.close', defaultMessage: 'Close' })}>
                   <X size={18} strokeWidth={1.6} aria-hidden="true" />
                 </button>
               </div>

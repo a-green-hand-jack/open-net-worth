@@ -95,6 +95,7 @@ async def test_briefing_degrades_when_provider_unavailable(monkeypatch):
     assert out["error"] is True
     assert "briefing" in out["note"].lower()
     assert out["chat_suggestion"] == ""
+    assert out["note_message"] == {"message_id": "briefing.error.unreachable", "params": {}}
 
 
 @pytest.mark.asyncio
@@ -113,6 +114,7 @@ async def test_briefing_skips_when_reply_unparseable(monkeypatch):
     assert out["chat_suggestion"] == ""
     # No fabricated note leaked through — it's the explicit error placeholder.
     assert "couldn't read" in out["note"].lower()
+    assert out["note_message"] == {"message_id": "briefing.error.unreadable", "params": {}}
 
 
 @pytest.mark.asyncio

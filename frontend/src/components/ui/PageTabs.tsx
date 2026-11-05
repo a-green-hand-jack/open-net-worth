@@ -6,6 +6,7 @@
 // Spec: docs/archive/reviews/page-tabs-and-density.md §3
 
 import { useEffect, useRef } from 'react'
+import { useAppIntl } from '../../i18n/useAppIntl'
 
 export interface PageTab<T extends string> {
   key: T
@@ -35,11 +36,12 @@ export function PageTabs<T extends string>({
   tabs,
   value,
   onChange,
-  ariaLabel = 'Page sections',
+  ariaLabel,
   className,
 }: PageTabsProps<T>) {
   // A set that scrolls (Intel's watchlist tabs on a phone) keeps the active tab in view — along
   // the bar only; the page itself never scrolls for it.
+  const intl = useAppIntl()
   const barRef = useRef<HTMLDivElement>(null)
   useEffect(() => {
     const bar = barRef.current
@@ -65,7 +67,7 @@ export function PageTabs<T extends string>({
       ref={barRef}
       className={['ui-page-tabs', className].filter(Boolean).join(' ')}
       role="tablist"
-      aria-label={ariaLabel}
+      aria-label={ariaLabel ?? intl.formatMessage({ id: 'shared.pageTabs.sections', defaultMessage: 'Page sections' })}
     >
       {tabs.map((tab, i) => {
         const active = tab.key === value

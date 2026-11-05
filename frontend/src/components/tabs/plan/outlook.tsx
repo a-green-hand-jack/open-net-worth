@@ -1,3 +1,5 @@
+import { fFixed } from '../../../utils/format'
+import { getNumberLocale } from '../../../utils/format'
 // plan/outlook.tsx — "Outlook" sub-tab. The MERGE of the old Projections + Retirement tabs.
 // They were always two windows onto ONE simulated life: accumulation (Projections) and
 // drawdown (Retirement). This tab shows the whole arc on a SINGLE life chart, with ONE set of
@@ -17,6 +19,14 @@
 //   • noUncheckedIndexedAccess: `!` added on all provably-safe array accesses.
 
 import { useState, useEffect, useMemo, useRef, useTransition } from 'react'
+import { useAppIntl } from '../../../i18n/useAppIntl'
+import {
+  displayLifeEventLabel,
+  editedLifeEventLabel,
+  displayIncomeLabel,
+  editedIncomeLabel,
+  type LifeEventSource,
+} from './lifeEventLabel'
 import type { ReactNode } from 'react'
 import * as Dialog from '@radix-ui/react-dialog'
 import * as PD from './planData'
@@ -60,6 +70,7 @@ function FullscreenChartSurface({
   onClose: () => void
   children: ReactNode
 }) {
+  const { formatMessage } = useAppIntl()
   if (!open) return <div className="pl-panel pl-chart">{children}</div>
   return (
     <Dialog.Root
@@ -71,7 +82,9 @@ function FullscreenChartSurface({
       <Dialog.Portal>
         <Dialog.Overlay className="pl-chart-backdrop" />
         <Dialog.Content className="pl-panel pl-chart pl-chart-full" aria-describedby={undefined}>
-          <Dialog.Title className="ui-visually-hidden">Life projection chart</Dialog.Title>
+          <Dialog.Title className="ui-visually-hidden">
+            {formatMessage({ id: 'plan.lifeProjection', defaultMessage: 'Life projection chart' })}
+          </Dialog.Title>
           {children}
         </Dialog.Content>
       </Dialog.Portal>
@@ -154,6 +167,7 @@ export interface OutlookTabProps {
 interface LifeEvent {
   id: string
   label: string
+  labelSource?: LifeEventSource
   amount: number
   age: number
 }
@@ -166,6 +180,7 @@ const newEventId = () => `e${Date.now().toString(36)}${(evSeq++).toString(36)}`
 
 interface IncomeStream {
   label: string
+  labelSource?: 'default_income'
   amount: number
   age: number
   endAge?: number | null
@@ -231,12 +246,12 @@ interface PartialState {
 // amount < 0 = a one-off SPEND; amount > 0 = a WINDFALL (e.g. inheritance) — signed like a
 // ledger amount (money out is negative). Each re-runs the sim.
 const EVENT_PRESETS = [
-  { label: '🏠 Home', amount: -150000, dAge: 3 },
-  { label: '👶 New baby', amount: -90000, dAge: 2 },
-  { label: '🎓 Tuition', amount: -120000, dAge: 12 },
-  { label: '💰 Inheritance', amount: 200000, dAge: 10 },
-  { label: '✈️ Sabbatical', amount: -60000, dAge: 5 },
-]
+  { label: '🏠 Home', labelSource: 'preset_home', amount: -150000, dAge: 3 },
+  { label: '👶 New baby', labelSource: 'preset_baby', amount: -90000, dAge: 2 },
+  { label: '🎓 Tuition', labelSource: 'preset_tuition', amount: -120000, dAge: 12 },
+  { label: '💰 Inheritance', labelSource: 'preset_inheritance', amount: 200000, dAge: 10 },
+  { label: '✈️ Sabbatical', labelSource: 'preset_sabbatical', amount: -60000, dAge: 5 },
+] as const
 
 // ── Collapsible section (tidies the secondary controls under the levers) ──
 function Section({
@@ -322,6 +337,7 @@ export function Lever({
   editAriaLabel?: string
   suffix?: string
 }) {
+  const { formatMessage } = useAppIntl()
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState('')
   const skipNextBlurCommit = useRef(false)
@@ -357,7 +373,11 @@ export function Lever({
             max={max}
             step={step}
             aria-label={
-              editAriaLabel ?? `Edit ${label.toLowerCase()}; current ${ariaValueText ?? display}`
+              editAriaLabel ??
+              formatMessage(
+                { id: 'plan.outlook.editLever', defaultMessage: 'Edit {label}; current {value}' },
+                { label: label.toLowerCase(), value: ariaValueText ?? display },
+              )
             }
             onFocus={startEdit}
             onChange={onDraft}
@@ -408,22 +428,32 @@ export function MonthlySavingLever({
   baselineSaving: number
   onChange: (value: number) => void
 }) {
+  const { formatMessage } = useAppIntl()
   const display = fBaseWhole(saving)
   return (
     <div className="pl-lever pl-lever--money">
       <label className="pl-lever-lbl" htmlFor="monthly-saving-lever">
-        Monthly saving
+        {formatMessage({ id: 'plan.monthlySavingShort', defaultMessage: 'Monthly saving' })}
       </label>
       <MoneyField
         id="monthly-saving-lever"
-        aria-label="Monthly saving per month"
+        aria-label={formatMessage({
+          id: 'plan.savingPerMonth',
+          defaultMessage: 'Monthly saving per month',
+        })}
         value={saving}
         formattedValue={display}
-        suffix="/month"
+        suffix={formatMessage({ id: 'plan.perMonth', defaultMessage: '/month' })}
         onValueChange={onChange}
       />
       <div className="pl-lever-sub">
-        until you retire • plan: <b>{fBaseWhole(baselineSaving)}/month</b>
+        {formatMessage(
+          {
+            id: 'plan.savingUntilRetire',
+            defaultMessage: 'until you retire • plan: <b>{amount}/month</b>',
+          },
+          { amount: fBaseWhole(baselineSaving), b: (chunks) => <b>{chunks}</b> },
+        )}
       </div>
     </div>
   )
@@ -438,24 +468,37 @@ export function RetirementSpendingLever({
   withdrawalRate: number
   onChange: (value: number) => void
 }) {
+  const { formatMessage } = useAppIntl()
   const annualSpending = PD.annualRetirementSpending(monthlySpending)
   const fireNumber = PD.fireNumberFromMonthlySpend(monthlySpending, withdrawalRate)
   return (
     <div className="pl-lever pl-lever--money">
       <label className="pl-lever-lbl" htmlFor="monthly-retirement-spending-lever">
-        Retirement spending
+        {formatMessage({ id: 'plan.retirementSpending', defaultMessage: 'Retirement spending' })}
       </label>
       <MoneyField
         id="monthly-retirement-spending-lever"
-        aria-label="Monthly retirement spending"
+        aria-label={formatMessage({
+          id: 'plan.spendingPerMonth',
+          defaultMessage: 'Monthly retirement spending',
+        })}
         value={monthlySpending}
         formattedValue={fBaseWhole(monthlySpending)}
-        suffix="/month"
+        suffix={formatMessage({ id: 'plan.perMonth', defaultMessage: '/month' })}
         onValueChange={onChange}
       />
       <div className="pl-lever-sub">
-        {fBaseWhole(annualSpending)}/year • FIRE number{' '}
-        <b className="mask">{fCoarse(fireNumber)}</b>
+        {formatMessage(
+          {
+            id: 'plan.annualSpendingFire',
+            defaultMessage: '{spending}/year • FIRE number <b>{fire}</b>',
+          },
+          {
+            spending: fBaseWhole(annualSpending),
+            fire: fCoarse(fireNumber),
+            b: (chunks) => <b className="mask">{chunks}</b>,
+          },
+        )}
       </div>
     </div>
   )
@@ -465,6 +508,8 @@ const INIT_STREAMS: IncomeStream[] = []
 
 // ── Main component ─────────────────────────────────────────────────────────────
 export function OutlookTab(props: OutlookTabProps) {
+  const intl = useAppIntl()
+  const { formatMessage } = intl
   const { onAskLucius: onAsk, toast } = props
   // "What if?" is a full sidebar on desktop but too tall/cramped to scroll to on a phone —
   // it opens as a bottom sheet there instead (same PlanningModal primitive as every other
@@ -482,7 +527,13 @@ export function OutlookTab(props: OutlookTabProps) {
   // error (one dropped request used to blank the whole Outlook).
   const fireBlocked = fireError && fireConfigVersion === -1
   useEffect(() => {
-    if (fireError && fireConfigVersion !== -1) toast("Couldn't refresh your plan settings")
+    if (fireError && fireConfigVersion !== -1)
+      toast(
+        formatMessage({
+          id: 'plan.outlook.refreshSettingsFailed',
+          defaultMessage: "Couldn't refresh your plan settings",
+        }),
+      )
   }, [fireError]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Scenarios + FIRE baseline persisted on the server via /api/plan/*.
@@ -556,7 +607,7 @@ export function OutlookTab(props: OutlookTabProps) {
     if (isRefetch) {
       setActiveScen(null)
       setLoadedFrom(null)
-      toast('Plan updated from chat')
+      toast(formatMessage({ id: 'plan.planFromChat', defaultMessage: 'Plan updated from chat' }))
     }
   }, [planStateLoading, planStateVersion]) // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -623,7 +674,14 @@ export function OutlookTab(props: OutlookTabProps) {
         retireAge: c.targetAge,
         streams: BASE_STREAMS,
         events: BASE_EVENTS,
-      }).catch(() => toast("Couldn't update your saved plan"))
+      }).catch(() =>
+        toast(
+          formatMessage({
+            id: 'plan.outlook.updateSavedFailed',
+            defaultMessage: "Couldn't update your saved plan",
+          }),
+        ),
+      )
     },
   })
 
@@ -716,6 +774,7 @@ export function OutlookTab(props: OutlookTabProps) {
   // add-income modal
   const [addingIncome, setAddingIncome] = useState(false)
   const [newLabel, setNewLabel] = useState('')
+  const [initialIncomeLabel, setInitialIncomeLabel] = useState('')
   const [newAmount, setNewAmount] = useState('')
   const [newAge, setNewAge] = useState('')
   const [newEndAge, setNewEndAge] = useState('')
@@ -727,6 +786,7 @@ export function OutlookTab(props: OutlookTabProps) {
   const [shockTo, setShockTo] = useState('')
   const [addingEvent, setAddingEvent] = useState(false)
   const [evLabel, setEvLabel] = useState('')
+  const [initialEventLabel, setInitialEventLabel] = useState('')
   const [evAmount, setEvAmount] = useState('')
   const [evKind, setEvKind] = useState(1)
   const [evAge, setEvAge] = useState('')
@@ -901,10 +961,10 @@ export function OutlookTab(props: OutlookTabProps) {
   const tone = success >= 0.8 ? 'pos' : success >= 0.5 ? 'warn' : 'neg'
   const verdictLabel =
     success >= 0.8
-      ? 'Likely to last'
+      ? formatMessage({ id: 'plan.likelyToLast', defaultMessage: 'Likely to last' })
       : success >= 0.5
-        ? 'At risk of running out'
-        : 'Unlikely to last'
+        ? formatMessage({ id: 'plan.atRisk', defaultMessage: 'At risk of running out' })
+        : formatMessage({ id: 'plan.unlikelyToLast', defaultMessage: 'Unlikely to last' })
 
   const fundedPct = Math.min(100, Math.round((f.netWorth / fireNumber) * 100))
   const recSwr = PD.suggestSWR(lifeExp - retireAge)
@@ -973,13 +1033,37 @@ export function OutlookTab(props: OutlookTabProps) {
   // ── scenarios ──
   const currencySym = getCurrencySymbol()
   const PRESETS: [string, string, PartialState][] = [
-    ['base', 'My FIRE plan', {}],
-    ['early', 'Retire 5 yrs earlier', { retireAge: BASE.retireAge - 5 }],
-    ['save', `Save +${currencySym}1k/mo`, { saving: BASE.saving + 1000 }],
+    ['base', formatMessage({ id: 'plan.outlook.presetBase', defaultMessage: 'My FIRE plan' }), {}],
+    [
+      'early',
+      formatMessage({ id: 'plan.outlook.presetEarly', defaultMessage: 'Retire 5 yrs earlier' }),
+      { retireAge: BASE.retireAge - 5 },
+    ],
+    [
+      'save',
+      formatMessage(
+        { id: 'plan.outlook.presetSave', defaultMessage: 'Save +{currency}1k/mo' },
+        { currency: currencySym },
+      ),
+      { saving: BASE.saving + 1000 },
+    ],
     [
       'home',
-      `Buy a ${currencySym}150k home`,
-      { events: [{ id: 'home', label: '🏠 Home', age: currentAgeR + 3, amount: -150000 }] },
+      formatMessage(
+        { id: 'plan.outlook.presetHome', defaultMessage: 'Buy a {currency}150k home' },
+        { currency: currencySym },
+      ),
+      {
+        events: [
+          {
+            id: 'home',
+            label: '🏠 Home',
+            labelSource: 'preset_home',
+            age: currentAgeR + 3,
+            amount: -150000,
+          },
+        ],
+      },
     ],
   ]
 
@@ -1095,9 +1179,18 @@ export function OutlookTab(props: OutlookTabProps) {
       setPreset('base')
       setActiveScen(null)
       setLoadedFrom(null)
-      toast(profileSynced ? 'FIRE plan updated' : 'Plan saved, but FIRE settings could not sync')
+      toast(
+        profileSynced
+          ? formatMessage({ id: 'plan.fireUpdated', defaultMessage: 'FIRE plan updated' })
+          : formatMessage({
+              id: 'plan.fireSyncFailed',
+              defaultMessage: 'Plan saved, but FIRE settings could not sync',
+            }),
+      )
     } catch {
-      toast('Could not save FIRE plan')
+      toast(
+        formatMessage({ id: 'plan.fireSaveFailed', defaultMessage: 'Could not save FIRE plan' }),
+      )
     } finally {
       setSavingPlan(false)
     }
@@ -1105,7 +1198,9 @@ export function OutlookTab(props: OutlookTabProps) {
   // baseline the live levers are measured against: a loaded scenario if one is anchored, else the FIRE plan
   const loadedScen = loadedFrom ? scenarios.find((x) => x.id === loadedFrom) : null
   const diverged = loadedScen ? activeScen !== loadedFrom : !isBase || profileSyncPending != null
-  const baselineLabel = loadedScen ? loadedScen.name : 'my FIRE plan'
+  const baselineLabel = loadedScen
+    ? loadedScen.name
+    : formatMessage({ id: 'plan.outlook.myFirePlan', defaultMessage: 'my FIRE plan' })
   function resetToBaseline() {
     if (loadedScen) recallScenario(loadedScen)
     else resetPlan()
@@ -1160,14 +1255,16 @@ export function OutlookTab(props: OutlookTabProps) {
       shockCfg,
     }
     const created = await addScenarioApi(s).catch(() => {
-      toast('Could not save scenario')
+      toast(
+        formatMessage({ id: 'plan.scenarioSaveFailed', defaultMessage: 'Could not save scenario' }),
+      )
       return null
     })
     if (!created) return
     setActiveScen(created.id)
     setLoadedFrom(created.id)
     setNaming(false)
-    toast('Scenario saved')
+    toast(formatMessage({ id: 'plan.scenarioSaved', defaultMessage: 'Scenario saved' }))
   }
   function saveScenarioInPlace() {
     if (!loadedFrom) return
@@ -1195,7 +1292,7 @@ export function OutlookTab(props: OutlookTabProps) {
     })
     setActiveScen(loadedFrom)
     setNaming(false)
-    toast('Scenario updated')
+    toast(formatMessage({ id: 'plan.scenarioUpdated', defaultMessage: 'Scenario updated' }))
   }
   function recallScenario(s: SavedScenario) {
     startTransition(() => {
@@ -1251,7 +1348,9 @@ export function OutlookTab(props: OutlookTabProps) {
     const s = streams[i]
     if (!s) return
     setEditIncomeIdx(i)
-    setNewLabel(s.label)
+    const label = displayIncomeLabel(intl, s)
+    setInitialIncomeLabel(label)
+    setNewLabel(label)
     setNewAmount(String(s.amount))
     setNewAge(String(Math.round(s.age)))
     setNewEndAge(s.endAge != null ? String(Math.round(s.endAge)) : '')
@@ -1263,32 +1362,45 @@ export function OutlookTab(props: OutlookTabProps) {
     { label: string; single: boolean; on: boolean; set: (v: boolean) => void; desc: string }
   > = {
     crash: {
-      label: 'Crash',
+      label: formatMessage({ id: 'plan.shockCrash', defaultMessage: 'Crash' }),
       single: true,
       on: crash,
       set: setCrash,
-      desc: 'A sudden ~30% market drop in one year. The age is when it hits.',
+      desc: formatMessage({
+        id: 'plan.shockCrashHelp',
+        defaultMessage: 'A sudden ~30% market drop in one year. The age is when it hits.',
+      }),
     },
     weak: {
-      label: 'Weak returns',
+      label: formatMessage({ id: 'plan.shockWeak', defaultMessage: 'Weak returns' }),
       single: false,
       on: weakSeq,
       set: setWeakSeq,
-      desc: 'A stretch of poor returns — most damaging in the years right after you retire.',
+      desc: formatMessage({
+        id: 'plan.shockWeakHelp',
+        defaultMessage:
+          'A stretch of poor returns — most damaging in the years right after you retire.',
+      }),
     },
     lost: {
-      label: 'Lost decade',
+      label: formatMessage({ id: 'plan.shockLost', defaultMessage: 'Lost decade' }),
       single: false,
       on: lostDec,
       set: setLostDec,
-      desc: 'A long flat stretch where the market goes roughly nowhere.',
+      desc: formatMessage({
+        id: 'plan.shockLostHelp',
+        defaultMessage: 'A long flat stretch where the market goes roughly nowhere.',
+      }),
     },
     infl: {
-      label: 'High inflation',
+      label: formatMessage({ id: 'plan.shockInflation', defaultMessage: 'High inflation' }),
       single: false,
       on: highInfl,
       set: setHighInfl,
-      desc: 'Higher-than-planned inflation eating into real returns across the window.',
+      desc: formatMessage({
+        id: 'plan.shockInflationHelp',
+        defaultMessage: 'Higher-than-planned inflation eating into real returns across the window.',
+      }),
     },
   }
   function openShockEditor(key: string) {
@@ -1336,9 +1448,14 @@ export function OutlookTab(props: OutlookTabProps) {
     setEvAge(String(currentAgeR + 5))
     setAddingEvent(true)
   }
+  function eventLabel(ev: LifeEvent): string {
+    return displayLifeEventLabel(intl, ev)
+  }
   function openEditEvent(ev: LifeEvent) {
     setEditEventId(ev.id)
-    setEvLabel(ev.label)
+    const label = eventLabel(ev)
+    setInitialEventLabel(label)
+    setEvLabel(label)
     setEvAmount(String(Math.abs(ev.amount)))
     // evKind is a UI-only direction flag (1 = "Money out (spend)" chip, -1 = "Money in
     // (windfall)" chip) — the STORED amount is signed the other way (spend is negative), so
@@ -1353,18 +1470,33 @@ export function OutlookTab(props: OutlookTabProps) {
     const age = Math.round(
       Math.min(lifeExp - 1, Math.max(currentAgeR, Number(evAge) || currentAgeR + 5)),
     )
-    const label = evLabel.trim() || 'Event'
+    const entered = evLabel.trim()
     if (editEventId != null) {
-      setEvents((l) => l.map((x) => (x.id === editEventId ? { ...x, label, amount, age } : x)))
+      setEvents((l) =>
+        l.map((x) => {
+          if (x.id !== editEventId) return x
+          return { ...editedLifeEventLabel(intl, x, entered, initialEventLabel), amount, age }
+        }),
+      )
       setAddingEvent(false)
       setPreset(null)
-      toast('Life event updated')
+      toast(formatMessage({ id: 'plan.lifeEventUpdated', defaultMessage: 'Life event updated' }))
       return
     }
-    setEvents((l) => [...l, { id: newEventId(), label, amount, age }])
+    setEvents((l) => [
+      ...l,
+      entered
+        ? { id: newEventId(), label: entered, amount, age }
+        : { id: newEventId(), label: 'Event', labelSource: 'default_event', amount, age },
+    ])
     setAddingEvent(false)
     setPreset(null)
-    toast('Added to the chart — drag it to fine-tune')
+    toast(
+      formatMessage({
+        id: 'plan.chartAddedAdjust',
+        defaultMessage: 'Added to the chart — drag it to fine-tune',
+      }),
+    )
   }
   function confirmAdd() {
     if (!newAmount || !newAge) return
@@ -1372,28 +1504,54 @@ export function OutlookTab(props: OutlookTabProps) {
     const endAge =
       newEndAge !== '' && Math.round(Number(newEndAge)) > age ? Math.round(Number(newEndAge)) : null
     const entry: IncomeStream = {
-      label: newLabel || 'Income',
+      ...(newLabel ? { label: newLabel } : { label: 'Income', labelSource: 'default_income' }),
       amount: Number(newAmount),
       age,
       endAge,
     }
     if (editIncomeIdx != null) {
-      setStreams((s) => s.map((x, idx) => (idx === editIncomeIdx ? entry : x)))
+      setStreams((s) =>
+        s.map((x, idx) =>
+          idx === editIncomeIdx
+            ? {
+                ...editedIncomeLabel(intl, x, newLabel, initialIncomeLabel),
+                amount: entry.amount,
+                age: entry.age,
+                endAge: entry.endAge,
+              }
+            : x,
+        ),
+      )
       setAddingIncome(false)
       setPreset(null)
-      toast('Income stream updated — odds updated')
+      toast(
+        formatMessage({
+          id: 'plan.incomeUpdated',
+          defaultMessage: 'Income stream updated — odds updated',
+        }),
+      )
       return
     }
     setStreams((s) => [...s, entry])
     setAddingIncome(false)
     setPreset(null)
-    toast('Income stream added — odds updated')
+    toast(
+      formatMessage({
+        id: 'plan.incomeAdded',
+        defaultMessage: 'Income stream added — odds updated',
+      }),
+    )
   }
   function removeStream(i: number) {
     setStreams((s) => s.filter((_, idx) => idx !== i))
     setPreset(null)
   }
-  function addEvent(p: { label: string; amount: number; dAge: number }) {
+  function addEvent(p: {
+    label: string
+    labelSource: LifeEventSource
+    amount: number
+    dAge: number
+  }) {
     // Unlike the custom-event modal (whose "Add to chart" click closes the modal, so a
     // double-click's second click lands on nothing), this preset button stays visible and
     // clickable after every add — a rapid repeat click (impatience while "Recalculating…"
@@ -1414,12 +1572,18 @@ export function OutlookTab(props: OutlookTabProps) {
       {
         id: newEventId(),
         label: p.label,
+        labelSource: p.labelSource,
         amount: p.amount,
         age: Math.round(Math.min(lifeExp - 1, currentAgeR + p.dAge)),
       },
     ])
     setPreset(null)
-    toast('Added to the chart — drag it to the right age')
+    toast(
+      formatMessage({
+        id: 'plan.chartAddedAge',
+        defaultMessage: 'Added to the chart — drag it to the right age',
+      }),
+    )
   }
   function removeEvent(id: string) {
     setEvents((l) => l.filter((x) => x.id !== id))
@@ -1446,7 +1610,7 @@ export function OutlookTab(props: OutlookTabProps) {
   if (lostDec)
     chartShocks.push({
       key: 'lost',
-      label: 'Lost decade',
+      label: formatMessage({ id: 'plan.shockLost', defaultMessage: 'Lost decade' }),
       kind: 'span',
       from: shockWin.lost.from,
       to: shockWin.lost.to,
@@ -1455,7 +1619,7 @@ export function OutlookTab(props: OutlookTabProps) {
   if (highInfl)
     chartShocks.push({
       key: 'infl',
-      label: 'High inflation',
+      label: formatMessage({ id: 'plan.shockInflation', defaultMessage: 'High inflation' }),
       kind: 'span',
       from: shockWin.infl.from,
       to: shockWin.infl.to,
@@ -1464,7 +1628,7 @@ export function OutlookTab(props: OutlookTabProps) {
   if (weakSeq)
     chartShocks.push({
       key: 'weak',
-      label: 'Weak returns',
+      label: formatMessage({ id: 'plan.shockWeak', defaultMessage: 'Weak returns' }),
       kind: 'span',
       from: shockWin.weak.from,
       to: shockWin.weak.to,
@@ -1473,7 +1637,7 @@ export function OutlookTab(props: OutlookTabProps) {
   if (crash)
     chartShocks.push({
       key: 'crash',
-      label: 'Crash',
+      label: formatMessage({ id: 'plan.shockCrash', defaultMessage: 'Crash' }),
       kind: 'point',
       age: shockWin.crash.from,
       color: 'var(--bad)',
@@ -1485,12 +1649,27 @@ export function OutlookTab(props: OutlookTabProps) {
   const sc = useMemo(() => mapScorecard(scData), [scData])
   const reliable: { label: string; tone: 'pos' | 'warn' | 'neg' } =
     sc == null
-      ? { label: 'Building', tone: 'warn' }
+      ? {
+          label: formatMessage({ id: 'plan.outlook.building', defaultMessage: 'Building' }),
+          tone: 'warn',
+        }
       : sc.cfMape <= 10
-        ? { label: 'Reliable', tone: 'pos' }
+        ? {
+            label: formatMessage({ id: 'plan.outlook.reliable', defaultMessage: 'Reliable' }),
+            tone: 'pos',
+          }
         : sc.cfMape <= 25
-          ? { label: 'Usually close', tone: 'warn' }
-          : { label: 'Loose', tone: 'neg' }
+          ? {
+              label: formatMessage({
+                id: 'plan.outlook.usuallyClose',
+                defaultMessage: 'Usually close',
+              }),
+              tone: 'warn',
+            }
+          : {
+              label: formatMessage({ id: 'plan.outlook.loose', defaultMessage: 'Loose' }),
+              tone: 'neg',
+            }
 
   // Lucius screen driving — the two-way contract: chat what-ifs land on the live
   // levers exactly like a hand on the sliders (ephemeral; reload discards). Active
@@ -1534,14 +1713,24 @@ export function OutlookTab(props: OutlookTabProps) {
           setStreams(nextStreams)
           setActiveScen(null)
           setLoadedFrom(null)
-          toast('Lucius staged a what-if — nothing saved')
+          toast(
+            formatMessage({
+              id: 'plan.outlook.luciusStaged',
+              defaultMessage: 'Lucius staged a what-if — nothing saved',
+            }),
+          )
         },
       },
       {
         spec: PLAN_RESET_SPEC,
         handler: () => {
           resetPlan()
-          toast('Back to your saved plan')
+          toast(
+            formatMessage({
+              id: 'plan.outlook.backToPlan',
+              defaultMessage: 'Back to your saved plan',
+            }),
+          )
         },
       },
     ],
@@ -1622,10 +1811,18 @@ export function OutlookTab(props: OutlookTabProps) {
           <div
             style={{ padding: '32px 0', textAlign: 'center', color: 'var(--bad)', fontSize: 13 }}
           >
-            {fireBlocked ? "Couldn't load your plan settings" : "Couldn't run your outlook"}
+            {fireBlocked
+              ? formatMessage({
+                  id: 'plan.outlook.settingsFailed',
+                  defaultMessage: "Couldn't load your plan settings",
+                })
+              : formatMessage({
+                  id: 'plan.outlook.runFailed',
+                  defaultMessage: "Couldn't run your outlook",
+                })}
             {' • '}
             <button className="pl-link" onClick={fireBlocked ? retryFire : retrySim}>
-              Retry
+              {formatMessage({ id: 'plan.retry', defaultMessage: 'Retry' })}
             </button>
           </div>
         </div>
@@ -1637,9 +1834,13 @@ export function OutlookTab(props: OutlookTabProps) {
                 role="status"
                 style={{ padding: '6px 0', color: 'var(--bad)', fontSize: 'var(--text-sm)' }}
               >
-                Couldn't refresh your outlook — some figures may be out of date{' • '}
+                {formatMessage({
+                  id: 'plan.outlook.refreshFailed',
+                  defaultMessage: "Couldn't refresh your outlook — some figures may be out of date",
+                })}
+                {' • '}
                 <button className="pl-link" onClick={retrySim}>
-                  Retry
+                  {formatMessage({ id: 'plan.retry', defaultMessage: 'Retry' })}
                 </button>
               </div>
             )}
@@ -1648,25 +1849,49 @@ export function OutlookTab(props: OutlookTabProps) {
               <div className="pl-sum-row">
                 <div className="pl-sum-hero-block">
                   <div className="pl-sum-top">
-                    <span className="pl-sum-eyebrow">Your financial future</span>
+                    <span className="pl-sum-eyebrow">
+                      {formatMessage({
+                        id: 'plan.financialFuture',
+                        defaultMessage: 'Your financial future',
+                      })}
+                    </span>
                     <span className={'pl-badge ' + (simLoading ? 'warn' : tone)}>
                       {simLoading ? (
-                        'Calculating…'
+                        formatMessage({ id: 'plan.calculating', defaultMessage: 'Calculating…' })
                       ) : (
                         <>
                           {verdictLabel}
-                          {isBase ? '' : ' • what-if'}
+                          {isBase
+                            ? ''
+                            : formatMessage({
+                                id: 'plan.whatIfSuffix',
+                                defaultMessage: ' • what-if',
+                              })}
                           <Info
                             text={
                               success >= 0.8
-                                ? 'Likely to last: your savings are very likely to last through age ' +
-                                  lifeExp +
-                                  '. It does not mean you’ve hit your FIRE number yet; see the date below.'
+                                ? formatMessage(
+                                    {
+                                      id: 'plan.likelyInfo',
+                                      defaultMessage:
+                                        'Likely to last: your savings are very likely to last through age {age}. It does not mean you’ve hit your FIRE number yet; see the date below.',
+                                    },
+                                    { age: lifeExp },
+                                  )
                                 : success >= 0.5
-                                  ? 'At risk of running out: your money lasts in some futures but not enough of them. This is about your money surviving retirement, not whether you’ve hit your FIRE number yet.'
-                                  : 'Unlikely to last: in most simulated futures your money runs out before age ' +
-                                    lifeExp +
-                                    '. This is about survival of your savings, not whether you’ve hit your FIRE number yet.'
+                                  ? formatMessage({
+                                      id: 'plan.atRiskInfo',
+                                      defaultMessage:
+                                        'At risk of running out: your money lasts in some futures but not enough of them. This is about your money surviving retirement, not whether you’ve hit your FIRE number yet.',
+                                    })
+                                  : formatMessage(
+                                      {
+                                        id: 'plan.unlikelyInfo',
+                                        defaultMessage:
+                                          'Unlikely to last: in most simulated futures your money runs out before age {age}. This is about survival of your savings, not whether you’ve hit your FIRE number yet.',
+                                      },
+                                      { age: lifeExp },
+                                    )
                             }
                           />
                         </>
@@ -1675,7 +1900,7 @@ export function OutlookTab(props: OutlookTabProps) {
                     {!simLoading && !isBase && deltaPts !== 0 && (
                       <span className={'pl-lever-delta ' + (deltaPts > 0 ? 'up' : 'down')}>
                         {deltaPts > 0 ? '▲ +' : '▼ '}
-                        {Math.abs(deltaPts)} vs plan
+                        {formatMessage({ id: 'planScan.vsPlan', defaultMessage: '{points} vs plan' }, { points: Math.abs(deltaPts) })}
                       </span>
                     )}
                   </div>
@@ -1691,30 +1916,48 @@ export function OutlookTab(props: OutlookTabProps) {
                         className="pl-wchip pl-wchip--reset"
                         style={{ padding: '3px 11px', fontSize: 11 }}
                         onClick={resetToBaseline}
-                        title={'Reset to ' + baselineLabel}
+                        title={formatMessage(
+                          { id: 'plan.resetTo', defaultMessage: 'Reset to {name}' },
+                          { name: baselineLabel },
+                        )}
                       >
-                        <RotateCcw size={11} aria-hidden="true" /> Reset
+                        <RotateCcw size={11} aria-hidden="true" />{' '}
+                        {formatMessage({ id: 'plan.reset', defaultMessage: 'Reset' })}
                       </button>
                     )}
                   </div>
                   <div className="pl-sum-sub">
-                    chance your money lasts through age {lifeExp} if you retire at {retireAge}{' '}
-                    <Info text="Across thousands of simulated market histories — including the retirement years — the share where your money never runs out. Above ~80% is comfortable." />
+                    {formatMessage(
+                      {
+                        id: 'plan.moneyLastsChance',
+                        defaultMessage:
+                          'chance your money lasts through age {lifeAge} if you retire at {retireAge}',
+                      },
+                      { lifeAge: lifeExp, retireAge },
+                    )}{' '}
+                    <Info
+                      text={formatMessage({
+                        id: 'plan.moneyLastsInfo',
+                        defaultMessage:
+                          'Across thousands of simulated market histories — including the retirement years — the share where your money never runs out. Above ~80% is comfortable.',
+                      })}
+                    />
                   </div>
                 </div>
 
                 <div className="pl-sum-metrics">
                   <div className="pl-sum-stat">
                     <span className="k">
-                      Safe to retire?{' '}
+                      {formatMessage({ id: 'plan.safeRetire', defaultMessage: 'Safe to retire?' })}{' '}
                       <Info
-                        text={
-                          'The youngest retirement age where the SAME simulation still keeps your money alive to ' +
-                          lifeExp +
-                          ' at least ' +
-                          Math.round(BAR * 100) +
-                          '% of the time. Derived from this chart — not a separate estimate.'
-                        }
+                        text={formatMessage(
+                          {
+                            id: 'plan.safeRetireInfo',
+                            defaultMessage:
+                              'The youngest retirement age where the SAME simulation still keeps your money alive to {age} at least {percent}% of the time. Derived from this chart — not a separate estimate.',
+                          },
+                          { age: lifeExp, percent: Math.round(BAR * 100) },
+                        )}
                       />
                     </span>
                     <span
@@ -1733,47 +1976,83 @@ export function OutlookTab(props: OutlookTabProps) {
                       {simLoading
                         ? ''
                         : earliestAge == null
-                          ? 'no age clears ' + Math.round(BAR * 100) + '% odds'
+                          ? formatMessage(
+                              {
+                                id: 'plan.noSafeAge',
+                                defaultMessage: 'no age clears {percent}% odds',
+                              },
+                              { percent: Math.round(BAR * 100) },
+                            )
                           : stopVsTarget != null && stopVsTarget > 0
-                            ? stopVsTarget +
-                              ' yr' +
-                              (stopVsTarget === 1 ? '' : 's') +
-                              ' before your ' +
-                              retireAgeR +
-                              ' plan'
+                            ? formatMessage(
+                                {
+                                  id: 'plan.retireBefore',
+                                  defaultMessage:
+                                    '{years, plural, one {# yr} other {# yrs}} before your {age} plan',
+                                },
+                                { years: stopVsTarget, age: retireAgeR },
+                              )
                             : stopVsTarget === 0
-                              ? 'right at your ' + retireAgeR + ' plan'
+                              ? formatMessage(
+                                  {
+                                    id: 'plan.retireAtPlan',
+                                    defaultMessage: 'right at your {age} plan',
+                                  },
+                                  { age: retireAgeR },
+                                )
                               : stopVsTarget != null
-                                ? -stopVsTarget +
-                                  ' yr' +
-                                  (stopVsTarget === -1 ? '' : 's') +
-                                  ' past your ' +
-                                  retireAgeR +
-                                  ' plan'
+                                ? formatMessage(
+                                    {
+                                      id: 'plan.retireAfter',
+                                      defaultMessage:
+                                        '{years, plural, one {# yr} other {# yrs}} past your {age} plan',
+                                    },
+                                    { years: -stopVsTarget, age: retireAgeR },
+                                  )
                                 : ''}
                     </span>
                   </div>
                   <div className="pl-sum-stat">
                     <span className="k">
-                      FIRE number{' '}
+                      {formatMessage({ id: 'plan.fireNumber', defaultMessage: 'FIRE number' })}{' '}
                       <Info
-                        text={
-                          'The pot that makes you work-optional: your annual retirement spending (' +
-                          fCoarse(PD.annualRetirementSpending(monthlyRetirementSpending)) +
-                          ') divided by your ' +
-                          swr +
-                          '% safe withdrawal rate. Hit this and your investments can cover your life without a paycheck.'
-                        }
+                        text={formatMessage(
+                          {
+                            id: 'plan.fireNumberInfo',
+                            defaultMessage:
+                              'The pot that makes you work-optional: your annual retirement spending ({spending}) divided by your {rate}% safe withdrawal rate. Hit this and your investments can cover your life without a paycheck.',
+                          },
+                          {
+                            spending: fCoarse(
+                              PD.annualRetirementSpending(monthlyRetirementSpending),
+                            ),
+                            rate: swr,
+                          },
+                        )}
                       />
                     </span>
                     <span className="v mask">{fCoarse(fireNumber)}</span>
-                    <span className="s">{fundedPct}% funded today</span>
+                    <span className="s">
+                      {formatMessage(
+                        { id: 'plan.fundedToday', defaultMessage: '{percent}% funded today' },
+                        { percent: fundedPct },
+                      )}
+                    </span>
                   </div>
                   {yearsToRet > 0 ? (
                     <div className="pl-sum-stat">
                       <span className="k">
-                        Pot at {retireAge}{' '}
-                        <Info text="The pot when you stop work is a DISTRIBUTION, not one number — this is the p10–p90 spread where the same fan crosses the retirement line." />
+                        {formatMessage(
+                          { id: 'plan.potAtAge', defaultMessage: 'Pot at {age}' },
+                          { age: retireAge },
+                        )}{' '}
+                        <Info
+                          text={formatMessage({
+                            id: 'plan.potAtRetirementInfo',
+                            defaultMessage:
+                              'The pot when you stop work is a DISTRIBUTION, not one number — this is the p10–p90 spread where the same fan crosses the retirement line.',
+                          })}
+                        />
                       </span>
                       <span className="v mask">{simLoading ? '…' : fCoarse(nestEgg)}</span>
                       <span className="s">
@@ -1781,17 +2060,29 @@ export function OutlookTab(props: OutlookTabProps) {
                           ''
                         ) : (
                           <>
-                            range {fCoarse(result!.nestEggBand.p10)}–
-                            {fCoarse(result!.nestEggBand.p90)}
+                            {formatMessage(
+                              { id: 'plan.potRange', defaultMessage: 'range {low}–{high}' },
+                              {
+                                low: fCoarse(result!.nestEggBand.p10),
+                                high: fCoarse(result!.nestEggBand.p90),
+                              },
+                            )}
                           </>
                         )}
                       </span>
                     </div>
                   ) : (
                     <div className="pl-sum-stat">
-                      <span className="k">Pot today</span>
+                      <span className="k">
+                        {formatMessage({ id: 'plan.potToday', defaultMessage: 'Pot today' })}
+                      </span>
                       <span className="v mask">{fCoarse(f.netWorth)}</span>
-                      <span className="s">drawing down from here</span>
+                      <span className="s">
+                        {formatMessage({
+                          id: 'plan.drawingDown',
+                          defaultMessage: 'drawing down from here',
+                        })}
+                      </span>
                     </div>
                   )}
                 </div>
@@ -1803,51 +2094,88 @@ export function OutlookTab(props: OutlookTabProps) {
                 </span>
                 <span className="pl-sum-insight">
                   {simLoading ? (
-                    <>Running the simulation…</>
+                    <>
+                      {formatMessage({
+                        id: 'plan.runningSimulation',
+                        defaultMessage: 'Running the simulation…',
+                      })}
+                    </>
                   ) : success >= 0.85 ? (
                     <>
-                      You're in good shape — money lasts in <b>{successPct}%</b> of futures
-                      {earliestAge != null && stopVsTarget != null && stopVsTarget > 0 ? (
-                        <>
-                          , and you could stop as early as <b>~{earliestAge}</b>.
-                        </>
-                      ) : (
-                        <>.</>
-                      )}
+                      {earliestAge != null && stopVsTarget != null && stopVsTarget > 0
+                        ? formatMessage({ id: 'planScan.goodEarly', defaultMessage: "You're in good shape — money lasts in {percent} of futures, and you could stop as early as {age}." }, { percent: <b>{successPct}%</b>, age: <b>~{earliestAge}</b> })
+                        : formatMessage({ id: 'planScan.good', defaultMessage: "You're in good shape — money lasts in {percent} of futures." }, { percent: <b>{successPct}%</b> })}
                     </>
                   ) : extraSave != null ? (
                     <>
-                      Saving <b className="mask">{fBaseWhole(extraSave)} more a month</b> would lift
-                      this to <b>90%</b>. Working one extra year does about the same.
+                      {formatMessage({ id: 'planScan.saveMore', defaultMessage: 'Saving {amount} more a month would lift this to {percent}. Working one extra year does about the same.' }, { amount: <b className="mask">{fBaseWhole(extraSave)}</b>, percent: <b>90%</b> })}
                     </>
                   ) : (
-                    <>Trimming spend or your withdrawal rate moves this more than saving alone.</>
+                    <>
+                      {formatMessage({
+                        id: 'plan.trimSpending',
+                        defaultMessage:
+                          'Trimming spend or your withdrawal rate moves this more than saving alone.',
+                      })}
+                    </>
                   )}
                 </span>
                 <button
                   className="pl-sum-brief-toggle"
                   onClick={() => setHeroBriefOpen((o) => !o)}
                   aria-expanded={heroBriefOpen}
-                  aria-label="Toggle insight detail"
+                  aria-label={formatMessage({
+                    id: 'plan.toggleInsight',
+                    defaultMessage: 'Toggle insight detail',
+                  })}
                 >
                   <Chevron dir={heroBriefOpen ? 'up' : 'down'} size={13} />
                 </button>
                 <span className="pl-sum-acts">
                   <button
                     className="pl-sum-act pl-ai"
-                    title="Puts this question in the Lucius chat for you to send"
-                    onClick={() => onAsk('How do I improve the chance my money lasts?')}
+                    title={formatMessage({
+                      id: 'plan.luciusQuestionHelp',
+                      defaultMessage: 'Puts this question in the Lucius chat for you to send',
+                    })}
+                    onClick={() =>
+                      onAsk(
+                        formatMessage({
+                          id: 'plan.outlook.askLasts',
+                          defaultMessage: 'How do I improve the chance my money lasts?',
+                        }),
+                      )
+                    }
                   >
                     <Spark size={11} />
-                    Ask Lucius how to improve
+                    {formatMessage({
+                      id: 'plan.askImprove',
+                      defaultMessage: 'Ask Lucius how to improve',
+                    })}
                   </button>
                   <button
                     className="pl-sum-act pl-ai"
-                    title="Puts this question in the Lucius chat for you to send"
-                    onClick={() => onAsk('Am I saving enough to retire at ' + retireAge + '?')}
+                    title={formatMessage({
+                      id: 'plan.luciusQuestionHelp',
+                      defaultMessage: 'Puts this question in the Lucius chat for you to send',
+                    })}
+                    onClick={() =>
+                      onAsk(
+                        formatMessage(
+                          {
+                            id: 'plan.outlook.askEnough',
+                            defaultMessage: 'Am I saving enough to retire at {age}?',
+                          },
+                          { age: retireAge },
+                        ),
+                      )
+                    }
                   >
                     <Spark size={11} />
-                    Ask Lucius if I'm saving enough
+                    {formatMessage({
+                      id: 'plan.askSaving',
+                      defaultMessage: "Ask Lucius if I'm saving enough",
+                    })}
                   </button>
                 </span>
               </div>
@@ -1860,18 +2188,43 @@ export function OutlookTab(props: OutlookTabProps) {
                   <span className="pl-panel-title">
                     {chartMode === 'rbd' ? (
                       <>
-                        {isMobile ? 'Outcomes by age' : 'How things could go at each age'}{' '}
-                        <Info text="For every age, the share of futures where you are no longer living (from a survival curve), your money has run out, or you still have money. It tells the honest story: running out at 92 only matters if you are alive at 92, which most people are not, so a plain success rate overstates the risk." />
+                        {isMobile
+                          ? formatMessage({
+                              id: 'plan.outlook.outcomesAge',
+                              defaultMessage: 'Outcomes by age',
+                            })
+                          : formatMessage({
+                              id: 'plan.outlook.outcomesAgeLong',
+                              defaultMessage: 'How things could go at each age',
+                            })}{' '}
+                        <Info
+                          text={formatMessage({
+                            id: 'plan.outlook.outcomesHelp',
+                            defaultMessage:
+                              'For every age, the share of futures where you are no longer living (from a survival curve), your money has run out, or you still have money. It tells the honest story: running out at 92 only matters if you are alive at 92, which most people are not, so a plain success rate overstates the risk.',
+                          })}
+                        />
                       </>
                     ) : (
                       <>
-                        {isMobile ? 'Your money over time' : 'Your money across your life'}{' '}
+                        {isMobile
+                          ? formatMessage({
+                              id: 'plan.outlook.moneyTime',
+                              defaultMessage: 'Your money over time',
+                            })
+                          : formatMessage({
+                              id: 'plan.outlook.moneyLife',
+                              defaultMessage: 'Your money across your life',
+                            })}{' '}
                         <Info
-                          text={
-                            'One continuous path from today through retirement to age ' +
-                            lifeExp +
-                            '. It climbs while you save, bends where you stop working, then draws down — shaded by how markets might treat you.'
-                          }
+                          text={formatMessage(
+                            {
+                              id: 'plan.outlook.moneyHelp',
+                              defaultMessage:
+                                'One continuous path from today through retirement to age {age}. It climbs while you save, bends where you stop working, then draws down — shaded by how markets might treat you.',
+                            },
+                            { age: lifeExp },
+                          )}
                         />
                       </>
                     )}
@@ -1880,17 +2233,29 @@ export function OutlookTab(props: OutlookTabProps) {
                     {chartMode === 'rbd' ? (
                       rbdCond ? (
                         isMobile ? (
-                          'money outcomes only'
+                          formatMessage({
+                            id: 'plan.outlook.moneyOnly',
+                            defaultMessage: 'money outcomes only',
+                          })
                         ) : (
-                          'conditional on being alive • money outcomes only'
+                          formatMessage({
+                            id: 'plan.outlook.conditionalMoney',
+                            defaultMessage: 'conditional on being alive • money outcomes only',
+                          })
                         )
                       ) : isMobile ? (
-                        'mortality + money outcomes'
+                        formatMessage({
+                          id: 'plan.outlook.mortalityMoney',
+                          defaultMessage: 'mortality + money outcomes',
+                        })
                       ) : (
-                        'mortality + money, stacked to 100% at every age'
+                        formatMessage({
+                          id: 'plan.outlook.mortalityStacked',
+                          defaultMessage: 'mortality + money, stacked to 100% at every age',
+                        })
                       )
                     ) : result ? (
-                      <>{result.nPaths.toLocaleString()} simulated paths</>
+                      <>{formatMessage({ id: 'planScan.simulatedPaths', defaultMessage: '{count} simulated paths' }, { count: result.nPaths.toLocaleString(getNumberLocale()) })}</>
                     ) : null}
                     {showIndicator && (
                       <span
@@ -1917,7 +2282,10 @@ export function OutlookTab(props: OutlookTabProps) {
                             flexShrink: 0,
                           }}
                         />
-                        Recalculating…
+                        {formatMessage({
+                          id: 'plan.outlook.recalculating',
+                          defaultMessage: 'Recalculating…',
+                        })}
                       </span>
                     )}
                   </span>
@@ -1927,8 +2295,11 @@ export function OutlookTab(props: OutlookTabProps) {
                     <button
                       className={'pl-seg-b' + (chartMode === 'networth' ? ' on' : '')}
                       onClick={() => setChartMode('networth')}
-                      title="Net worth"
-                      aria-label="Net worth view"
+                      title={formatMessage({ id: 'plan.netWorth', defaultMessage: 'Net worth' })}
+                      aria-label={formatMessage({
+                        id: 'plan.netWorthView',
+                        defaultMessage: 'Net worth view',
+                      })}
                     >
                       <span className="pl-seg-b-icon" aria-hidden="true">
                         <svg
@@ -1945,13 +2316,21 @@ export function OutlookTab(props: OutlookTabProps) {
                           <polyline points="15 5 21 5 21 11" />
                         </svg>
                       </span>
-                      <span className="pl-seg-b-label">Net worth</span>
+                      <span className="pl-seg-b-label">
+                        {formatMessage({ id: 'plan.netWorth', defaultMessage: 'Net worth' })}
+                      </span>
                     </button>
                     <button
                       className={'pl-seg-b' + (chartMode === 'rbd' ? ' on' : '')}
                       onClick={() => setChartMode('rbd')}
-                      title="How things could go at each age"
-                      aria-label="Outcomes by age view"
+                      title={formatMessage({
+                        id: 'plan.outcomesHelp',
+                        defaultMessage: 'How things could go at each age',
+                      })}
+                      aria-label={formatMessage({
+                        id: 'plan.outcomesAgeView',
+                        defaultMessage: 'Outcomes by age view',
+                      })}
                     >
                       <span className="pl-seg-b-icon" aria-hidden="true">
                         <svg
@@ -1969,7 +2348,12 @@ export function OutlookTab(props: OutlookTabProps) {
                           <rect x="3" y="16" width="18" height="4" rx="1" />
                         </svg>
                       </span>
-                      <span className="pl-seg-b-label">Outcomes by age</span>
+                      <span className="pl-seg-b-label">
+                        {formatMessage({
+                          id: 'plan.outcomesByAge',
+                          defaultMessage: 'Outcomes by age',
+                        })}
+                      </span>
                     </button>
                   </div>
                   {/* Meaningless on mobile — the chart is already full-width there, and the
@@ -1978,8 +2362,28 @@ export function OutlookTab(props: OutlookTabProps) {
                     <button
                       className="pl-chart-full-btn"
                       onClick={() => setChartFull((v) => !v)}
-                      title={chartFull ? 'Exit full screen' : 'View full screen'}
-                      aria-label={chartFull ? 'Exit full screen' : 'View full screen'}
+                      title={
+                        chartFull
+                          ? formatMessage({
+                              id: 'plan.outlook.exitFull',
+                              defaultMessage: 'Exit full screen',
+                            })
+                          : formatMessage({
+                              id: 'plan.outlook.viewFull',
+                              defaultMessage: 'View full screen',
+                            })
+                      }
+                      aria-label={
+                        chartFull
+                          ? formatMessage({
+                              id: 'plan.outlook.exitFull',
+                              defaultMessage: 'Exit full screen',
+                            })
+                          : formatMessage({
+                              id: 'plan.outlook.viewFull',
+                              defaultMessage: 'View full screen',
+                            })
+                      }
                     >
                       {chartFull ? (
                         <svg
@@ -2030,24 +2434,36 @@ export function OutlookTab(props: OutlookTabProps) {
                       {!rbdCond && (
                         <span>
                           <i style={{ background: '#5b626e', opacity: 0.5 }} />
-                          No longer living
+                          {formatMessage({
+                            id: 'plan.noLongerLiving',
+                            defaultMessage: 'No longer living',
+                          })}
                         </span>
                       )}
                       <span>
                         <i style={{ background: 'var(--bad)' }} />
-                        Money ran out
+                        {formatMessage({ id: 'plan.moneyRanOut', defaultMessage: 'Money ran out' })}
                       </span>
                       <span>
                         <i style={{ background: '#bfe3cf' }} />
-                        Have money (under 2×)
+                        {formatMessage({
+                          id: 'plan.outlook.underTwo',
+                          defaultMessage: 'Have money (under 2×)',
+                        })}
                       </span>
                       <span>
                         <i style={{ background: '#46c08d' }} />
-                        2–5× your pot
+                        {formatMessage({
+                          id: 'plan.outlook.twoToFive',
+                          defaultMessage: '2–5× your pot',
+                        })}
                       </span>
                       <span>
                         <i style={{ background: '#1d9e75' }} />
-                        Over 5× your pot
+                        {formatMessage({
+                          id: 'plan.outlook.overFive',
+                          defaultMessage: 'Over 5× your pot',
+                        })}
                       </span>
                       <label className="pl-rbd-toggle pl-checkrow">
                         <input
@@ -2056,7 +2472,12 @@ export function OutlookTab(props: OutlookTabProps) {
                           onChange={(e) => setRbdCond(e.target.checked)}
                         />
                         <span className="pl-checkbox" aria-hidden="true" />
-                        <span className="pl-checkrow-lbl">Condition on survival</span>
+                        <span className="pl-checkrow-lbl">
+                          {formatMessage({
+                            id: 'plan.conditionSurvival',
+                            defaultMessage: 'Condition on survival',
+                          })}
+                        </span>
                       </label>
                     </div>
                     <div
@@ -2067,17 +2488,23 @@ export function OutlookTab(props: OutlookTabProps) {
                         <Spark />
                       </span>
                       <span className="pl-sum-insight">
-                        If you keep saving steadily, you're far more likely to{' '}
-                        <b>die with money left over</b> than to run out. The few "ran out" cases
-                        mostly happen only if you live unusually long. Turn on{' '}
-                        <b>Condition on survival</b> to set the odds of dying aside and just compare
-                        the money outcomes.
+                        {formatMessage(
+                          {
+                            id: 'plan.survivalInsight',
+                            defaultMessage:
+                              'If you keep saving steadily, you’re far more likely to <b>die with money left over</b> than to run out. The few “ran out” cases mostly happen only if you live unusually long. Turn on <b>Condition on survival</b> to set the odds of dying aside and just compare the money outcomes.',
+                          },
+                          { b: (chunks) => <b>{chunks}</b> },
+                        )}
                       </span>
                       <button
                         className="pl-sum-brief-toggle"
                         onClick={() => setRbdBriefOpen((o) => !o)}
                         aria-expanded={rbdBriefOpen}
-                        aria-label="Toggle insight detail"
+                        aria-label={formatMessage({
+                          id: 'plan.toggleInsight',
+                          defaultMessage: 'Toggle insight detail',
+                        })}
                       >
                         <Chevron dir={rbdBriefOpen ? 'up' : 'down'} size={13} />
                       </button>
@@ -2086,12 +2513,16 @@ export function OutlookTab(props: OutlookTabProps) {
                           className="pl-sum-act pl-ai"
                           onClick={() =>
                             onAsk(
-                              'Using the outcomes-by-age view, am I more likely to run out of money, or to leave a big surplus?',
+                              formatMessage({
+                                id: 'plan.outlook.askOutcomes',
+                                defaultMessage:
+                                  'Using the outcomes-by-age view, am I more likely to run out of money, or to leave a big surplus?',
+                              }),
                             )
                           }
                         >
                           <Spark size={11} />
-                          Ask Lucius
+                          {formatMessage({ id: 'plan.askLucius', defaultMessage: 'Ask Lucius' })}
                         </button>
                       </span>
                     </div>
@@ -2122,12 +2553,15 @@ export function OutlookTab(props: OutlookTabProps) {
                         }
                         retireMin={currentAgeR + 1}
                         retireMax={Math.round(lifeExp) - 2}
-                        events={events}
+                        events={events.map((ev) => ({ ...ev, label: eventLabel(ev) }))}
                         onEventDrag={moveEvent}
                         onEventRemove={removeEvent}
                         safeStopAge={earliestAge}
                         shocks={chartShocks}
-                        incomeStreams={streams}
+                        incomeStreams={streams.map((s) => ({
+                          ...s,
+                          label: displayIncomeLabel(intl, s),
+                        }))}
                         focusLayer={chartFocus}
                         showDry
                       />
@@ -2156,15 +2590,30 @@ export function OutlookTab(props: OutlookTabProps) {
                           } as React.CSSProperties
                         }
                       >
-                        <span className="ph build">Building wealth</span>
-                        <span className="ph draw">Drawing down</span>
-                        <span className="ph-tick">◇ Retire</span>
+                        <span className="ph build">
+                          {formatMessage({
+                            id: 'plan.buildingWealth',
+                            defaultMessage: 'Building wealth',
+                          })}
+                        </span>
+                        <span className="ph draw">
+                          {formatMessage({
+                            id: 'plan.drawingWealth',
+                            defaultMessage: 'Drawing down',
+                          })}
+                        </span>
+                        <span className="ph-tick">
+                          {formatMessage({ id: 'plan.retireDiamond', defaultMessage: '◇ Retire' })}
+                        </span>
                       </div>
                     )}
                     <div className="pl-legend" style={{ marginTop: 10 }}>
                       <span>
                         <i style={{ background: 'var(--primary)', height: 2, marginBottom: 3 }} />
-                        typical path (p50)
+                        {formatMessage({
+                          id: 'plan.typicalPath',
+                          defaultMessage: 'typical path (p50)',
+                        })}
                       </span>
                       <span>
                         <i
@@ -2172,11 +2621,14 @@ export function OutlookTab(props: OutlookTabProps) {
                             background: 'color-mix(in srgb, var(--primary) 28%, transparent)',
                           }}
                         />
-                        good-to-bad luck range
+                        {formatMessage({
+                          id: 'plan.luckRange',
+                          defaultMessage: 'good-to-bad luck range',
+                        })}
                       </span>
                       <span>
                         <i className="dash" style={{ borderTopColor: 'var(--warn)' }} />
-                        FIRE number
+                        {formatMessage({ id: 'plan.fireNumber', defaultMessage: 'FIRE number' })}
                       </span>
                       <span>
                         <i
@@ -2187,7 +2639,7 @@ export function OutlookTab(props: OutlookTabProps) {
                             background: 'var(--primary)',
                           }}
                         />
-                        pot at retirement (p10–p90)
+                        {formatMessage({ id: 'planScan.retirementPot', defaultMessage: 'pot at retirement (p10–p90)' })}
                       </span>
                       {yearsToRet <= 12 && (
                         <span>
@@ -2200,18 +2652,30 @@ export function OutlookTab(props: OutlookTabProps) {
                               opacity: 0.5,
                             }}
                           />
-                          fragile decade{' '}
-                          <Info text="The ±5 years around your retirement date (shaded amber). A market fall right as you stop working is far more damaging than the same fall earlier — you're withdrawing, not adding, so the pot has less chance to recover. This is 'sequence-of-returns' risk." />
+                          {formatMessage({
+                            id: 'plan.outlook.fragileDecade',
+                            defaultMessage: 'fragile decade',
+                          })}{' '}
+                          <Info
+                            text={formatMessage({
+                              id: 'plan.outlook.sequenceHelp',
+                              defaultMessage:
+                                "The ±5 years around your retirement date (shaded amber). A market fall right as you stop working is far more damaging than the same fall earlier — you're withdrawing, not adding, so the pot has less chance to recover. This is 'sequence-of-returns' risk.",
+                            })}
+                          />
                         </span>
                       )}
                       {overlayBands && planResult && (
                         <span>
                           <i className="dash" />
-                          your plan{' '}
+                          {formatMessage({
+                            id: 'plan.outlook.yourPlan',
+                            defaultMessage: 'your plan',
+                          })}{' '}
                           <b className="mask" style={{ color: 'var(--muted)' }}>
                             {fCoarse(planResult.medianEnding)}
                           </b>{' '}
-                          left
+                          {formatMessage({ id: 'plan.outlook.left', defaultMessage: 'left' })}
                         </span>
                       )}
                     </div>
@@ -2220,20 +2684,29 @@ export function OutlookTab(props: OutlookTabProps) {
                       <div className="pl-tile">
                         <div className="pl-tile-k">
                           <span>
-                            Pot at {retireAge}
+                            {formatMessage(
+                              { id: 'plan.outlook.potAt', defaultMessage: 'Pot at {age}' },
+                              { age: retireAge },
+                            )}
                             {isMobile ? '' : ' • p50'}
                           </span>{' '}
                           <Info
                             up
-                            text={
-                              'The median (p50) pot when you stop work — a distribution, not one number. Range ' +
-                              (result
-                                ? fCoarse(result.nestEggBand.p10) +
-                                  '–' +
-                                  fCoarse(result.nestEggBand.p90) +
-                                  '.'
-                                : '…')
-                            }
+                            text={formatMessage(
+                              {
+                                id: 'plan.outlook.potHelp',
+                                defaultMessage:
+                                  'The median (p50) pot when you stop work — a distribution, not one number. Range {range}',
+                              },
+                              {
+                                range: result
+                                  ? fCoarse(result.nestEggBand.p10) +
+                                    '–' +
+                                    fCoarse(result.nestEggBand.p90) +
+                                    '.'
+                                  : '…',
+                              },
+                            )}
                           />
                         </div>
                         <div className="pl-tile-v mask">{result ? fCoarse(nestEgg) : '…'}</div>
@@ -2241,49 +2714,67 @@ export function OutlookTab(props: OutlookTabProps) {
                       <div className="pl-tile">
                         <div className="pl-tile-k">
                           <span>
-                            Left at {lifeExp}
+                            {formatMessage(
+                              { id: 'plan.outlook.leftAt', defaultMessage: 'Left at {age}' },
+                              { age: lifeExp },
+                            )}
                             {isMobile ? '' : ' • p50'}
                           </span>{' '}
                           <Info
                             up
                             r
-                            text="The median (50th-percentile) balance still left at your life expectancy."
+                            text={formatMessage({
+                              id: 'plan.outlook.leftHelp',
+                              defaultMessage:
+                                'The median (50th-percentile) balance still left at your life expectancy.',
+                            })}
                           />
                         </div>
                         <div className="pl-tile-v pos mask">{fCoarse(endingP50)}</div>
                       </div>
                       <div className="pl-tile">
                         <div className="pl-tile-k">
-                          Worst case
+                          {formatMessage({ id: 'plan.worstCase', defaultMessage: 'Worst case' })}
                           {isMobile ? '' : ' • p10'}{' '}
                           <Info
                             up
-                            text={
-                              'The unlucky 1-in-10 (10th-percentile) outcome at age ' +
-                              lifeExp +
-                              ' — a stress test, not a forecast.'
-                            }
+                            text={formatMessage(
+                              {
+                                id: 'plan.outlook.worstHelp',
+                                defaultMessage:
+                                  'The unlucky 1-in-10 (10th-percentile) outcome at age {age} — a stress test, not a forecast.',
+                              },
+                              { age: lifeExp },
+                            )}
                           />
                         </div>
                         <div
                           className="pl-tile-v mask"
                           style={{ color: endingP10 < 1000 ? 'var(--bad)' : 'var(--muted)' }}
                         >
-                          {endingP10 < 1000 ? 'Runs dry' : fCoarse(endingP10)}
+                          {endingP10 < 1000
+                            ? formatMessage({
+                                id: 'plan.outlook.runsDry',
+                                defaultMessage: 'Runs dry',
+                              })
+                            : fCoarse(endingP10)}
                         </div>
                       </div>
                       <div className="pl-tile">
                         <div className="pl-tile-k">
-                          Best case
+                          {formatMessage({ id: 'plan.bestCase', defaultMessage: 'Best case' })}
                           {isMobile ? '' : ' • p90'}{' '}
                           <Info
                             up
                             r
-                            text={
-                              'The lucky 1-in-10 (90th-percentile) outcome at age ' +
-                              lifeExp +
-                              ' — only 1 path in 10 ends this high or higher.'
-                            }
+                            text={formatMessage(
+                              {
+                                id: 'plan.outlook.bestHelp',
+                                defaultMessage:
+                                  'The lucky 1-in-10 (90th-percentile) outcome at age {age} — only 1 path in 10 ends this high or higher.',
+                              },
+                              { age: lifeExp },
+                            )}
                           />
                         </div>
                         <div className="pl-tile-v pos mask">{fCoarse(endingP90)}</div>
@@ -2294,36 +2785,61 @@ export function OutlookTab(props: OutlookTabProps) {
                       <div className="pl-milestone-note">
                         <span className="pl-mn-row">
                           <span>
-                            You{' '}
-                            <b>
-                              <span className="pl-mn-g warn">◆</span> reach your FIRE number around{' '}
-                              {fireReachAge}
-                            </b>
+                            {formatMessage(
+                              {
+                                id: 'plan.outlook.reachMilestone',
+                                defaultMessage:
+                                  'You <b><icon>◆</icon> reach your FIRE number around {age}</b>',
+                              },
+                              {
+                                age: fireReachAge,
+                                b: (chunks) => <b>{chunks}</b>,
+                                icon: (chunks) => <span className="pl-mn-g warn">{chunks}</span>,
+                              },
+                            )}
                             {reachVsTarget != null &&
-                              (reachVsTarget > 0 ? (
-                                <>
-                                  , {reachVsTarget} yr{reachVsTarget === 1 ? '' : 's'} before your{' '}
-                                  {retireAgeR} target
-                                </>
-                              ) : reachVsTarget < 0 ? (
-                                <>
-                                  , {-reachVsTarget} yr{reachVsTarget === -1 ? '' : 's'} after your{' '}
-                                  {retireAgeR} target
-                                </>
-                              ) : (
-                                <>, right at your {retireAgeR} target</>
-                              ))}
+                              (reachVsTarget > 0
+                                ? formatMessage(
+                                    {
+                                      id: 'plan.outlook.reachBefore',
+                                      defaultMessage:
+                                        ', {years, plural, one {# yr} other {# yrs}} before your {age} target',
+                                    },
+                                    { years: reachVsTarget, age: retireAgeR },
+                                  )
+                                : reachVsTarget < 0
+                                  ? formatMessage(
+                                      {
+                                        id: 'plan.outlook.reachAfter',
+                                        defaultMessage:
+                                          ', {years, plural, one {# yr} other {# yrs}} after your {age} target',
+                                      },
+                                      { years: -reachVsTarget, age: retireAgeR },
+                                    )
+                                  : formatMessage(
+                                      {
+                                        id: 'plan.outlook.reachOnTarget',
+                                        defaultMessage: ', right at your {age} target',
+                                      },
+                                      { age: retireAgeR },
+                                    ))}
                             {earliestAge != null ? (
                               <>
-                                {' '}
-                                — but it's only{' '}
-                                <b>
-                                  <span className="pl-mn-g good">◇</span> safe to retire around{' '}
-                                  {earliestAge}
-                                </b>
-                                , since a bad market right after you quit could drain a pot that
-                                just barely hit the number. That gap is the cushion that keeps your
-                                money alive through {lifeExp}.
+                                {formatMessage(
+                                  {
+                                    id: 'plan.outlook.safeMilestone',
+                                    defaultMessage:
+                                      " — but it's only <b><icon>◇</icon> safe to retire around {age}</b>, since a bad market right after you quit could drain a pot that just barely hit the number. That gap is the cushion that keeps your money alive through {life}.",
+                                  },
+                                  {
+                                    age: earliestAge,
+                                    life: lifeExp,
+                                    b: (chunks) => <b>{chunks}</b>,
+                                    icon: (chunks) => (
+                                      <span className="pl-mn-g good">{chunks}</span>
+                                    ),
+                                  },
+                                )}
                               </>
                             ) : (
                               <>.</>
@@ -2344,8 +2860,11 @@ export function OutlookTab(props: OutlookTabProps) {
             <button
               className="pl-rail-fab mb-anchored"
               onClick={() => setRailCollapsed(false)}
-              title="What if? — drag any lever to see the impact"
-              aria-label="Open What if?"
+              title={formatMessage({
+                id: 'plan.whatIfHelp',
+                defaultMessage: 'What if? — drag any lever to see the impact',
+              })}
+              aria-label={formatMessage({ id: 'plan.openWhatIf', defaultMessage: 'Open What if?' })}
             >
               <svg
                 width="19"
@@ -2361,7 +2880,9 @@ export function OutlookTab(props: OutlookTabProps) {
                 <circle cx="10" cy="9" r="2.5" fill="var(--cta)" />
                 <circle cx="15" cy="15" r="2.5" fill="var(--cta)" />
               </svg>
-              <span className="pl-rail-fab-label">What if?</span>
+              <span className="pl-rail-fab-label">
+                {formatMessage({ id: 'plan.whatIf', defaultMessage: 'What if?' })}
+              </span>
             </button>
           )}
           {(() => {
@@ -2371,13 +2892,25 @@ export function OutlookTab(props: OutlookTabProps) {
                   <button
                     className="pl-needle-collapse"
                     onClick={() => setRailCollapsed(true)}
-                    title="Collapse the levers"
-                    aria-label="Collapse"
+                    title={formatMessage({
+                      id: 'plan.collapseLevers',
+                      defaultMessage: 'Collapse the levers',
+                    })}
+                    aria-label={formatMessage({ id: 'plan.collapse', defaultMessage: 'Collapse' })}
                   >
                     <ChevronsLeft size={16} aria-hidden="true" />
                   </button>
                   <span className="pl-panel-title">
-                    What if? <Info text="Drag any lever — the chart and odds update live." />
+                    {formatMessage({
+                      id: 'plan.outlook.whatIfQuestion',
+                      defaultMessage: 'What if?',
+                    })}{' '}
+                    <Info
+                      text={formatMessage({
+                        id: 'plan.outlook.leverHelp',
+                        defaultMessage: 'Drag any lever — the chart and odds update live.',
+                      })}
+                    />
                   </span>
                   <div className="pl-head-actions">
                     {diverged && (
@@ -2385,16 +2918,40 @@ export function OutlookTab(props: OutlookTabProps) {
                         className="pl-wchip pl-wchip--reset"
                         style={{ padding: '3px 10px', fontSize: 11 }}
                         onClick={resetToBaseline}
-                        title={'Reset to ' + baselineLabel}
+                        title={formatMessage(
+                          { id: 'plan.resetTo', defaultMessage: 'Reset to {name}' },
+                          { name: baselineLabel },
+                        )}
                       >
-                        <RotateCcw size={11} aria-hidden="true" /> Reset
+                        <RotateCcw size={11} aria-hidden="true" />{' '}
+                        {formatMessage({ id: 'plan.reset', defaultMessage: 'Reset' })}
                       </button>
                     )}
                     <button
                       className="pl-alltoggle"
                       onClick={toggleAllSecs}
-                      aria-label={allExpanded ? 'Collapse every section' : 'Expand every section'}
-                      title={allExpanded ? 'Collapse all' : 'Expand all'}
+                      aria-label={
+                        allExpanded
+                          ? formatMessage({
+                              id: 'plan.outlook.collapseSections',
+                              defaultMessage: 'Collapse every section',
+                            })
+                          : formatMessage({
+                              id: 'plan.outlook.expandSections',
+                              defaultMessage: 'Expand every section',
+                            })
+                      }
+                      title={
+                        allExpanded
+                          ? formatMessage({
+                              id: 'plan.cashControls.collapse',
+                              defaultMessage: 'Collapse all',
+                            })
+                          : formatMessage({
+                              id: 'plan.cashControls.expand',
+                              defaultMessage: 'Expand all',
+                            })
+                      }
                     >
                       {allExpanded ? (
                         <svg
@@ -2435,14 +2992,20 @@ export function OutlookTab(props: OutlookTabProps) {
                   />
                   {numberUnreachable && (
                     <div className="pl-edge warn">
-                      <b>You don't hit your number in time.</b> Save more or trim spend to reach it
-                      before {lifeExp}.
+                      {formatMessage(
+                        {
+                          id: 'plan.numberUnreachable',
+                          defaultMessage:
+                            '<b>You don’t hit your number in time.</b> Save more or trim spend to reach it before {age}.',
+                        },
+                        { age: lifeExp, b: (chunks) => <b>{chunks}</b> },
+                      )}
                     </div>
                   )}
 
                   <div className="pl-sec-group">
                     <Section
-                      title="Scenarios"
+                      title={formatMessage({ id: 'plan.scenarios', defaultMessage: 'Scenarios' })}
                       cmd={secCmd}
                       defaultOpen
                       action={
@@ -2454,18 +3017,34 @@ export function OutlookTab(props: OutlookTabProps) {
                               disabled={savingPlan}
                               title={
                                 loadedFrom
-                                  ? 'Overwrite the loaded scenario'
-                                  : 'Update your FIRE plan'
+                                  ? formatMessage({
+                                      id: 'plan.outlook.overwriteScenario',
+                                      defaultMessage: 'Overwrite the loaded scenario',
+                                    })
+                                  : formatMessage({
+                                      id: 'plan.outlook.updateFire',
+                                      defaultMessage: 'Update your FIRE plan',
+                                    })
                               }
                             >
-                              {savingPlan ? 'Saving…' : profileSyncPending ? 'Retry sync' : 'Save'}
+                              {savingPlan
+                                ? formatMessage({ id: 'plan.saving', defaultMessage: 'Saving…' })
+                                : profileSyncPending
+                                  ? formatMessage({
+                                      id: 'plan.outlook.retrySync',
+                                      defaultMessage: 'Retry sync',
+                                    })
+                                  : formatMessage({ id: 'plan.save', defaultMessage: 'Save' })}
                             </button>
                             <button
                               className="pl-sec-action pl-sec-action--create"
                               onClick={openSave}
-                              title="Save as a new scenario"
+                              title={formatMessage({
+                                id: 'plan.saveNewScenario',
+                                defaultMessage: 'Save as a new scenario',
+                              })}
                             >
-                              <Plus size={11} /> Create
+                              <Plus size={11} /> {formatMessage({ id: 'planScan.create', defaultMessage: 'Create' })}
                             </button>
                           </div>
                         ) : undefined
@@ -2476,13 +3055,31 @@ export function OutlookTab(props: OutlookTabProps) {
                           <button
                             className="pl-scenrow-load"
                             onClick={resetPlan}
-                            title="Load your FIRE plan back onto the levers"
+                            title={formatMessage({
+                              id: 'plan.loadFirePlan',
+                              defaultMessage: 'Load your FIRE plan back onto the levers',
+                            })}
                           >
-                            <span className="pl-scenrow-name">My FIRE plan</span>
+                            <span className="pl-scenrow-name">
+                              {formatMessage({
+                                id: 'plan.myFirePlan',
+                                defaultMessage: 'My FIRE plan',
+                              })}
+                            </span>
                             {isBase && !activeScen ? (
-                              <span className="pl-scenrow-tag">current</span>
+                              <span className="pl-scenrow-tag">
+                                {formatMessage({
+                                  id: 'plan.scenarioCurrent',
+                                  defaultMessage: 'current',
+                                })}
+                              </span>
                             ) : !loadedFrom && !isBase ? (
-                              <span className="pl-scenrow-tag edited">unsaved</span>
+                              <span className="pl-scenrow-tag edited">
+                                {formatMessage({
+                                  id: 'plan.scenarioUnsaved',
+                                  defaultMessage: 'unsaved',
+                                })}
+                              </span>
                             ) : (
                               <span className="pl-scenrow-odds">
                                 {planResult != null ? `${planPct}%` : '—'}
@@ -2509,33 +3106,65 @@ export function OutlookTab(props: OutlookTabProps) {
                                   if (e.key === 'Escape') setEditingId(null)
                                 }}
                                 onBlur={commitRename}
-                                aria-label="Scenario name"
+                                aria-label={formatMessage({
+                                  id: 'plan.scenarioName',
+                                  defaultMessage: 'Scenario name',
+                                })}
                               />
                             ) : (
                               <button
                                 className="pl-scenrow-load"
                                 onClick={() => recallScenario(s)}
-                                title="Load these settings"
+                                title={formatMessage({
+                                  id: 'plan.loadSettings',
+                                  defaultMessage: 'Load these settings',
+                                })}
                               >
                                 <span className="pl-scenrow-name">{s.name}</span>
                                 {activeScen === s.id ? (
-                                  <span className="pl-scenrow-tag">current</span>
+                                  <span className="pl-scenrow-tag">
+                                    {formatMessage({
+                                      id: 'plan.scenarioCurrent',
+                                      defaultMessage: 'current',
+                                    })}
+                                  </span>
                                 ) : loadedFrom === s.id ? (
-                                  <span className="pl-scenrow-tag edited">unsaved</span>
+                                  <span className="pl-scenrow-tag edited">
+                                    {formatMessage({
+                                      id: 'plan.scenarioUnsaved',
+                                      defaultMessage: 'unsaved',
+                                    })}
+                                  </span>
                                 ) : (
                                   <span
                                     className="pl-scenrow-odds"
                                     title={
                                       (liveOdds[s.id] ?? s.odds) == null
-                                        ? 'Computing…'
-                                        : `Chance your money lasts with this scenario's settings${s.atNumber ? '' : `, retiring at ${s.retireAge}`}`
+                                        ? formatMessage({
+                                            id: 'plan.outlook.computing',
+                                            defaultMessage: 'Computing…',
+                                          })
+                                        : s.atNumber
+                                          ? formatMessage({
+                                              id: 'plan.outlook.scenarioOdds',
+                                              defaultMessage:
+                                                "Chance your money lasts with this scenario's settings",
+                                            })
+                                          : formatMessage(
+                                              {
+                                                id: 'plan.outlook.scenarioOddsRetire',
+                                                defaultMessage:
+                                                  "Chance your money lasts with this scenario's settings, retiring at {age}",
+                                              },
+                                              { age: s.retireAge },
+                                            )
                                     }
                                   >
                                     {(liveOdds[s.id] ?? s.odds) != null
                                       ? `${liveOdds[s.id] ?? s.odds}%`
                                       : '—'}
                                     {!s.atNumber && s.retireAge !== BASE.retireAge && (
-                                      <span className="pl-scenrow-age"> at {s.retireAge}</span>
+                                      <span className="pl-scenrow-age"> {formatMessage({ id: 'planScan.atAge', defaultMessage: 'at {age}' }, { age: s.retireAge })}</span>
                                     )}
                                   </span>
                                 )}
@@ -2551,8 +3180,14 @@ export function OutlookTab(props: OutlookTabProps) {
                                   setEditingId(s.id)
                                   setEditName(s.name)
                                 }}
-                                aria-label="Rename scenario"
-                                title="Rename"
+                                aria-label={formatMessage({
+                                  id: 'plan.renameScenario',
+                                  defaultMessage: 'Rename scenario',
+                                })}
+                                title={formatMessage({
+                                  id: 'plan.rename',
+                                  defaultMessage: 'Rename',
+                                })}
                               >
                                 <SquarePen size={11} />
                               </button>
@@ -2560,8 +3195,11 @@ export function OutlookTab(props: OutlookTabProps) {
                             <button
                               className="pl-scenrow-x"
                               onClick={() => setConfirmDel(s)}
-                              aria-label="Delete scenario"
-                              title="Delete"
+                              aria-label={formatMessage({
+                                id: 'plan.deleteScenario',
+                                defaultMessage: 'Delete scenario',
+                              })}
+                              title={formatMessage({ id: 'plan.delete', defaultMessage: 'Delete' })}
                             >
                               <X size={11} />
                             </button>
@@ -2569,7 +3207,13 @@ export function OutlookTab(props: OutlookTabProps) {
                         ))}
                       </div>
                     </Section>
-                    <Section title="Plan levers" cmd={secCmd}>
+                    <Section
+                      title={formatMessage({
+                        id: 'plan.planLevers',
+                        defaultMessage: 'Plan levers',
+                      })}
+                      cmd={secCmd}
+                    >
                       <div className="pl-levers">
                         <MonthlySavingLever
                           saving={saving}
@@ -2579,7 +3223,12 @@ export function OutlookTab(props: OutlookTabProps) {
                         {atNumber ? (
                           <div className="pl-lever">
                             <div className="pl-lever-top">
-                              <span className="pl-lever-lbl">Retirement age</span>
+                              <span className="pl-lever-lbl">
+                                {formatMessage({
+                                  id: 'plan.retirementAge',
+                                  defaultMessage: 'Retirement age',
+                                })}
+                              </span>
                               <span
                                 className="pl-lever-val"
                                 style={{ cursor: 'default', opacity: 0.92 }}
@@ -2599,19 +3248,35 @@ export function OutlookTab(props: OutlookTabProps) {
                               )}
                               disabled
                               readOnly
-                              aria-label="Retirement age (conditional)"
+                              aria-label={formatMessage({
+                                id: 'plan.conditionalRetirement',
+                                defaultMessage: 'Retirement age (conditional)',
+                              })}
                             />
                             <div className="pl-lever-sub">
                               {numberAge != null ? (
-                                <>derived — follows your number</>
+                                <>
+                                  {formatMessage({
+                                    id: 'plan.derivedTarget',
+                                    defaultMessage: 'derived — follows your number',
+                                  })}
+                                </>
                               ) : (
-                                <>not reached within your plan</>
+                                <>
+                                  {formatMessage({
+                                    id: 'plan.targetNotReached',
+                                    defaultMessage: 'not reached within your plan',
+                                  })}
+                                </>
                               )}
                             </div>
                           </div>
                         ) : (
                           <Lever
-                            label="Retirement age"
+                            label={formatMessage({
+                              id: 'plan.retirementAge',
+                              defaultMessage: 'Retirement age',
+                            })}
                             display={String(retireAgeR)}
                             value={retireAge}
                             min={currentAgeR + 1}
@@ -2620,7 +3285,13 @@ export function OutlookTab(props: OutlookTabProps) {
                             onChange={lever(setRetireAge)}
                             sub={
                               <>
-                                drag on the chart too • plan: <b>{BASE.retireAge}</b>
+                                {formatMessage(
+                                  {
+                                    id: 'plan.retireDragPlan',
+                                    defaultMessage: 'drag on the chart too • plan: <b>{value}</b>',
+                                  },
+                                  { value: BASE.retireAge, b: (chunks) => <b>{chunks}</b> },
+                                )}
                               </>
                             }
                           />
@@ -2631,7 +3302,10 @@ export function OutlookTab(props: OutlookTabProps) {
                           onChange={lever(setMonthlyRetirementSpending)}
                         />
                         <Lever
-                          label="Withdrawal rate"
+                          label={formatMessage({
+                            id: 'plan.withdrawalRate',
+                            defaultMessage: 'Withdrawal rate',
+                          })}
                           display={swr + '%'}
                           value={swr}
                           min={2.5}
@@ -2641,13 +3315,22 @@ export function OutlookTab(props: OutlookTabProps) {
                           onChange={lever(setSwr)}
                           sub={
                             <>
-                              safe % drawn yearly • lower lifts FIRE number • plan:{' '}
-                              <b>{BASE.swr}%</b>
+                              {formatMessage(
+                                {
+                                  id: 'plan.withdrawalPlan',
+                                  defaultMessage:
+                                    'safe % drawn yearly • lower lifts FIRE number • plan: <b>{value}%</b>',
+                                },
+                                { value: BASE.swr, b: (chunks) => <b>{chunks}</b> },
+                              )}
                             </>
                           }
                         />
                         <Lever
-                          label="Plan until age"
+                          label={formatMessage({
+                            id: 'plan.planUntil',
+                            defaultMessage: 'Plan until age',
+                          })}
                           display={String(lifeExp)}
                           value={lifeExp}
                           min={75}
@@ -2656,12 +3339,21 @@ export function OutlookTab(props: OutlookTabProps) {
                           onChange={lever(setLifeExp)}
                           sub={
                             <>
-                              how long money must last • plan: <b>{BASE.lifeExp}</b>
+                              {formatMessage(
+                                {
+                                  id: 'plan.lifePlan',
+                                  defaultMessage: 'how long money must last • plan: <b>{value}</b>',
+                                },
+                                { value: BASE.lifeExp, b: (chunks) => <b>{chunks}</b> },
+                              )}
                             </>
                           }
                         />
                         <Lever
-                          label="Expected return"
+                          label={formatMessage({
+                            id: 'plan.expectedReturn',
+                            defaultMessage: 'Expected return',
+                          })}
                           display={ret + '%'}
                           value={ret}
                           min={0}
@@ -2671,12 +3363,21 @@ export function OutlookTab(props: OutlookTabProps) {
                           onChange={lever(setRet)}
                           sub={
                             <>
-                              before inflation • plan: <b>{BASE.ret}%</b>
+                              {formatMessage(
+                                {
+                                  id: 'plan.returnPlan',
+                                  defaultMessage: 'before inflation • plan: <b>{value}%</b>',
+                                },
+                                { value: BASE.ret, b: (chunks) => <b>{chunks}</b> },
+                              )}
                             </>
                           }
                         />
                         <Lever
-                          label="Volatility"
+                          label={formatMessage({
+                            id: 'plan.volatilityShort',
+                            defaultMessage: 'Volatility',
+                          })}
                           display={vol + '%'}
                           value={vol}
                           min={6}
@@ -2686,7 +3387,13 @@ export function OutlookTab(props: OutlookTabProps) {
                           onChange={lever(setVol)}
                           sub={
                             <>
-                              market swings • plan: <b>{BASE.vol}%</b>
+                              {formatMessage(
+                                {
+                                  id: 'plan.volatilityPlan',
+                                  defaultMessage: 'market swings • plan: <b>{value}%</b>',
+                                },
+                                { value: BASE.vol, b: (chunks) => <b>{chunks}</b> },
+                              )}
                             </>
                           }
                         />
@@ -2702,13 +3409,21 @@ export function OutlookTab(props: OutlookTabProps) {
                           }}
                         />
                         <span className="pl-checkbox" aria-hidden="true" />
-                        <span className="pl-checkrow-lbl">Retire when I hit my FIRE number</span>
+                        <span className="pl-checkrow-lbl">
+                          {formatMessage({
+                            id: 'plan.retireAtFire',
+                            defaultMessage: 'Retire when I hit my FIRE number',
+                          })}
+                        </span>
                       </label>
                     </Section>
 
                     {/* ── On your timeline ── */}
                     <Section
-                      title="Events &amp; income"
+                      title={formatMessage({
+                        id: 'plan.eventsIncome',
+                        defaultMessage: 'Events & income',
+                      })}
                       cmd={secCmd}
                       sub={
                         events.length + streams.length > 0
@@ -2718,13 +3433,19 @@ export function OutlookTab(props: OutlookTabProps) {
                     >
                       <div className="pl-subsecs">
                         <Section
-                          title="Market shocks"
+                          title={formatMessage({
+                            id: 'plan.marketShocks',
+                            defaultMessage: 'Market shocks',
+                          })}
                           cmd={secCmd}
                           sub={chartShocks.length || undefined}
                         >
                           <div className="pl-lever-desc">
-                            Tap a shock to switch it on and set the years it hits — each tints a
-                            window on the chart above.
+                            {formatMessage({
+                              id: 'plan.shockHelp',
+                              defaultMessage:
+                                'Tap a shock to switch it on and set the years it hits — each tints a window on the chart above.',
+                            })}
                           </div>
                           <div className="pl-whatif-row" style={{ marginTop: 10 }}>
                             <button
@@ -2733,7 +3454,10 @@ export function OutlookTab(props: OutlookTabProps) {
                               onMouseEnter={() => setChartFocus('crash')}
                               onMouseLeave={() => setChartFocus(null)}
                             >
-                              Crash • {shockWin.crash.from}
+                              {formatMessage(
+                                { id: 'plan.shockCrashAt', defaultMessage: 'Crash • {from}' },
+                                { from: shockWin.crash.from },
+                              )}
                             </button>
                             <button
                               className={'pl-wchip' + (weakSeq ? ' on' : '')}
@@ -2741,7 +3465,13 @@ export function OutlookTab(props: OutlookTabProps) {
                               onMouseEnter={() => setChartFocus('weak')}
                               onMouseLeave={() => setChartFocus(null)}
                             >
-                              Weak returns • {shockWin.weak.from}–{shockWin.weak.to}
+                              {formatMessage(
+                                {
+                                  id: 'plan.shockWeakAt',
+                                  defaultMessage: 'Weak returns • {from}–{to}',
+                                },
+                                { from: shockWin.weak.from, to: shockWin.weak.to },
+                              )}
                             </button>
                             <button
                               className={'pl-wchip' + (lostDec ? ' on' : '')}
@@ -2749,7 +3479,13 @@ export function OutlookTab(props: OutlookTabProps) {
                               onMouseEnter={() => setChartFocus('lost')}
                               onMouseLeave={() => setChartFocus(null)}
                             >
-                              Lost decade • {shockWin.lost.from}–{shockWin.lost.to}
+                              {formatMessage(
+                                {
+                                  id: 'plan.shockLostAt',
+                                  defaultMessage: 'Lost decade • {from}–{to}',
+                                },
+                                { from: shockWin.lost.from, to: shockWin.lost.to },
+                              )}
                             </button>
                             <button
                               className={'pl-wchip' + (highInfl ? ' on' : '')}
@@ -2757,22 +3493,42 @@ export function OutlookTab(props: OutlookTabProps) {
                               onMouseEnter={() => setChartFocus('infl')}
                               onMouseLeave={() => setChartFocus(null)}
                             >
-                              High inflation • {shockWin.infl.from}–{shockWin.infl.to}
+                              {formatMessage(
+                                {
+                                  id: 'plan.shockInflationAt',
+                                  defaultMessage: 'High inflation • {from}–{to}',
+                                },
+                                { from: shockWin.infl.from, to: shockWin.infl.to },
+                              )}
                             </button>
                           </div>
                         </Section>
 
-                        <Section title="Life events" cmd={secCmd} sub={events.length || undefined}>
+                        <Section
+                          title={formatMessage({
+                            id: 'plan.lifeEvents',
+                            defaultMessage: 'Life events',
+                          })}
+                          cmd={secCmd}
+                          sub={events.length || undefined}
+                        >
                           <div className="pl-lever-desc">
-                            Add a one-off — it appears as a flag on the chart above; drag it to the
-                            age it happens.
+                            {formatMessage({
+                              id: 'plan.outlook.eventHelp',
+                              defaultMessage:
+                                'Add a one-off — it appears as a flag on the chart above; drag it to the age it happens.',
+                            })}
                           </div>
                           <div className="pl-events-add">
                             <button
                               className="pl-event-add-opt pl-event-add-custom"
                               onClick={openAddEvent}
                             >
-                              <Plus size={11} /> Custom
+                              <Plus size={11} />{' '}
+                              {formatMessage({
+                                id: 'plan.outlook.customEvent',
+                                defaultMessage: 'Custom',
+                              })}
                             </button>
                             {EVENT_PRESETS.map((p) => (
                               <button
@@ -2780,7 +3536,7 @@ export function OutlookTab(props: OutlookTabProps) {
                                 className="pl-event-add-opt"
                                 onClick={() => addEvent(p)}
                               >
-                                {p.label}{' '}
+                                {displayLifeEventLabel(intl, p)}{' '}
                                 <b className="mask">
                                   {p.amount < 0 ? '−' : '+'}
                                   {fBaseCompact(Math.abs(p.amount))}
@@ -2795,9 +3551,12 @@ export function OutlookTab(props: OutlookTabProps) {
                                   <button
                                     className="pl-event-row-main"
                                     onClick={() => openEditEvent(ev)}
-                                    title="Edit this life event"
+                                    title={formatMessage({
+                                      id: 'plan.editLifeEvent',
+                                      defaultMessage: 'Edit this life event',
+                                    })}
                                   >
-                                    <span className="pl-event-row-lbl">{ev.label}</span>
+                                    <span className="pl-event-row-lbl">{eventLabel(ev)}</span>
                                     <span
                                       className={
                                         'pl-event-row-amt' + (ev.amount > 0 ? ' windfall' : '')
@@ -2807,13 +3566,16 @@ export function OutlookTab(props: OutlookTabProps) {
                                       {fBaseCompact(Math.abs(ev.amount))}
                                     </span>
                                     <span className="pl-event-row-age">
-                                      age {Math.round(ev.age)}
+                                      {formatMessage({ id: 'planScan.age', defaultMessage: 'age {age}' }, { age: Math.round(ev.age) })}
                                     </span>
                                   </button>
                                   <button
                                     className="pl-event-row-x"
                                     onClick={() => removeEvent(ev.id)}
-                                    aria-label="Remove"
+                                    aria-label={formatMessage({
+                                      id: 'plan.remove',
+                                      defaultMessage: 'Remove',
+                                    })}
                                   >
                                     <X size={11} />
                                   </button>
@@ -2824,14 +3586,19 @@ export function OutlookTab(props: OutlookTabProps) {
                         </Section>
 
                         <Section
-                          title="Guaranteed income"
+                          title={formatMessage({
+                            id: 'plan.guaranteedIncome',
+                            defaultMessage: 'Guaranteed income',
+                          })}
                           cmd={secCmd}
                           sub={streams.length || undefined}
                         >
                           <div className="pl-lever-desc">
-                            CPF LIFE, pension, annuities, rental — income that doesn't depend on the
-                            market offsets your withdrawals. Its start age shows as a floor mark on
-                            the chart.
+                            {formatMessage({
+                              id: 'plan.guaranteedIncomeHelp',
+                              defaultMessage:
+                                "CPF LIFE, pension, annuities, rental — income that doesn't depend on the market offsets your withdrawals. Its start age shows as a floor mark on the chart.",
+                            })}
                           </div>
                           <div
                             className="pl-income-row"
@@ -2844,9 +3611,22 @@ export function OutlookTab(props: OutlookTabProps) {
                                 <button
                                   className="pl-tag-edit"
                                   onClick={() => openEditIncome(i)}
-                                  title="Edit this income source"
+                                  title={formatMessage({
+                                    id: 'plan.editIncome',
+                                    defaultMessage: 'Edit this income source',
+                                  })}
                                 >
-                                  {s.label} +<span className="mask">{fBaseWhole(s.amount)}</span>/mo
+                                  {formatMessage(
+                                    {
+                                      id: 'plan.outlook.incomePerMonth',
+                                      defaultMessage: '{name} +<money>{amount}</money>/mo',
+                                    },
+                                    {
+                                      name: displayIncomeLabel(intl, s),
+                                      amount: fBaseWhole(s.amount),
+                                      money: (chunks) => <span className="mask">{chunks}</span>,
+                                    },
+                                  )}
                                   •{' '}
                                   {s.endAge
                                     ? Math.round(s.age) + '–' + Math.round(s.endAge)
@@ -2855,14 +3635,21 @@ export function OutlookTab(props: OutlookTabProps) {
                                 <button
                                   className="x"
                                   onClick={() => removeStream(i)}
-                                  aria-label="Remove"
+                                  aria-label={formatMessage({
+                                    id: 'plan.remove',
+                                    defaultMessage: 'Remove',
+                                  })}
                                 >
                                   <X size={10} />
                                 </button>
                               </span>
                             ))}
                             <button className="pl-add-income" onClick={openAddIncome}>
-                              <Plus size={11} /> Add income
+                              <Plus size={11} />{' '}
+                              {formatMessage({
+                                id: 'plan.outlook.addIncome',
+                                defaultMessage: 'Add income',
+                              })}
                             </button>
                           </div>
                         </Section>
@@ -2870,7 +3657,10 @@ export function OutlookTab(props: OutlookTabProps) {
                     </Section>
 
                     <Section
-                      title="Compare two plans"
+                      title={formatMessage({
+                        id: 'plan.comparePlans',
+                        defaultMessage: 'Compare two plans',
+                      })}
                       cmd={secCmd}
                       sub={planB ? 'A vs B' : undefined}
                       action={
@@ -2879,15 +3669,28 @@ export function OutlookTab(props: OutlookTabProps) {
                             className="pl-sec-action"
                             onClick={() => {
                               setPlanB({
-                                name: isBase ? 'Snapshot' : 'What-if',
+                                name: isBase
+                                  ? formatMessage({
+                                      id: 'plan.outlook.snapshot',
+                                      defaultMessage: 'Snapshot',
+                                    })
+                                  : formatMessage({
+                                      id: 'plan.cashHero.whatIf',
+                                      defaultMessage: 'What-if',
+                                    }),
                                 odds: successPct,
                                 successPct,
                                 retireAge,
                               })
-                              toast('Saved as Plan B')
+                              toast(
+                                formatMessage({
+                                  id: 'plan.outlook.savedPlanB',
+                                  defaultMessage: 'Saved as Plan B',
+                                }),
+                              )
                             }}
                           >
-                            <Plus size={11} /> Plan B
+                            <Plus size={11} /> {formatMessage({ id: 'planScan.planB', defaultMessage: 'Plan B' })}
                           </button>
                         ) : undefined
                       }
@@ -2902,9 +3705,9 @@ export function OutlookTab(props: OutlookTabProps) {
                                   className={'pl-compare-card' + (successPct > bPct ? ' win' : '')}
                                 >
                                   <div className="pl-compare-lbl">
-                                    Plan A{' '}
+                                    {formatMessage({ id: 'planScan.planA', defaultMessage: 'Plan A' })}{' '}
                                     <span style={{ color: 'var(--faint)', fontWeight: 600 }}>
-                                      • live
+                                      • {formatMessage({ id: 'planScan.live', defaultMessage: 'live' })}
                                     </span>
                                   </div>
                                   <div
@@ -2917,17 +3720,22 @@ export function OutlookTab(props: OutlookTabProps) {
                                   <div
                                     style={{ fontSize: 12, color: 'var(--faint)', marginTop: 4 }}
                                   >
-                                    money lasts • retire {retireAge}
+                                    {formatMessage({ id: 'planScan.lastsRetire', defaultMessage: 'money lasts • retire {age}' }, { age: retireAge })}
                                   </div>
                                   {successPct > bPct && (
-                                    <div className="pl-compare-win">✓ Higher odds</div>
+                                    <div className="pl-compare-win">
+                                      {formatMessage({
+                                        id: 'plan.higherOdds',
+                                        defaultMessage: '✓ Higher odds',
+                                      })}
+                                    </div>
                                   )}
                                 </div>
                                 <div
                                   className={'pl-compare-card' + (bPct > successPct ? ' win' : '')}
                                 >
                                   <div className="pl-compare-lbl">
-                                    Plan B{' '}
+                                    {formatMessage({ id: 'planScan.planB', defaultMessage: 'Plan B' })}{' '}
                                     <span style={{ color: 'var(--faint)', fontWeight: 600 }}>
                                       • {planB.name}
                                     </span>
@@ -2938,10 +3746,15 @@ export function OutlookTab(props: OutlookTabProps) {
                                   <div
                                     style={{ fontSize: 12, color: 'var(--faint)', marginTop: 4 }}
                                   >
-                                    money lasts • retire {planB.retireAge}
+                                    {formatMessage({ id: 'planScan.lastsRetire', defaultMessage: 'money lasts • retire {age}' }, { age: planB.retireAge })}
                                   </div>
                                   {bPct > successPct && (
-                                    <div className="pl-compare-win">✓ Higher odds</div>
+                                    <div className="pl-compare-win">
+                                      {formatMessage({
+                                        id: 'plan.higherOdds',
+                                        defaultMessage: '✓ Higher odds',
+                                      })}
+                                    </div>
                                   )}
                                 </div>
                               </div>
@@ -2951,15 +3764,21 @@ export function OutlookTab(props: OutlookTabProps) {
                                 style={{ marginTop: 10, fontSize: 12 }}
                                 onClick={() => setPlanB(null)}
                               >
-                                Clear comparison
+                                {formatMessage({
+                                  id: 'plan.clearComparison',
+                                  defaultMessage: 'Clear comparison',
+                                })}
                               </Button>
                             </>
                           )
                         })()
                       ) : (
                         <div style={{ fontSize: 12.5, color: 'var(--faint)' }}>
-                          Save the current levers as Plan B, then keep tweaking Plan A to compare
-                          side-by-side.
+                          {formatMessage({
+                            id: 'plan.savePlanBHelp',
+                            defaultMessage:
+                              'Save the current levers as Plan B, then keep tweaking Plan A to compare side-by-side.',
+                          })}
                         </div>
                       )}
                     </Section>
@@ -2971,7 +3790,7 @@ export function OutlookTab(props: OutlookTabProps) {
               !railCollapsed && (
                 <PlanningModal
                   onClose={() => setRailCollapsed(true)}
-                  label="What if?"
+                  label={formatMessage({ id: 'plan.whatIf', defaultMessage: 'What if?' })}
                   className="pl-rail-sheet"
                 >
                   {whatIfPanel}
@@ -2999,22 +3818,46 @@ export function OutlookTab(props: OutlookTabProps) {
               />
               {sc == null ? (
                 <span className="pl-trust-txt">
-                  We'll show how close our forecasts have been once a few months have closed and we
-                  can compare them against your actuals.
+                  {formatMessage({
+                    id: 'plan.forecastPending',
+                    defaultMessage:
+                      'We’ll show how close our forecasts have been once a few months have closed and we can compare them against your actuals.',
+                  })}
                 </span>
               ) : (
                 <>
                   <span className="pl-trust-txt">
-                    Our cash-flow forecasts land within <b>~{sc.cfMape}% of plan</b> —{' '}
-                    {sc.cfMape <= 10
-                      ? 'reliable, solid for budgeting'
-                      : sc.cfMape <= 25
-                        ? 'usually close, fine for budgeting'
-                        : 'loose, so treat them as a rough guide'}
-                    . The net-worth line swings with markets, so treat it as a guide, not a promise.
+                    {formatMessage(
+                      sc.cfMape <= 10
+                        ? {
+                            id: 'plan.forecastTrustHigh',
+                            defaultMessage:
+                              'Our cash-flow forecasts land within <b>~{percent}% of plan</b> — reliable, solid for budgeting. The net-worth line swings with markets, so treat it as a guide, not a promise.',
+                          }
+                        : sc.cfMape <= 25
+                          ? {
+                              id: 'plan.forecastTrustMedium',
+                              defaultMessage:
+                                'Our cash-flow forecasts land within <b>~{percent}% of plan</b> — usually close, fine for budgeting. The net-worth line swings with markets, so treat it as a guide, not a promise.',
+                            }
+                          : {
+                              id: 'plan.forecastTrustLow',
+                              defaultMessage:
+                                'Our cash-flow forecasts land within <b>~{percent}% of plan</b> — loose, so treat them as a rough guide. The net-worth line swings with markets, so treat it as a guide, not a promise.',
+                            },
+                      { percent: sc.cfMape, b: (chunks) => <b>{chunks}</b> },
+                    )}
                   </span>
                   <button className="pl-trust-toggle" onClick={() => setShowTrack((s) => !s)}>
-                    {showTrack ? 'Hide track record' : 'See track record'}{' '}
+                    {showTrack
+                      ? formatMessage({
+                          id: 'plan.hideTrackRecord',
+                          defaultMessage: 'Hide track record',
+                        })
+                      : formatMessage({
+                          id: 'plan.seeTrackRecord',
+                          defaultMessage: 'See track record',
+                        })}{' '}
                     {showTrack ? (
                       <Chevron dir="down" size={12} />
                     ) : (
@@ -3028,9 +3871,20 @@ export function OutlookTab(props: OutlookTabProps) {
             {showTrack && sc && (
               <div className="pl-panel">
                 <div className="pl-panel-head">
-                  <span className="pl-panel-title">How close have our forecasts been?</span>
+                  <span className="pl-panel-title">
+                    {formatMessage({
+                      id: 'plan.forecastAccuracy',
+                      defaultMessage: 'How close have our forecasts been?',
+                    })}
+                  </span>
                   <span className="pl-panel-sub">
-                    most recent {sc.periods.length} months • actuals vs what we projected
+                    {formatMessage(
+                      {
+                        id: 'plan.recentForecastMonths',
+                        defaultMessage: 'most recent {count} months • actuals vs what we projected',
+                      },
+                      { count: sc.periods.length },
+                    )}
                   </span>
                 </div>
                 <div className="pl-panel-body">
@@ -3047,24 +3901,46 @@ export function OutlookTab(props: OutlookTabProps) {
                         }
                       />
                       <span>
-                        <b>Cash flow</b> — lands within ~{sc.cfMape}% of plan; usually close, fine
-                        for budgeting but worth watching the off months.
+                        {formatMessage(
+                          {
+                            id: 'plan.cashForecastAccuracy',
+                            defaultMessage:
+                              '<b>Cash flow</b> — lands within ~{percent}% of plan; usually close, fine for budgeting but worth watching the off months.',
+                          },
+                          { percent: sc.cfMape, b: (chunks) => <b>{chunks}</b> },
+                        )}
                       </span>
                     </div>
                     <div className="pl-acc-sum-i">
                       <span className={'pl-acc-dot ' + accTone(sc.tech.nwMape, 'nw')} />
                       <span>
-                        <b>Net worth</b> — stays fairly close on average, but it swings with the
-                        markets, so treat the projected line as a guide for what's ahead.
+                        {formatMessage(
+                          {
+                            id: 'plan.netForecastAccuracy',
+                            defaultMessage:
+                              '<b>Net worth</b> — stays fairly close on average, but it swings with the markets, so treat the projected line as a guide for what’s ahead.',
+                          },
+                          { b: (chunks) => <b>{chunks}</b> },
+                        )}
                       </span>
                     </div>
                   </div>
 
                   <div className="pl-acc">
                     <div className="pl-acc-head">
-                      <div>Month</div>
-                      <div>Cash-flow miss</div>
-                      <div>Net-worth miss</div>
+                      <div>{formatMessage({ id: 'plan.month', defaultMessage: 'Month' })}</div>
+                      <div>
+                        {formatMessage({
+                          id: 'plan.cashFlowMiss',
+                          defaultMessage: 'Cash-flow miss',
+                        })}
+                      </div>
+                      <div>
+                        {formatMessage({
+                          id: 'plan.netWorthMiss',
+                          defaultMessage: 'Net-worth miss',
+                        })}
+                      </div>
                     </div>
                     {sc.periods.map((p) => (
                       <div key={p.label} className="pl-acc-row">
@@ -3087,7 +3963,7 @@ export function OutlookTab(props: OutlookTabProps) {
                           </div>
                           <span className="pl-acc-v">
                             {p.cf > 0 ? '+' : '−'}
-                            {Math.abs(p.cf).toFixed(1)}%
+                            {fFixed(Math.abs(p.cf), 1)}%
                           </span>
                         </div>
                         <div className="pl-acc-cell">
@@ -3108,7 +3984,7 @@ export function OutlookTab(props: OutlookTabProps) {
                           </div>
                           <span className="pl-acc-v">
                             {p.nw > 0 ? '+' : '−'}
-                            {Math.abs(p.nw).toFixed(1)}%
+                            {fFixed(Math.abs(p.nw), 1)}%
                           </span>
                         </div>
                       </div>
@@ -3116,20 +3992,31 @@ export function OutlookTab(props: OutlookTabProps) {
                   </div>
                   <div className="pl-acc-legend">
                     <span>
-                      Cash flow is judged tightly (on track ≤ 10%); market-driven net worth gets a
-                      looser bar (≤ 20%).
+                      {formatMessage({
+                        id: 'plan.outlook.accuracyHelp',
+                        defaultMessage:
+                          'Cash flow is judged tightly (on track ≤ 10%); market-driven net worth gets a looser bar (≤ 20%).',
+                      })}
                     </span>
                     <span className="pl-acc-key">
                       <i className="good" />
-                      on track
+                      {formatMessage({ id: 'plan.outlook.onTrack', defaultMessage: 'on track' })}
                       <i className="warn" />
-                      off
+                      {formatMessage({ id: 'plan.outlook.off', defaultMessage: 'off' })}
                       <i className="bad" />
-                      way off
+                      {formatMessage({ id: 'plan.outlook.wayOff', defaultMessage: 'way off' })}
                     </span>
                   </div>
                   <button className="pl-tech-toggle" onClick={() => setShowTech((s) => !s)}>
-                    {showTech ? 'Hide the technical numbers' : 'Show the technical numbers'}{' '}
+                    {showTech
+                      ? formatMessage({
+                          id: 'plan.hideTechnical',
+                          defaultMessage: 'Hide the technical numbers',
+                        })
+                      : formatMessage({
+                          id: 'plan.showTechnical',
+                          defaultMessage: 'Show the technical numbers',
+                        })}{' '}
                     {showTech ? (
                       <Chevron dir="down" size={12} />
                     ) : (
@@ -3140,62 +4027,104 @@ export function OutlookTab(props: OutlookTabProps) {
                     <div className="pl-tiles pl-tiles--tech" style={{ marginTop: 14 }}>
                       <div className="pl-tile">
                         <div className="pl-tile-k">
-                          Cash-flow error (MAPE){' '}
+                          {formatMessage({
+                            id: 'plan.outlook.cashMape',
+                            defaultMessage: 'Cash-flow error (MAPE)',
+                          })}{' '}
                           <Info
                             up
-                            text="Mean absolute percentage error — the average size of our monthly cash-flow miss, ignoring direction. Lower is better."
+                            text={formatMessage({
+                              id: 'plan.outlook.cashMapeHelp',
+                              defaultMessage:
+                                'Mean absolute percentage error — the average size of our monthly cash-flow miss, ignoring direction. Lower is better.',
+                            })}
                           />
                         </div>
                         <div className="pl-tile-v">{sc.tech.mape}%</div>
                       </div>
                       <div className="pl-tile">
                         <div className="pl-tile-k">
-                          Cash-flow avg miss{' '}
+                          {formatMessage({
+                            id: 'plan.outlook.cashMiss',
+                            defaultMessage: 'Cash-flow avg miss',
+                          })}{' '}
                           <Info
                             up
-                            text="The typical dollar gap between forecast and actual net cash flow in a month."
+                            text={formatMessage({
+                              id: 'plan.outlook.cashMissHelp',
+                              defaultMessage:
+                                'The typical dollar gap between forecast and actual net cash flow in a month.',
+                            })}
                           />
                         </div>
                         <div className="pl-tile-v mask">{fBaseWhole(sc.tech.avgMiss)}</div>
                       </div>
                       <div className="pl-tile">
                         <div className="pl-tile-k">
-                          Cash-flow bias{' '}
+                          {formatMessage({
+                            id: 'plan.outlook.cashBias',
+                            defaultMessage: 'Cash-flow bias',
+                          })}{' '}
                           <Info
                             up
                             r
-                            text="Whether we lean optimistic or pessimistic. A negative figure means we tend to under-forecast — actuals usually come in below plan."
+                            text={formatMessage({
+                              id: 'plan.outlook.cashBiasHelp',
+                              defaultMessage:
+                                'Whether we lean optimistic or pessimistic. A negative figure means we tend to under-forecast — actuals usually come in below plan.',
+                            })}
                           />
                         </div>
                         <div className="pl-tile-v neg mask">{fSigned(sc.tech.bias)}</div>
                       </div>
                       <div className="pl-tile">
                         <div className="pl-tile-k">
-                          Net-worth error (MAPE){' '}
+                          {formatMessage({
+                            id: 'plan.outlook.netMape',
+                            defaultMessage: 'Net-worth error (MAPE)',
+                          })}{' '}
                           <Info
                             up
-                            text="Average size of our monthly net-worth miss, as a %. Naturally larger and noisier than cash flow, since markets move."
+                            text={formatMessage({
+                              id: 'plan.outlook.netMapeHelp',
+                              defaultMessage:
+                                'Average size of our monthly net-worth miss, as a %. Naturally larger and noisier than cash flow, since markets move.',
+                            })}
                           />
                         </div>
                         <div className="pl-tile-v">{sc.tech.nwMape}%</div>
                       </div>
                       <div className="pl-tile">
                         <div className="pl-tile-k">
-                          Net-worth avg miss{' '}
+                          {formatMessage({
+                            id: 'plan.outlook.netMiss',
+                            defaultMessage: 'Net-worth avg miss',
+                          })}{' '}
                           <Info
                             up
-                            text="The typical dollar gap between forecast and actual net worth in a month."
+                            text={formatMessage({
+                              id: 'plan.outlook.netMissHelp',
+                              defaultMessage:
+                                'The typical dollar gap between forecast and actual net worth in a month.',
+                            })}
                           />
                         </div>
                         <div className="pl-tile-v mask">{fBaseWhole(sc.tech.nwAvgMiss)}</div>
                       </div>
                       <div className="pl-tile">
                         <div className="pl-tile-k">
-                          Net-worth drift{' '}
+                          {formatMessage({
+                            id: 'plan.outlook.netDrift',
+                            defaultMessage: 'Net-worth drift',
+                          })}{' '}
                           <Info
                             up
                             r
-                            text="Whether the projected net-worth line gradually pulls above or below actuals over time. Positive means the projection tends to run ahead."
+                            text={formatMessage({
+                              id: 'plan.outlook.netDriftHelp',
+                              defaultMessage:
+                                'Whether the projected net-worth line gradually pulls above or below actuals over time. Positive means the projection tends to run ahead.',
+                            })}
                           />
                         </div>
                         <div className="pl-tile-v mask">{fSigned(sc.tech.nwDrift)}</div>
@@ -3203,11 +4132,20 @@ export function OutlookTab(props: OutlookTabProps) {
                     </div>
                   )}
                   <div className="pl-foot">
-                    These stats use all{' '}
-                    <b style={{ color: 'var(--muted)' }}>{sc.monthsTracked} closed months</b> on
-                    record; the table above shows the most recent{' '}
-                    <b style={{ color: 'var(--muted)' }}>{sc.periods.length}</b>. We projected ~
-                    <span className="mask">{fBaseWhole(sc.projectedMonthlyNet)}</span>/mo net.
+                    {formatMessage(
+                      {
+                        id: 'plan.outlook.statsFoot',
+                        defaultMessage:
+                          'These stats use all <b>{months} closed months</b> on record; the table above shows the most recent <b>{periods}</b>. We projected ~<money>{net}</money>/mo net.',
+                      },
+                      {
+                        months: sc.monthsTracked,
+                        periods: sc.periods.length,
+                        net: fBaseWhole(sc.projectedMonthlyNet),
+                        b: (chunks) => <b style={{ color: 'var(--muted)' }}>{chunks}</b>,
+                        money: (chunks) => <span className="mask">{chunks}</span>,
+                      },
+                    )}
                   </div>
                 </div>
               </div>
@@ -3233,7 +4171,7 @@ export function OutlookTab(props: OutlookTabProps) {
                 <button
                   className="pl-modal-x"
                   onClick={() => setEditShock(null)}
-                  aria-label="Close"
+                  aria-label={formatMessage({ id: 'plan.close', defaultMessage: 'Close' })}
                 >
                   <X size={16} />
                 </button>
@@ -3245,7 +4183,9 @@ export function OutlookTab(props: OutlookTabProps) {
                 <div style={{ display: 'flex', gap: 12 }}>
                   <div style={{ flex: 1 }}>
                     <label className="pl-modal-label" htmlFor="shock-from">
-                      {single ? 'Age it hits' : 'From age'}
+                      {single
+                        ? formatMessage({ id: 'plan.ageHits', defaultMessage: 'Age it hits' })
+                        : formatMessage({ id: 'plan.fromAge', defaultMessage: 'From age' })}
                     </label>
                     <input
                       id="shock-from"
@@ -3261,7 +4201,7 @@ export function OutlookTab(props: OutlookTabProps) {
                   {!single && (
                     <div style={{ flex: 1 }}>
                       <label className="pl-modal-label" htmlFor="shock-to">
-                        To age
+                        {formatMessage({ id: 'plan.toAge', defaultMessage: 'To age' })}
                       </label>
                       <input
                         id="shock-to"
@@ -3285,14 +4225,16 @@ export function OutlookTab(props: OutlookTabProps) {
                     style={{ marginRight: 'auto', color: 'var(--bad)' }}
                     onClick={() => disableShock(editShock!)}
                   >
-                    Turn off
+                    {formatMessage({ id: 'plan.turnOff', defaultMessage: 'Turn off' })}
                   </Button>
                 )}
                 <Button variant="secondary" size="dense" onClick={() => setEditShock(null)}>
-                  Cancel
+                  {formatMessage({ id: 'plan.cancel', defaultMessage: 'Cancel' })}
                 </Button>
                 <Button variant="primary" size="dense" disabled={!shockFrom} onClick={applyShock}>
-                  {meta.on ? 'Save' : 'Add shock'}
+                  {meta.on
+                    ? formatMessage({ id: 'plan.save', defaultMessage: 'Save' })
+                    : formatMessage({ id: 'plan.addShock', defaultMessage: 'Add shock' })}
                 </Button>
               </div>
             </PlanningModal>
@@ -3301,12 +4243,20 @@ export function OutlookTab(props: OutlookTabProps) {
       {addingEvent && (
         <PlanningModal
           onClose={() => setAddingEvent(false)}
-          label="Edit life event"
+          label={formatMessage({ id: 'plan.editEvent', defaultMessage: 'Edit life event' })}
           style={{ width: 380 }}
         >
           <div className="pl-modal-head">
-            <h3>{editEventId != null ? 'Edit life event' : 'Add a life event'}</h3>
-            <button className="pl-modal-x" onClick={() => setAddingEvent(false)} aria-label="Close">
+            <h3>
+              {editEventId != null
+                ? formatMessage({ id: 'plan.editEvent', defaultMessage: 'Edit life event' })
+                : formatMessage({ id: 'plan.addLifeEvent', defaultMessage: 'Add a life event' })}
+            </h3>
+            <button
+              className="pl-modal-x"
+              onClick={() => setAddingEvent(false)}
+              aria-label={formatMessage({ id: 'plan.close', defaultMessage: 'Close' })}
+            >
               <X size={16} />
             </button>
           </div>
@@ -3314,19 +4264,22 @@ export function OutlookTab(props: OutlookTabProps) {
             <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
               <div>
                 <label className="pl-modal-label" htmlFor="ev-label">
-                  What is it?
+                  {formatMessage({ id: 'plan.whatIsIt', defaultMessage: 'What is it?' })}
                 </label>
                 <input
                   id="ev-label"
                   className="pl-input"
-                  placeholder="Wedding, new car, big trip…"
+                  placeholder={formatMessage({
+                    id: 'plan.outlook.expensePlaceholder',
+                    defaultMessage: 'Wedding, new car, big trip…',
+                  })}
                   value={evLabel}
                   onChange={(e) => setEvLabel(e.target.value)}
                 />
               </div>
               <div>
                 <label className="pl-modal-label" htmlFor="ev-amount">
-                  Amount
+                  {formatMessage({ id: 'plan.amount', defaultMessage: 'Amount' })}
                 </label>
                 <input
                   id="ev-amount"
@@ -3340,25 +4293,33 @@ export function OutlookTab(props: OutlookTabProps) {
                 />
               </div>
               <div>
-                <label className="pl-modal-label">Direction</label>
+                <label className="pl-modal-label">
+                  {formatMessage({ id: 'plan.direction', defaultMessage: 'Direction' })}
+                </label>
                 <div className="pl-whatif-row" style={{ marginTop: 6 }}>
                   <button
                     className={'pl-wchip' + (evKind === 1 ? ' on' : '')}
                     onClick={() => setEvKind(1)}
                   >
-                    Money out (spend)
+                    {formatMessage({
+                      id: 'plan.outlook.moneyOutSpend',
+                      defaultMessage: 'Money out (spend)',
+                    })}
                   </button>
                   <button
                     className={'pl-wchip' + (evKind === -1 ? ' on' : '')}
                     onClick={() => setEvKind(-1)}
                   >
-                    Money in (windfall)
+                    {formatMessage({
+                      id: 'plan.outlook.moneyInWindfall',
+                      defaultMessage: 'Money in (windfall)',
+                    })}
                   </button>
                 </div>
               </div>
               <div>
                 <label className="pl-modal-label" htmlFor="ev-age">
-                  Age it happens
+                  {formatMessage({ id: 'plan.eventAge', defaultMessage: 'Age it happens' })}
                 </label>
                 <input
                   id="ev-age"
@@ -3376,10 +4337,12 @@ export function OutlookTab(props: OutlookTabProps) {
           </div>
           <div className="pl-modal-foot">
             <Button variant="secondary" size="dense" onClick={() => setAddingEvent(false)}>
-              Cancel
+              {formatMessage({ id: 'plan.cancel', defaultMessage: 'Cancel' })}
             </Button>
             <Button variant="primary" size="dense" disabled={!evAmount} onClick={confirmAddEvent}>
-              {editEventId != null ? 'Save' : 'Add to chart'}
+              {editEventId != null
+                ? formatMessage({ id: 'plan.save', defaultMessage: 'Save' })
+                : formatMessage({ id: 'plan.addToChart', defaultMessage: 'Add to chart' })}
             </Button>
           </div>
         </PlanningModal>
@@ -3387,15 +4350,25 @@ export function OutlookTab(props: OutlookTabProps) {
       {addingIncome && (
         <PlanningModal
           onClose={() => setAddingIncome(false)}
-          label="Add income stream"
+          label={formatMessage({ id: 'plan.addIncome', defaultMessage: 'Add income stream' })}
           style={{ width: 380 }}
         >
           <div className="pl-modal-head">
-            <h3>{editIncomeIdx != null ? 'Edit income stream' : 'Add income stream'}</h3>
+            <h3>
+              {editIncomeIdx != null
+                ? formatMessage({
+                    id: 'plan.editIncomeStream',
+                    defaultMessage: 'Edit income stream',
+                  })
+                : formatMessage({
+                    id: 'plan.outlook.addIncomeStream',
+                    defaultMessage: 'Add income stream',
+                  })}
+            </h3>
             <button
               className="pl-modal-x"
               onClick={() => setAddingIncome(false)}
-              aria-label="Close"
+              aria-label={formatMessage({ id: 'plan.close', defaultMessage: 'Close' })}
             >
               <X size={16} />
             </button>
@@ -3404,19 +4377,22 @@ export function OutlookTab(props: OutlookTabProps) {
             <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
               <div>
                 <label className="pl-modal-label" htmlFor="inc-label">
-                  Label
+                  {formatMessage({ id: 'plan.outlook.label', defaultMessage: 'Label' })}
                 </label>
                 <input
                   id="inc-label"
                   className="pl-input"
-                  placeholder="CPF LIFE, Pension, Rental…"
+                  placeholder={formatMessage({
+                    id: 'plan.outlook.incomePlaceholder',
+                    defaultMessage: 'CPF LIFE, Pension, Rental…',
+                  })}
                   value={newLabel}
                   onChange={(e) => setNewLabel(e.target.value)}
                 />
               </div>
               <div>
                 <label className="pl-modal-label" htmlFor="inc-amount">
-                  Monthly amount
+                  {formatMessage({ id: 'plan.monthlyAmount', defaultMessage: 'Monthly amount' })}
                 </label>
                 <input
                   id="inc-amount"
@@ -3432,7 +4408,7 @@ export function OutlookTab(props: OutlookTabProps) {
               <div style={{ display: 'flex', gap: 12 }}>
                 <div style={{ flex: 1 }}>
                   <label className="pl-modal-label" htmlFor="inc-age">
-                    Start age
+                    {formatMessage({ id: 'plan.startAge', defaultMessage: 'Start age' })}
                   </label>
                   <input
                     id="inc-age"
@@ -3448,7 +4424,7 @@ export function OutlookTab(props: OutlookTabProps) {
                 </div>
                 <div style={{ flex: 1 }}>
                   <label className="pl-modal-label" htmlFor="inc-end">
-                    End age{' '}
+                    {formatMessage({ id: 'plan.outlook.endAge', defaultMessage: 'End age' })}{' '}
                     <span
                       style={{
                         color: 'var(--faint)',
@@ -3457,7 +4433,7 @@ export function OutlookTab(props: OutlookTabProps) {
                         letterSpacing: 0,
                       }}
                     >
-                      • optional
+                      {formatMessage({ id: 'plan.outlook.optional', defaultMessage: '• optional' })}
                     </span>
                   </label>
                   <input
@@ -3467,7 +4443,7 @@ export function OutlookTab(props: OutlookTabProps) {
                     min={0}
                     max={100}
                     step={1}
-                    placeholder="lifelong"
+                    placeholder={formatMessage({ id: 'plan.lifelong', defaultMessage: 'lifelong' })}
                     value={newEndAge}
                     onChange={(e) => setNewEndAge(e.target.value)}
                   />
@@ -3477,7 +4453,7 @@ export function OutlookTab(props: OutlookTabProps) {
           </div>
           <div className="pl-modal-foot">
             <Button variant="secondary" size="dense" onClick={() => setAddingIncome(false)}>
-              Cancel
+              {formatMessage({ id: 'plan.cancel', defaultMessage: 'Cancel' })}
             </Button>
             <Button
               variant="primary"
@@ -3485,7 +4461,9 @@ export function OutlookTab(props: OutlookTabProps) {
               disabled={!newAmount || !newAge}
               onClick={confirmAdd}
             >
-              {editIncomeIdx != null ? 'Save' : 'Add'}
+              {editIncomeIdx != null
+                ? formatMessage({ id: 'plan.save', defaultMessage: 'Save' })
+                : formatMessage({ id: 'plan.add', defaultMessage: 'Add' })}
             </Button>
           </div>
         </PlanningModal>
@@ -3498,25 +4476,46 @@ export function OutlookTab(props: OutlookTabProps) {
           return (
             <PlanningModal
               onClose={() => setNaming(false)}
-              label="Save scenario"
+              label={formatMessage({ id: 'plan.saveScenario', defaultMessage: 'Save scenario' })}
               style={{ width: 400 }}
             >
               <div className="pl-modal-head">
-                <h3>{dirty ? 'Save changes' : 'Save scenario'}</h3>
-                <button className="pl-modal-x" onClick={() => setNaming(false)} aria-label="Close">
+                <h3>
+                  {dirty
+                    ? formatMessage({ id: 'plan.saveChanges', defaultMessage: 'Save changes' })
+                    : formatMessage({ id: 'plan.saveScenario', defaultMessage: 'Save scenario' })}
+                </h3>
+                <button
+                  className="pl-modal-x"
+                  onClick={() => setNaming(false)}
+                  aria-label={formatMessage({ id: 'plan.close', defaultMessage: 'Close' })}
+                >
                   <X size={16} />
                 </button>
               </div>
               <div className="pl-modal-body">
                 {dirty && (
                   <div className="pl-foot" style={{ marginBottom: 12, lineHeight: 1.5 }}>
-                    You loaded <b style={{ color: 'var(--muted)' }}>{loadedScenCurrent!.name}</b>{' '}
-                    and changed the levers. Update it in place, or keep it and save these settings
-                    as a new scenario.
+                    {formatMessage(
+                      {
+                        id: 'plan.outlook.scenarioChanged',
+                        defaultMessage:
+                          'You loaded <b>{name}</b> and changed the levers. Update it in place, or keep it and save these settings as a new scenario.',
+                      },
+                      {
+                        name: loadedScenCurrent!.name,
+                        b: (chunks) => <b style={{ color: 'var(--muted)' }}>{chunks}</b>,
+                      },
+                    )}
                   </div>
                 )}
                 <label className="pl-modal-label" htmlFor="scen-name">
-                  {dirty ? 'New scenario name' : 'Name'}
+                  {dirty
+                    ? formatMessage({
+                        id: 'plan.newScenarioName',
+                        defaultMessage: 'New scenario name',
+                      })
+                    : formatMessage({ id: 'plan.name', defaultMessage: 'Name' })}
                 </label>
                 <input
                   id="scen-name"
@@ -3527,18 +4526,13 @@ export function OutlookTab(props: OutlookTabProps) {
                   onKeyDown={(e) => {
                     if (e.key === 'Enter') confirmSave()
                   }}
-                  placeholder="e.g. Retire at 52"
+                  placeholder={formatMessage({
+                    id: 'plan.scenarioExample',
+                    defaultMessage: 'e.g. Retire at 52',
+                  })}
                 />
                 <div className="pl-foot" style={{ marginTop: 12 }}>
-                  Captures retire <b style={{ color: 'var(--muted)' }}>{retireAge}</b> •{' '}
-                  <b className="mask" style={{ color: 'var(--muted)' }}>
-                    {fBaseWhole(saving)}
-                  </b>
-                  /mo • {ret}% return • retirement spending{' '}
-                  <b className="mask" style={{ color: 'var(--muted)' }}>
-                    {fBaseWhole(monthlyRetirementSpending)}/mo
-                  </b>{' '}
-                  →{' '}
+                  {formatMessage({ id: 'planScan.captureSummary', defaultMessage: 'Captures retire {age} • {saving}/mo • {returnRate}% return • retirement spending {spending}/mo → ' }, { age: <b style={{ color: 'var(--muted)' }}>{retireAge}</b>, saving: <b className="mask" style={{ color: 'var(--muted)' }}>{fBaseWhole(saving)}</b>, returnRate: ret, spending: <b className="mask" style={{ color: 'var(--muted)' }}>{fBaseWhole(monthlyRetirementSpending)}</b> })}
                   <b
                     className={'' + tone}
                     style={{
@@ -3550,7 +4544,7 @@ export function OutlookTab(props: OutlookTabProps) {
                             : 'var(--bad)',
                     }}
                   >
-                    {successPct}% odds
+                    {formatMessage({ id: 'planScan.odds', defaultMessage: '{percent}% odds' }, { percent: successPct })}
                   </b>
                 </div>
               </div>
@@ -3558,22 +4552,25 @@ export function OutlookTab(props: OutlookTabProps) {
                 {dirty ? (
                   <>
                     <Button variant="secondary" size="dense" onClick={() => setNaming(false)}>
-                      Cancel
+                      {formatMessage({ id: 'plan.cancel', defaultMessage: 'Cancel' })}
                     </Button>
                     <Button variant="secondary" size="dense" onClick={confirmSave}>
-                      Save as new
+                      {formatMessage({ id: 'plan.saveAsNew', defaultMessage: 'Save as new' })}
                     </Button>
                     <Button variant="primary" size="dense" onClick={saveScenarioInPlace}>
-                      Update scenario
+                      {formatMessage({
+                        id: 'plan.updateScenario',
+                        defaultMessage: 'Update scenario',
+                      })}
                     </Button>
                   </>
                 ) : (
                   <>
                     <Button variant="secondary" size="dense" onClick={() => setNaming(false)}>
-                      Cancel
+                      {formatMessage({ id: 'plan.cancel', defaultMessage: 'Cancel' })}
                     </Button>
                     <Button variant="primary" size="dense" onClick={confirmSave}>
-                      Save scenario
+                      {formatMessage({ id: 'plan.saveScenario', defaultMessage: 'Save scenario' })}
                     </Button>
                   </>
                 )}
@@ -3585,23 +4582,38 @@ export function OutlookTab(props: OutlookTabProps) {
       {confirmDel && (
         <PlanningModal
           onClose={() => setConfirmDel(null)}
-          label="Delete scenario"
+          label={formatMessage({ id: 'plan.deleteScenario', defaultMessage: 'Delete scenario' })}
           style={{ width: 380 }}
         >
           <div className="pl-modal-head">
-            <h3>Delete scenario</h3>
-            <button className="pl-modal-x" onClick={() => setConfirmDel(null)} aria-label="Close">
+            <h3>
+              {formatMessage({ id: 'plan.deleteScenario', defaultMessage: 'Delete scenario' })}
+            </h3>
+            <button
+              className="pl-modal-x"
+              onClick={() => setConfirmDel(null)}
+              aria-label={formatMessage({ id: 'plan.close', defaultMessage: 'Close' })}
+            >
               <X size={16} />
             </button>
           </div>
           <div className="pl-modal-body">
             <p style={{ margin: 0, fontSize: 13, color: 'var(--muted)', lineHeight: 1.55 }}>
-              Delete <b style={{ color: 'var(--ink)' }}>{confirmDel.name}</b>? This can't be undone.
+              {formatMessage(
+                {
+                  id: 'plan.deleteScenarioWarning',
+                  defaultMessage: "Delete <b>{name}</b>? This can't be undone.",
+                },
+                {
+                  name: confirmDel.name,
+                  b: (chunks) => <b style={{ color: 'var(--ink)' }}>{chunks}</b>,
+                },
+              )}
             </p>
           </div>
           <div className="pl-modal-foot">
             <Button variant="secondary" size="dense" onClick={() => setConfirmDel(null)}>
-              Cancel
+              {formatMessage({ id: 'plan.cancel', defaultMessage: 'Cancel' })}
             </Button>
             <Button
               variant="danger"
@@ -3610,10 +4622,15 @@ export function OutlookTab(props: OutlookTabProps) {
                 removeScenario(confirmDel.id)
                 if (planB && planB.id === confirmDel.id) setPlanB(null)
                 setConfirmDel(null)
-                toast('Scenario deleted')
+                toast(
+                  formatMessage({
+                    id: 'plan.outlook.scenarioDeleted',
+                    defaultMessage: 'Scenario deleted',
+                  }),
+                )
               }}
             >
-              Delete
+              {formatMessage({ id: 'plan.delete', defaultMessage: 'Delete' })}
             </Button>
           </div>
         </PlanningModal>

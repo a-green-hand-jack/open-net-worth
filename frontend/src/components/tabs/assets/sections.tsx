@@ -11,11 +11,14 @@ import { useCaretAtEnd } from '../../../hooks/useCaretAtEnd'
 import type { AssetCategory, AssetLoan, OwnedAsset } from '../../../types/assets'
 import { Cluster, Modal, Stack, TextArea } from '../../ui'
 import * as api from './api'
-import { canHaveLoan, purchaseCopy, showsInsured } from './assetCategoryRules'
+import { canHaveLoan, showsInsured } from './assetCategoryRules'
 import { catOf, equityOf, fmt, loanOf, monthYear, shareOf } from './assetsData'
 import { labelList, splitFacts, type Fact } from './detailsFacts'
 import { EditorFooter, SaveError, useEditorSave } from './editorKit'
 import { Icons } from './icons'
+import { useAppIntl } from '../../../i18n/useAppIntl'
+import { factLabel } from './factCopy'
+import type { IntlShape } from 'react-intl'
 
 export type Section = 'ownership' | 'purchase' | 'details' | 'notes'
 /** What an Edit or a "+" chip opens: a group's editor, or Details with a new row of your own. */
@@ -31,6 +34,7 @@ export interface AssetSectionsProps {
 
 /** A group: its small title and a quiet Edit, then what it holds. */
 function Group(props: { title: string; onEdit(): void; children: ReactNode }) {
+  const { formatMessage } = useAppIntl()
   return (
     <section className="as-rec-group" aria-label={props.title}>
       <div className="as-rec-head">
@@ -38,10 +42,13 @@ function Group(props: { title: string; onEdit(): void; children: ReactNode }) {
         <button
           type="button"
           className="as-rec-edit"
-          aria-label={`Edit ${props.title.toLowerCase()}`}
+          aria-label={formatMessage(
+            { id: 'assets.sections.editNamed', defaultMessage: 'Edit {name}' },
+            { name: props.title.toLowerCase() },
+          )}
           onClick={props.onEdit}
         >
-          Edit
+          {formatMessage({ id: 'assets.sections.edit', defaultMessage: 'Edit' })}
         </button>
       </div>
       {props.children}
@@ -74,6 +81,7 @@ interface LoanSplitProps {
 
 /** The value, split between what is yours and what is owed — and the way to the loan. */
 function LoanSplit({ a, loan, cats, loans, onNav }: LoanSplitProps) {
+  const { formatMessage } = useAppIntl()
   const eq = equityOf(a, loans) ?? 0
   const ofValue = (n: number) => (a.value ? (n / a.value) * 100 : 0)
   const color = catOf(cats, a.category).color
@@ -96,7 +104,7 @@ function LoanSplit({ a, loan, cats, loans, onNav }: LoanSplitProps) {
           label={
             <>
               <i className="as-rec-dot" style={{ background: color }} />
-              Equity
+              {formatMessage({ id: 'assets.sections.equity', defaultMessage: 'Equity' })}
             </>
           }
         >
@@ -106,7 +114,7 @@ function LoanSplit({ a, loan, cats, loans, onNav }: LoanSplitProps) {
           label={
             <>
               <i className="as-rec-dot as-rec-dot--owed" />
-              Owed
+              {formatMessage({ id: 'assets.sections.owed', defaultMessage: 'Owed' })}
             </>
           }
         >
@@ -114,21 +122,43 @@ function LoanSplit({ a, loan, cats, loans, onNav }: LoanSplitProps) {
         </Row>
       </dl>
       {terms && <p className="as-rec-caption">{terms}</p>}
-      {alsoSecures && <p className="as-rec-caption">This loan also secures {alsoSecures}.</p>}
+      {alsoSecures && (
+        <p className="as-rec-caption">
+          {formatMessage(
+            { id: 'assets.sections.alsoSecures', defaultMessage: 'This loan also secures {name}.' },
+            { name: alsoSecures },
+          )}
+        </p>
+      )}
       <button type="button" className="as-rec-link" onClick={() => onNav('accounts')}>
-        See this loan in Accounts
+        {formatMessage({
+          id: 'assets.sections.seeLoan',
+          defaultMessage: 'See this loan in Accounts',
+        })}
       </button>
     </div>
   )
 }
 
 function Ownership({ a, cats, loans, onNav, onEdit }: AssetSectionsProps) {
+  const { formatMessage } = useAppIntl()
   const loan = securedBy(a, loans)
   return (
-    <Group title="Ownership" onEdit={() => onEdit('ownership')}>
+    <Group
+      title={formatMessage({ id: 'assets.sections.ownership', defaultMessage: 'Ownership' })}
+      onEdit={() => onEdit('ownership')}
+    >
       <dl className="as-rec-list">
-        <Row label="Your share">{shareOf(a)}</Row>
-        {loan && <Row label="Secured by">{loan.name}</Row>}
+        <Row label={formatMessage({ id: 'assets.sections.share', defaultMessage: 'Your share' })}>
+          {shareOf(a)}
+        </Row>
+        {loan && (
+          <Row
+            label={formatMessage({ id: 'assets.sections.secured', defaultMessage: 'Secured by' })}
+          >
+            {loan.name}
+          </Row>
+        )}
       </dl>
       {loan && <LoanSplit a={a} loan={loan} cats={cats} loans={loans} onNav={onNav} />}
     </Group>
@@ -136,7 +166,8 @@ function Ownership({ a, cats, loans, onNav, onEdit }: AssetSectionsProps) {
 }
 
 function Purchase({ a, onEdit }: { a: OwnedAsset; onEdit(): void }) {
-  const copy = purchaseCopy(a.category)
+  const intl = useAppIntl()
+  const copy = purchaseLabels(a.category, intl)
   return (
     <Group title={copy.cardTitle} onEdit={onEdit}>
       <dl className="as-rec-list">
@@ -147,14 +178,62 @@ function Purchase({ a, onEdit }: { a: OwnedAsset; onEdit(): void }) {
   )
 }
 
+function purchaseLabels(category: string, intl: IntlShape) {
+  return category === 'policy'
+    ? {
+        cardTitle: intl.formatMessage({
+          id: 'assets.sections.premiums',
+          defaultMessage: 'Premiums paid',
+        }),
+        costLabel: intl.formatMessage({
+          id: 'assets.sections.premiumsSoFar',
+          defaultMessage: 'Premiums paid so far',
+        }),
+        dateLabel: intl.formatMessage({
+          id: 'assets.sections.policyStarted',
+          defaultMessage: 'Policy started on',
+        }),
+        chipLabel: intl.formatMessage({
+          id: 'assets.sections.paidIn',
+          defaultMessage: 'What you’ve paid in',
+        }),
+      }
+    : {
+        cardTitle: intl.formatMessage({
+          id: 'assets.sections.purchase',
+          defaultMessage: 'Purchase',
+        }),
+        costLabel: intl.formatMessage({
+          id: 'assets.sections.boughtFor',
+          defaultMessage: 'Bought for',
+        }),
+        dateLabel: intl.formatMessage({
+          id: 'assets.sections.boughtOn',
+          defaultMessage: 'Bought on',
+        }),
+        chipLabel: intl.formatMessage({
+          id: 'assets.sections.paid',
+          defaultMessage: 'What you paid',
+        }),
+      }
+}
+
 /** Every detail with a value — the category's own first, in its order, then the rest. An
  *  unticked Insured is not a fact (it is also what an asset starts with), so only Yes shows. */
-function detailRows(a: OwnedAsset): Fact[] {
+function detailRows(a: OwnedAsset, intl: IntlShape): Fact[] {
   const { guided, other } = splitFacts(a.category, a.facts)
-  const rows = guided.filter((g) => g.value).map((g): Fact => [g.prompt[0], g.value])
+  const rows = guided.filter((g) => g.value).map((g): Fact => [factLabel(intl, g.prompt), g.value])
   if (showsInsured(a.category)) {
-    if (a.insured) rows.push(['Insured', 'Yes'])
-  } else if (a.maturity_date) rows.push(['Matures on', monthYear(a.maturity_date)])
+    if (a.insured)
+      rows.push([
+        intl.formatMessage({ id: 'assets.details.insured', defaultMessage: 'Insured' }),
+        intl.formatMessage({ id: 'assets.sections.yes', defaultMessage: 'Yes' }),
+      ])
+  } else if (a.maturity_date)
+    rows.push([
+      intl.formatMessage({ id: 'assets.details.matures', defaultMessage: 'Matures on' }),
+      monthYear(a.maturity_date),
+    ])
   return [...rows, ...other]
 }
 
@@ -166,26 +245,47 @@ interface Missing {
 
 /** What the record could still hold, in the order its groups are drawn. A detail of your own
  *  is always one of them — a category's prompts are never the only things worth writing down. */
-function missing(a: OwnedAsset, loans: AssetLoan[]): Missing[] {
+function missing(a: OwnedAsset, loans: AssetLoan[], intl: IntlShape): Missing[] {
   const out: Missing[] = []
-  const add = (label: string, opens: EditTarget, aria = `Add ${labelList([label])}`) =>
-    out.push({ label, aria, opens })
+  const add = (
+    label: string,
+    opens: EditTarget,
+    aria = intl.formatMessage(
+      { id: 'common.addNamed', defaultMessage: 'Add {name}' },
+      { name: labelList([label]) },
+    ),
+  ) => out.push({ label, aria, opens })
   if (!securedBy(a, loans) && (canHaveLoan(a.category) || loanOf(a, loans)))
-    add('Link a loan', 'ownership', 'Link a loan')
-  if (a.cost == null && !a.cost_date) add(purchaseCopy(a.category).chipLabel, 'purchase')
-  for (const g of splitFacts(a.category, a.facts).guided) if (!g.value) add(g.prompt[0], 'details')
-  if (!showsInsured(a.category) && !a.maturity_date) add('Maturity date', 'details')
-  add('Custom detail', 'custom-detail', 'Add a custom detail')
-  if (!a.notes) add('A note', 'notes')
+    add(
+      intl.formatMessage({ id: 'assets.sections.linkLoan', defaultMessage: 'Link a loan' }),
+      'ownership',
+      intl.formatMessage({ id: 'assets.sections.linkLoan', defaultMessage: 'Link a loan' }),
+    )
+  if (a.cost == null && !a.cost_date) add(purchaseLabels(a.category, intl).chipLabel, 'purchase')
+  for (const g of splitFacts(a.category, a.facts).guided)
+    if (!g.value) add(factLabel(intl, g.prompt), 'details')
+  if (!showsInsured(a.category) && !a.maturity_date)
+    add(
+      intl.formatMessage({ id: 'assets.sections.maturity', defaultMessage: 'Maturity date' }),
+      'details',
+    )
+  add(
+    intl.formatMessage({ id: 'assets.sections.custom', defaultMessage: 'Custom detail' }),
+    'custom-detail',
+    intl.formatMessage({ id: 'assets.sections.addCustom', defaultMessage: 'Add a custom detail' }),
+  )
+  if (!a.notes)
+    add(intl.formatMessage({ id: 'assets.sections.note', defaultMessage: 'A note' }), 'notes')
   return out
 }
 
 /** The asset's record — where it is edited, group by group — as part of the page itself. */
 export function AssetSections(props: AssetSectionsProps) {
+  const intl = useAppIntl()
   const { a, onEdit } = props
-  const details = detailRows(a)
+  const details = detailRows(a, intl)
   const bought = a.cost != null || Boolean(a.cost_date)
-  const chips = missing(a, props.loans)
+  const chips = missing(a, props.loans, intl)
   return (
     <div className="as-record">
       <div className="as-rec-cols">
@@ -196,7 +296,13 @@ export function AssetSections(props: AssetSectionsProps) {
         {(details.length > 0 || a.notes) && (
           <div className="as-rec-col">
             {details.length > 0 && (
-              <Group title="Details" onEdit={() => onEdit('details')}>
+              <Group
+                title={intl.formatMessage({
+                  id: 'assets.details.title',
+                  defaultMessage: 'Details',
+                })}
+                onEdit={() => onEdit('details')}
+              >
                 <dl className="as-rec-list">
                   {details.map(([k, v], i) => (
                     <Row key={i} label={k}>
@@ -207,7 +313,10 @@ export function AssetSections(props: AssetSectionsProps) {
               </Group>
             )}
             {a.notes && (
-              <Group title="Notes" onEdit={() => onEdit('notes')}>
+              <Group
+                title={intl.formatMessage({ id: 'assets.sections.notes', defaultMessage: 'Notes' })}
+                onEdit={() => onEdit('notes')}
+              >
                 <p className="as-rec-notes">{a.notes}</p>
               </Group>
             )}
@@ -240,12 +349,14 @@ export interface NotesEditorProps {
 
 /** Notes — one text box; saves exactly `{notes}`. */
 export function NotesEditor({ a, onClose, onSaved }: NotesEditorProps) {
+  const { formatMessage } = useAppIntl()
   const [notes, setNotes] = useState(a.notes)
   const { saving, save, dialogError } = useEditorSave()
   const caretAtEnd = useCaretAtEnd()
 
   async function onSave() {
-    if (await save(() => api.updateAsset(a.id, { notes: notes.trim() }))) onSaved('Note saved.')
+    if (await save(() => api.updateAsset(a.id, { notes: notes.trim() })))
+      onSaved(formatMessage({ id: 'assets.sections.noteSaved', defaultMessage: 'Note saved.' }))
   }
 
   return (
@@ -253,20 +364,31 @@ export function NotesEditor({ a, onClose, onSaved }: NotesEditorProps) {
       className="as-modal"
       open
       onClose={onClose}
-      title="Notes"
+      title={formatMessage({ id: 'assets.sections.notes', defaultMessage: 'Notes' })}
       subtitle={a.name}
       size="lg"
-      footer={<EditorFooter saving={saving} label="Save" onCancel={onClose} onSave={onSave} />}
+      footer={
+        <EditorFooter
+          saving={saving}
+          label={formatMessage({ id: 'assets.docs.save', defaultMessage: 'Save' })}
+          onCancel={onClose}
+          onSave={onSave}
+        />
+      }
     >
       <Stack gap="--space-4">
         <TextArea
-          aria-label="Notes"
+          aria-label={formatMessage({ id: 'assets.sections.notes', defaultMessage: 'Notes' })}
           rows={12}
           autoFocus
           onFocus={caretAtEnd}
           value={notes}
           maxLength={api.TEXT_CAPS.notes}
-          placeholder="Anything worth remembering — where the receipt is, who to call, condition…"
+          placeholder={formatMessage({
+            id: 'assets.sections.notePlaceholder',
+            defaultMessage:
+              'Anything worth remembering — where the receipt is, who to call, condition…',
+          })}
           onChange={(e) => setNotes(e.target.value)}
         />
         <SaveError message={dialogError([])} />

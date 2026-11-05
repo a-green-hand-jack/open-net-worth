@@ -381,6 +381,7 @@ describe('install presets', () => {
     for (const id of Object.keys(MCP_INSTALL_PRESETS)) {
       const entry = byId(id)
       expect(catalogProvenanceFor(previewEndpoint(rowFor(id))), id).toEqual({
+        id: entry.id,
         publisher: entry.publisher,
         verification: entry.verification,
         repoUrl: entry.repoUrl,

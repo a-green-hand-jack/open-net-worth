@@ -10,6 +10,7 @@ import { fetchJson } from './serverState'
 export interface MarketTickerRow {
   symbol: string
   label: string
+  label_source?: string
   kind: 'commodity' | 'coin' | 'fx' | 'equity'
   unit: string
   price: number

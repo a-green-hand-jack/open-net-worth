@@ -1,3 +1,5 @@
+import { vaultError } from './vaultErrors'
+import { useAppIntl } from '../../i18n/useAppIntl'
 import { useState } from 'react'
 import { removeArtifactFromVault, saveArtifactToVault } from '../../api/vault'
 import { refreshVault, useVault } from '../../hooks/useVault'
@@ -7,6 +9,7 @@ import { Bookmark, BookmarkCheck } from '../../ui/icons'
 // state comes from the shared Vault listing (one request for every card on screen); a click
 // flips it immediately and the listing catches up.
 export function SaveToVaultButton({ artifactId }: { artifactId: string }) {
+  const vaultIntl = useAppIntl()
   const { data } = useVault({ staleTime: 30_000 })
   const listed = !!data?.items.some((i) => i.kind === 'artifact' && i.source_id === artifactId)
   // The click's result shows at once, but only until the listing moves: from then on the
@@ -28,21 +31,21 @@ export function SaveToVaultButton({ artifactId }: { artifactId: string }) {
       refreshVault()
     } catch (e) {
       setOptimistic(null)
-      setError(e instanceof Error ? e.message : String(e))
+      setError(vaultError(e, vaultIntl))
     } finally {
       setBusy(false)
     }
   }
 
-  const label = error ? 'Try again' : saved ? 'Saved' : 'Save'
-  const title = error ?? (saved ? 'In Documents — click to remove it' : 'Save to Documents')
+  const label = error ? vaultIntl.formatMessage({ id: "vault.ui.d8b8392e2c54", defaultMessage: "Try again" }) : saved ? vaultIntl.formatMessage({ id: 'vault.saved', defaultMessage: 'Saved' }) : vaultIntl.formatMessage({ id: 'vault.save', defaultMessage: 'Save' })
+  const title = error ?? (saved ? vaultIntl.formatMessage({ id: "vault.ui.23e23a277dbe", defaultMessage: "In Documents — click to remove it" }) : vaultIntl.formatMessage({ id: "vault.ui.1ec12e8be899", defaultMessage: "Save to Documents" }))
   return (
     <button
       type="button"
       className={`artifact-chip-open artifact-chip-save${saved ? ' is-saved' : ''}`}
       onClick={() => void toggle()}
       aria-pressed={saved}
-      aria-label={saved ? 'Saved to Documents' : 'Save to Documents'}
+      aria-label={saved ? vaultIntl.formatMessage({ id: "vault.ui.5a5a7f8551c7", defaultMessage: "Saved to Documents" }) : vaultIntl.formatMessage({ id: "vault.ui.1ec12e8be899", defaultMessage: "Save to Documents" })}
       title={title}
       disabled={busy}
     >

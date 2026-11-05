@@ -232,6 +232,7 @@ def test_snooze_target_propose_and_apply(isolated):
     )
     assert body is None
     assert proposed["display"]["op"] == "Snooze target"
+    assert proposed["display"]["op_id"] == "snooze"
     out, _ = call(_confirm_tool(proposed), confirm_token=proposed["tool_use_id"])
     assert out["ok"] is True and out["target"]["snooze_until"] == "2026-06"
     table, _ = call("get_budget_month", month="2026-06")
@@ -242,6 +243,22 @@ def test_snooze_target_propose_and_apply(isolated):
         if "cat_13095ba70000" in c["category_ids"]
     )
     assert food["status"] == "snoozed"
+
+
+@pytest.mark.parametrize(
+    ("row", "expected"),
+    [
+        ({"type": "monthly", "amount": 50}, "set"),
+        ({"snooze_until": "2027-01"}, "snooze"),
+        ({"snooze_until": ""}, "unsnooze"),
+        ({}, "clear"),
+    ],
+)
+def test_target_display_has_stable_operation_id(row, expected):
+    from backend.ai.tools.planning import _target_change_and_display
+
+    _, display = _target_change_and_display(row)
+    assert display["op_id"] == expected
 
 
 def test_set_target_unknown_type_apply_errors(isolated):

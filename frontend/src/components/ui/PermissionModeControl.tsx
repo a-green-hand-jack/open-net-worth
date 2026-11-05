@@ -1,5 +1,6 @@
 import { useEffect, useId, useLayoutEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
+import { useAppIntl } from '../../i18n/useAppIntl'
 import { Check, ChevronDown, FastForward, Hand, TriangleAlert, type LucideIcon } from 'lucide-react'
 
 // Tooltip max-width (260px) + its 8px gap + an 8px margin from the window edge.
@@ -29,40 +30,63 @@ interface ModeOption {
   description: string
 }
 
-const SKIP_WARNING = 'Lucius never pauses, even for unsafe actions.'
-
-const APPROVAL_OPTIONS: readonly ModeOption[] = [
-  {
-    value: 'manual',
-    label: 'Manually approve',
-    shortLabel: 'Manual',
-    Icon: Hand,
-    description: 'Lucius pauses so you can approve each action.',
-  },
-  {
-    value: 'auto',
-    label: 'Automatically approve',
-    shortLabel: 'Auto',
-    Icon: FastForward,
-    description: 'Lucius runs on its own and pauses to ask if anything looks unsafe.',
-  },
-  {
-    value: 'skip',
-    label: 'Skip all approvals',
-    shortLabel: 'Skip',
-    Icon: TriangleAlert,
-    description: SKIP_WARNING,
-  },
-]
-
 export function PermissionModeControl({
   value,
   onChange,
-  subject = 'Permission mode',
+  subject,
   tone = 'filled',
   disabled = false,
   disabledReason,
 }: PermissionModeControlProps) {
+  const intl = useAppIntl()
+  const subjectLabel =
+    subject ??
+    intl.formatMessage({ id: 'permissionMode.subject', defaultMessage: 'Permission mode' })
+  const skipWarning = intl.formatMessage({
+    id: 'permissionMode.skipWarning',
+    defaultMessage: 'Lucius never pauses, even for unsafe actions.',
+  })
+  const options: readonly ModeOption[] = [
+    {
+      value: 'manual',
+      label: intl.formatMessage({
+        id: 'permissionMode.manual',
+        defaultMessage: 'Manually approve',
+      }),
+      shortLabel: intl.formatMessage({
+        id: 'permissionMode.manualShort',
+        defaultMessage: 'Manual',
+      }),
+      Icon: Hand,
+      description: intl.formatMessage({
+        id: 'permissionMode.manualDescription',
+        defaultMessage: 'Lucius pauses so you can approve each action.',
+      }),
+    },
+    {
+      value: 'auto',
+      label: intl.formatMessage({
+        id: 'permissionMode.auto',
+        defaultMessage: 'Automatically approve',
+      }),
+      shortLabel: intl.formatMessage({ id: 'permissionMode.autoShort', defaultMessage: 'Auto' }),
+      Icon: FastForward,
+      description: intl.formatMessage({
+        id: 'permissionMode.autoDescription',
+        defaultMessage: 'Lucius runs on its own and pauses to ask if anything looks unsafe.',
+      }),
+    },
+    {
+      value: 'skip',
+      label: intl.formatMessage({
+        id: 'permissionMode.skip',
+        defaultMessage: 'Skip all approvals',
+      }),
+      shortLabel: intl.formatMessage({ id: 'permissionMode.skipShort', defaultMessage: 'Skip' }),
+      Icon: TriangleAlert,
+      description: skipWarning,
+    },
+  ]
   // Unique per instance: this control used to be the Automation editor's alone and could
   // hardcode its ids. As a shared primitive two can share a screen, and duplicate ids would
   // point every trigger's aria-controls at the first menu.
@@ -94,7 +118,7 @@ export function PermissionModeControl({
   // edge (the Lucius side panel) has no room there, so they flip to the left instead of
   // running off-screen — measured, because only the rendered menu knows where it landed.
   const [tipsLeft, setTipsLeft] = useState(false)
-  const active = APPROVAL_OPTIONS.find((option) => option.value === value) ?? APPROVAL_OPTIONS[0]!
+  const active = options.find((option) => option.value === value) ?? options[0]!
   const ActiveIcon = active.Icon
 
   useEffect(() => {
@@ -168,7 +192,7 @@ export function PermissionModeControl({
       id={`${idBase}-menu`}
       className={`pm-mode-menu${tone === 'bare' ? ' pm-mode-menu--fixed' : ''}${tipsLeft ? ' pm-mode-menu--tips-left' : ''}`}
       role="menu"
-      aria-label={subject}
+      aria-label={subjectLabel}
       data-portal-layer={tone === 'bare' ? true : undefined}
       onKeyDown={onMenuKeyDown}
       style={
@@ -177,7 +201,7 @@ export function PermissionModeControl({
           : undefined
       }
     >
-      {APPROVAL_OPTIONS.map((option) => {
+      {options.map((option) => {
         const OptionIcon = option.Icon
         const selected = option.value === value
         return (
@@ -212,12 +236,12 @@ export function PermissionModeControl({
         id={`${idBase}-trigger`}
         type="button"
         className="pm-mode-trigger pm-mode-tooltip-target"
-        aria-label={`${subject}: ${active.label}`}
+        aria-label={`${subjectLabel}: ${active.label}`}
         aria-haspopup="menu"
         aria-expanded={open}
         aria-controls={`${idBase}-menu`}
         aria-describedby={value === 'skip' ? `${idBase}-skip-tooltip` : undefined}
-        data-tooltip={disabled ? disabledReason : value === 'skip' ? SKIP_WARNING : undefined}
+        data-tooltip={disabled ? disabledReason : value === 'skip' ? skipWarning : undefined}
         disabled={disabled}
         onClick={() => {
           if (disabled) return
@@ -243,7 +267,7 @@ export function PermissionModeControl({
 
       {(value === 'skip' || open) && (
         <span id={`${idBase}-skip-tooltip`} role="tooltip" className="ui-visually-hidden">
-          {SKIP_WARNING}
+          {skipWarning}
         </span>
       )}
     </div>

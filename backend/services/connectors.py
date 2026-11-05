@@ -310,7 +310,12 @@ def get_connector(connector_id: str, *, ladder_v2: bool = False) -> ConnectorVie
     for view in list_connectors(ladder_v2=ladder_v2):
         if view.id == connector_id:
             return view
-    raise NotFoundError(f"unknown connector: {connector_id}", connector_id=connector_id)
+    raise NotFoundError(
+        f"unknown connector: {connector_id}",
+        connector_id=connector_id,
+        message_id="connector.error.unknown",
+        message_params={"connector": connector_id},
+    )
 
 
 # ── pause / resume / remove ──────────────────────────────────────────────────────────────
@@ -376,6 +381,8 @@ def set_connector_enabled(connector_id: str, enabled: bool) -> ConnectorView:
         raise ValidationError(
             f"connector '{connector_id}' is always on and cannot be paused or resumed",
             connector_id=connector_id,
+            message_id="connector.error.alwaysOn",
+            message_params={"connector": connector_id},
         )
     kind = kind_of(connector_id)
     builtin = next((b for b in builtins() if b.id == connector_id), None)
@@ -415,6 +422,16 @@ def remove_connector(connector_id: str) -> None:
             f"{view.name} powers price lookups across the app and can't be removed. "
             f"{kind.fixed_note}",
             connector_id=connector_id,
+            **(
+                {"message_id": "connector.error.fixedYahoo", "message_params": {"name": view.name}}
+                if connector_id == "yahoo_finance"
+                else {
+                    "message_id": "connector.error.fixedCoinGecko",
+                    "message_params": {"name": view.name},
+                }
+                if connector_id == "coingecko"
+                else {}
+            ),
         )
     if kind.remove is not None:
         kind.remove(connector_id)

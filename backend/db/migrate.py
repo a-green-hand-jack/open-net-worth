@@ -145,6 +145,7 @@ def _refuse_if_revision_unsafe(unknown_rev: str | None, db_path: Path) -> None:
             "restore. Run the checkout that owns that revision, or upgrade this "
             "one so it includes it.",
             path=str(db_path),
+            reason="database_ahead",
         )
 
 

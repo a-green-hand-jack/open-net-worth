@@ -7,6 +7,7 @@ from backend.services.trading.common import (
     amount,
     event,
     instant,
+    notice,
     now,
     uses_broker_execution,
 )
@@ -42,9 +43,15 @@ async def reconcile_run(run_id):
     with trading_transaction() as conn:
         run = TradingStore("runs").required(run_id, conn=conn)
         if not uses_broker_execution(run):
-            raise ConflictError("Only broker-executed runs use broker reconciliation")
+            raise ConflictError(
+                "Only broker-executed runs use broker reconciliation",
+                message_id="trading.error.reconciliation_broker_only",
+            )
         if run["state"] == "ready":
-            raise ConflictError("Start the live mandate before reconciling its executions")
+            raise ConflictError(
+                "Start the live mandate before reconciling its executions",
+                message_id="trading.error.reconciliation_mandate_not_started",
+            )
         run = TradingStore("runs").update_by_id(
             run_id, {"state": "needs_reconciliation"}, conn=conn
         )
@@ -147,7 +154,10 @@ def _apply_account_result(conn, run, account, result):
     for receipt in result.get("orders", []):
         order = TradingStore("orders").find_by_id(receipt.get("client_order_id", ""), conn=conn)
         if order is None or order["account_id"] != account["id"] or order["run_id"] != run["id"]:
-            raise ConflictError("Broker returned an order outside this managed account")
+            raise ConflictError(
+                "Broker returned an order outside this managed account",
+                message_id="trading.error.reconciliation_order_wrong_account",
+            )
         apply_receipt(conn, run, order, receipt)
     expected = TradingStore("accounts").required(account["id"], conn=conn)
     actual = result["account"]
@@ -198,6 +208,21 @@ def recover_runs(*, boot_owned=False):
                 )
             ):
                 pending = run.get("usage_state") in {"pending", "unknown"}
+                billing_message = notice(
+                    "trading.notice.billing_unknown",
+                    "Previous model usage is unknown. Reconcile the interrupted turn's billing before continuing paid work.",
+                )
+                recovery_message = (
+                    notice(
+                        "trading.notice.recovery_billing",
+                        "Previous work was interrupted; billing must be reconciled before another paid turn.",
+                    )
+                    if pending
+                    else notice(
+                        "trading.notice.recovery_ready",
+                        "Persistent workspace is ready to continue.",
+                    )
+                )
                 TradingStore("runs").update_by_id(
                     run["id"],
                     {
@@ -208,6 +233,9 @@ def recover_runs(*, boot_owned=False):
                         "last_agent_error": "Previous model usage is unknown. Reconcile the interrupted turn's billing before continuing paid work."
                         if pending
                         else run.get("last_agent_error"),
+                        "last_agent_error_message": billing_message
+                        if pending
+                        else run.get("last_agent_error_message"),
                     },
                     conn=conn,
                 )
@@ -220,6 +248,7 @@ def recover_runs(*, boot_owned=False):
                         "message": "Previous work was interrupted; billing must be reconciled before another paid turn."
                         if pending
                         else "Persistent workspace is ready to continue.",
+                        "message_localized": recovery_message,
                     },
                 )
             for order in TradingStore("orders").list_scope(run["id"], conn=conn):

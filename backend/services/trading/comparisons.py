@@ -4,18 +4,24 @@ from backend.core.errors import ConflictError
 from backend.core.ids import new_id
 from backend.db.trading_store import TradingStore, trading_transaction
 from backend.models.trading import ComparisonCreate
-from backend.services.trading.common import collection, now, validated
+from backend.services.trading.common import collection, notice, now, validated
 from backend.services.trading.performance import calculate_performance
 
 
 def create_comparison(data):
     clean = validated(ComparisonCreate, data)
     if len(set(clean["run_ids"])) != len(clean["run_ids"]):
-        raise ConflictError("A comparison needs distinct participant runs")
+        raise ConflictError(
+            "A comparison needs distinct participant runs",
+            message_id="trading.error.comparison_distinct",
+        )
     with trading_transaction() as conn:
         runs = [TradingStore("runs").required(run_id, conn=conn) for run_id in clean["run_ids"]]
         if len({run["scenario_hash"] for run in runs}) != 1:
-            raise ConflictError("Runs have different capital, data, execution mode or period")
+            raise ConflictError(
+                "Runs have different capital, data, execution mode or period",
+                message_id="trading.error.comparison_scenario",
+            )
         row = {
             **clean,
             "id": new_id("tcmp"),
@@ -53,25 +59,50 @@ def get_comparison(comparison_id):
             }
         )
     complete = all(result["valuation_complete"] for result in results)
-    reasons = [] if complete else ["One or more valuations are incomplete"]
+    reasons = (
+        []
+        if complete
+        else [
+            notice("trading.notice.valuation_incomplete", "One or more valuations are incomplete")
+        ]
+    )
     if len(scenario_hashes) != 1 or row["scenario_hash"] not in scenario_hashes:
         complete = False
-        reasons.append("Mandate or execution conditions changed after this comparison was created")
+        reasons.append(
+            notice(
+                "trading.notice.conditions_changed",
+                "Mandate or execution conditions changed after this comparison was created",
+            )
+        )
     if len(historical_clocks) > 1:
         complete = False
-        reasons.append("Historical runs are at different environment times")
+        reasons.append(
+            notice(
+                "trading.notice.different_times",
+                "Historical runs are at different environment times",
+            )
+        )
+    limitations = [
+        notice(
+            "trading.notice.model_contamination",
+            "Historical model-knowledge contamination is not eliminated",
+        ),
+        notice(
+            "trading.notice.external_verification",
+            "External participant information access requires independent verification",
+        ),
+    ]
     return {
         **row,
         "scenario": comparison_scenario(TradingStore("runs").required(row["run_ids"][0])),
         "comparable": complete,
-        "reasons": reasons,
+        "reasons": [message["default_message"] for message in reasons],
+        "reason_messages": reasons,
         "results": sorted(results, key=lambda result: -(result["return_pct"] or 0))
         if complete
         else results,
-        "limitations": [
-            "Historical model-knowledge contamination is not eliminated",
-            "External participant information access requires independent verification",
-        ],
+        "limitations": [message["default_message"] for message in limitations],
+        "limitation_messages": limitations,
     }
 
 

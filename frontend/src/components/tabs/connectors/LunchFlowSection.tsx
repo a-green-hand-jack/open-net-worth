@@ -1,3 +1,6 @@
+import { formatConnectorBody } from './connectorServerMessages'
+import { useOAuthError } from './useOAuthError'
+import { useAppIntl } from '../../../i18n/useAppIntl'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import {
   Stack,
@@ -51,6 +54,9 @@ function lunchFlowFormOf(c: LunchFlowStatus): LunchFlowForm {
 }
 
 export function LunchFlowSection() {
+  const intl = useAppIntl()
+  const { formatMessage } = intl
+  const oauthErrorText = useOAuthError()
   const [cfg, setCfg] = useState<LunchFlowStatus | null>(null)
   const [form, setForm] = useState<LunchFlowForm | null>(null)
   const [error, setError] = useState(false)
@@ -94,14 +100,14 @@ export function LunchFlowSection() {
       if (form.client_secret.trim()) body.client_secret = form.client_secret.trim()
       const result = await updateLunchFlowConfig(body)
       if (!result.ok) {
-        setSaveErr(result.error)
+        setSaveErr(result.fallback ? formatMessage({ id: 'connectors.alpaca.save', defaultMessage: 'Could not save the credentials.' }) : result.error)
         return false
       }
       setForm((f) => f && { ...f, client_secret: '' })
       load()
       return true
     } catch {
-      setSaveErr('Could not save — could not reach the server.')
+      setSaveErr(formatMessage({ id: 'connectors.email.serverFailed', defaultMessage: 'Could not save — could not reach the server.' }))
       return false
     } finally {
       setSaving(false)
@@ -116,7 +122,7 @@ export function LunchFlowSection() {
       oauthHandleRef.current = null
       setConnecting(false)
       if (!outcome.ok) {
-        setConnectErr(outcome.error || 'Sign-in did not complete.')
+        setConnectErr(oauthErrorText(outcome.reason ?? null, outcome.error, outcome.status) || formatMessage({ id: 'connectors.lunchFlow.signInFailed', defaultMessage: 'Sign-in did not complete.' }))
         return
       }
       load()
@@ -134,11 +140,10 @@ export function LunchFlowSection() {
     // (the vendor unlinks the institution; imported transactions stay in the ledger either
     // way). Every other irreversible control in this app confirms first (e.g.
     // StatementsSection's delete), so this does too.
-    const label = institutionName || 'this bank'
+    const label = institutionName || formatMessage({ id: 'connectors.plaidBanks.thisBank', defaultMessage: 'this bank' })
     if (
       !window.confirm(
-        `Disconnect ${label}? This unlinks it at Lunch Flow — you'll need to reconnect it ` +
-          `there to sync again. Transactions already imported stay in your ledger.`,
+        formatMessage({ id: 'connectors.lunchFlow.confirm', defaultMessage: "Disconnect {name}? This unlinks it at Lunch Flow — you'll need to reconnect it there to sync again. Transactions already imported stay in your ledger." }, { name: label }),
       )
     ) {
       return
@@ -148,7 +153,7 @@ export function LunchFlowSection() {
     try {
       const result = await disconnectLunchFlowConnection(connectionId)
       if (!result.ok) {
-        setDisconnectErr(result.error)
+        setDisconnectErr(result.fallback ? formatMessage({ id: 'connectors.lunchFlow.disconnectFailed', defaultMessage: 'Could not disconnect.' }) : formatConnectorBody(intl, { detail: result.error, message_id: result.message_id, message_params: result.message_params }, result.error))
         return
       }
       load()
@@ -183,14 +188,14 @@ export function LunchFlowSection() {
   if (error) {
     return (
       <Text size="sm" tone="bad">
-        Could not load the Lunch Flow connector status.
+        {formatMessage({ id: 'connectors.lunchFlow.load', defaultMessage: 'Could not load the Lunch Flow connector status.' })}
       </Text>
     )
   }
   if (!cfg || !form) {
     return (
       <Text size="sm" tone="faint">
-        Loading…
+        {formatMessage({ id: 'connectors.email.loading', defaultMessage: 'Loading…' })}
       </Text>
     )
   }
@@ -201,41 +206,34 @@ export function LunchFlowSection() {
   return (
     <Stack gap="--space-4">
       <Text size="sm" tone="faint">
-        Add your{' '}
-        <a href="https://lunchflow.app/developer" target="_blank" rel="noreferrer">
-          Lunch Flow
-        </a>{' '}
-        developer client ID and secret, then connect a bank — you&apos;ll sign in at Lunch
-        Flow&apos;s own hosted page in a new window and link your bank there. Fetching and booking
-        transactions is Lucius's job — automate it with a template below.
+        {formatMessage({ id: 'connectors.lunchFlow.intro', defaultMessage: "Add your <link>Lunch Flow</link> developer client ID and secret, then connect a bank — you'll sign in at Lunch Flow's own hosted page in a new window and link your bank there. Fetching and booking transactions is Lucius's job — automate it with a template below." }, { link: (chunks) => <a href="https://lunchflow.app/developer" target="_blank" rel="noreferrer">{chunks}</a> })}
       </Text>
 
       {cfg.configured && !cfg.enabled && (
         <Text size="xs" tone="warn">
-          Currently paused — saving here won&apos;t resume it. Use Resume on the connector card to
-          turn it back on.
+          {formatMessage({ id: 'connectors.alpaca.paused', defaultMessage: "Currently paused — saving here won't resume it. Use Resume on the connector card to turn it back on." })}
         </Text>
       )}
 
       <ConnectorStatusLine lastSyncedAt={cfg.last_synced_at} lastStatus={cfg.last_status} />
       {cfg.last_error && (
         <Text size="xs" tone="bad">
-          Last error: {cfg.last_error}
+          {formatMessage({ id: 'connectors.email.lastError', defaultMessage: 'Last error: {error}' }, { error: cfg.last_error })}
         </Text>
       )}
       {/* Always rendered regardless of last_status — a caution about the amount sign must
           stay visible even on a technically-"ok" fetch, or it goes unseen (security review). */}
       {cfg.last_caution && (
         <Text size="xs" tone="warn">
-          Caution: {cfg.last_caution}
+          {formatMessage({ id: 'connectors.lunchFlow.caution', defaultMessage: 'Caution: {caution}' }, { caution: cfg.last_caution })}
         </Text>
       )}
 
       <FormField
-        label="Client ID"
+        label={formatMessage({ id: 'connectors.oauth.clientId', defaultMessage: 'Client ID' })}
         htmlFor="conn-lunchflow-id"
         required
-        help="Your Lunch Flow client_id (from the Lunch Flow developer dashboard)."
+        help={formatMessage({ id: 'connectors.lunchFlow.idHelp', defaultMessage: 'Your Lunch Flow client_id (from the Lunch Flow developer dashboard).' })}
       >
         <TextField
           id="conn-lunchflow-id"
@@ -246,21 +244,21 @@ export function LunchFlowSection() {
       </FormField>
 
       <FormField
-        label="Client secret"
+        label={formatMessage({ id: 'connectors.lunchFlow.secret', defaultMessage: 'Client secret' })}
         htmlFor="conn-lunchflow-secret"
         required
-        help={secret.caption || 'Your Lunch Flow client_secret for that same app.'}
+        help={secret.caption || formatMessage({ id: 'connectors.lunchFlow.secretHelp', defaultMessage: "Your Lunch Flow client_secret for that same app." })}
         error={
           secret.error ||
           (clientSecretTouched.touched && !clientSecretValid
-            ? 'A client secret is required.'
+            ? formatMessage({ id: 'connectors.lunchFlow.secretRequired', defaultMessage: "A client secret is required." })
             : undefined)
         }
       >
         <PasswordField
           id="conn-lunchflow-secret"
           value={form.client_secret}
-          placeholder={cfg.has_credentials ? '••••••••' : 'client secret'}
+          placeholder={cfg.has_credentials ? '••••••••' : formatMessage({ id: 'connectors.lunchFlow.secretPlaceholder', defaultMessage: "client secret" })}
           onChange={(e) => set('client_secret', e.target.value)}
           onBlur={clientSecretTouched.onBlur}
           {...secret.fieldProps}
@@ -268,9 +266,9 @@ export function LunchFlowSection() {
       </FormField>
 
       <FormField
-        label="Email"
+        label={formatMessage({ id: 'connectors.lunchFlow.email', defaultMessage: 'Email' })}
         htmlFor="conn-lunchflow-email"
-        help="Optional — pre-fills your email on Lunch Flow's sign-in page."
+        help={formatMessage({ id: 'connectors.lunchFlow.emailHelp', defaultMessage: "Optional — pre-fills your email on Lunch Flow's sign-in page." })}
       >
         <TextField
           id="conn-lunchflow-email"
@@ -290,24 +288,24 @@ export function LunchFlowSection() {
       {/* ── Bank link flow (Lunch Flow hosted sign-in, popup + poll) ── */}
       <Stack gap="--space-3">
         <Text size="sm" tone="ink">
-          {cfg.has_link ? 'Linked bank' : 'Connect a bank'}
+          {cfg.has_link ? formatMessage({ id: 'connectors.gcBanks.linkedBank', defaultMessage: "Linked bank" }) : formatMessage({ id: 'connectors.lunchFlow.connectBankHeading', defaultMessage: "Connect a bank" })}
         </Text>
         {connecting ? (
           <Cluster gap="--space-3" align="center">
             <Text size="xs" tone="faint">
-              Waiting for sign-in…
+              {formatMessage({ id: 'connectors.oauth.waiting', defaultMessage: 'Waiting for sign-in…' })}
             </Text>
             <Button size="sm" variant="secondary" onClick={cancelConnect}>
-              Cancel
+              {formatMessage({ id: 'connectors.action.cancel', defaultMessage: 'Cancel' })}
             </Button>
           </Cluster>
         ) : (
           <Cluster gap="--space-3" align="center" wrap>
             <Button size="sm" disabled={!cfg.has_credentials} onClick={connectBank}>
-              {cfg.has_link ? 'Reconnect bank' : 'Connect bank'}
+              {cfg.has_link ? formatMessage({ id: 'connectors.lunchFlow.reconnectBank', defaultMessage: "Reconnect bank" }) : formatMessage({ id: 'connectors.lunchFlow.connectBank', defaultMessage: "Connect bank" })}
             </Button>
             <Text size="xs" tone="faint">
-              Opens Lunch Flow's hosted sign-in in a new window.
+              {formatMessage({ id: 'connectors.lunchFlow.hosted', defaultMessage: "Opens Lunch Flow's hosted sign-in in a new window." })}
             </Text>
           </Cluster>
         )}
@@ -323,13 +321,13 @@ export function LunchFlowSection() {
       {cfg.connections.length > 0 && (
         <Stack gap="--space-2">
           <Text size="sm" tone="ink">
-            Linked institutions
+            {formatMessage({ id: 'connectors.lunchFlow.institutions', defaultMessage: 'Linked institutions' })}
           </Text>
           {cfg.connections.map((conn) => (
             <Cluster key={conn.connection_id} gap="--space-3" align="center" wrap justify="between">
               <Text size="xs" tone="faint">
-                {conn.institution_name || `Connection ${conn.connection_id}`} •{' '}
-                {conn.accounts.length} account{conn.accounts.length !== 1 ? 's' : ''}
+                {conn.institution_name || formatMessage({ id: 'connectors.lunchFlow.connection', defaultMessage: 'Connection {id}' }, { id: conn.connection_id })} •{' '}
+                {formatMessage({ id: 'connectors.lunchFlow.accounts', defaultMessage: '{count} {count, plural, one {account} other {accounts}}' }, { count: conn.accounts.length })}
               </Text>
               <Button
                 size="sm"
@@ -337,7 +335,7 @@ export function LunchFlowSection() {
                 loading={disconnectingId === conn.connection_id}
                 onClick={() => disconnect(conn.connection_id, conn.institution_name)}
               >
-                Disconnect
+                {formatMessage({ id: 'connectors.lunchFlow.disconnect', defaultMessage: 'Disconnect' })}
               </Button>
             </Cluster>
           ))}

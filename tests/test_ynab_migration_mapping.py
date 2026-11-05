@@ -178,6 +178,11 @@ def test_one_sided_transfer_falls_back_to_a_plain_row():
     plan = plan_for([lone])
     (piece,) = plan["pieces"]
     assert piece["kind"] == "expense" and plan["stats"]["transfers_one_sided"] == 1
+    preview = ym.preview_summary(plan)
+    assert preview["warnings_messages"] == [
+        {"message_id": "ynab.import.warning.oneSidedTransfer", "params": {"count": "1"}}
+    ]
+    assert len(preview["warnings"]) == len(preview["warnings_messages"])
 
 
 def test_split_maps_to_split_lines_and_parent_id_rides_the_piece():

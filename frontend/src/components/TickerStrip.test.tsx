@@ -5,7 +5,10 @@
  */
 
 import { describe, expect, it, vi, beforeEach } from 'vitest'
-import { cleanup, render, screen } from '@testing-library/react'
+import { act, cleanup, render, screen } from '@testing-library/react'
+import { IntlProvider } from 'react-intl'
+import messages from './shared/zh-CN.messages.json'
+import { setDisplayFormats } from '../utils/format'
 import type { ComputedRow } from '../types/portfolio'
 
 // TickerStrip navigates on tap; it renders in the topbar, outside any router in this test.
@@ -17,6 +20,7 @@ vi.mock('../hooks/useMarketTicker', () => ({
     {
       symbol: 'GC=F',
       label: 'Gold',
+      label_source: 'gold',
       kind: 'commodity',
       unit: 'USD',
       price: 4691.5,
@@ -62,6 +66,7 @@ function renderStrip(rows: ComputedRow[]) {
 beforeEach(() => {
   cleanup()
   vi.clearAllMocks()
+  setDisplayFormats({})
 })
 
 describe('holdingItems', () => {
@@ -83,6 +88,19 @@ describe('holdingItems', () => {
       row({ symbol: 'NOPRICE', _disp_unit_price: 0 }),
     ])
     expect(items.map((i) => i.label)).toEqual(['ORCL'])
+  })
+})
+
+describe('TickerStrip localized market data', () => {
+  it('translates only marked commodities and updates prices when the number preference changes', () => {
+    render(<IntlProvider locale="zh-CN" messages={messages}><TickerStrip rows={[row({ symbol: 'Gold' })]} priceStatus="live" asOf="" asOfLong="" /></IntlProvider>)
+    expect(screen.getAllByText('黄金').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('Gold').length).toBeGreaterThan(0)
+    act(() => setDisplayFormats({ number_format: 'dot' }))
+    expect(screen.getAllByText('4.692').length).toBeGreaterThan(0)
+    expect(document.querySelector('.ticker-item-chg--up')?.textContent).toContain('0,40%')
+    expect(document.body.textContent).toContain('0,23%')
+    expect(screen.getAllByText('0,0000499').length).toBeGreaterThan(0)
   })
 })
 

@@ -4,6 +4,10 @@ import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-li
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { clearQueryCache } from '../../../../state/queryCache'
 import { PermissionsSectionV2 } from './PermissionsSectionV2'
+import { IntlProvider } from 'react-intl'
+import translations from '../remaining.zh-CN.messages.json'
+import registry from '../../../../i18n/toolDescriptions.registry.json'
+import chinese from '../../../../i18n/toolDescriptions.zh-CN.json'
 
 vi.mock('../../../../api/client', () => ({ authFetch: vi.fn() }))
 
@@ -57,6 +61,31 @@ describe('PermissionsSectionV2', () => {
   afterEach(() => {
     cleanup()
     vi.restoreAllMocks()
+  })
+
+  it('translates verified built-in descriptions and preserves unverified text', async () => {
+    const entry = registry.add_transactions
+    mockAuthFetch.mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        permissions: [
+          row({
+            tool: 'add_transactions',
+            description: entry.english,
+            description_source: { tool: 'add_transactions', sha256: entry.sha256 },
+          }),
+          row({ tool: 'custom_tool', description: 'User supplied description' }),
+        ],
+      }),
+    } as Response)
+    render(
+      <IntlProvider locale="zh-CN" messages={translations}>
+        <PermissionsSectionV2 toast={vi.fn()} />
+      </IntlProvider>,
+    )
+    expect(await screen.findByText(chinese.add_transactions)).toBeTruthy()
+    expect(screen.getByText('User supplied description')).toBeTruthy()
+    expect(screen.getAllByText('询问').length).toBeGreaterThan(0)
   })
 
   it('lists only built-in tools, with no owner header — connector and MCP tools live in Connectors', async () => {

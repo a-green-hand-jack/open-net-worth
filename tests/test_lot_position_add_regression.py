@@ -335,7 +335,11 @@ def test_apply_lot_delete_refuses_partially_consumed_lot(isolated):
 
 def test_apply_lot_delete_unknown_lot_returns_error(isolated):
     result = lots_svc.apply_lot_change({"type": "delete", "lot_id": "does-not-exist"})
-    assert result == {"error": "lot not found"}
+    assert result == {
+        "error": "lot not found",
+        "message_id": "lots.error.notFound",
+        "message_params": {},
+    }
 
 
 # ── Historical-rate lock: acquire stamps the write-time cost→base rate ─────────

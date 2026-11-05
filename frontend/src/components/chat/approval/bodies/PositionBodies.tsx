@@ -1,3 +1,6 @@
+import { defineMessages, type IntlShape, type MessageDescriptor } from 'react-intl'
+import { useAppIntl } from '../../../../i18n/useAppIntl'
+import { FormattedMessage } from '../FormattedMessage'
 import type { PositionDisplay, ProposedChange } from '../../../../types/chat'
 import { fAmountNative, fCurrency, fDate, fQty } from '../../../../utils/format'
 import {
@@ -40,14 +43,50 @@ const UPDATE_LABELS: Array<[string, string]> = [
   ['note', 'Note'],
 ]
 
+const positionFields = defineMessages({
+  quantity: { id: 'chat.position.quantity', defaultMessage: 'Quantity' },
+  cost_basis: { id: 'chat.approval.field.cost_basis', defaultMessage: 'Cost basis' },
+  cost_currency: { id: 'chat.position.costCurrency', defaultMessage: 'Cost currency' },
+  vesting_state: { id: 'chat.position.vesting', defaultMessage: 'Vesting' },
+  note: { id: 'chat.position.note', defaultMessage: 'Note' },
+  account: { id: 'chat.approval.field.account', defaultMessage: 'Account' },
+})
+const acquireKinds = defineMessages({
+  buy: { id: 'chat.position.buy', defaultMessage: 'Buy' },
+  drp: { id: 'chat.position.reinvest', defaultMessage: 'Reinvest' },
+  transfer_in: { id: 'chat.position.transferIn', defaultMessage: 'Transfer in' },
+  grant: { id: 'chat.position.grant', defaultMessage: 'Grant' },
+  opening: { id: 'chat.position.opening', defaultMessage: 'Opening balance' },
+})
+const incomeKinds = defineMessages({
+  dividend: { id: 'chat.position.dividend', defaultMessage: 'Dividend' },
+  interest: { id: 'chat.position.interest', defaultMessage: 'Interest' },
+  distribution: { id: 'chat.position.distribution', defaultMessage: 'Distribution' },
+})
+const assetClasses = defineMessages({
+  equity: { id: 'chat.position.assetEquity', defaultMessage: 'equity' },
+  crypto: { id: 'chat.position.assetCrypto', defaultMessage: 'crypto' },
+  commodity: { id: 'chat.position.assetCommodity', defaultMessage: 'commodity' },
+  cash: { id: 'chat.position.assetCash', defaultMessage: 'cash' },
+  bond: { id: 'chat.position.assetBond', defaultMessage: 'bond' },
+  property: { id: 'chat.position.assetProperty', defaultMessage: 'property' },
+  option: { id: 'chat.position.assetOption', defaultMessage: 'option' },
+})
+function knownLabel(table: Record<string, MessageDescriptor>, key: string, fallback: string, intl: IntlShape): string {
+  return Object.hasOwn(table, key) ? intl.formatMessage(table[key]!) : fallback
+}
+
 function fieldValue(
   field: string,
   side: Record<string, unknown>,
   other: Record<string, unknown>,
+  intl: IntlShape,
 ): string {
   const v = side[field]
   if (v == null || v === '') return '—'
   if (field === 'quantity') return fQty(v as number)
+  if (field === 'vesting_state' && v === 'vested') return intl.formatMessage({ id: 'chat.position.vested', defaultMessage: 'vested' })
+  if (field === 'vesting_state' && v === 'unvested') return intl.formatMessage({ id: 'chat.position.unvested', defaultMessage: 'unvested' })
   if (field === 'cost_basis') {
     return money(Number(v), (side.cost_currency ?? other.cost_currency) as string | undefined)
   }
@@ -55,31 +94,32 @@ function fieldValue(
 }
 
 export function PositionUpdateBody({ change }: { change: ProposedChange }) {
+  const intl = useAppIntl()
   const d = displayOf(change)
   const before = (d.before || {}) as Record<string, unknown>
   const after = (d.after || {}) as Record<string, unknown>
   const edits = UPDATE_LABELS.filter(([f]) => String(before[f] ?? '') !== String(after[f] ?? ''))
   const moves = d.account_to && d.account_to !== d.account_from
   if (edits.length === 0 && !moves)
-    return <ApprovalLead tone="muted">No fields change</ApprovalLead>
-  const names = [...(moves ? ['account'] : []), ...edits.map(([, label]) => label.toLowerCase())]
+    return <ApprovalLead tone="muted">{<FormattedMessage id="chat.approval.field.no_fields_change" defaultMessage="No fields change" />}</ApprovalLead>
+  const names = [...(moves ? [knownLabel(positionFields, 'account', 'Account', intl).toLowerCase()] : []), ...edits.map(([field, label]) => knownLabel(positionFields, field, label, intl).toLowerCase())]
   return (
     <>
-      <ApprovalLead>Change {names.join(', ')}</ApprovalLead>
+      <ApprovalLead>{intl.formatMessage({ id: 'chat.position.change', defaultMessage: 'Change {fields}' }, { fields: names.join(', ') })}</ApprovalLead>
       <ApprovalFacts>
         {moves && (
           <ApprovalChange
-            label="Account"
+            label={<FormattedMessage id="chat.approval.field.account" defaultMessage="Account" />}
             before={d.account_from || '—'}
-            after={d.account_to_is_new ? `${d.account_to} (new account)` : d.account_to}
+            after={d.account_to_is_new ? intl.formatMessage({ id: 'chat.position.newAccount', defaultMessage: '{account} (new account)' }, { account: d.account_to }) : d.account_to}
           />
         )}
         {edits.map(([field, label]) => (
           <ApprovalChange
             key={field}
-            label={label}
-            before={fieldValue(field, before, after)}
-            after={fieldValue(field, after, before)}
+            label={knownLabel(positionFields, field, label, intl)}
+            before={fieldValue(field, before, after, intl)}
+            after={fieldValue(field, after, before, intl)}
           />
         ))}
       </ApprovalFacts>
@@ -88,6 +128,7 @@ export function PositionUpdateBody({ change }: { change: ProposedChange }) {
 }
 
 export function PositionAddBody({ change }: { change: ProposedChange }) {
+  const intl = useAppIntl()
   const d = displayOf(change)
   const ccy = d.cost_currency || d.currency
   const hasBasis = d.cost_basis != null && d.cost_basis !== ''
@@ -95,23 +136,23 @@ export function PositionAddBody({ change }: { change: ProposedChange }) {
   return (
     <>
       <ApprovalLead>
-        Add {fQty(d.quantity)} {d.symbol || d.name}
+        {intl.formatMessage({ id: 'chat.position.add', defaultMessage: 'Add {quantity} {name}' }, { quantity: fQty(d.quantity), name: d.symbol || d.name })}
       </ApprovalLead>
       <ApprovalMeta
         items={[
           d.symbol && d.name,
-          d.asset_class,
+          d.asset_class && knownLabel(assetClasses, d.asset_class, d.asset_class, intl),
           d.acquired_at && fDate(d.acquired_at, 'short', 'always'),
-          fees > 0 && `${money(fees, ccy)} fees`,
+          fees > 0 && intl.formatMessage({ id: 'chat.approval.fees', defaultMessage: '{amount} fees' }, { amount: money(fees, ccy) }),
         ]}
       />
       <ApprovalFacts>
         <ApprovalFact
-          label="Cost basis"
+          label={<FormattedMessage id="chat.approval.field.cost_basis" defaultMessage="Cost basis" />}
           tone={hasBasis ? undefined : 'muted'}
-          title={hasBasis ? undefined : 'A later sale of this position reports no gain.'}
+          title={hasBasis ? undefined : intl.formatMessage({ id: 'chat.position.unknownBasisHint', defaultMessage: 'A later sale of this position reports no gain.' })}
         >
-          {hasBasis ? money(Number(d.cost_basis), ccy) : 'unknown'}
+          {hasBasis ? money(Number(d.cost_basis), ccy) : intl.formatMessage({ id: 'chat.approval.unknown', defaultMessage: 'unknown' })}
         </ApprovalFact>
       </ApprovalFacts>
     </>
@@ -119,10 +160,11 @@ export function PositionAddBody({ change }: { change: ProposedChange }) {
 }
 
 export function PositionRemoveBody({ change }: { change: ProposedChange }) {
+  const intl = useAppIntl()
   const d = displayOf(change)
   return (
-    <ApprovalLead figure={d.quantity != null ? `${fQty(d.quantity)} units` : undefined}>
-      Remove {d.name || d.symbol}
+    <ApprovalLead figure={d.quantity != null ? intl.formatMessage({ id: 'chat.position.units', defaultMessage: '{quantity} units' }, { quantity: fQty(d.quantity) }) : undefined}>
+      {intl.formatMessage({ id: 'chat.position.remove', defaultMessage: 'Remove {name}' }, { name: d.name || d.symbol })}
     </ApprovalLead>
   )
 }
@@ -136,6 +178,7 @@ const ACQUIRE_VERB: Record<string, string> = {
 }
 
 export function LotAcquireBody({ change }: { change: ProposedChange }) {
+  const intl = useAppIntl()
   const d = displayOf(change)
   const kind = d.kind || 'buy'
   const qty = Number(d.quantity)
@@ -147,41 +190,41 @@ export function LotAcquireBody({ change }: { change: ProposedChange }) {
       <ApprovalLead
         figure={costKnown ? money(qty * Number(d.unit_cost), d.cost_currency) : undefined}
       >
-        {ACQUIRE_VERB[kind] || words(kind)} {fQty(d.quantity)} {d.symbol || d.name}
+        {knownLabel(acquireKinds, kind, ACQUIRE_VERB[kind] || words(kind), intl)} {fQty(d.quantity)} {d.symbol || d.name}
         {costKnown && ` @ ${money(Number(d.unit_cost), d.cost_currency)}`}
       </ApprovalLead>
       <ApprovalMeta
         items={[
           d.acquired_at && fDate(d.acquired_at, 'short', 'always'),
-          fees > 0 && `${money(fees, d.cost_currency)} fees`,
+          fees > 0 && intl.formatMessage({ id: 'chat.approval.fees', defaultMessage: '{amount} fees' }, { amount: money(fees, d.cost_currency) }),
         ]}
       />
       {(!costKnown || kind === 'buy') && (
         <ApprovalFacts>
           {!costKnown && (
             <ApprovalFact
-              label="Cost basis"
+              label={<FormattedMessage id="chat.approval.field.cost_basis" defaultMessage="Cost basis" />}
               tone="muted"
-              title="Every later sale of this lot reports no gain."
+              title={intl.formatMessage({ id: 'chat.approval.unknownBasisHint', defaultMessage: 'Every later sale of this lot reports no gain.' })}
             >
-              unknown
+              {intl.formatMessage({ id: 'chat.approval.unknown', defaultMessage: 'unknown' })}
             </ApprovalFact>
           )}
           {kind === 'buy' && (
             <ApprovalFact
-              label="Cash"
+              label={<FormattedMessage id="chat.approval.field.cash" defaultMessage="Cash" />}
               tone={funded && costKnown ? undefined : 'warn'}
               title={
                 funded && costKnown
                   ? undefined
-                  : 'No cash is taken out. Fine if the money already left an account; otherwise net worth rises by the shares with nothing deducted.'
+                  : intl.formatMessage({ id: 'chat.approval.noCashOutHint', defaultMessage: 'No cash is taken out. Fine if the money already left an account; otherwise net worth rises by the shares with nothing deducted.' })
               }
             >
               {funded
                 ? costKnown
-                  ? `debited from ${d.funding_account_name || 'the funding account'}`
-                  : 'not debited'
-                : 'not booked'}
+                  ? intl.formatMessage({ id: 'chat.approval.debitedFrom', defaultMessage: 'debited from {account}' }, { account: d.funding_account_name || intl.formatMessage({ id: 'chat.approval.fundingAccount', defaultMessage: 'the funding account' }) })
+                  : intl.formatMessage({ id: 'chat.approval.notDebited', defaultMessage: 'not debited' })
+                : intl.formatMessage({ id: 'chat.approval.notBooked', defaultMessage: 'not booked' })}
             </ApprovalFact>
           )}
         </ApprovalFacts>
@@ -191,6 +234,7 @@ export function LotAcquireBody({ change }: { change: ProposedChange }) {
 }
 
 export function LotDeleteBody({ change }: { change: ProposedChange }) {
+  const intl = useAppIntl()
   const d = displayOf(change)
   const costKnown = d.unit_cost != null
   const qty = Number(d.remaining_qty)
@@ -200,19 +244,19 @@ export function LotDeleteBody({ change }: { change: ProposedChange }) {
   return (
     <>
       <ApprovalLead figure={costKnown ? money(qty * Number(d.unit_cost)) : undefined}>
-        Delete lot of {fQty(d.remaining_qty)} {d.symbol || d.name}
+        {intl.formatMessage({ id: 'chat.position.deleteLot', defaultMessage: 'Delete lot of {quantity} {name}' }, { quantity: fQty(d.remaining_qty), name: d.symbol || d.name })}
       </ApprovalLead>
       <ApprovalMeta
         items={[
-          d.acquired_at && `Acquired ${fDate(d.acquired_at, 'short', 'always')}`,
-          d.kind && words(d.kind),
-          costKnown && `${money(Number(d.unit_cost))} per unit`,
+          d.acquired_at && intl.formatMessage({ id: 'chat.position.acquiredAt', defaultMessage: 'Acquired {date}' }, { date: fDate(d.acquired_at, 'short', 'always') }),
+          d.kind && knownLabel(acquireKinds, d.kind, words(d.kind), intl).toLowerCase(),
+          costKnown && intl.formatMessage({ id: 'chat.position.perUnit', defaultMessage: '{amount} per unit' }, { amount: money(Number(d.unit_cost)) }),
         ]}
       />
       {!costKnown && (
         <ApprovalFacts>
-          <ApprovalFact label="Cost basis" tone="muted">
-            unknown
+          <ApprovalFact label={<FormattedMessage id="chat.approval.field.cost_basis" defaultMessage="Cost basis" />} tone="muted">
+            {intl.formatMessage({ id: 'chat.approval.unknown', defaultMessage: 'unknown' })}
           </ApprovalFact>
         </ApprovalFacts>
       )}
@@ -221,26 +265,28 @@ export function LotDeleteBody({ change }: { change: ProposedChange }) {
 }
 
 export function IncomeBody({ change }: { change: ProposedChange }) {
+  const intl = useAppIntl()
   const d = displayOf(change)
   const ccy = d.currency || undefined
   const tax = Number(d.tax_withheld) || 0
   const showBase =
     d.base_amount != null && d.base_currency && d.base_currency !== (ccy || d.base_currency)
-  const kind = sentence(words(d.income_kind || 'dividend'))
+  const incomeKind = d.income_kind || 'dividend'
+  const kind = knownLabel(incomeKinds, incomeKind, sentence(words(incomeKind)), intl)
   return (
     <>
       <ApprovalLead figure={money(Number(d.net_amount ?? 0), ccy)}>
-        {d.is_drp ? `${kind} reinvested, no cash` : `${kind} received`}
+        {d.is_drp ? intl.formatMessage({ id: 'chat.position.reinvested', defaultMessage: '{kind} reinvested, no cash' }, { kind }) : intl.formatMessage({ id: 'chat.position.received', defaultMessage: '{kind} received' }, { kind })}
       </ApprovalLead>
       <ApprovalMeta items={[d.paid_at && fDate(d.paid_at, 'short', 'always')]} />
       {(tax > 0 || showBase) && (
         <ApprovalFacts>
           {tax > 0 && (
-            <ApprovalFact label="Gross">{money(Number(d.gross_amount ?? 0), ccy)}</ApprovalFact>
+            <ApprovalFact label={<FormattedMessage id="chat.approval.field.gross" defaultMessage="Gross" />}>{money(Number(d.gross_amount ?? 0), ccy)}</ApprovalFact>
           )}
-          {tax > 0 && <ApprovalFact label="Tax withheld">{money(tax, ccy)}</ApprovalFact>}
+          {tax > 0 && <ApprovalFact label={<FormattedMessage id="chat.approval.field.tax_withheld" defaultMessage="Tax withheld" />}>{money(tax, ccy)}</ApprovalFact>}
           {showBase && (
-            <ApprovalFact label={`In ${d.base_currency}`}>
+            <ApprovalFact label={intl.formatMessage({ id: 'chat.position.inCurrency', defaultMessage: 'In {currency}' }, { currency: d.base_currency })}>
               {money(Number(d.base_amount), d.base_currency)}
             </ApprovalFact>
           )}

@@ -6,6 +6,7 @@
 // (reports.css, `ov-sleg-*`).
 
 import { useState } from 'react'
+import { useAppIntl } from '../../../../i18n/useAppIntl'
 
 export interface LegendItem {
   key: string
@@ -26,6 +27,7 @@ const PHONE_CAP = 2
 const MID_CAP = 3
 
 function LegendRow({ group }: { group: LegendGroup }) {
+  const intl = useAppIntl()
   const [open, setOpen] = useState(false)
   const { items } = group
   const more = (cap: number) =>
@@ -40,7 +42,12 @@ function LegendRow({ group }: { group: LegendGroup }) {
           .join(', ')}
         onClick={() => setOpen((o) => !o)}
       >
-        {open ? 'Show less' : `+${items.length - cap} more`}
+        {open
+          ? intl.formatMessage({ id: 'overview.legend.showLess', defaultMessage: 'Show less' })
+          : intl.formatMessage(
+              { id: 'overview.legend.more', defaultMessage: '+{count} more' },
+              { count: items.length - cap },
+            )}
       </button>
     )
   return (

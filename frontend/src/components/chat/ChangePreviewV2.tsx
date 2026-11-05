@@ -1,3 +1,5 @@
+import { useAppIntl } from '../../i18n/useAppIntl'
+import type { IntlShape } from 'react-intl'
 import { useEffect, useState } from 'react'
 import {
   grantTool,
@@ -49,10 +51,18 @@ export interface ChangePreviewV2Props {
 // "Allow once" sits over the error that just explained why the first tap did nothing — the
 // mobile incident this fixes (2026-09-06). Reuses `.change-confirmed`, the row the card already
 // shows for "✓ Approved"/"✗ Dismissed", so no new className is needed.
+function permissionRefusalReason(error: PermissionRefusedError, intl: IntlShape): string {
+  if (error.messageId === 'permissions.error.automationMissing') {
+    return intl.formatMessage({ id: 'permissions.error.automationMissing', defaultMessage: 'This Automation no longer exists, so nothing was changed.' })
+  }
+  return error.message
+}
+
 function RefusedRow() {
+  const intl = useAppIntl()
   return (
     <div className="change-confirmed" role="status" style={{ color: 'var(--muted)' }}>
-      Not run — can't be reused.
+      {intl.formatMessage({ id: 'chat.decision.refused', defaultMessage: "Not run — can't be reused." })}
     </div>
   )
 }
@@ -63,6 +73,7 @@ export function ChangePreviewV2({
   onResolvePendingToolUse,
   failure,
 }: ChangePreviewV2Props) {
+  const intl = useAppIntl()
   // Optimistic local response for instant feedback; the persisted `change.status`
   // (written via onRespond) is what survives a reload / conversation switch. Either
   // being set resolves the card and hides the Confirm/Dismiss buttons.
@@ -166,10 +177,10 @@ export function ChangePreviewV2({
       setGrantedScope('once')
       setGrantError(
         err instanceof PermissionRefusedError
-          ? `${err.message} This call is approved this once.`
+          ? intl.formatMessage({ id: 'chat.decision.refusalOnce', defaultMessage: '{reason} This call is approved this once.' }, { reason: permissionRefusalReason(err, intl) })
           : scope === 'always'
-            ? "Couldn't save the permanent permission — this call is approved, but you'll be asked again."
-            : "Couldn't save the session permission — this call is approved, but you'll be asked again.",
+            ? intl.formatMessage({ id: 'chat.decision.permanentFailed', defaultMessage: "Couldn't save the permanent permission — this call is approved, but you'll be asked again." })
+            : intl.formatMessage({ id: 'chat.decision.sessionFailed', defaultMessage: "Couldn't save the session permission — this call is approved, but you'll be asked again." }),
       )
     } finally {
       setGrantBusy(null)
@@ -231,8 +242,8 @@ export function ChangePreviewV2({
       setGrantedScope('once')
       setGrantError(
         err instanceof PermissionRefusedError
-          ? `${err.message} This call is approved this once.`
-          : "Couldn't save the permanent permission — this call is approved, but you'll be asked again.",
+          ? intl.formatMessage({ id: 'chat.decision.refusalOnce', defaultMessage: '{reason} This call is approved this once.' }, { reason: permissionRefusalReason(err, intl) })
+          : intl.formatMessage({ id: 'chat.decision.permanentFailed', defaultMessage: "Couldn't save the permanent permission — this call is approved, but you'll be asked again." }),
       )
     } finally {
       setGrantBusy(null)
@@ -264,21 +275,21 @@ export function ChangePreviewV2({
         responded === 'confirmed' ? (
           failure ? (
             <div className="change-confirmed change-confirmed--failed" role="status">
-              {`✗ ${isPermissionCard || isExternalMcpCard ? 'Approved' : 'Confirmed'}, but it failed: ${failure}`}
+              {isPermissionCard || isExternalMcpCard ? intl.formatMessage({ id: 'chat.decision.approvedFailed', defaultMessage: '✗ Approved, but it failed: {failure}' }, { failure }) : intl.formatMessage({ id: 'chat.decision.confirmedFailed', defaultMessage: '✗ Confirmed, but it failed: {failure}' }, { failure })}
             </div>
           ) : (
             <div className="change-confirmed">
               {isPermissionCard || isExternalMcpCard
                 ? change.resolution === 'always_allowed' ||
                   (!change.resolution && grantedScope === 'always')
-                  ? '✓ Always allowed'
-                  : '✓ Approved'
-                : '✓ Confirmed'}
+                  ? intl.formatMessage({ id: 'chat.decision.alwaysAllowed', defaultMessage: '✓ Always allowed' })
+                  : intl.formatMessage({ id: 'chat.decision.approved', defaultMessage: '✓ Approved' })
+                : intl.formatMessage({ id: 'chat.decision.confirmed', defaultMessage: '✓ Confirmed' })}
             </div>
           )
         ) : (
           <div className="change-confirmed" style={{ color: 'var(--muted)' }}>
-            {isPermissionCard || isExternalMcpCard ? '✗ Denied' : '✗ Dismissed'}
+            {isPermissionCard || isExternalMcpCard ? intl.formatMessage({ id: 'chat.decision.denied', defaultMessage: '✗ Denied' }) : intl.formatMessage({ id: 'chat.decision.dismissed', defaultMessage: '✗ Dismissed' })}
           </div>
         )
       ) : isPermissionCard || isExternalMcpCard ? (
@@ -306,7 +317,7 @@ export function ChangePreviewV2({
         // bare Confirm to fall back on.
         <div className="change-preview-actions">
           <span className="change-grant-error">
-            This change has no way to be applied — please report it.
+            {intl.formatMessage({ id: 'chat.decision.unapplicable', defaultMessage: 'This change has no way to be applied — please report it.' })}
           </span>
         </div>
       )}

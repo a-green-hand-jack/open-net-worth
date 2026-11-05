@@ -60,7 +60,11 @@ def update_workspace(workspace_id, changes):
         )
         unknown = set(changes) - set(WorkspaceCreate.model_fields)
         if unknown:
-            raise ValidationError("Unknown workspace fields", fields=sorted(unknown))
+            raise ValidationError(
+                "Unknown workspace fields",
+                fields=sorted(unknown),
+                message_id="trading.error.workspace_fields_unknown",
+            )
         active = [
             r
             for r in TradingStore("runs").list_scope(workspace_id, conn=conn)
@@ -68,7 +72,8 @@ def update_workspace(workspace_id, changes):
         ]
         if active:
             raise ConflictError(
-                "Amend the workspace mandate instead of editing an active definition"
+                "Amend the workspace mandate instead of editing an active definition",
+                message_id="trading.error.active_definition",
             )
         stamp = now()
         amendment = {
@@ -123,7 +128,12 @@ def create_run(workspace_id, data, *, conn=None):
         for allocation in clean["accounts"]:
             ccy = allocation["currency"]
             if ccy not in clean["fx_rates"]:
-                raise ValidationError("Missing allocation currency FX rate", currency=ccy)
+                raise ValidationError(
+                    "Missing allocation currency FX rate",
+                    currency=ccy,
+                    message_id="trading.error.allocation_fx_missing",
+                    message_params={"currency": ccy},
+                )
             run["initial_capital"][ccy] = str(
                 amount(run["initial_capital"].get(ccy, "0")) + amount(allocation["capital"])
             )
@@ -177,19 +187,27 @@ def _execution_source(clean):
 
     config = status()
     if not config["configured"] or not config["enabled"]:
-        raise ConflictError("Configure and enable Binance before allocating its wallet")
+        raise ConflictError(
+            "Configure and enable Binance before allocating its wallet",
+            message_id="trading.error.binance_disabled",
+        )
     testnet = config["environment"] == "testnet"
     if clean["mode"] != ("paper" if testnet else "live"):
         raise ValidationError(
-            "Binance Spot Testnet requires Paper; Binance real funds require Live"
+            "Binance Spot Testnet requires Paper; Binance real funds require Live",
+            message_id="trading.error.binance_mode_mismatch",
         )
     if len(native) != 1 or (testnet and len(clean["accounts"]) != 1):
         raise ValidationError(
-            "Allocate the entire Binance wallet once; Testnet runs cannot mix execution sources"
+            "Allocate the entire Binance wallet once; Testnet runs cannot mix execution sources",
+            message_id="trading.error.binance_allocation_mixed",
         )
     for account in native:
         if testnet and account.get("book_account_id"):
-            raise ValidationError("Binance Spot Testnet cannot be linked to the real book")
+            raise ValidationError(
+                "Binance Spot Testnet cannot be linked to the real book",
+                message_id="trading.error.testnet_real_book",
+            )
         expected = {
             "currency": config["quote_currency"],
             "venue": config["venue"],
@@ -197,28 +215,41 @@ def _execution_source(clean):
         }
         if any(account.get(key) != value for key, value in expected.items()):
             raise ValidationError(
-                "Binance allocation must match the configured wallet, venue and quote currency"
+                "Binance allocation must match the configured wallet, venue and quote currency",
+                message_id="trading.error.binance_allocation_mismatch",
             )
     return "binance_testnet" if testnet else None
 
 
 def _validate_observations(data):
     if data["mode"] == "backtest" and not data["observations"]:
-        raise ValidationError("Backtests require a versioned observation dataset")
+        raise ValidationError(
+            "Backtests require a versioned observation dataset",
+            message_id="trading.error.backtest_dataset_required",
+        )
     identities = set()
     for observation in data["observations"]:
         observation_id = fingerprint(
             {"instrument": observation["instrument"], "timestamp": observation["timestamp"]}
         )
         if observation_id in identities:
-            raise ValidationError("Dataset contains duplicate instrument observation timestamps")
+            raise ValidationError(
+                "Dataset contains duplicate instrument observation timestamps",
+                message_id="trading.error.duplicate_observation",
+            )
         identities.add(observation_id)
         stamp = instant(observation["timestamp"])
         available = instant(observation["available_at"] or observation["timestamp"])
         if available < stamp:
-            raise ValidationError("Observation cannot be available before its timestamp")
+            raise ValidationError(
+                "Observation cannot be available before its timestamp",
+                message_id="trading.error.observation_early",
+            )
         if observation["instrument"]["currency"] not in data["fx_rates"]:
-            raise ValidationError("Missing observation currency FX rate")
+            raise ValidationError(
+                "Missing observation currency FX rate",
+                message_id="trading.error.observation_fx_missing",
+            )
     data["observations"].sort(
         key=lambda row: (
             instant(row["available_at"] or row["timestamp"]),
@@ -257,6 +288,7 @@ def update_runtime(run_id, patch):
         "turn_id",
         "next_wake_at",
         "last_agent_error",
+        "last_agent_error_message",
         "agent_state",
         "agent_script_source",
         "agent_script_sha256",
@@ -267,7 +299,12 @@ def update_runtime(run_id, patch):
         "reasoning_availability",
     }
     if set(patch) - allowed:
-        raise ValidationError("Unsupported trading runtime fields")
+        raise ValidationError(
+            "Unsupported trading runtime fields",
+            message_id="trading.error.runtime_fields_unsupported",
+        )
+    if "last_agent_error" in patch and "last_agent_error_message" not in patch:
+        patch = {**patch, "last_agent_error_message": None}
     with trading_transaction() as conn:
         TradingStore("runs").required(run_id, conn=conn)
         return public_run(TradingStore("runs").update_by_id(run_id, patch, conn=conn))
@@ -277,20 +314,31 @@ def claim_agent_cycle(run_id, lease_seconds=180, *, paid=False):
     from backend.services.trading.common import assert_running
 
     if not 1 <= lease_seconds <= 600:
-        raise ValidationError("Agent lease must be between 1 and 600 seconds")
+        raise ValidationError(
+            "Agent lease must be between 1 and 600 seconds",
+            message_id="trading.error.lease_duration_invalid",
+        )
     with trading_transaction() as conn:
         run = TradingStore("runs").required(run_id, conn=conn)
         assert_running(run)
         if run.get("agent_lease_expires_at") and instant(run["agent_lease_expires_at"]) > instant(
             now()
         ):
-            raise ConflictError("Another decision cycle holds this run")
+            raise ConflictError(
+                "Another decision cycle holds this run",
+                message_id="trading.error.decision_cycle_busy",
+            )
         if paid and run.get("usage_state") in {"pending", "unknown"}:
-            raise ConflictError("Previous model usage requires billing reconciliation")
+            raise ConflictError(
+                "Previous model usage requires billing reconciliation",
+                message_id="trading.error.billing_reconciliation_required",
+            )
         if paid and amount(run["model_cost_usd"]) >= amount(
             run["workspace_snapshot"]["mandate"]["max_model_cost_usd"]
         ):
-            raise ConflictError("Agent model budget is exhausted")
+            raise ConflictError(
+                "Agent model budget is exhausted", message_id="trading.error.model_budget_exhausted"
+            )
         lease = {
             "lease_id": new_id("tlease"),
             "run_id": run_id,
@@ -315,7 +363,10 @@ def release_agent_cycle(run_id, lease_id):
     with trading_transaction() as conn:
         run = TradingStore("runs").required(run_id, conn=conn)
         if run.get("agent_lease_id") != lease_id:
-            raise ConflictError("Decision lease does not belong to this cycle")
+            raise ConflictError(
+                "Decision lease does not belong to this cycle",
+                message_id="trading.error.decision_lease_invalid",
+            )
         state = "usage_unknown" if run.get("usage_state") in {"pending", "unknown"} else "waiting"
         if state != "usage_unknown" and run.get("agent_state") in {"budget_exhausted", "failed"}:
             state = run["agent_state"]

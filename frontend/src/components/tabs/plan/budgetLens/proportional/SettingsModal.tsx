@@ -3,6 +3,7 @@
 // and each group's share of income (the groups are the book's Zero-Based groups, 2026-09-26) —
 // Savings is what the shares leave. Edits are a draft; closing the modal saves whatever changed.
 import { useState } from 'react'
+import { useAppIntl } from '../../../../../i18n/useAppIntl'
 import { Modal } from '../../../../ui'
 import { getCurrencySymbol } from '../../../../../utils/format'
 import { parseMoneyInput } from '../../planData'
@@ -61,6 +62,7 @@ export function SettingsModal({
   /** Called once, on close, with the edited settings. */
   onClose: (next: SettingsResult) => void
 }) {
+  const { formatMessage } = useAppIntl()
   // As typed — cents included — and parsed once, on close.
   const [inc, setInc] = useState(income ? String(income) : '')
   const [t, setT] = useState<Record<string, number | null>>(() =>
@@ -91,27 +93,45 @@ export function SettingsModal({
     })
   }
   return (
-    <Modal open onClose={close} title="Configure 50/30/20">
+    <Modal
+      open
+      onClose={close}
+      title={formatMessage({
+        id: 'plan.configureProportional',
+        defaultMessage: 'Configure 50/30/20',
+      })}
+    >
       <div className="pt-pop pt-set">
         <label className="pt-pop-f">
-          <span>Monthly net income</span>
+          <span>
+            {formatMessage({ id: 'plan.monthlyNetIncome', defaultMessage: 'Monthly net income' })}
+          </span>
           <span className="pt-inc">
             <b>{getCurrencySymbol()}</b>
             <input
               value={inc}
               placeholder="0"
               inputMode="decimal"
-              aria-label="Monthly net income"
+              aria-label={formatMessage({
+                id: 'plan.monthlyNetIncome',
+                defaultMessage: 'Monthly net income',
+              })}
               onChange={(e) => setInc(e.target.value.replace(/[^0-9.]/g, ''))}
             />
           </span>
           <small className="pt-shared">
-            Your usual month. Saved to your Profile — also used by Outlook and FIRE
+            {formatMessage({
+              id: 'plan.monthlyIncomeProfileHelp',
+              defaultMessage:
+                'Your usual month. Saved to your Profile — also used by Outlook and FIRE',
+            })}
           </small>
         </label>
         {incomeCategories.length > 0 && (
           <>
-            <div className="pt-pop-k">Income categories</div>
+            <div className="pt-pop-k">
+              {formatMessage({ id: 'plan.incomeCategories', defaultMessage: 'Income categories' })}
+            </div>
             <div className="pt-incl">
               {incomeCategories.map((c) => (
                 <label key={c.id} className="pt-incl-r">
@@ -128,18 +148,34 @@ export function SettingsModal({
                   <i style={{ background: c.color }} />
                   <span className="n">{c.label}</span>
                   <span className="d">
-                    {c.last_month > 0 ? fmt(c.last_month) + ' last month' : 'no transactions yet'}
+                    {c.last_month > 0
+                      ? formatMessage(
+                          { id: 'plan.amountLastMonth', defaultMessage: '{amount} last month' },
+                          { amount: fmt(c.last_month) },
+                        )
+                      : formatMessage({
+                          id: 'plan.noTransactionsYet',
+                          defaultMessage: 'no transactions yet',
+                        })}
                   </span>
                 </label>
               ))}
             </div>
             <p className="pt-shared">
-              When a month ends, its budget is measured against what arrived in these categories.
-              During the month, your monthly net income is used.
+              {formatMessage({
+                id: 'plan.incomeCategoriesHelp',
+                defaultMessage:
+                  'When a month ends, its budget is measured against what arrived in these categories. During the month, your monthly net income is used.',
+              })}
             </p>
           </>
         )}
-        <div className="pt-pop-k">Each group’s share of income</div>
+        <div className="pt-pop-k">
+          {formatMessage({
+            id: 'plan.eachGroupShare',
+            defaultMessage: 'Each group’s share of income',
+          })}
+        </div>
         <div className="pt-steps">
           {groups.map((f) => {
             const id = f.g.id
@@ -149,12 +185,17 @@ export function SettingsModal({
                 <i style={{ background: f.color }} />
                 <span className="n">{f.g.name}</span>
                 {out[id] ? (
-                  <span className="v rest">Excluded</span>
+                  <span className="v rest">
+                    {formatMessage({ id: 'plan.excluded', defaultMessage: 'Excluded' })}
+                  </span>
                 ) : (
                   <>
                     <button
                       type="button"
-                      aria-label={'Lower ' + f.g.name}
+                      aria-label={formatMessage(
+                        { id: 'plan.lowerNamed', defaultMessage: 'Lower {name}' },
+                        { name: f.g.name },
+                      )}
                       onClick={() => step(id, -5)}
                     >
                       <Minus />
@@ -162,7 +203,10 @@ export function SettingsModal({
                     <span className="v">{pct ? pct + '%' : '—'}</span>
                     <button
                       type="button"
-                      aria-label={'Raise ' + f.g.name}
+                      aria-label={formatMessage(
+                        { id: 'plan.raiseNamed', defaultMessage: 'Raise {name}' },
+                        { name: f.g.name },
+                      )}
                       onClick={() => step(id, 5)}
                     >
                       <Plus />
@@ -173,8 +217,21 @@ export function SettingsModal({
                   type="button"
                   role="checkbox"
                   aria-checked={!out[id]}
-                  aria-label={'Count ' + f.g.name + ' in the split'}
-                  title={out[id] ? 'Count in the split' : 'Exclude from the split'}
+                  aria-label={formatMessage(
+                    { id: 'plan.countNamed', defaultMessage: 'Count {name} in the split' },
+                    { name: f.g.name },
+                  )}
+                  title={
+                    out[id]
+                      ? formatMessage({
+                          id: 'plan.countSplit',
+                          defaultMessage: 'Count in the split',
+                        })
+                      : formatMessage({
+                          id: 'plan.excludeSplit',
+                          defaultMessage: 'Exclude from the split',
+                        })
+                  }
                   className={'bo-check pt-step-in' + (out[id] ? '' : ' on')}
                   onClick={() => setOut((m) => ({ ...m, [id]: !m[id] }))}
                 >
@@ -185,15 +242,20 @@ export function SettingsModal({
           })}
           <div className="pt-step">
             <i style={{ background: SAVE_COLOR }} />
-            <span className="n">Savings</span>
+            <span className="n">
+              {formatMessage({ id: 'plan.savings', defaultMessage: 'Savings' })}
+            </span>
             <span className="v rest">
               {save}%{monthly > 0 ? ' · ' + fmt((monthly * save) / 100) : ''}
             </span>
           </div>
         </div>
         <p className="pt-shared">
-          A group with no target is still counted: its spending reduces your savings. Excluded
-          groups sit outside the split entirely (a one-off, a commitment).
+          {formatMessage({
+            id: 'plan.groupSplitHelp',
+            defaultMessage:
+              'A group with no target is still counted: its spending reduces your savings. Excluded groups sit outside the split entirely (a one-off, a commitment).',
+          })}
         </p>
       </div>
     </Modal>

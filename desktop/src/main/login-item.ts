@@ -1,6 +1,7 @@
 import { basename, dirname, resolve } from 'node:path';
 
 export interface LoginItemOptions { path?: string; args?: string[] }
+export class LoginSettingError extends Error {}
 
 // Squirrel.Windows installs each version into its own app-<version> folder, so a login item that
 // names the running executable dies with the next update. Update.exe, one level up, always

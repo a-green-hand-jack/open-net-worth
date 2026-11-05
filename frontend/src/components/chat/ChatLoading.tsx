@@ -1,3 +1,4 @@
+import { useAppIntl } from '../../i18n/useAppIntl'
 // Loading states for a conversation that is not a turn: the transcript being read in
 // (first open) and the silent re-read that catches the panel up with the server. Both show
 // only after a short delay — a cache hit or a fast server answers before it, and an
@@ -20,6 +21,7 @@ function useShownAfter(ms: number): boolean {
 
 /** Centered in the message area while a conversation's transcript has not loaded yet. */
 export function ChatLoading() {
+  const { formatMessage } = useAppIntl()
   const shown = useShownAfter(LOADING_DELAY_MS)
   const brand = useBrand()
   if (!shown) return null
@@ -35,7 +37,7 @@ export function ChatLoading() {
         width={44}
         height={44}
       />
-      <span className="lx-loading-text">Loading messages</span>
+      <span className="lx-loading-text">{formatMessage({ id: 'chat.loading', defaultMessage: 'Loading messages' })}</span>
     </div>
   )
 }
@@ -44,11 +46,12 @@ export function ChatLoading() {
  *  Out of the message flow on purpose: in it, appearing and disappearing pushed the
  *  conversation up and back down. */
 export function CatchingUp() {
+  const { formatMessage } = useAppIntl()
   const shown = useShownAfter(CATCHING_UP_DELAY_MS)
   if (!shown) return null
   return (
     <div className="lx-catchup-pill" role="status" aria-live="polite">
-      <span className="lx-loading-text">Catching up…</span>
+      <span className="lx-loading-text">{formatMessage({ id: 'chat.catchingUp', defaultMessage: 'Catching up…' })}</span>
     </div>
   )
 }

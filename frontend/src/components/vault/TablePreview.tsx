@@ -1,3 +1,7 @@
+import { vaultError } from './vaultErrors'
+import type { IntlShape } from 'react-intl'
+import { getNumberLocale } from '../../utils/format'
+import { useAppIntl } from '../../i18n/useAppIntl'
 import { useEffect, useRef, useState, type UIEvent } from 'react'
 import { fetchVaultTable, type VaultItem, type VaultTable } from '../../api/vault'
 import { NoPreview } from './NoPreview'
@@ -24,7 +28,7 @@ type Grid = {
   total: number | null
   moreColumns: boolean
 }
-type Loaded = Grid | { key: string; error: string }
+type Loaded = Grid | { key: string; error: unknown }
 
 const fromPage = (key: string, t: VaultTable): Grid => ({
   key,
@@ -38,14 +42,12 @@ const fromPage = (key: string, t: VaultTable): Grid => ({
 })
 const LOAD_AHEAD_PX = 240
 
-function note(grid: Grid, more: 'idle' | 'loading' | 'failed'): string | null {
-  const shown = grid.rows.length.toLocaleString()
-  const of = grid.total ? ` of ${grid.total.toLocaleString()}` : ''
-  if (more === 'failed') return 'Couldn’t load more rows — scroll to try again.'
-  if (grid.hasMore)
-    return `Rows 1–${shown}${of}${more === 'loading' ? ' — loading more…' : ' — scroll for more'}`
-  if (grid.moreColumns)
-    return `Showing the first ${grid.columns} columns — download it for the rest.`
+function note(grid: Grid, more: 'idle' | 'loading' | 'failed', intl: IntlShape): string | null {
+  const shown = grid.rows.length.toLocaleString(getNumberLocale())
+  const total = grid.total ? grid.total.toLocaleString(getNumberLocale()) : ''
+  if (more === 'failed') return intl.formatMessage({ id: 'vault.table.failed', defaultMessage: 'Couldn’t load more rows — scroll to try again.' })
+  if (grid.hasMore) return intl.formatMessage({ id: 'vault.table.more', defaultMessage: 'Rows 1–{shown}{total, select, none {} other { of {total}}}{state, select, loading { — loading more…} other { — scroll for more}}' }, { shown, total: total || 'none', state: more })
+  if (grid.moreColumns) return intl.formatMessage({ id: 'vault.table.columns', defaultMessage: 'Showing the first {count} columns — download it for the rest.' }, { count: grid.columns.toLocaleString(getNumberLocale()) })
   return null
 }
 
@@ -58,6 +60,7 @@ function note(grid: Grid, more: 'idle' | 'loading' | 'failed'): string | null {
  *  statement row came from (owner, 2026-10-26: "scroll or review the files … before making
  *  decisions"). */
 export function TablePreview({ item, highlightRow }: { item: VaultItem; highlightRow?: number }) {
+  const vaultIntl = useAppIntl()
   const [sheet, setSheet] = useState<string | undefined>(undefined)
   const [loaded, setLoaded] = useState<Loaded | null>(null)
   const [more, setMore] = useState<'idle' | 'loading' | 'failed'>('idle')
@@ -69,7 +72,7 @@ export function TablePreview({ item, highlightRow }: { item: VaultItem; highligh
     let alive = true
     fetchVaultTable(item.id, sheet).then(
       (table) => alive && setLoaded(fromPage(key, table)),
-      (e) => alive && setLoaded({ key, error: e instanceof Error ? e.message : String(e) }),
+      (e) => alive && setLoaded({ key, error: e }),
     )
     return () => {
       alive = false
@@ -133,14 +136,14 @@ export function TablePreview({ item, highlightRow }: { item: VaultItem; highligh
         <PreviewLoading />
       </div>
     )
-  if ('error' in current) return <NoPreview item={item} reason={current.error} />
+  if ('error' in current) return <NoPreview item={item} reason={vaultError(current.error, vaultIntl)} />
   const shown = current
   const onScroll = (e: UIEvent<HTMLDivElement>) => {
     const el = e.currentTarget
     if (el.scrollTop + el.clientHeight >= el.scrollHeight - LOAD_AHEAD_PX) loadMore()
   }
   const cols = Array.from({ length: shown.columns }, (_, i) => i)
-  const status = note(shown, more)
+  const status = note(shown, more, vaultIntl)
   return (
     <div className="vault-table">
       <div
@@ -182,7 +185,7 @@ export function TablePreview({ item, highlightRow }: { item: VaultItem; highligh
         </table>
       </div>
       {shown.sheets.length > 1 && (
-        <div className="vault-sheet-tabs" role="group" aria-label="Sheets">
+        <div className="vault-sheet-tabs" role="group" aria-label={vaultIntl.formatMessage({ id: "vault.ui.10e78b267d72", defaultMessage: "Sheets" })}>
           {shown.sheets.map((name) => (
             <button
               key={name}

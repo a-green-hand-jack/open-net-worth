@@ -27,6 +27,8 @@ import { WIDGET_GROUPS } from './definitions'
 import type { WidgetDefinition } from './types'
 import { Spark } from '../../../lucius/identity'
 import { ArrowLeft } from '../../../ui/icons'
+import { useAppIntl } from '../../../i18n/useAppIntl'
+import { localizeWidgetDefinition } from './widgetTitles'
 
 export interface AddWidgetPickerProps {
   open: boolean
@@ -43,12 +45,6 @@ export interface AddWidgetPickerProps {
   onAdded?: (message: string) => void
 }
 
-const BUILD_SUGGESTIONS = [
-  'How much am I spending on coffee?',
-  'My USD exposure over time',
-  'Days of runway if income stopped',
-]
-
 export function AddWidgetPicker({
   open,
   onClose,
@@ -58,6 +54,31 @@ export function AddWidgetPicker({
   onAskLucius,
   onAdded,
 }: AddWidgetPickerProps) {
+  const intl = useAppIntl()
+  const { formatMessage } = intl
+  const suggestions = [
+    formatMessage({
+      id: 'overview.picker.suggestCoffee',
+      defaultMessage: 'How much am I spending on coffee?',
+    }),
+    formatMessage({
+      id: 'overview.picker.suggestUsd',
+      defaultMessage: 'My USD exposure over time',
+    }),
+    formatMessage({
+      id: 'overview.picker.suggestRunway',
+      defaultMessage: 'Days of runway if income stopped',
+    }),
+  ]
+  const groupLabels: Record<string, string> = {
+    'Net worth': formatMessage({ id: 'overview.group.netWorth', defaultMessage: 'Net worth' }),
+    Overview: formatMessage({ id: 'overview.group.overview', defaultMessage: 'Overview' }),
+    'Cash flow': formatMessage({ id: 'overview.group.cashFlow', defaultMessage: 'Cash flow' }),
+    Investing: formatMessage({ id: 'overview.group.investing', defaultMessage: 'Investing' }),
+    Planning: formatMessage({ id: 'overview.group.planning', defaultMessage: 'Planning' }),
+    Reports: formatMessage({ id: 'overview.group.reports', defaultMessage: 'Reports' }),
+    Content: formatMessage({ id: 'overview.group.content', defaultMessage: 'Content' }),
+  }
   const [query, setQuery] = useState('')
   const [group, setGroup] = useState<string | null>(null)
   const [buildMode, setBuildMode] = useState(false)
@@ -65,12 +86,14 @@ export function AddWidgetPicker({
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase()
-    return definitions.filter((d) => {
-      if (group && d.group !== group) return false
-      if (!q) return true
-      return d.label.toLowerCase().includes(q) || d.desc.toLowerCase().includes(q)
-    })
-  }, [definitions, query, group])
+    return definitions
+      .map((d) => localizeWidgetDefinition(intl, d))
+      .filter((d) => {
+        if (group && d.group !== group) return false
+        if (!q) return true
+        return d.label.toLowerCase().includes(q) || d.desc.toLowerCase().includes(q)
+      })
+  }, [definitions, query, group, intl])
 
   const resetAndClose = () => {
     onClose()
@@ -81,7 +104,12 @@ export function AddWidgetPicker({
 
   const pick = (d: WidgetDefinition) => {
     onPick(d.defId)
-    onAdded?.(`${d.label} added`)
+    onAdded?.(
+      formatMessage(
+        { id: 'overview.picker.added', defaultMessage: '{name} added' },
+        { name: d.label },
+      ),
+    )
     resetAndClose()
   }
 
@@ -89,8 +117,21 @@ export function AddWidgetPicker({
     const p = prompt.trim()
     if (!p) return
     onPickWithConfig?.('lux-html', { prompt: p })
-    onAskLucius?.(`Build a widget for my Overview dashboard: ${p}`)
-    onAdded?.('Lucius custom added — Lucius is building it now')
+    onAskLucius?.(
+      formatMessage(
+        {
+          id: 'overview.picker.askBuild',
+          defaultMessage: 'Build a widget for my Overview dashboard: {prompt}',
+        },
+        { prompt: p },
+      ),
+    )
+    onAdded?.(
+      formatMessage({
+        id: 'overview.picker.building',
+        defaultMessage: 'Lucius custom added — Lucius is building it now',
+      }),
+    )
     resetAndClose()
   }
 
@@ -98,7 +139,14 @@ export function AddWidgetPicker({
     <Modal
       open={open}
       onClose={resetAndClose}
-      title={buildMode ? 'Build a widget with Lucius' : 'Add widgets'}
+      title={
+        buildMode
+          ? formatMessage({
+              id: 'overview.picker.buildTitle',
+              defaultMessage: 'Build a widget with Lucius',
+            })
+          : formatMessage({ id: 'overview.picker.title', defaultMessage: 'Add widgets' })
+      }
       size="lg"
     >
       <div className="ov-picker">
@@ -106,13 +154,16 @@ export function AddWidgetPicker({
           <div className="ov-picker-build">
             <TextArea
               rows={3}
-              placeholder="Describe the widget you want — what data, over what period…"
+              placeholder={formatMessage({
+                id: 'overview.picker.prompt',
+                defaultMessage: 'Describe the widget you want — what data, over what period…',
+              })}
               value={prompt}
               onChange={(e) => setPrompt(e.target.value)}
               data-autofocus
             />
             <div className="ov-picker-chips">
-              {BUILD_SUGGESTIONS.map((c) => (
+              {suggestions.map((c) => (
                 <button
                   key={c}
                   type="button"
@@ -125,7 +176,8 @@ export function AddWidgetPicker({
             </div>
             <div className="ov-picker-build-actions ov-picker-build-actions--split">
               <button type="button" className="ov-picker-back" onClick={() => setBuildMode(false)}>
-                <ArrowLeft size={14} aria-hidden="true" /> All widgets
+                <ArrowLeft size={14} aria-hidden="true" />{' '}
+                {formatMessage({ id: 'overview.picker.allWidgets', defaultMessage: 'All widgets' })}
               </button>
               <span className="ov-picker-build-actions">
                 <Button
@@ -136,32 +188,51 @@ export function AddWidgetPicker({
                   onClick={submitCustom}
                   disabled={!prompt.trim()}
                 >
-                  Build widget
+                  {formatMessage({
+                    id: 'overview.picker.buildWidget',
+                    defaultMessage: 'Build widget',
+                  })}
                 </Button>
               </span>
             </div>
             <div className="ov-picker-build-hint">
-              Lucius reads your accounts, holdings, budget, and commitments — the widget stays live
-              and refreshes with your data.
+              {formatMessage({
+                id: 'overview.picker.hint',
+                defaultMessage:
+                  'Lucius reads your accounts, holdings, budget, and commitments — the widget stays live and refreshes with your data.',
+              })}
             </div>
           </div>
         ) : (
           <>
             <div className="ov-picker-toolbar">
               <TextField
-                placeholder="Search widgets…"
+                placeholder={formatMessage({
+                  id: 'overview.picker.searchPlaceholder',
+                  defaultMessage: 'Search widgets…',
+                })}
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
-                aria-label="Search widgets"
+                aria-label={formatMessage({
+                  id: 'overview.picker.search',
+                  defaultMessage: 'Search widgets',
+                })}
                 data-autofocus
               />
-              <div className="ov-picker-tabs" role="tablist" aria-label="Widget group">
+              <div
+                className="ov-picker-tabs"
+                role="tablist"
+                aria-label={formatMessage({
+                  id: 'overview.picker.group',
+                  defaultMessage: 'Widget group',
+                })}
+              >
                 <button
                   type="button"
                   className={'ov-picker-tab' + (group === null ? ' active' : '')}
                   onClick={() => setGroup(null)}
                 >
-                  All
+                  {formatMessage({ id: 'overview.all', defaultMessage: 'All' })}
                 </button>
                 {WIDGET_GROUPS.map((g) => (
                   <button
@@ -170,7 +241,7 @@ export function AddWidgetPicker({
                     className={'ov-picker-tab' + (group === g ? ' active' : '')}
                     onClick={() => setGroup(g)}
                   >
-                    {g}
+                    {groupLabels[g] ?? g}
                   </button>
                 ))}
               </div>
@@ -187,9 +258,18 @@ export function AddWidgetPicker({
                     <Spark size={15} />
                   </span>
                   <span>
-                    <strong>Build with Lucius</strong>
+                    <strong>
+                      {formatMessage({
+                        id: 'overview.buildLucius',
+                        defaultMessage: 'Build with Lucius',
+                      })}
+                    </strong>
                     <span className="ov-picker-lucius-desc">
-                      Describe any view of your money — Lucius builds it as a live widget.
+                      {formatMessage({
+                        id: 'overview.picker.luciusHelp',
+                        defaultMessage:
+                          'Describe any view of your money — Lucius builds it as a live widget.',
+                      })}
                     </span>
                   </span>
                 </button>
@@ -226,7 +306,15 @@ export function AddWidgetPicker({
                   ))}
                 </div>
               ) : (
-                <div className="ov-picker-empty">No widgets match "{query}".</div>
+                <div className="ov-picker-empty">
+                  {formatMessage(
+                    {
+                      id: 'overview.picker.noMatch',
+                      defaultMessage: 'No widgets match "{query}".',
+                    },
+                    { query },
+                  )}
+                </div>
               )}
             </div>
           </>

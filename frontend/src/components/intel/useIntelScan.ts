@@ -1,3 +1,4 @@
+import { useAppIntl } from '../../i18n/useAppIntl'
 import { useState } from 'react'
 import { authFetch } from '../../api/client'
 import { setCachedQueryData } from '../../state/queryCache'
@@ -8,6 +9,7 @@ import type { StoryArc } from './storyMeta'
 /** A manual intelligence scan: confirm (it spends web-search quota), run, then report how many
  *  signals it auto-resolved — or that it is still processing (a parked batch), or that it failed. */
 export function useIntelScan(stories: StoryArc[], reloadWatchlist: () => Promise<unknown>) {
+  const intl = useAppIntl()
   const [scan, setScan] = useState<ScanState>(null)
   const [confirmOpen, setConfirmOpen] = useState(false)
 
@@ -24,7 +26,7 @@ export function useIntelScan(stories: StoryArc[], reloadWatchlist: () => Promise
       if (scanResponse.status === 202 && scanResult?.pending === true) {
         setScan({
           phase: 'pending',
-          msg: 'Analysis will appear in the feed when processing finishes.',
+          msg: intl.formatMessage({ id: 'intel.scanPending', defaultMessage: 'Analysis will appear in the feed when processing finishes.' }),
         })
         return
       }
@@ -35,14 +37,14 @@ export function useIntelScan(stories: StoryArc[], reloadWatchlist: () => Promise
       setCachedQueryData(INTEL_SIGNALS_KEY, next)
       const newlyResolved = next.filter((s) => s.resolved && !wasResolved.has(s.id)).length
       const msg = newlyResolved
-        ? `Up to date • ${newlyResolved} signal${newlyResolved === 1 ? '' : 's'} auto-resolved.`
-        : 'Up to date • nothing new, your feed is current.'
+        ? intl.formatMessage({ id: 'intel.scanResolved', defaultMessage: 'Up to date • {count, plural, one {# signal} other {# signals}} auto-resolved.' }, { count: newlyResolved })
+        : intl.formatMessage({ id: 'intel.scanCurrent', defaultMessage: 'Up to date • nothing new, your feed is current.' })
       setScan({ phase: 'done', msg })
       window.setTimeout(() => setScan((s) => (s?.phase === 'done' ? null : s)), 4200)
     } catch {
       setScan({
         phase: 'error',
-        msg: 'Could not complete the scan. Check your connection and try again.',
+        msg: intl.formatMessage({ id: 'intel.scanRetry', defaultMessage: 'Could not complete the scan. Check your connection and try again.' }),
       })
     }
   }

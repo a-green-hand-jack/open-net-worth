@@ -1,3 +1,5 @@
+import { formatConnectorBody } from './connectorServerMessages'
+import { useAppIntl } from '../../../i18n/useAppIntl'
 // Step ② of Plaid setup — the banks linked through this one Plaid connector. Each bank is its
 // own Plaid Item: listed by name with its own Remove, and "Link another bank" adds one more
 // (re-linking the same bank replaces its entry server-side). Link bank saves unsaved keys first
@@ -43,6 +45,8 @@ export function PlaidBanksStep({
   /** A bank left the list — re-read the status. */
   onChanged: () => void
 }) {
+  const intl = useAppIntl()
+  const { formatMessage } = intl
   // Renew one linked bank in place (Plaid update mode) — same accounts, so every link survives.
   const renew = (b: PlaidBank, addAccounts: boolean) =>
     void link.start({ bank: b.key, addAccounts })
@@ -63,7 +67,16 @@ export function PlaidBanksStep({
       })
       if (!r.ok) {
         const d = await r.json().catch(() => ({}))
-        setError(d.detail || 'Could not rename that bank.')
+        setError(
+          formatConnectorBody(
+            intl,
+            d,
+            formatMessage({
+              id: 'connectors.plaidBanks.renameFailed',
+              defaultMessage: 'Could not rename that bank.',
+            }),
+          ),
+        )
         return
       }
       setRenaming(null)
@@ -83,7 +96,16 @@ export function PlaidBanksStep({
       })
       if (!r.ok) {
         const d = await r.json().catch(() => ({}))
-        setError(d.detail || 'Could not remove that bank.')
+        setError(
+          formatConnectorBody(
+            intl,
+            d,
+            formatMessage({
+              id: 'connectors.plaidBanks.removeFailed',
+              defaultMessage: 'Could not remove that bank.',
+            }),
+          ),
+        )
         return
       }
       onChanged()
@@ -95,10 +117,30 @@ export function PlaidBanksStep({
   }
 
   return (
-    <SetupStep n={2} title={any ? 'Link your banks' : 'Link your bank'} state={state}>
+    <SetupStep
+      n={2}
+      title={
+        any
+          ? formatMessage({
+              id: 'connectors.plaidBanks.linkBanks',
+              defaultMessage: 'Link your banks',
+            })
+          : formatMessage({
+              id: 'connectors.plaidBanks.linkBank',
+              defaultMessage: 'Link your bank',
+            })
+      }
+      state={state}
+    >
       <Stack gap="--space-3">
         {any && (
-          <ul className="plaid-banks" aria-label="Linked banks">
+          <ul
+            className="plaid-banks"
+            aria-label={formatMessage({
+              id: 'connectors.plaidBanks.linkedBanks',
+              defaultMessage: 'Linked banks',
+            })}
+          >
             {banks.map((b) => (
               <li key={b.key} className="plaid-bank">
                 <div className="plaid-bank-main">
@@ -111,9 +153,29 @@ export function PlaidBanksStep({
                       }}
                     >
                       <TextField
-                        aria-label={`Name for ${b.provider_name || b.institution_name || 'this bank'}`}
+                        aria-label={formatMessage(
+                          {
+                            id: 'connectors.plaidBanks.nameFor',
+                            defaultMessage: 'Name for {name}',
+                          },
+                          {
+                            name:
+                              b.provider_name ||
+                              b.institution_name ||
+                              formatMessage({
+                                id: 'connectors.plaidBanks.thisBank',
+                                defaultMessage: 'this bank',
+                              }),
+                          },
+                        )}
                         value={renaming.draft}
-                        placeholder={b.provider_name || 'Bank name'}
+                        placeholder={
+                          b.provider_name ||
+                          formatMessage({
+                            id: 'connectors.plaidBanks.bankName',
+                            defaultMessage: 'Bank name',
+                          })
+                        }
                         autoFocus
                         maxLength={80}
                         onChange={(e) => setRenaming({ key: b.key, draft: e.target.value })}
@@ -124,38 +186,80 @@ export function PlaidBanksStep({
                         variant="primary"
                         type="submit"
                         loading={busy}
-                        aria-label="Save name"
+                        aria-label={formatMessage({
+                          id: 'connectors.plaidBanks.saveName',
+                          defaultMessage: 'Save name',
+                        })}
                       >
-                        Save
+                        {formatMessage({ id: 'connectors.action.save', defaultMessage: 'Save' })}
                       </Button>
                       <Button size="sm" variant="ghost" onClick={() => setRenaming(null)}>
-                        Cancel
+                        {formatMessage({
+                          id: 'connectors.action.cancel',
+                          defaultMessage: 'Cancel',
+                        })}
                       </Button>
                     </form>
                   ) : (
                     <span className="plaid-bank-name">
-                      {b.institution_name || 'Unnamed bank'}
+                      {b.institution_name ||
+                        formatMessage({
+                          id: 'connectors.plaidBanks.unnamed',
+                          defaultMessage: 'Unnamed bank',
+                        })}
                       <Button
                         size="sm"
                         variant="ghost"
                         className="plaid-bank-rename-btn"
-                        aria-label={`Rename ${b.institution_name || 'this bank'}`}
+                        aria-label={formatMessage(
+                          {
+                            id: 'connectors.plaidBanks.renameName',
+                            defaultMessage: 'Rename {name}',
+                          },
+                          {
+                            name:
+                              b.institution_name ||
+                              formatMessage({
+                                id: 'connectors.plaidBanks.thisBank',
+                                defaultMessage: 'this bank',
+                              }),
+                          },
+                        )}
                         onClick={() => setRenaming({ key: b.key, draft: b.institution_name || '' })}
                       >
-                        Rename
+                        {formatMessage({
+                          id: 'connectors.plaidBanks.rename',
+                          defaultMessage: 'Rename',
+                        })}
                       </Button>
                     </span>
                   )}
                   {b.renamed && b.provider_name && renaming?.key !== b.key && (
-                    <span className="plaid-bank-sub">Plaid calls it {b.provider_name}</span>
+                    <span className="plaid-bank-sub">
+                      {formatMessage(
+                        {
+                          id: 'connectors.plaidBanks.providerName',
+                          defaultMessage: 'Plaid calls it {name}',
+                        },
+                        { name: b.provider_name },
+                      )}
+                    </span>
                   )}
                   {b.needs_reconnect ? (
                     <span className="plaid-bank-sub plaid-bank-sub--warn">
-                      Sign-in expired — nothing syncs until you reconnect
+                      {formatMessage({
+                        id: 'connectors.plaidBanks.expired',
+                        defaultMessage: 'Sign-in expired — nothing syncs until you reconnect',
+                      })}
                     </span>
                   ) : (
                     b.linked_at && (
-                      <span className="plaid-bank-sub">Linked {fDate(b.linked_at, 'short')}</span>
+                      <span className="plaid-bank-sub">
+                        {formatMessage(
+                          { id: 'connectors.plaidBanks.linkedAt', defaultMessage: 'Linked {date}' },
+                          { date: fDate(b.linked_at, 'short') },
+                        )}
+                      </span>
                     )
                   )}
                 </div>
@@ -166,27 +270,53 @@ export function PlaidBanksStep({
                     disabled={link.waiting || link.starting}
                     onClick={() => renew(b, false)}
                   >
-                    Reconnect
+                    {formatMessage({ id: 'connectors.reconnect', defaultMessage: 'Reconnect' })}
                   </Button>
                 ) : (
                   <Button
                     size="sm"
                     variant="ghost"
                     disabled={link.waiting || link.starting}
-                    aria-label={`Add accounts at ${b.institution_name || 'this bank'}`}
+                    aria-label={formatMessage(
+                      {
+                        id: 'connectors.plaidBanks.addAccountsAt',
+                        defaultMessage: 'Add accounts at {name}',
+                      },
+                      {
+                        name:
+                          b.institution_name ||
+                          formatMessage({
+                            id: 'connectors.plaidBanks.thisBank',
+                            defaultMessage: 'this bank',
+                          }),
+                      },
+                    )}
                     onClick={() => renew(b, true)}
                   >
-                    Add accounts
+                    {formatMessage({
+                      id: 'connectors.plaidBanks.addAccounts',
+                      defaultMessage: 'Add accounts',
+                    })}
                   </Button>
                 )}
                 <Button
                   size="sm"
                   variant="ghost"
                   className="plaid-bank-remove"
-                  aria-label={`Remove ${b.institution_name || 'this bank'}`}
+                  aria-label={formatMessage(
+                    { id: 'connectors.plaidBanks.removeName', defaultMessage: 'Remove {name}' },
+                    {
+                      name:
+                        b.institution_name ||
+                        formatMessage({
+                          id: 'connectors.plaidBanks.thisBank',
+                          defaultMessage: 'this bank',
+                        }),
+                    },
+                  )}
                   onClick={() => setRemoving(b)}
                 >
-                  Remove
+                  {formatMessage({ id: 'connectors.action.remove', defaultMessage: 'Remove' })}
                 </Button>
               </li>
             ))}
@@ -195,35 +325,65 @@ export function PlaidBanksStep({
 
         {caution && (
           <Text size="xs" tone="warn">
-            Last fetch couldn&apos;t reach every bank — {caution}. If a bank&apos;s sign-in expired,
-            link it again.
+            {formatMessage(
+              {
+                id: 'connectors.plaidBanks.caution',
+                defaultMessage:
+                  "Last fetch couldn't reach every bank — {caution}. If a bank's sign-in expired, link it again.",
+              },
+              { caution },
+            )}
           </Text>
         )}
 
         {link.waiting ? (
           <Cluster gap="--space-3" align="center" wrap>
             <Text size="xs" tone="muted">
-              Waiting for you to finish at Plaid… this page finishes on its own.
+              {formatMessage({
+                id: 'connectors.plaidBanks.waiting',
+                defaultMessage:
+                  'Waiting for you to finish at Plaid… this page finishes on its own.',
+              })}
             </Text>
             <Button size="sm" variant="secondary" loading={link.checking} onClick={link.checkNow}>
-              Check now
+              {formatMessage({ id: 'connectors.plaidBanks.checkNow', defaultMessage: 'Check now' })}
             </Button>
           </Cluster>
         ) : (
           <>
             {!any && (
               <Text size="xs" tone="muted">
-                Sign in at your bank in your browser. When Plaid says you can close the window, come
-                back — this page finishes the link on its own.
+                {formatMessage({
+                  id: 'connectors.plaidBanks.signIn',
+                  defaultMessage:
+                    'Sign in at your bank in your browser. When Plaid says you can close the window, come back — this page finishes the link on its own.',
+                })}
               </Text>
             )}
             {link.justLinked && (
               <Text size="xs" tone="good">
                 {!link.renewed
-                  ? 'Bank linked. Choose its accounts below.'
+                  ? formatMessage({
+                      id: 'connectors.plaidBanks.linked',
+                      defaultMessage: 'Bank linked. Choose its accounts below.',
+                    })
                   : link.renewedKind === 'accounts'
-                    ? `${link.renewed} updated — any accounts you added are listed below; existing links are unchanged.`
-                    : `${link.renewed} reconnected — its accounts and links are unchanged.`}
+                    ? formatMessage(
+                        {
+                          id: 'connectors.plaidBanks.updated',
+                          defaultMessage:
+                            '{name} updated — any accounts you added are listed below; existing links are unchanged.',
+                        },
+                        { name: link.renewed },
+                      )
+                    : formatMessage(
+                        {
+                          id: 'connectors.plaidBanks.reconnected',
+                          defaultMessage:
+                            '{name} reconnected — its accounts and links are unchanged.',
+                        },
+                        { name: link.renewed },
+                      )}
               </Text>
             )}
             <Cluster gap="--space-3" align="center" wrap>
@@ -234,11 +394,22 @@ export function PlaidBanksStep({
                 disabled={!keysEntered}
                 onClick={onLink}
               >
-                {any ? 'Link another bank' : 'Link bank'}
+                {any
+                  ? formatMessage({
+                      id: 'connectors.plaidBanks.another',
+                      defaultMessage: 'Link another bank',
+                    })
+                  : formatMessage({
+                      id: 'connectors.plaidBanks.link',
+                      defaultMessage: 'Link bank',
+                    })}
               </Button>
               {!keysEntered && (
                 <Text size="xs" tone="faint">
-                  Enter your Client ID and Secret first.
+                  {formatMessage({
+                    id: 'connectors.plaidBanks.enterKeys',
+                    defaultMessage: 'Enter your Client ID and Secret first.',
+                  })}
                 </Text>
               )}
             </Cluster>
@@ -254,9 +425,26 @@ export function PlaidBanksStep({
       <ConfirmDialog
         data={
           removing && {
-            title: `Remove ${removing.institution_name || 'this bank'}?`,
-            body: 'Its accounts stop syncing and leave the list. Transactions already imported stay. Your other banks are not affected.',
-            confirmLabel: 'Remove',
+            title: formatMessage(
+              { id: 'connectors.plaidBanks.removeTitle', defaultMessage: 'Remove {name}?' },
+              {
+                name:
+                  removing.institution_name ||
+                  formatMessage({
+                    id: 'connectors.plaidBanks.thisBank',
+                    defaultMessage: 'this bank',
+                  }),
+              },
+            ),
+            body: formatMessage({
+              id: 'connectors.plaidBanks.removeBody',
+              defaultMessage:
+                'Its accounts stop syncing and leave the list. Transactions already imported stay. Your other banks are not affected.',
+            }),
+            confirmLabel: formatMessage({
+              id: 'connectors.action.remove',
+              defaultMessage: 'Remove',
+            }),
             danger: true,
             confirmDisabled: busy,
           }

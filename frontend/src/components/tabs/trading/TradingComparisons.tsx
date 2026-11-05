@@ -1,3 +1,4 @@
+import { useTradingErrorText } from './useTradingErrorText'
 import { useLayoutEffect, useRef, useState, type FormEvent } from 'react'
 import { tradingApi, tradingRoot } from '../../../api/trading'
 import { useQueryCache } from '../../../state/queryCache'
@@ -17,9 +18,12 @@ import {
   Text,
   TextField,
 } from '../../ui'
-import { errorText, tradingMoney, tradingPercent, tradingTime } from './presentation'
+import { tradingMoney, tradingPercent, tradingTime } from './presentation'
 import { ComparisonPerformance } from './ComparisonPerformance'
 import { ComparisonScenario } from './ComparisonScenario'
+import { useAppIntl } from '../../../i18n/useAppIntl'
+import { useTradingNotices } from './useTradingNotices'
+import { useTradingLabel } from './useTradingLabel'
 
 export function TradingComparisons({
   comparisonId,
@@ -30,6 +34,10 @@ export function TradingComparisons({
   onSelect: (id: string) => void
   onRun: (id: string, workspaceId: string) => void
 }) {
+  const { formatMessage } = useAppIntl()
+  const errorText = useTradingErrorText()
+  const notices = useTradingNotices()
+  const label = useTradingLabel()
   const comparisons = useQueryCache(`${tradingRoot}/comparisons`, tradingApi.comparisons)
   const runs = useQueryCache(`${tradingRoot}/runs`, tradingApi.allRuns)
   const selected = comparisonId || comparisons.data?.items[0]?.id || ''
@@ -75,13 +83,24 @@ export function TradingComparisons({
     <Stack gap="--space-6">
       <Cluster justify="between">
         <Text tone="muted">
-          Compare runs with the same initial conditions and declared execution assumptions.
+          {formatMessage({
+            id: 'trading.compareDescription',
+            defaultMessage:
+              'Compare runs with the same initial conditions and declared execution assumptions.',
+          })}
         </Text>
         <Button variant="primary" onClick={() => setOpen(true)}>
-          New comparison
+          {formatMessage({ id: 'trading.newComparison', defaultMessage: 'New comparison' })}
         </Button>
       </Cluster>
-      {comparisons.initialLoading && <Loading label="Loading comparisons…" />}
+      {comparisons.initialLoading && (
+        <Loading
+          label={formatMessage({
+            id: 'trading.loadingComparisons',
+            defaultMessage: 'Loading comparisons…',
+          })}
+        />
+      )}
       {!!comparisons.error && (
         <ErrorState
           message={errorText(comparisons.error)}
@@ -90,13 +109,23 @@ export function TradingComparisons({
       )}
       {!comparisons.initialLoading && !comparisons.error && !comparisons.data?.items.length && (
         <EmptyState
-          title="No comparisons yet"
-          body="Choose runs with shared starting conditions to compare their performance."
+          title={formatMessage({
+            id: 'trading.noComparisons',
+            defaultMessage: 'No comparisons yet',
+          })}
+          body={formatMessage({
+            id: 'trading.noComparisonsBody',
+            defaultMessage:
+              'Choose runs with shared starting conditions to compare their performance.',
+          })}
         />
       )}
       {!!comparisons.data?.items.length && (
         <Select
-          aria-label="Selected comparison"
+          aria-label={formatMessage({
+            id: 'trading.selectedComparison',
+            defaultMessage: 'Selected comparison',
+          })}
           value={selected}
           onChange={(e) => onSelect(e.target.value)}
           options={comparisons.data.items.map((item) => ({ value: item.id, label: item.name }))}
@@ -113,32 +142,56 @@ export function TradingComparisons({
           <Panel title={comparison.data.name}>
             <Stack gap="--space-4">
               <Badge tone={comparison.data.comparable === false ? 'warn' : 'neutral'}>
-                {comparison.data.comparable === false ? 'Not comparable' : 'Shared scenario'}
+                {comparison.data.comparable === false
+                  ? formatMessage({ id: 'trading.notComparable', defaultMessage: 'Not comparable' })
+                  : formatMessage({
+                      id: 'trading.sharedScenario',
+                      defaultMessage: 'Shared scenario',
+                    })}
               </Badge>
-              {comparison.data.reasons?.map((reason) => (
+              {notices(comparison.data.reason_messages, comparison.data.reasons).map((reason) => (
                 <Text key={reason} tone="warn">
                   {reason}
                 </Text>
               ))}
               <Text>
-                {comparison.data.run_ids.length} participants · Model usage costs are reported
-                separately from trading performance.
+                {formatMessage(
+                  {
+                    id: 'trading.participantSummary',
+                    defaultMessage:
+                      '{count, plural, one {# participant} other {# participants}} · Model usage costs are reported separately from trading performance.',
+                  },
+                  { count: comparison.data.run_ids.length },
+                )}
               </Text>
               <ComparisonScenario comparison={comparison.data} />
             </Stack>
           </Panel>
-          <Panel title="Results">
+          <Panel title={formatMessage({ id: 'trading.results', defaultMessage: 'Results' })}>
             <div className="trading-table-wrap">
               <table className="trading-table">
                 <thead>
                   <tr>
-                    <th>Agent / run</th>
-                    <th>Equity</th>
-                    <th>Return</th>
-                    <th>Maximum drawdown</th>
-                    <th>Trading fees</th>
-                    <th>Agent cost</th>
-                    <th>Valuation</th>
+                    <th>
+                      {formatMessage({ id: 'trading.agentRun', defaultMessage: 'Agent / run' })}
+                    </th>
+                    <th>{formatMessage({ id: 'trading.equity', defaultMessage: 'Equity' })}</th>
+                    <th>{formatMessage({ id: 'trading.return', defaultMessage: 'Return' })}</th>
+                    <th>
+                      {formatMessage({
+                        id: 'trading.maximumDrawdown',
+                        defaultMessage: 'Maximum drawdown',
+                      })}
+                    </th>
+                    <th>
+                      {formatMessage({ id: 'trading.tradingFees', defaultMessage: 'Trading fees' })}
+                    </th>
+                    <th>
+                      {formatMessage({ id: 'trading.agentCost', defaultMessage: 'Agent cost' })}
+                    </th>
+                    <th>
+                      {formatMessage({ id: 'trading.valuation', defaultMessage: 'Valuation' })}
+                    </th>
                   </tr>
                 </thead>
                 <tbody>
@@ -153,17 +206,38 @@ export function TradingComparisons({
                             if (workspaceId) onRun(result.run_id, workspaceId)
                           }}
                         >
-                          {result.agent_label || 'Agent'} · {result.run_id.slice(-12)}
+                          {result.agent_label ||
+                            formatMessage({ id: 'trading.agent', defaultMessage: 'Agent' })}{' '}
+                          · {result.run_id.slice(-12)}
                         </Button>
                         <Text as="div" size="xs" tone="muted" title={result.run_id}>
-                          {result.mode ?? 'Unknown mode'} · {result.run_id}
+                          {result.mode
+                            ? label(result.mode)
+                            : formatMessage({
+                                id: 'trading.unknownMode',
+                                defaultMessage: 'Unknown mode',
+                              })}{' '}
+                          · {result.run_id}
                         </Text>
                         <Text as="div" size="xs" tone="muted">
                           {tradingTime(result.start_at)} – {tradingTime(result.end_at)}
                         </Text>
                         <Text as="div" size="xs" tone="muted">
-                          Strategy {result.agent_version ?? 'unspecified'} · Observed{' '}
-                          {tradingTime(result.current_time)}
+                          {formatMessage(
+                            {
+                              id: 'trading.strategyObserved',
+                              defaultMessage: 'Strategy {version} · Observed {time}',
+                            },
+                            {
+                              version:
+                                result.agent_version ??
+                                formatMessage({
+                                  id: 'trading.unspecified',
+                                  defaultMessage: 'unspecified',
+                                }),
+                              time: tradingTime(result.current_time),
+                            },
+                          )}
                         </Text>
                       </td>
                       <td className="trading-number">
@@ -179,7 +253,12 @@ export function TradingComparisons({
                       </td>
                       <td>
                         <Badge tone={result.valuation_complete ? 'neutral' : 'warn'}>
-                          {result.valuation_complete ? 'Complete' : 'Awaiting marks'}
+                          {result.valuation_complete
+                            ? formatMessage({ id: 'trading.complete', defaultMessage: 'Complete' })
+                            : formatMessage({
+                                id: 'trading.awaitingMarks',
+                                defaultMessage: 'Awaiting marks',
+                              })}
                         </Badge>
                       </td>
                     </tr>
@@ -187,18 +266,41 @@ export function TradingComparisons({
                 </tbody>
               </table>
             </div>
-            {!results.length && <EmptyState title="No results available" />}
+            {!results.length && (
+              <EmptyState
+                title={formatMessage({
+                  id: 'trading.noResults',
+                  defaultMessage: 'No results available',
+                })}
+              />
+            )}
           </Panel>
           <ComparisonPerformance results={results} />
         </>
       )}
       {open && (
-        <Modal open onClose={() => setOpen(false)} title="New agent comparison" size="lg">
+        <Modal
+          open
+          onClose={() => setOpen(false)}
+          title={formatMessage({
+            id: 'trading.newAgentComparison',
+            defaultMessage: 'New agent comparison',
+          })}
+          size="lg"
+        >
           <form ref={formRef} tabIndex={-1} onSubmit={save}>
             <Stack gap="--space-4">
-              <FormField label="Comparison name">
+              <FormField
+                label={formatMessage({
+                  id: 'trading.comparisonName',
+                  defaultMessage: 'Comparison name',
+                })}
+              >
                 <TextField
-                  aria-label="Comparison name"
+                  aria-label={formatMessage({
+                    id: 'trading.comparisonName',
+                    defaultMessage: 'Comparison name',
+                  })}
                   required
                   maxLength={120}
                   value={name}
@@ -206,27 +308,46 @@ export function TradingComparisons({
                 />
               </FormField>
               {runs.initialLoading ? (
-                <Loading label="Loading participant runs…" />
+                <Loading
+                  label={formatMessage({
+                    id: 'trading.loadingParticipantRuns',
+                    defaultMessage: 'Loading participant runs…',
+                  })}
+                />
               ) : (
                 <CheckboxGroup
-                  ariaLabel="Participant runs"
+                  ariaLabel={formatMessage({
+                    id: 'trading.participantRuns',
+                    defaultMessage: 'Participant runs',
+                  })}
                   value={participants}
                   onChange={setParticipants}
                   options={(runs.data?.items ?? []).map((run) => ({
                     value: run.id,
-                    label: `${run.workspace_snapshot.agent_label} · ${run.mode} · ${tradingTime(run.created_at)}`,
+                    label: `${run.workspace_snapshot.agent_label} · ${label(run.mode)} · ${tradingTime(run.created_at)}`,
                     description: `${run.data_version} · ${run.agent_version}`,
                   }))}
-                  emptyText="Create at least two runs to compare."
+                  emptyText={formatMessage({
+                    id: 'trading.twoRuns',
+                    defaultMessage: 'Create at least two runs to compare.',
+                  })}
                 />
               )}
               <Text tone="muted">
-                The server checks period, capital, universe, data and execution assumptions.
-                Incompatible runs cannot be ranked as equivalent.
+                {formatMessage({
+                  id: 'trading.comparisonWarning',
+                  defaultMessage:
+                    'The server checks period, capital, universe, data and execution assumptions. Incompatible runs cannot be ranked as equivalent.',
+                })}
               </Text>
               {error && <ErrorState message={error} />}
               <Button type="submit" disabled={busy || participants.length < 2}>
-                {busy ? 'Creating…' : 'Create comparison'}
+                {busy
+                  ? formatMessage({ id: 'trading.creating', defaultMessage: 'Creating…' })
+                  : formatMessage({
+                      id: 'trading.createComparison',
+                      defaultMessage: 'Create comparison',
+                    })}
               </Button>
             </Stack>
           </form>

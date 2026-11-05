@@ -1,3 +1,5 @@
+import type { IntlShape } from 'react-intl'
+import { useAppIntl } from '../../i18n/useAppIntl'
 import { EntityRow } from '../../lucius/EntityRow'
 import { X } from '../../ui/icons'
 import { Badge, Select, Switch, Text } from '../ui'
@@ -83,7 +85,12 @@ export interface SourceHealth {
 }
 
 /** Hours→string: <1h "{m}m", <48h "{h.toFixed(1)}h", else "{d.toFixed(1)}d". */
-export function formatLag(hours: number): string {
+export function formatLag(hours: number, intl?: IntlShape): string {
+  if (intl && !intl.locale.toLowerCase().startsWith('en')) {
+    if (hours < 1) return intl.formatNumber(Math.round(hours * 60), { style: 'unit', unit: 'minute', unitDisplay: 'narrow' })
+    if (hours < 48) return intl.formatNumber(hours, { style: 'unit', unit: 'hour', unitDisplay: 'narrow', minimumFractionDigits: 1, maximumFractionDigits: 1 })
+    return intl.formatNumber(hours / 24, { style: 'unit', unit: 'day', unitDisplay: 'narrow', minimumFractionDigits: 1, maximumFractionDigits: 1 })
+  }
   if (hours < 1) return `${Math.round(hours * 60)}m`
   if (hours < 48) return `${hours.toFixed(1)}h`
   return `${(hours / 24).toFixed(1)}d`
@@ -96,17 +103,17 @@ export function formatLag(hours: number): string {
  * (uses Date.now(), matching this codebase's other timestamp-classifier convention, e.g.
  * FreshnessChip.tsx).
  */
-export function classifySourceHealth(row: NewsSource): SourceHealth {
+export function classifySourceHealth(row: NewsSource, intl?: IntlShape): SourceHealth {
   if (!row.enabled) {
-    return { tone: 'muted', label: 'Disabled', detail: 'You turned this off.' }
+    return { tone: 'muted', label: intl ? intl.formatMessage({ id: 'intel.source.disabled', defaultMessage: 'Disabled' }) : 'Disabled', detail: intl ? intl.formatMessage({ id: 'intel.source.disabledHelp', defaultMessage: 'You turned this off.' }) : 'You turned this off.' }
   }
 
   const fs = row.failure_streak
   if (fs && (fs.backing_off || fs.consecutive_failures >= FAILURE_STREAK_THRESHOLD)) {
     return {
       tone: 'neg',
-      label: 'Failing',
-      detail: 'Recent fetches are failing — Lucius is backing off.',
+      label: intl ? intl.formatMessage({ id: 'intel.source.failing', defaultMessage: 'Failing' }) : 'Failing',
+      detail: intl ? intl.formatMessage({ id: 'intel.source.failingHelp', defaultMessage: 'Recent fetches are failing — Lucius is backing off.' }) : 'Recent fetches are failing — Lucius is backing off.',
     }
   }
 
@@ -118,22 +125,22 @@ export function classifySourceHealth(row: NewsSource): SourceHealth {
     if (canEscalate && addedHoursAgo > 24) {
       return {
         tone: 'neg',
-        label: 'No data in 7d',
-        detail: 'Nothing from this feed in the last week — it may be down.',
+        label: intl ? intl.formatMessage({ id: 'intel.source.noDataWeek', defaultMessage: 'No data in 7d' }) : 'No data in 7d',
+        detail: intl ? intl.formatMessage({ id: 'intel.source.noDataWeekHelp', defaultMessage: 'Nothing from this feed in the last week — it may be down.' }) : 'Nothing from this feed in the last week — it may be down.',
       }
     }
     return {
       tone: 'muted',
-      label: 'No data yet',
-      detail: 'No stories logged from this source in the last 7 days.',
+      label: intl ? intl.formatMessage({ id: 'intel.source.noData', defaultMessage: 'No data yet' }) : 'No data yet',
+      detail: intl ? intl.formatMessage({ id: 'intel.source.noDataHelp', defaultMessage: 'No stories logged from this source in the last 7 days.' }) : 'No stories logged from this source in the last 7 days.',
     }
   }
 
   const { median_hours, p75_hours } = row.latency
-  const detail = `Median ${formatLag(median_hours)}, p75 ${formatLag(p75_hours)}`
-  if (median_hours <= 1) return { tone: 'pos', label: 'Fast', detail }
-  if (median_hours <= 6) return { tone: 'warn', label: 'Slow', detail }
-  return { tone: 'neg', label: 'Stalled', detail }
+  const detail = intl ? intl.formatMessage({ id: 'intel.source.latency', defaultMessage: 'Median {median}, p75 {p75}' }, { median: formatLag(median_hours, intl), p75: formatLag(p75_hours, intl) }) : `Median ${formatLag(median_hours)}, p75 ${formatLag(p75_hours)}`
+  if (median_hours <= 1) return { tone: 'pos', label: intl ? intl.formatMessage({ id: 'intel.source.healthFast', defaultMessage: 'Fast' }) : 'Fast', detail }
+  if (median_hours <= 6) return { tone: 'warn', label: intl ? intl.formatMessage({ id: 'intel.source.healthSlow', defaultMessage: 'Slow' }) : 'Slow', detail }
+  return { tone: 'neg', label: intl ? intl.formatMessage({ id: 'intel.source.stalled', defaultMessage: 'Stalled' }) : 'Stalled', detail }
 }
 
 interface Props {
@@ -144,10 +151,11 @@ interface Props {
 }
 
 export function NewsSourceRow({ row, onToggle, onCadenceChange, onDeleteRequest }: Props) {
-  const health = classifySourceHealth(row)
+  const intl = useAppIntl()
+  const health = classifySourceHealth(row, intl)
   const switchTitle = row.enabled
-    ? 'Turn off — Lucius stops fetching this source right away.'
-    : 'Turn on — Lucius starts fetching this source on its next check.'
+    ? intl.formatMessage({ id: 'intel.source.turnOff', defaultMessage: 'Turn off — Lucius stops fetching this source right away.' })
+    : intl.formatMessage({ id: 'intel.source.turnOn', defaultMessage: 'Turn on — Lucius starts fetching this source on its next check.' })
 
   return (
     <EntityRow
@@ -166,16 +174,16 @@ export function NewsSourceRow({ row, onToggle, onCadenceChange, onDeleteRequest 
       sublabel={`${row.kind} • ${row.enabled ? 'on' : 'off'}`}
     >
       <td>{row.label}</td>
-      <td>{KIND_LABEL[row.kind] ?? row.kind}</td>
+      <td>{Object.hasOwn(KIND_LABEL, row.kind) ? intl.formatMessage({ id: 'intel.source.kind', defaultMessage: '{kind, select, regulatory {Regulatory} outlet {Outlet} ticker {Ticker} search {Search} topic_engine {Topic engine} other {Custom feed}}' }, { kind: row.kind }) : row.kind}</td>
       <td>
         <Select
-          aria-label={`Cadence for ${row.label}`}
+          aria-label={intl.formatMessage({ id: 'intel.source.cadenceFor', defaultMessage: 'Cadence for {name}' }, { name: row.label })}
           value={row.cadence}
-          options={CADENCE_OPTIONS}
+          options={CADENCE_OPTIONS.map(o => ({ ...o, label: intl.formatMessage({ id: 'intel.source.cadence', defaultMessage: '{cadence, select, hot {Hot} fast {Fast} other {Slow}}' }, { cadence: o.value }) }))}
           onChange={(e) => onCadenceChange(row, e.target.value as NewsSource['cadence'])}
         />
         <Text as="div" size="2xs" tone="muted">
-          no more than every {fDuration(row.min_interval_sec)}
+          {intl.formatMessage({ id: 'intel.source.noMore', defaultMessage: 'no more than every {duration}' }, { duration: fDuration(row.min_interval_sec) })}
         </Text>
       </td>
       <td>
@@ -186,7 +194,7 @@ export function NewsSourceRow({ row, onToggle, onCadenceChange, onDeleteRequest 
       <td>
         <span title={switchTitle}>
           <Switch
-            aria-label={`${row.label} enabled`}
+            aria-label={intl.formatMessage({ id: 'intel.source.enabled', defaultMessage: '{name} enabled' }, { name: row.label })}
             checked={row.enabled}
             onChange={(e) => onToggle(row, e.target.checked)}
           />
@@ -197,7 +205,7 @@ export function NewsSourceRow({ row, onToggle, onCadenceChange, onDeleteRequest 
           <button
             type="button"
             className="intel-pa-row-remove"
-            title="Remove this feed"
+            title={intl.formatMessage({ id: "intel.field.9bea5ba0", defaultMessage: "Remove this feed" })}
             onClick={() => onDeleteRequest(row)}
           >
             <X size={11} />

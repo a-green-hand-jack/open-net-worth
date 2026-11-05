@@ -1,3 +1,4 @@
+import { useAppIntl } from '../../i18n/useAppIntl'
 import type { ReactNode } from 'react'
 import { useWatchPulse } from '../../hooks/useWatchPulse'
 import { usePulsePeriod } from '../../hooks/usePulsePeriod'
@@ -53,6 +54,7 @@ export function WatchPulseCard({
   renderBody,
   verbosity = 3,
 }: Props) {
+  const intl = useAppIntl()
   const { data, loading, error, refetch } = useWatchPulse('watched')
   const [period] = usePulsePeriod()
   const narrated = useWatchBrief(scope.id, period, verbosity === 5)
@@ -60,10 +62,10 @@ export function WatchPulseCard({
   const head = (updatedAt?: string) => (
     <IntelCardHead
       icon={<Eye size={13} />}
-      title="Watchlist pulse"
+      title={intl.formatMessage({ id: 'intel.watchlistPulse', defaultMessage: "Watchlist pulse" })}
       ask={
         onChatSuggest && {
-          label: 'Ask Lucius about this watchlist',
+          label: intl.formatMessage({ id: 'intel.askWatchlist', defaultMessage: "Ask Lucius about this watchlist" }),
           onAsk: () => onChatSuggest(ASK_WATCHLIST),
         }
       }
@@ -88,8 +90,8 @@ export function WatchPulseCard({
         {head()}
         <EmptyState
           icon={<Eye size={28} strokeWidth={1.5} aria-hidden="true" />}
-          title={`“${scope.name}” has no tickers yet`}
-          body="Add one to see its trend, moves and news here."
+          title={intl.formatMessage({ id: 'intel.watchlistNoTickers', defaultMessage: '“{name}” has no tickers yet' }, { name: scope.name })}
+          body={intl.formatMessage({ id: 'intel.watchlistEmptyHelp', defaultMessage: "Add one to see its trend, moves and news here." })}
           action={
             <Cluster gap="--space-3" justify="center">
               {onAddToWatchlist && (
@@ -99,12 +101,12 @@ export function WatchPulseCard({
                   onClick={onAddToWatchlist}
                   data-tour="setup-intel"
                 >
-                  Add a ticker
+                  {intl.formatMessage({ id: 'intel.addTicker', defaultMessage: "Add a ticker" })}
                 </Button>
               )}
               <LuciusCta
-                label="Add with Lucius"
-                message={`Help me add tickers to my “${scope.name}” watchlist. Ask which companies, funds or coins I want to follow.`}
+                label={intl.formatMessage({ id: 'intel.addWithLucius', defaultMessage: 'Add with Lucius' })}
+                message={intl.formatMessage({ id: 'intel.visible.watchlistPrompt', defaultMessage: 'Help me add tickers to my “{name}” watchlist. Ask which companies, funds or coins I want to follow.' }, { name: scope.name })}
                 onAskLucius={onChatSuggest}
               />
             </Cluster>
@@ -119,9 +121,9 @@ export function WatchPulseCard({
       <section className="intel-brief-card intel-pulse-card">
         {head()}
         <div className="intel-pulse-note">
-          Prices are unavailable right now — the news below is still current.{' '}
+          {intl.formatMessage({ id: 'intel.pricesUnavailableNews', defaultMessage: "Prices are unavailable right now — the news below is still current." })}{' '}
           <button type="button" className="intel-pulse-story" onClick={refetch}>
-            Retry
+            {intl.formatMessage({ id: 'intel.retry', defaultMessage: 'Retry' })}
           </button>
         </div>
         {renderBody(ownedRows, scope.tickerCount - ownedRows.length)}
@@ -138,6 +140,7 @@ export function WatchPulseCard({
     data.benchmark?.symbol,
     scope.name,
     verbosity === 5 ? 4 : verbosity,
+    intl,
   )
   const narration = verbosity === 5 ? narrated.data?.narration?.trim() : null
   const brief = narration || template

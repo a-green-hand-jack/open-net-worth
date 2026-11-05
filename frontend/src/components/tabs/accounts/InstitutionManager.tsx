@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useAppIntl } from '../../../i18n/useAppIntl'
 import { Button, ConfirmDialog, Modal, TextField } from '../../ui'
 import { Pencil, Trash2 } from '../../../ui/icons'
 import type { InstitutionOption } from './ds'
@@ -19,14 +20,6 @@ interface InstitutionManagerProps {
   onDeleted?: (result: InstitutionDeleteResult) => void
 }
 
-// "Checking, Savings" — WHICH accounts a rename or delete touches; the count alone when the
-// names aren't known (an older server) or there are none.
-function accountsLine(institution: InstitutionOption): string {
-  const names = institution.accountNames
-  if (names && names.length > 0) return names.join(', ')
-  return institution.accountCount === 1 ? '1 account' : `${institution.accountCount} accounts`
-}
-
 export function InstitutionManager({
   open,
   institutions,
@@ -36,6 +29,8 @@ export function InstitutionManager({
   onRenamed,
   onDeleted,
 }: InstitutionManagerProps) {
+  const { formatMessage } = useAppIntl()
+  const accountsLine = (institution: InstitutionOption) => institution.accountNames?.length ? institution.accountNames.join(', ') : formatMessage({ id: 'accounts.institution.count', defaultMessage: '{count, plural, one {# account} other {# accounts}}' }, { count: institution.accountCount })
   const [editing, setEditing] = useState<InstitutionOption | null>(null)
   const [name, setName] = useState('')
   const [deleting, setDeleting] = useState<InstitutionOption | null>(null)
@@ -56,7 +51,7 @@ export function InstitutionManager({
       onRenamed?.(editing, renamed)
       setEditing(null)
     } catch (reason) {
-      setError(reason instanceof Error ? reason.message : 'Could not rename institution')
+      setError(reason instanceof Error ? reason.message : formatMessage({ id: 'accounts.institution.renameError', defaultMessage: "Could not rename institution" }))
     } finally {
       setBusy(false)
     }
@@ -70,7 +65,7 @@ export function InstitutionManager({
       onDeleted?.(result)
       setDeleting(null)
     } catch (reason) {
-      setError(reason instanceof Error ? reason.message : 'Could not delete institution')
+      setError(reason instanceof Error ? reason.message : formatMessage({ id: 'accounts.institution.deleteError', defaultMessage: "Could not delete institution" }))
       setDeleting(null)
     } finally {
       setBusy(false)
@@ -79,11 +74,10 @@ export function InstitutionManager({
 
   return (
     <>
-      <Modal open={open} onClose={onClose} title="Manage institutions" size="md">
+      <Modal open={open} onClose={onClose} title={formatMessage({ id: 'accounts.institution.title', defaultMessage: "Manage institutions" })} size="md">
         <div className="acct-inst-manager">
           <p className="acct-inst-manager-copy">
-            Rename a shared institution, or remove it from the saved list. Deleting only unlinks
-            accounts; it never deletes account data.
+            {formatMessage({ id: 'accounts.institution.explanation', defaultMessage: 'Rename a shared institution, or remove it from the saved list. Deleting only unlinks accounts; it never deletes account data.' })}
           </p>
           {error && (
             <p className="acct-inst-manager-error" role="alert">
@@ -91,7 +85,7 @@ export function InstitutionManager({
             </p>
           )}
           {institutions.length === 0 ? (
-            <p className="acct-inst-manager-empty">No saved institutions yet.</p>
+            <p className="acct-inst-manager-empty">{formatMessage({ id: 'accounts.institution.empty', defaultMessage: "No saved institutions yet." })}</p>
           ) : (
             <div className="acct-inst-manager-list">
               {institutions.map((institution) => (
@@ -99,14 +93,14 @@ export function InstitutionManager({
                   {editing?.id === institution.id ? (
                     <div className="acct-inst-manager-edit">
                       <TextField
-                        aria-label={`Institution name for ${institution.name}`}
+                        aria-label={formatMessage({ id: 'accounts.institution.nameFor', defaultMessage: 'Institution name for {name}' }, { name: institution.name })}
                         value={name}
                         onChange={(event) => setName(event.target.value)}
                         autoFocus
                       />
                       <div className="acct-inst-manager-actions">
                         <Button size="sm" onClick={() => void saveRename()} disabled={busy}>
-                          Save
+                          {formatMessage({ id: 'accounts.institution.save', defaultMessage: "Save" })}
                         </Button>
                         <Button
                           size="sm"
@@ -114,7 +108,7 @@ export function InstitutionManager({
                           onClick={() => setEditing(null)}
                           disabled={busy}
                         >
-                          Cancel
+                          {formatMessage({ id: 'accounts.institution.cancel', defaultMessage: "Cancel" })}
                         </Button>
                       </div>
                     </div>
@@ -134,8 +128,8 @@ export function InstitutionManager({
                           size="sm"
                           variant="ghost"
                           className="acct-inst-manager-icon"
-                          aria-label={`Rename ${institution.name}`}
-                          title="Rename"
+                          aria-label={formatMessage({ id: 'accounts.institution.renameName', defaultMessage: 'Rename {name}' }, { name: institution.name })}
+                          title={formatMessage({ id: 'accounts.institution.rename', defaultMessage: "Rename" })}
                           onClick={() => startRename(institution)}
                         >
                           <Pencil size={15} strokeWidth={1.75} aria-hidden="true" />
@@ -144,8 +138,8 @@ export function InstitutionManager({
                           size="sm"
                           variant="ghost"
                           className="acct-inst-manager-icon acct-inst-manager-delete"
-                          aria-label={`Delete ${institution.name}`}
-                          title="Delete"
+                          aria-label={formatMessage({ id: 'accounts.institution.deleteName', defaultMessage: 'Delete {name}' }, { name: institution.name })}
+                          title={formatMessage({ id: 'accounts.institution.delete', defaultMessage: "Delete" })}
                           onClick={() => setDeleting(institution)}
                         >
                           <Trash2 size={15} strokeWidth={1.75} aria-hidden="true" />
@@ -163,9 +157,9 @@ export function InstitutionManager({
         data={
           deleting
             ? {
-                title: `Delete ${deleting.name}?`,
-                body: `This removes it from ${deleting.accountCount === 1 ? '1 account' : `${deleting.accountCount} accounts`}. The accounts, balances, and transactions stay intact.`,
-                confirmLabel: 'Unlink and delete',
+                title: formatMessage({ id: 'accounts.institution.deleteQuestion', defaultMessage: 'Delete {name}?' }, { name: deleting.name }),
+                body: formatMessage({ id: 'accounts.institution.deleteExplanation', defaultMessage: 'This removes it from {count, plural, one {# account} other {# accounts}}. The accounts, balances, and transactions stay intact.' }, { count: deleting.accountCount }),
+                confirmLabel: formatMessage({ id: 'accounts.institution.confirm', defaultMessage: "Unlink and delete" }),
                 danger: true,
                 confirmDisabled: busy,
               }

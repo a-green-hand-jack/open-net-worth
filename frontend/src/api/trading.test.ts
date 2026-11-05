@@ -20,6 +20,25 @@ describe('trading execution responses', () => {
     )
     expect(invalidateQueryCache).not.toHaveBeenCalled()
   })
+  it('retains structured localization information with the original error message', async () => {
+    vi.mocked(authFetch).mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          detail: {
+            message: 'Distinct runs required',
+            message_id: 'trading.error.comparison_distinct',
+            message_params: { count: 2 },
+          },
+        }),
+        { status: 409 },
+      ),
+    )
+    await expect(tradingApi.action('run-demo', 'start')).rejects.toMatchObject({
+      message: 'Distinct runs required',
+      messageId: 'trading.error.comparison_distinct',
+      messageParams: { count: 2 },
+    })
+  })
   it('treats a failed script receipt as failure even when the HTTP request succeeded', async () => {
     vi.mocked(authFetch).mockResolvedValue(
       new Response(JSON.stringify({ ok: false, error: 'Isolation unavailable' })),

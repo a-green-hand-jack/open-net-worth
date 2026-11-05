@@ -719,3 +719,20 @@ def test_a_legacy_funding_row_without_status_hydrates_as_planned(isolated):
     assert src["status"] == "planned"
     assert src["realized_txn_id"] is None
     assert s.all()[0]["funding_plan"][0]["status"] == "planned"
+
+
+@pytest.mark.parametrize(
+    ("source", "label"),
+    [
+        ({"kind": "draw_down", "label": "Example"}, "Draw down Example"),
+        ({"kind": "sell", "label": "Example"}, "Sell Example"),
+        ({"kind": "sell_units", "label": "Example", "count": "3.5"}, "Sell 3.5 units — Example"),
+        ({"kind": "receive", "label": "Example"}, "Receive Example"),
+    ],
+)
+def test_generated_action_label_source_requires_exact_template(source, label):
+    from backend.db.commitments_store import _action_label_source
+
+    assert _action_label_source(source, label) == source
+    assert _action_label_source(source, label + " edited") is None
+    assert _action_label_source({**source, "extra": "bad"}, label) is None

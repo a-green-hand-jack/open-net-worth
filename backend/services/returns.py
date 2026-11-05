@@ -219,6 +219,15 @@ def _period_label(period: str, effective_start: str, requested_start: str) -> st
     return labels.get(period.upper(), period.upper())
 
 
+def _period_label_message(period: str, effective_start: str, requested_start: str) -> dict | None:
+    if effective_start > requested_start:
+        return {"id": "returns.label.since", "params": {"date": effective_start}}
+    normalized = period.upper()
+    if normalized in {"7D", "1M", "3M", "YTD", "1Y", "ALL", "CUSTOM"}:
+        return {"id": "returns.label.period", "params": {"period": normalized}}
+    return None
+
+
 # ── Value series (sourced from the portfolio_history primitive — daily, reconstructed) ──
 
 
@@ -1055,6 +1064,7 @@ def portfolio_returns(
         "end": end,
         "effective_start": effective_start,
         "label": label,
+        "label_message": _period_label_message(period, effective_start, requested_start),
         "annualized": should_annualize,
         "base_currency": base,
         "twr": twr_block,

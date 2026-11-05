@@ -1,4 +1,6 @@
+import { useTradingErrorText } from './trading/useTradingErrorText'
 import { useState } from 'react'
+import { useAppIntl } from '../../i18n/useAppIntl'
 import { useNavigate, useSearch } from '@tanstack/react-router'
 import { useTradingWorkspaces, useTradingOverview } from '../../hooks/useTrading'
 import type { DelegationCreate, TradingWorkspace } from '../../types/trading'
@@ -23,9 +25,12 @@ import { LuciusCta } from '../intro/LuciusCta'
 import { WorkspaceForm } from './trading/WorkspaceForm'
 import { WorkspaceDetail } from './trading/WorkspaceDetail'
 import { TradingComparisons } from './trading/TradingComparisons'
-import { errorText, readable, statusTone, tradingMoney, tradingTime } from './trading/presentation'
+import { statusTone, tradingMoney, tradingTime } from './trading/presentation'
+import { useTradingLabel } from './trading/useTradingLabel'
 
 export function Trading({ onAskLucius }: { onAskLucius?: (text: string) => void }) {
+  const { formatMessage } = useAppIntl()
+  const errorText = useTradingErrorText()
   const search = useSearch({ from: '/trading' })
   const navigate = useNavigate()
   const workspaces = useTradingWorkspaces()
@@ -50,7 +55,11 @@ export function Trading({ onAskLucius }: { onAskLucius?: (text: string) => void 
           !('environment' in value)
         ) {
           setDraftError(
-            'The delegation draft is incomplete. Ask Lucius to preview the workspace again.',
+            formatMessage({
+              id: 'trading.draftIncomplete',
+              defaultMessage:
+                'The delegation draft is incomplete. Ask Lucius to preview the workspace again.',
+            }),
           )
           return
         }
@@ -68,29 +77,42 @@ export function Trading({ onAskLucius }: { onAskLucius?: (text: string) => void 
     <Container size="wide" className="trading-page">
       <Stack gap="--space-6">
         <PageHeader
-          title="Trading"
-          subtitle="Delegate a trading mandate and follow the markets, portfolio and agent’s work."
+          title={formatMessage({ id: 'trading.title', defaultMessage: 'Trading' })}
+          subtitle={formatMessage({
+            id: 'trading.subtitle',
+            defaultMessage:
+              'Delegate a trading mandate and follow the markets, portfolio and agent’s work.',
+          })}
           actions={
             <Cluster>
               <LuciusCta
-                label="Create with Lucius"
+                label={formatMessage({
+                  id: 'trading.createWithLucius',
+                  defaultMessage: 'Create with Lucius',
+                })}
                 size="md"
-                message="Help me create a persistent autonomous trading workspace. Discuss my mandate, funding, period, executor, environment and limits. Use preview_trading_workspace to validate an unsaved draft, then open trading.review_draft so I can review it. Do not create or authorize live trading without my review."
+                message={formatMessage({ id: 'visible2.tradingPrompt', defaultMessage: 'Help me create a persistent autonomous trading workspace. Discuss my mandate, funding, period, executor, environment and limits. Use preview_trading_workspace to validate an unsaved draft, then open trading.review_draft so I can review it. Do not create or authorize live trading without my review.' })}
                 onAskLucius={onAskLucius}
               />
               <Button variant="secondary" onClick={() => setForm({})}>
-                Expert setup
+                {formatMessage({ id: 'trading.expertSetup', defaultMessage: 'Expert setup' })}
               </Button>
             </Cluster>
           }
         />
         <PageTabs
-          ariaLabel="Trading views"
+          ariaLabel={formatMessage({ id: 'trading.views', defaultMessage: 'Trading views' })}
           value={view}
           onChange={(value) => route({ view: value })}
           tabs={[
-            { key: 'workspaces', label: 'Workspaces' },
-            { key: 'compare', label: 'Compare' },
+            {
+              key: 'workspaces',
+              label: formatMessage({ id: 'trading.workspaces', defaultMessage: 'Workspaces' }),
+            },
+            {
+              key: 'compare',
+              label: formatMessage({ id: 'trading.compare', defaultMessage: 'Compare' }),
+            },
           ]}
         />
         {draftError && <ErrorState message={draftError} />}
@@ -103,7 +125,14 @@ export function Trading({ onAskLucius }: { onAskLucius?: (text: string) => void 
             />
           ) : (
             <>
-              {workspaces.initialLoading && <Loading label="Loading trading workspaces…" />}
+              {workspaces.initialLoading && (
+                <Loading
+                  label={formatMessage({
+                    id: 'trading.loadingWorkspaces',
+                    defaultMessage: 'Loading trading workspaces…',
+                  })}
+                />
+              )}
               {!!workspaces.error && (
                 <ErrorState
                   message={errorText(workspaces.error)}
@@ -120,7 +149,10 @@ export function Trading({ onAskLucius }: { onAskLucius?: (text: string) => void 
                 />
               ) : search.workspace && !workspaces.initialLoading && !workspaces.error ? (
                 <ErrorState
-                  message="This workspace was not found."
+                  message={formatMessage({
+                    id: 'trading.workspaceNotFound',
+                    defaultMessage: 'This workspace was not found.',
+                  })}
                   onRetry={() => route({ workspace: undefined, run: undefined })}
                 />
               ) : (
@@ -129,15 +161,35 @@ export function Trading({ onAskLucius }: { onAskLucius?: (text: string) => void 
                   !workspaces.error &&
                   !workspaces.data?.items.length ? (
                     <EmptyState
-                      title="Give an agent a trading mandate"
-                      body="Describe what you want to delegate to Lucius, or use expert setup. A workspace retains its mandate, account activity and the agent’s work over time."
-                      action={<Button onClick={() => setForm({})}>Expert setup</Button>}
+                      title={formatMessage({
+                        id: 'trading.emptyTitle',
+                        defaultMessage: 'Give an agent a trading mandate',
+                      })}
+                      body={formatMessage({
+                        id: 'trading.emptyBody',
+                        defaultMessage:
+                          'Describe what you want to delegate to Lucius, or use expert setup. A workspace retains its mandate, account activity and the agent’s work over time.',
+                      })}
+                      action={
+                        <Button onClick={() => setForm({})}>
+                          {formatMessage({
+                            id: 'trading.expertSetup',
+                            defaultMessage: 'Expert setup',
+                          })}
+                        </Button>
+                      }
                     />
                   ) : (
                     <>
                       <TextField
-                        aria-label="Search workspaces"
-                        placeholder="Search mandates, workspaces or executors"
+                        aria-label={formatMessage({
+                          id: 'trading.searchWorkspaces',
+                          defaultMessage: 'Search workspaces',
+                        })}
+                        placeholder={formatMessage({
+                          id: 'trading.searchPlaceholder',
+                          defaultMessage: 'Search mandates, workspaces or executors',
+                        })}
                         value={filter}
                         onChange={(e) => setFilter(e.target.value)}
                       />
@@ -149,7 +201,12 @@ export function Trading({ onAskLucius }: { onAskLucius?: (text: string) => void 
                         />
                       ))}
                       {!!workspaces.data?.items.length && !items.length && (
-                        <EmptyState title="No matching workspaces" />
+                        <EmptyState
+                          title={formatMessage({
+                            id: 'trading.noMatches',
+                            defaultMessage: 'No matching workspaces',
+                          })}
+                        />
                       )}
                     </>
                   )}
@@ -174,6 +231,8 @@ export function Trading({ onAskLucius }: { onAskLucius?: (text: string) => void 
 }
 
 function WorkspaceCard({ workspace, onOpen }: { workspace: TradingWorkspace; onOpen: () => void }) {
+  const { formatMessage } = useAppIntl()
+  const label = useTradingLabel()
   const overview = useTradingOverview(workspace.id)
   const current = overview.data?.current_run
   const work = overview.data?.current_work
@@ -181,34 +240,48 @@ function WorkspaceCard({ workspace, onOpen }: { workspace: TradingWorkspace; onO
     <Panel
       title={workspace.name}
       className="trading-workspace-card"
-      actions={<Button onClick={onOpen}>Open workspace</Button>}
+      actions={
+        <Button onClick={onOpen}>
+          {formatMessage({ id: 'trading.openWorkspace', defaultMessage: 'Open workspace' })}
+        </Button>
+      }
     >
       <Stack gap="--space-3">
         <Text className="trading-mandate-excerpt">
-        {overview.data?.original_mandate?.instructions ?? workspace.instructions}
+          {overview.data?.original_mandate?.instructions ?? workspace.instructions}
         </Text>
         <Cluster>
           <Badge tone={statusTone(current?.state ?? '')}>
             {current
-              ? readable(current.state)
+              ? label(current.state)
               : overview.initialLoading
-                ? 'Loading status…'
+                ? formatMessage({ id: 'trading.loadingStatus', defaultMessage: 'Loading status…' })
                 : overview.error
-                  ? 'Status unavailable'
-                  : 'Not activated'}
+                  ? formatMessage({
+                      id: 'trading.statusUnavailable',
+                      defaultMessage: 'Status unavailable',
+                    })
+                  : formatMessage({ id: 'trading.notActivated', defaultMessage: 'Not activated' })}
           </Badge>
           <Text size="sm">
             {workspace.agent_label}
             {current
-              ? ` · ${current.mode} · ${Object.entries(current.initial_capital)
+              ? ` · ${label(current.mode)} · ${Object.entries(current.initial_capital)
                   .map(([currency, capital]) => tradingMoney(capital, currency))
                   .join(' / ')}`
               : ''}
           </Text>
         </Cluster>
         <Text size="sm" tone="muted">
-          {work?.summary ?? 'No work reported yet.'} · Updated{' '}
-          {tradingTime(work?.last_activity_at ?? workspace.updated_at)}
+          {formatMessage(
+            { id: 'trading.workUpdated', defaultMessage: '{summary} · Updated {time}' },
+            {
+              summary:
+                work?.summary ??
+                formatMessage({ id: 'trading.noWork', defaultMessage: 'No work reported yet.' }),
+              time: tradingTime(work?.last_activity_at ?? workspace.updated_at),
+            },
+          )}
         </Text>
       </Stack>
     </Panel>

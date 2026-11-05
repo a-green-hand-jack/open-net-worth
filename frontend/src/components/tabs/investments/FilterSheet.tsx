@@ -14,6 +14,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { X, Check } from '../../../ui/icons'
 import { BottomSheet } from '../../ui/BottomSheet'
+import { useAppIntl } from '../../../i18n/useAppIntl'
 
 export interface FilterOption {
   id: string
@@ -82,6 +83,7 @@ export function FilterGroupList({
 }
 
 export function FilterSheet({ className, presentation = 'popover', title, groups, active }: Props) {
+  const { formatMessage } = useAppIntl()
   const [open, setOpen] = useState(false)
   const rootRef = useRef<HTMLDivElement>(null)
   const popRef = useRef<HTMLDivElement>(null)
@@ -113,7 +115,11 @@ export function FilterSheet({ className, presentation = 'popover', title, groups
       <button
         type="button"
         className={`mk-filter-btn${active ? ' is-active' : ''}`}
-        aria-label={active ? 'Filters (active)' : 'Filters'}
+        aria-label={
+          active
+            ? formatMessage({ id: 'investments.filter.active', defaultMessage: 'Filters (active)' })
+            : formatMessage({ id: 'investments.filter.filters', defaultMessage: 'Filters' })
+        }
         aria-haspopup="dialog"
         aria-expanded={open}
         onClick={() => setOpen(true)}
@@ -138,7 +144,10 @@ export function FilterSheet({ className, presentation = 'popover', title, groups
               type="button"
               className="mk-filter-popover-x"
               onClick={close}
-              aria-label="Close"
+              aria-label={formatMessage({
+                id: 'investments.filter.close',
+                defaultMessage: 'Close',
+              })}
             >
               <X size={18} strokeWidth={1.6} aria-hidden="true" />
             </button>

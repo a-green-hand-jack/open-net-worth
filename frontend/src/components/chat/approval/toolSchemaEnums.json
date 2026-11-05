@@ -1,0 +1,3565 @@
+{
+  "fields": {
+    "acquire_lots": [
+      "acquisitions",
+      "acquisitions.*.acquired_at",
+      "acquisitions.*.allow_duplicate",
+      "acquisitions.*.cost_currency",
+      "acquisitions.*.fees",
+      "acquisitions.*.funding_account_id",
+      "acquisitions.*.idempotency_key",
+      "acquisitions.*.kind",
+      "acquisitions.*.note",
+      "acquisitions.*.position_id",
+      "acquisitions.*.quantity",
+      "acquisitions.*.unit_cost"
+    ],
+    "activate_skill": [
+      "arguments",
+      "skill_id"
+    ],
+    "add_commitment_actions": [
+      "actions",
+      "commitment_id"
+    ],
+    "add_commitment_installments": [
+      "commitment_id",
+      "installments"
+    ],
+    "add_funding_sources": [
+      "commitment_id",
+      "sources"
+    ],
+    "add_news_sources": [
+      "sources",
+      "sources.*.cadence",
+      "sources.*.label",
+      "sources.*.url"
+    ],
+    "add_payee_aliases": [
+      "aliases",
+      "aliases.*.payee_id",
+      "aliases.*.text"
+    ],
+    "add_payee_rules": [
+      "rules",
+      "rules.*.match_type",
+      "rules.*.payee_id",
+      "rules.*.value"
+    ],
+    "add_positions": [
+      "adds",
+      "adds.*.account_id",
+      "adds.*.account_name",
+      "adds.*.account_type",
+      "adds.*.acquired_at",
+      "adds.*.cost_basis",
+      "adds.*.cost_currency",
+      "adds.*.fees",
+      "adds.*.idempotency_key",
+      "adds.*.instrument_id",
+      "adds.*.quantity",
+      "adds.*.vesting_state"
+    ],
+    "add_run_tasks": [
+      "tasks",
+      "tasks.*.description",
+      "tasks.*.subject"
+    ],
+    "add_transaction_refs": [
+      "reason",
+      "refs",
+      "refs.*.ref",
+      "refs.*.source",
+      "transaction_id"
+    ],
+    "add_transactions": [
+      "allow_duplicate",
+      "decisions",
+      "decisions.*.action",
+      "decisions.*.existing_id",
+      "decisions.*.index",
+      "force_transfer_rate",
+      "import_description",
+      "import_session_id",
+      "statement_ref_id",
+      "transactions",
+      "transactions.*.account_id",
+      "transactions.*.amount",
+      "transactions.*.category",
+      "transactions.*.currency",
+      "transactions.*.date",
+      "transactions.*.description",
+      "transactions.*.direction",
+      "transactions.*.external_refs",
+      "transactions.*.external_refs.*.ref",
+      "transactions.*.external_refs.*.source",
+      "transactions.*.from_account_id",
+      "transactions.*.memo",
+      "transactions.*.original_amount",
+      "transactions.*.original_currency",
+      "transactions.*.payee_id",
+      "transactions.*.settled_amount",
+      "transactions.*.splits",
+      "transactions.*.splits.*.amount",
+      "transactions.*.splits.*.category",
+      "transactions.*.splits.*.memo",
+      "transactions.*.tags",
+      "transactions.*.to_account_id",
+      "transactions.*.to_amount",
+      "transactions.*.to_currency"
+    ],
+    "add_watchlist_items": [
+      "items",
+      "items.*.asset_class",
+      "items.*.custom_feed_urls",
+      "items.*.label",
+      "items.*.linked_tickers",
+      "items.*.monitor_news",
+      "items.*.note",
+      "items.*.search_queries",
+      "items.*.type",
+      "items.*.value",
+      "items.*.watchlist"
+    ],
+    "alpaca_fetch_positions": [
+      "account",
+      "before",
+      "include_booked",
+      "include_pending",
+      "limit",
+      "offset",
+      "since"
+    ],
+    "alpaca_get_status": [],
+    "apply_budget_operation": [
+      "engine_id",
+      "operation",
+      "params"
+    ],
+    "apply_payee_categories": [
+      "payee_ids"
+    ],
+    "apply_payee_rules": [],
+    "apply_payee_rules_to_payees": [
+      "payee_ids"
+    ],
+    "approve_transactions": [
+      "transaction_ids"
+    ],
+    "assign_budget": [
+      "assignments",
+      "assignments.*.amount",
+      "assignments.*.envelope_id",
+      "assignments.*.month"
+    ],
+    "attach_receipt": [
+      "attachment_id",
+      "receipt_id",
+      "transaction_id"
+    ],
+    "auto_assign": [
+      "mode",
+      "month"
+    ],
+    "calculate": [
+      "expression",
+      "expressions"
+    ],
+    "cancel_grant": [
+      "grant_id"
+    ],
+    "cancel_option": [
+      "contract_id",
+      "force"
+    ],
+    "cancel_trading_order": [
+      "order_id"
+    ],
+    "check_duplicates": [
+      "max_candidates",
+      "transactions",
+      "transactions.*.account_id",
+      "transactions.*.amount",
+      "transactions.*.category",
+      "transactions.*.currency",
+      "transactions.*.date",
+      "transactions.*.description",
+      "transactions.*.direction",
+      "transactions.*.external_refs",
+      "transactions.*.external_refs.*.ref",
+      "transactions.*.external_refs.*.source",
+      "transactions.*.from_account_id",
+      "transactions.*.original_amount",
+      "transactions.*.original_currency",
+      "transactions.*.ref",
+      "transactions.*.settled_amount",
+      "transactions.*.to_account_id",
+      "transactions.*.to_amount",
+      "transactions.*.to_currency"
+    ],
+    "check_statement_drift": [],
+    "close_option": [
+      "close_premium_per_share",
+      "closed_at",
+      "contract_id",
+      "premium_account_id"
+    ],
+    "close_recent_items": [
+      "handles"
+    ],
+    "coingecko_get_crypto_prices": [
+      "coins",
+      "include_facts",
+      "vs_currency"
+    ],
+    "coingecko_get_price_history": [
+      "coin",
+      "timeframe",
+      "vs_currency"
+    ],
+    "correct_asset_value": [
+      "asset_id",
+      "date",
+      "mark_id",
+      "note",
+      "value"
+    ],
+    "create_account": [
+      "apr",
+      "apy",
+      "credit_limit",
+      "currency",
+      "external_ids",
+      "external_ids.*.institution",
+      "external_ids.*.mask",
+      "external_ids.*.name",
+      "external_ids.*.ref",
+      "external_ids.*.source",
+      "initial_balance",
+      "initial_balance_date",
+      "institution",
+      "last_four",
+      "min_payment",
+      "name",
+      "note",
+      "payoff_date",
+      "principal",
+      "type"
+    ],
+    "create_artifact": [
+      "artifact_type",
+      "content",
+      "filename",
+      "source_artifact_id",
+      "title"
+    ],
+    "create_asset": [
+      "category",
+      "cost",
+      "cost_date",
+      "description",
+      "facts",
+      "insured",
+      "loan_account_id",
+      "maturity_date",
+      "name",
+      "note",
+      "notes",
+      "share_note",
+      "share_pct",
+      "value"
+    ],
+    "create_asset_category": [
+      "label"
+    ],
+    "create_automation": [
+      "description",
+      "effort",
+      "instructions",
+      "max_runs",
+      "model",
+      "name",
+      "permission_mode",
+      "status",
+      "trigger"
+    ],
+    "create_categories": [
+      "categories",
+      "categories.*.color",
+      "categories.*.kind",
+      "categories.*.label"
+    ],
+    "create_commitment": [
+      "currency",
+      "funding_plan",
+      "installments",
+      "kind",
+      "linked_account_id",
+      "linked_position_id",
+      "name",
+      "note"
+    ],
+    "create_envelope": [
+      "color",
+      "group_id",
+      "name"
+    ],
+    "create_envelope_group": [
+      "name"
+    ],
+    "create_goal": [
+      "category",
+      "currency",
+      "current_amount",
+      "linked_account_ids",
+      "name",
+      "note",
+      "priority",
+      "target_amount",
+      "target_date"
+    ],
+    "create_grant": [
+      "account_id",
+      "account_name",
+      "create_new_account",
+      "currency",
+      "grant_date",
+      "grant_price_per_unit",
+      "grant_type",
+      "instrument_id",
+      "locked_position_id",
+      "note",
+      "release_required",
+      "tax_event",
+      "total_units",
+      "tranches",
+      "tranches.*.condition_note",
+      "tranches.*.kind",
+      "tranches.*.units",
+      "tranches.*.vest_date"
+    ],
+    "create_loan_repayment": [
+      "annual_rate_pct",
+      "currency",
+      "linked_account_id",
+      "months",
+      "name",
+      "principal",
+      "start_date"
+    ],
+    "create_payees": [
+      "payees",
+      "payees.*.default_category",
+      "payees.*.name"
+    ],
+    "create_plan_scenario": [
+      "events",
+      "events.*.age",
+      "events.*.amount",
+      "events.*.label",
+      "lifeExp",
+      "monthlyRetirementSpending",
+      "name",
+      "ret",
+      "retireAge",
+      "saving",
+      "streams",
+      "streams.*.age",
+      "streams.*.amount",
+      "streams.*.endAge",
+      "streams.*.label",
+      "swr",
+      "vol"
+    ],
+    "create_skill": [
+      "body",
+      "description",
+      "files",
+      "name"
+    ],
+    "create_watchlists": [
+      "watchlists",
+      "watchlists.*.description",
+      "watchlists.*.is_auto_sync",
+      "watchlists.*.name"
+    ],
+    "delete_accounts": [
+      "account_ids"
+    ],
+    "delete_asset": [
+      "asset_id"
+    ],
+    "delete_automations": [
+      "automation_ids"
+    ],
+    "delete_categories": [
+      "deletions",
+      "deletions.*.category_id",
+      "deletions.*.reassign",
+      "deletions.*.reassign_to"
+    ],
+    "delete_commitment": [
+      "commitment_id"
+    ],
+    "delete_envelope": [
+      "envelope_id"
+    ],
+    "delete_envelope_groups": [
+      "group_ids"
+    ],
+    "delete_goal": [
+      "goal_id"
+    ],
+    "delete_income": [
+      "event_id"
+    ],
+    "delete_investment_theses": [
+      "tickers"
+    ],
+    "delete_lots": [
+      "deletions",
+      "deletions.*.lot_id",
+      "deletions.*.position_id",
+      "reason"
+    ],
+    "delete_payees": [
+      "payee_ids",
+      "reassign_to",
+      "updates",
+      "updates.*.payee_id",
+      "updates.*.reassign_to"
+    ],
+    "delete_plan_scenario": [
+      "scenario_id"
+    ],
+    "delete_receipt": [
+      "force",
+      "receipt_id"
+    ],
+    "delete_skill": [
+      "skill_id"
+    ],
+    "delete_transactions": [
+      "reason",
+      "transaction_ids"
+    ],
+    "delete_transactions_where": [
+      "account_id",
+      "batch_id",
+      "category",
+      "date_from",
+      "date_to",
+      "kind",
+      "preview",
+      "reason"
+    ],
+    "delete_upload": [
+      "ref_id"
+    ],
+    "delete_watchlists": [
+      "watchlist_ids"
+    ],
+    "describe": [
+      "q",
+      "target"
+    ],
+    "describe_account": [
+      "text"
+    ],
+    "describe_db_schema": [
+      "table"
+    ],
+    "diff_statement": [
+      "account_id",
+      "ref_id",
+      "statement_id"
+    ],
+    "dismiss_base_currency_review": [],
+    "dismiss_intel_signals": [
+      "signal_ids"
+    ],
+    "dismiss_rule_suggestions": [
+      "dismissals",
+      "dismissals.*.payee_key",
+      "dismissals.*.target_category"
+    ],
+    "dispose_asset": [
+      "account_id",
+      "asset_id",
+      "date",
+      "proceeds"
+    ],
+    "dispose_lots": [
+      "disposals",
+      "disposals.*.allow_duplicate",
+      "disposals.*.disposal_fees",
+      "disposals.*.disposed_at",
+      "disposals.*.idempotency_key",
+      "disposals.*.is_taxable",
+      "disposals.*.lot_selection",
+      "disposals.*.lot_selection.*.lot_id",
+      "disposals.*.lot_selection.*.qty",
+      "disposals.*.method",
+      "disposals.*.note",
+      "disposals.*.position_id",
+      "disposals.*.proceeds_account_id",
+      "disposals.*.proceeds_currency",
+      "disposals.*.proceeds_per_unit",
+      "disposals.*.quantity",
+      "disposals.*.transfer_to_account_id"
+    ],
+    "draft_budget_engine_config": [
+      "engine_id"
+    ],
+    "duckduckgo_fetch_page": [
+      "url"
+    ],
+    "duckduckgo_search": [
+      "max_results",
+      "query"
+    ],
+    "email_get_messages": [
+      "message_ids"
+    ],
+    "email_search_messages": [
+      "before",
+      "folder",
+      "from_address",
+      "header",
+      "header.field",
+      "header.value",
+      "limit",
+      "offset",
+      "since",
+      "subject_contains",
+      "unseen_only"
+    ],
+    "email_send_message": [
+      "body",
+      "cc",
+      "subject",
+      "to"
+    ],
+    "enable_banking_fetch_transactions": [
+      "account",
+      "before",
+      "include_booked",
+      "include_pending",
+      "limit",
+      "offset",
+      "since"
+    ],
+    "enable_banking_get_status": [],
+    "enable_banking_list_accounts": [],
+    "fetch_page": [
+      "url"
+    ],
+    "fetch_trading_research": [
+      "url"
+    ],
+    "find_duplicates": [
+      "date_from",
+      "date_to"
+    ],
+    "find_tools": [
+      "max_results",
+      "names",
+      "query"
+    ],
+    "firecrawl_fetch_page": [
+      "url"
+    ],
+    "firecrawl_search": [
+      "max_results",
+      "query"
+    ],
+    "forget_fact": [
+      "description"
+    ],
+    "forget_match_decisions": [
+      "pair_keys"
+    ],
+    "get_actions": [],
+    "get_alert_channels": [],
+    "get_alerts": [
+      "limit",
+      "offset",
+      "tickers"
+    ],
+    "get_asset": [
+      "asset_id"
+    ],
+    "get_asset_context": [
+      "instrument_id",
+      "peers_limit",
+      "ticker",
+      "timeline_limit"
+    ],
+    "get_budget_month": [
+      "month"
+    ],
+    "get_budget_view": [
+      "engine_id",
+      "period"
+    ],
+    "get_card_statement_status": [
+      "account_id"
+    ],
+    "get_category_suggestions": [
+      "limit",
+      "min_confidence",
+      "offset"
+    ],
+    "get_commitments": [
+      "kind",
+      "limit",
+      "offset",
+      "query",
+      "status"
+    ],
+    "get_connector_status": [
+      "connectors"
+    ],
+    "get_connector_tools": [
+      "connector_id",
+      "group",
+      "limit",
+      "offset"
+    ],
+    "get_cost_summary": [
+      "days"
+    ],
+    "get_dividend_calendar": [
+      "days"
+    ],
+    "get_earlier_conversation_detail": [
+      "limit",
+      "query_hint"
+    ],
+    "get_equity_report": [
+      "year"
+    ],
+    "get_fees_summary": [
+      "account_id",
+      "date_from",
+      "date_to",
+      "instrument_id"
+    ],
+    "get_fire_projection": [
+      "current_nw_base",
+      "monthly_retirement_spending_override",
+      "withdrawal_rate_pct_override"
+    ],
+    "get_fixed_income": [],
+    "get_forecast_scorecard": [
+      "window"
+    ],
+    "get_goal_allocation": [],
+    "get_goals": [
+      "status"
+    ],
+    "get_income": [
+      "account_id",
+      "date_from",
+      "date_to",
+      "instrument_id"
+    ],
+    "get_income_forecast": [
+      "horizon_months"
+    ],
+    "get_intel_digest": [
+      "period"
+    ],
+    "get_investment_theses": [
+      "tickers"
+    ],
+    "get_ledger_summary": [
+      "month",
+      "year"
+    ],
+    "get_live_prices": [
+      "currencies",
+      "tickers"
+    ],
+    "get_lots": [
+      "account_id",
+      "date_from",
+      "date_to",
+      "limit",
+      "offset",
+      "open_only",
+      "position_id",
+      "position_ids",
+      "ticker"
+    ],
+    "get_model_config": [],
+    "get_net_worth": [
+      "as_of"
+    ],
+    "get_net_worth_history": [
+      "period"
+    ],
+    "get_news_latency": [
+      "days"
+    ],
+    "get_news_sources": [
+      "days"
+    ],
+    "get_notifications": [
+      "limit",
+      "tickers",
+      "type",
+      "unread_only"
+    ],
+    "get_option_contract": [
+      "contract_id"
+    ],
+    "get_options": [],
+    "get_payees": [
+      "limit",
+      "payee_ids",
+      "queries",
+      "query"
+    ],
+    "get_plan_baseline": [],
+    "get_portfolio": [
+      "account_id",
+      "account_ids",
+      "asset_class",
+      "query",
+      "vesting_state"
+    ],
+    "get_portfolio_xray": [],
+    "get_profile": [],
+    "get_realized_pnl": [
+      "account_id",
+      "date_from",
+      "date_to",
+      "instrument_id"
+    ],
+    "get_rebalance_plan": [
+      "mode",
+      "new_cash"
+    ],
+    "get_recent_logs": [
+      "level",
+      "lines",
+      "q"
+    ],
+    "get_recurring_streams": [
+      "direction",
+      "include_candidates",
+      "limit",
+      "offset"
+    ],
+    "get_report": [
+      "period",
+      "type"
+    ],
+    "get_returns": [
+      "benchmark",
+      "by_holding",
+      "date_from",
+      "date_to",
+      "period"
+    ],
+    "get_risk_signals": [],
+    "get_rule_suggestions": [],
+    "get_screen_detail": [
+      "handle_id"
+    ],
+    "get_spending_breakdown": [
+      "baseline_periods",
+      "date_from",
+      "date_to",
+      "include_year_ago",
+      "period"
+    ],
+    "get_spending_summary": [
+      "month",
+      "year"
+    ],
+    "get_statement": [
+      "offset",
+      "statement_id"
+    ],
+    "get_trading_account": [],
+    "get_trading_environment": [],
+    "get_trading_market_data": [
+      "limit",
+      "offset"
+    ],
+    "get_transactions": [
+      "account_id",
+      "account_ids",
+      "categories",
+      "date_from",
+      "date_to",
+      "limit",
+      "max_amount",
+      "min_amount",
+      "month",
+      "needs_review",
+      "offset",
+      "payee_ids",
+      "q",
+      "q_field",
+      "summary_only",
+      "tags",
+      "transaction_id",
+      "transaction_types",
+      "year"
+    ],
+    "get_uncategorized_summary": [
+      "date_from",
+      "date_to",
+      "limit"
+    ],
+    "get_untold_news": [],
+    "get_upcoming_vests": [
+      "window_days"
+    ],
+    "get_uploads": [],
+    "get_watchlist": [
+      "asset_class",
+      "type",
+      "values",
+      "watchlist"
+    ],
+    "gocardless_fetch_transactions": [
+      "account",
+      "before",
+      "include_booked",
+      "include_pending",
+      "limit",
+      "offset",
+      "since"
+    ],
+    "gocardless_get_status": [],
+    "gocardless_list_accounts": [],
+    "google_pse_fetch_page": [
+      "url"
+    ],
+    "google_pse_search": [
+      "max_results",
+      "query"
+    ],
+    "ibkr_fetch_activity": [
+      "account",
+      "before",
+      "include_booked",
+      "include_pending",
+      "limit",
+      "offset",
+      "since"
+    ],
+    "ibkr_get_status": [],
+    "import_8b": [
+      "attachment_ref",
+      "document_currency",
+      "instrument_id",
+      "payload",
+      "statement_id"
+    ],
+    "import_transactions": [
+      "account_id",
+      "attachment_ref",
+      "commit",
+      "content",
+      "decisions",
+      "default_action",
+      "format",
+      "mapping",
+      "mapping.account",
+      "mapping.amount",
+      "mapping.category",
+      "mapping.date",
+      "mapping.description",
+      "mapping.inflow",
+      "mapping.outflow",
+      "source_url",
+      "statement_id"
+    ],
+    "link_categories": [
+      "category_ids",
+      "envelope_id"
+    ],
+    "list_accounts": [
+      "currency",
+      "ids",
+      "include_archived",
+      "institution",
+      "kind",
+      "query",
+      "type"
+    ],
+    "list_assets": [
+      "category",
+      "include_archived"
+    ],
+    "list_automations": [
+      "limit",
+      "offset",
+      "status"
+    ],
+    "list_budget_engines": [],
+    "list_categories": [
+      "envelope",
+      "include_hidden",
+      "kind",
+      "linked",
+      "search"
+    ],
+    "list_checkpoints": [
+      "limit"
+    ],
+    "list_documents": [
+      "kind",
+      "limit",
+      "offset",
+      "query",
+      "tag",
+      "year"
+    ],
+    "list_envelopes": [
+      "category",
+      "envelope_ids",
+      "group",
+      "has_target",
+      "include_archived",
+      "search"
+    ],
+    "list_grants": [],
+    "list_import_batches": [
+      "status"
+    ],
+    "list_match_decisions": [
+      "limit",
+      "offset"
+    ],
+    "list_match_reviews": [
+      "batch_id",
+      "review_ids"
+    ],
+    "list_mcp_servers": [
+      "enabled_only",
+      "limit",
+      "offset"
+    ],
+    "list_pending_releases": [
+      "grant_id"
+    ],
+    "list_plan_scenarios": [],
+    "list_skills": [
+      "enabled_only",
+      "skill_id"
+    ],
+    "list_statements": [
+      "account_ids",
+      "date_from",
+      "date_to",
+      "imported",
+      "kind",
+      "limit",
+      "meta_status",
+      "offset",
+      "parsed"
+    ],
+    "list_trading_fills": [
+      "limit",
+      "offset"
+    ],
+    "list_trading_orders": [
+      "limit",
+      "offset"
+    ],
+    "list_trading_workspaces": [
+      "limit",
+      "offset"
+    ],
+    "list_watchlists": [],
+    "lunch_flow_fetch_transactions": [
+      "account",
+      "before",
+      "include_booked",
+      "include_pending",
+      "limit",
+      "offset",
+      "since"
+    ],
+    "lunch_flow_get_status": [],
+    "lunch_flow_list_accounts": [],
+    "lunch_money_fetch_transactions": [
+      "account",
+      "before",
+      "include_booked",
+      "include_pending",
+      "limit",
+      "offset",
+      "since"
+    ],
+    "lunch_money_get_status": [],
+    "lunch_money_list_accounts": [],
+    "mark_notifications_read": [
+      "signal_ids"
+    ],
+    "merge_envelopes": [
+      "source_envelope_id",
+      "target_envelope_id"
+    ],
+    "merge_payees": [
+      "merges",
+      "merges.*.source_id",
+      "merges.*.target_id"
+    ],
+    "merge_transactions": [
+      "pairs",
+      "pairs.*.absorbed_id",
+      "pairs.*.become_transfer",
+      "pairs.*.canonical_id",
+      "pairs.*.reason"
+    ],
+    "move_envelopes_to_group": [
+      "envelope_ids",
+      "group_id",
+      "index"
+    ],
+    "move_money": [
+      "moves",
+      "moves.*.amount",
+      "moves.*.from_envelope_id",
+      "moves.*.month",
+      "moves.*.to_envelope_id"
+    ],
+    "open_option": [
+      "account_id",
+      "allow_duplicate",
+      "collateral_account_id",
+      "collateral_amount",
+      "contracts",
+      "expiry",
+      "idempotency_key",
+      "multiplier",
+      "note",
+      "open_date",
+      "option_type",
+      "premium_account_id",
+      "premium_currency",
+      "premium_per_share",
+      "side",
+      "strategy_tag",
+      "strike",
+      "underlying",
+      "underlying_instrument_id"
+    ],
+    "perplexity_fetch_page": [
+      "url"
+    ],
+    "perplexity_search": [
+      "max_results",
+      "query"
+    ],
+    "plaid_fetch_transactions": [
+      "account",
+      "before",
+      "include_booked",
+      "include_pending",
+      "limit",
+      "offset",
+      "since"
+    ],
+    "plaid_get_status": [],
+    "plaid_list_accounts": [],
+    "plaid_reconnect_bank": [
+      "bank"
+    ],
+    "preview_automation": [
+      "automation",
+      "automation.description",
+      "automation.effort",
+      "automation.instructions",
+      "automation.max_runs",
+      "automation.model",
+      "automation.name",
+      "automation.permission_mode",
+      "automation.status",
+      "automation.trigger"
+    ],
+    "preview_trading_workspace": [
+      "environment",
+      "environment.accounts",
+      "environment.accounts.*.book_account_id",
+      "environment.accounts.*.broker_account_id",
+      "environment.accounts.*.capital",
+      "environment.accounts.*.connector_id",
+      "environment.accounts.*.currency",
+      "environment.accounts.*.name",
+      "environment.accounts.*.venue",
+      "environment.agent_version",
+      "environment.base_currency",
+      "environment.data_version",
+      "environment.end_at",
+      "environment.fx_rates",
+      "environment.live_authorized",
+      "environment.mode",
+      "environment.observations",
+      "environment.observations.*.adjustment",
+      "environment.observations.*.available_at",
+      "environment.observations.*.bar_start_at",
+      "environment.observations.*.close",
+      "environment.observations.*.high",
+      "environment.observations.*.instrument",
+      "environment.observations.*.instrument.asset_class",
+      "environment.observations.*.instrument.currency",
+      "environment.observations.*.instrument.symbol",
+      "environment.observations.*.instrument.venue",
+      "environment.observations.*.interval",
+      "environment.observations.*.low",
+      "environment.observations.*.open",
+      "environment.observations.*.price",
+      "environment.observations.*.received_at",
+      "environment.observations.*.source",
+      "environment.observations.*.source_version",
+      "environment.observations.*.timestamp",
+      "environment.observations.*.volume",
+      "environment.start_at",
+      "start",
+      "workspace",
+      "workspace.agent_kind",
+      "workspace.agent_label",
+      "workspace.instructions",
+      "workspace.mandate",
+      "workspace.mandate.allowed_asset_classes",
+      "workspace.mandate.fee_bps",
+      "workspace.mandate.instruments",
+      "workspace.mandate.instruments.*.asset_class",
+      "workspace.mandate.instruments.*.currency",
+      "workspace.mandate.instruments.*.symbol",
+      "workspace.mandate.instruments.*.venue",
+      "workspace.mandate.market_data_source",
+      "workspace.mandate.max_model_cost_usd",
+      "workspace.mandate.max_order_notional",
+      "workspace.mandate.max_participation",
+      "workspace.mandate.max_quote_age_seconds",
+      "workspace.mandate.slippage_bps",
+      "workspace.name",
+      "workspace.strategy_source"
+    ],
+    "read_attachments": [
+      "attachment_ids"
+    ],
+    "read_doc": [
+      "doc_id",
+      "section"
+    ],
+    "read_documents": [
+      "document_ids",
+      "offset"
+    ],
+    "read_past_conversation": [
+      "limit",
+      "offset",
+      "session_id"
+    ],
+    "read_receipts": [
+      "receipt_ids"
+    ],
+    "read_skill_file": [
+      "path",
+      "skill_id"
+    ],
+    "read_trading_files": [
+      "name",
+      "version"
+    ],
+    "recall_memory": [
+      "limit",
+      "query",
+      "topic"
+    ],
+    "reconcile_accounts": [
+      "accounts",
+      "accounts.*.account_id",
+      "accounts.*.against",
+      "accounts.*.date",
+      "accounts.*.real_balance",
+      "dry_run"
+    ],
+    "record_asset_value": [
+      "asset_id",
+      "date",
+      "note",
+      "value"
+    ],
+    "record_income": [
+      "account_id",
+      "amount_per_unit",
+      "currency",
+      "drp_quantity",
+      "drp_unit_cost",
+      "gross_amount",
+      "idempotency_key",
+      "income_kind",
+      "is_drp",
+      "note",
+      "paid_at",
+      "position_id",
+      "quantity",
+      "tax_withheld"
+    ],
+    "record_release": [
+      "note",
+      "release_date",
+      "vest_event_id"
+    ],
+    "record_trading_decision": [
+      "summary",
+      "wake_after_seconds"
+    ],
+    "record_trading_work": [
+      "kind",
+      "payload"
+    ],
+    "record_vest": [
+      "expected_release_date",
+      "fmv_currency",
+      "fmv_per_unit",
+      "grant_id",
+      "idempotency_key",
+      "note",
+      "price_paid_per_unit",
+      "tranche_id",
+      "units",
+      "units_withheld",
+      "vest_date"
+    ],
+    "remember_fact": [
+      "content",
+      "expires_at",
+      "section",
+      "sensitive",
+      "topic",
+      "user_asked"
+    ],
+    "remove_asset_value": [
+      "asset_id",
+      "mark_id"
+    ],
+    "remove_commitment_actions": [
+      "action_ids",
+      "commitment_id"
+    ],
+    "remove_commitment_installments": [
+      "commitment_id",
+      "installment_ids"
+    ],
+    "remove_from_documents": [
+      "artifact_id",
+      "id"
+    ],
+    "remove_funding_sources": [
+      "commitment_id",
+      "funding_ids"
+    ],
+    "remove_news_sources": [
+      "source_ids"
+    ],
+    "remove_payee_aliases": [
+      "aliases",
+      "aliases.*.alias",
+      "aliases.*.payee_id"
+    ],
+    "remove_payee_rules": [
+      "index",
+      "payee_ids",
+      "removals",
+      "removals.*.index",
+      "removals.*.payee_id"
+    ],
+    "remove_positions": [
+      "position_id",
+      "reason",
+      "removals"
+    ],
+    "remove_price_alerts": [
+      "alert_ids"
+    ],
+    "remove_watchlist_items": [
+      "item_ids",
+      "reason",
+      "removes",
+      "removes.*.item_id",
+      "removes.*.reason",
+      "removes.*.watchlist",
+      "watchlist"
+    ],
+    "rename_categories": [
+      "renames",
+      "renames.*.category_id",
+      "renames.*.merge_into",
+      "renames.*.new_label"
+    ],
+    "rename_envelope_groups": [
+      "groups",
+      "groups.*.collapsed",
+      "groups.*.group_id",
+      "groups.*.name"
+    ],
+    "rename_payees": [
+      "renames",
+      "renames.*.new_name",
+      "renames.*.payee_id"
+    ],
+    "reorder_envelope_groups": [
+      "order"
+    ],
+    "reorder_envelopes_in_group": [
+      "envelope_ids",
+      "group_id"
+    ],
+    "request_trading_market_data": [
+      "instruments",
+      "instruments.*.asset_class",
+      "instruments.*.currency",
+      "instruments.*.symbol",
+      "instruments.*.venue"
+    ],
+    "resolve_instruments": [
+      "allow_duplicate_symbol",
+      "asset_class",
+      "asset_subclass",
+      "price_source",
+      "price_source_id",
+      "queries",
+      "queries.*.allow_duplicate_symbol",
+      "queries.*.asset_class",
+      "queries.*.asset_subclass",
+      "queries.*.price_source",
+      "queries.*.price_source_id",
+      "queries.*.query",
+      "queries.*.quote_currency",
+      "queries.*.unit",
+      "query",
+      "quote_currency",
+      "unit"
+    ],
+    "resolve_match_reviews": [
+      "action",
+      "review_ids"
+    ],
+    "restore_checkpoint": [
+      "checkpoint_id",
+      "mode"
+    ],
+    "restore_import_batch": [
+      "batch_id"
+    ],
+    "rollback_import_batch": [
+      "batch_id",
+      "preview"
+    ],
+    "run_automation": [
+      "automation_id"
+    ],
+    "run_code": [
+      "input",
+      "purpose",
+      "source"
+    ],
+    "run_screen_command": [
+      "args",
+      "name"
+    ],
+    "run_script": [
+      "input",
+      "script_id",
+      "skill_id"
+    ],
+    "run_sql_query": [
+      "limit",
+      "sql"
+    ],
+    "run_trading_strategy": [
+      "source"
+    ],
+    "save_code_as_skill": [
+      "description",
+      "filename",
+      "instructions",
+      "language",
+      "name",
+      "script_id",
+      "source"
+    ],
+    "save_to_documents": [
+      "artifact_id",
+      "attachment_id",
+      "private",
+      "title",
+      "year"
+    ],
+    "scan_intel": [],
+    "search_connector_directory": [
+      "category",
+      "query"
+    ],
+    "search_docs": [
+      "category",
+      "limit",
+      "query"
+    ],
+    "search_institutions": [
+      "country",
+      "query"
+    ],
+    "search_past_conversations": [
+      "limit",
+      "query"
+    ],
+    "search_trading_research": [
+      "query"
+    ],
+    "serper_fetch_page": [
+      "url"
+    ],
+    "serper_search": [
+      "max_results",
+      "query"
+    ],
+    "set_categories_color": [
+      "updates",
+      "updates.*.category_id",
+      "updates.*.color"
+    ],
+    "set_categories_hidden": [
+      "category_ids",
+      "hidden"
+    ],
+    "set_commitment_actions": [
+      "actions",
+      "commitment_id"
+    ],
+    "set_commitment_installments": [
+      "commitment_id",
+      "installments"
+    ],
+    "set_connector_enabled": [
+      "connector_id",
+      "enabled"
+    ],
+    "set_envelope_targets": [
+      "targets",
+      "targets.*.amount",
+      "targets.*.date",
+      "targets.*.due_day",
+      "targets.*.due_weekday",
+      "targets.*.envelope_id",
+      "targets.*.needs_whole_amount",
+      "targets.*.snooze_until",
+      "targets.*.type"
+    ],
+    "set_funding_plan": [
+      "commitment_id",
+      "funding_plan"
+    ],
+    "set_home_budget_engine": [
+      "engine_id"
+    ],
+    "set_instrument_constituents": [
+      "constituents",
+      "constituents.*.label",
+      "constituents.*.region",
+      "constituents.*.sector",
+      "constituents.*.weight",
+      "instrument_id"
+    ],
+    "set_investment_theses": [
+      "updates",
+      "updates.*.breaks_if",
+      "updates.*.buy_above",
+      "updates.*.buy_below",
+      "updates.*.clear",
+      "updates.*.fair_value",
+      "updates.*.reason",
+      "updates.*.role",
+      "updates.*.stop_below",
+      "updates.*.ticker",
+      "updates.*.trim_above"
+    ],
+    "set_news_sources_enabled": [
+      "enabled",
+      "source_ids",
+      "updates",
+      "updates.*.enabled",
+      "updates.*.source_id"
+    ],
+    "set_payees_autocategorize": [
+      "autocategorize",
+      "payee_ids",
+      "updates",
+      "updates.*.autocategorize",
+      "updates.*.payee_id"
+    ],
+    "set_payees_default_category": [
+      "category",
+      "kind",
+      "payee_ids",
+      "updates",
+      "updates.*.category",
+      "updates.*.kind",
+      "updates.*.payee_id"
+    ],
+    "set_payees_hidden": [
+      "hidden",
+      "payee_ids",
+      "updates",
+      "updates.*.hidden",
+      "updates.*.payee_id"
+    ],
+    "set_payees_rules": [
+      "payee_ids",
+      "rules",
+      "rules.*.match_type",
+      "rules.*.value",
+      "updates",
+      "updates.*.payee_id",
+      "updates.*.rules",
+      "updates.*.rules.*.match_type",
+      "updates.*.rules.*.value"
+    ],
+    "set_plan_baseline": [
+      "baseline",
+      "baseline.events",
+      "baseline.events.*.age",
+      "baseline.events.*.amount",
+      "baseline.events.*.label",
+      "baseline.lifeExp",
+      "baseline.monthlyRetirementSpending",
+      "baseline.ret",
+      "baseline.retireAge",
+      "baseline.saving",
+      "baseline.streams",
+      "baseline.streams.*.age",
+      "baseline.streams.*.amount",
+      "baseline.streams.*.endAge",
+      "baseline.streams.*.label",
+      "baseline.swr",
+      "baseline.vol"
+    ],
+    "set_price_alerts": [
+      "alerts",
+      "alerts.*.asset_class",
+      "alerts.*.channels",
+      "alerts.*.kind",
+      "alerts.*.label",
+      "alerts.*.name",
+      "alerts.*.note",
+      "alerts.*.op",
+      "alerts.*.ticker",
+      "alerts.*.value"
+    ],
+    "set_provider_credentials": [
+      "api_key",
+      "provider_key"
+    ],
+    "set_recurring_status": [
+      "key",
+      "note",
+      "status"
+    ],
+    "set_transactions_cleared": [
+      "cleared",
+      "txn_ids"
+    ],
+    "show_guide": [
+      "guide"
+    ],
+    "simplefin_fetch_transactions": [
+      "account",
+      "before",
+      "include_booked",
+      "include_pending",
+      "limit",
+      "offset",
+      "since"
+    ],
+    "simplefin_get_status": [],
+    "simplefin_list_accounts": [],
+    "simulate_cashflow": [
+      "expense_growth_pct",
+      "expense_override",
+      "include_commitments",
+      "include_fixed_deposits",
+      "include_investments",
+      "income_growth_pct",
+      "income_override",
+      "months"
+    ],
+    "simulate_retirement": [
+      "crash",
+      "events",
+      "events.*.age",
+      "events.*.amount",
+      "events.*.label",
+      "highInfl",
+      "lifeExp",
+      "lostDec",
+      "monthlyRetirementSpending",
+      "ret",
+      "retireAge",
+      "saving",
+      "startNW",
+      "streams",
+      "streams.*.age",
+      "streams.*.amount",
+      "streams.*.endAge",
+      "streams.*.label",
+      "swr",
+      "vol",
+      "weakSeq"
+    ],
+    "submit_trading_order": [
+      "account_id",
+      "decision_id",
+      "instrument",
+      "instrument.asset_class",
+      "instrument.currency",
+      "instrument.symbol",
+      "instrument.venue",
+      "limit_price",
+      "order_type",
+      "quantity",
+      "request_id",
+      "side",
+      "time_in_force"
+    ],
+    "swap_review_canonical": [
+      "new_canonical_id",
+      "review_id"
+    ],
+    "tavily_fetch_page": [
+      "url"
+    ],
+    "tavily_search": [
+      "max_results",
+      "query"
+    ],
+    "telegram_send_message": [
+      "artifact_id",
+      "message",
+      "title"
+    ],
+    "trace_transactions": [
+      "transaction_ids"
+    ],
+    "undo_lot_disposals": [
+      "event_id",
+      "event_ids"
+    ],
+    "undo_vest": [
+      "vest_event_id"
+    ],
+    "unlink_categories": [
+      "category_ids",
+      "envelope_id"
+    ],
+    "unlink_receipt": [
+      "receipt_id",
+      "transaction_id"
+    ],
+    "update_accounts": [
+      "updates",
+      "updates.*.account_id",
+      "updates.*.apr",
+      "updates.*.apy",
+      "updates.*.archived",
+      "updates.*.credit_limit",
+      "updates.*.external_ids",
+      "updates.*.external_ids.*.institution",
+      "updates.*.external_ids.*.mask",
+      "updates.*.external_ids.*.name",
+      "updates.*.external_ids.*.ref",
+      "updates.*.external_ids.*.source",
+      "updates.*.initial_balance",
+      "updates.*.initial_balance_date",
+      "updates.*.institution",
+      "updates.*.last_four",
+      "updates.*.min_payment",
+      "updates.*.name",
+      "updates.*.note",
+      "updates.*.payment_due_day",
+      "updates.*.payoff_date",
+      "updates.*.principal",
+      "updates.*.statement_close_day"
+    ],
+    "update_action_status": [
+      "action_id",
+      "status"
+    ],
+    "update_asset": [
+      "asset_id",
+      "category",
+      "cost",
+      "cost_date",
+      "description",
+      "facts",
+      "insured",
+      "loan_account_id",
+      "maturity_date",
+      "name",
+      "notes",
+      "share_note",
+      "share_pct"
+    ],
+    "update_automations": [
+      "updates",
+      "updates.*.description",
+      "updates.*.effort",
+      "updates.*.id",
+      "updates.*.instructions",
+      "updates.*.max_runs",
+      "updates.*.model",
+      "updates.*.name",
+      "updates.*.permission_mode",
+      "updates.*.status",
+      "updates.*.trigger"
+    ],
+    "update_commitment_actions": [
+      "updates",
+      "updates.*.action_id",
+      "updates.*.changes",
+      "updates.*.commitment_id"
+    ],
+    "update_commitment_installments": [
+      "updates",
+      "updates.*.changes",
+      "updates.*.commitment_id",
+      "updates.*.installment_id"
+    ],
+    "update_commitments": [
+      "updates",
+      "updates.*.commitment_id",
+      "updates.*.currency",
+      "updates.*.kind",
+      "updates.*.linked_account_id",
+      "updates.*.linked_position_id",
+      "updates.*.name",
+      "updates.*.note",
+      "updates.*.status"
+    ],
+    "update_envelopes": [
+      "updates",
+      "updates.*.color",
+      "updates.*.envelope_id",
+      "updates.*.name",
+      "updates.*.note"
+    ],
+    "update_funding_source": [
+      "changes",
+      "commitment_id",
+      "funding_id"
+    ],
+    "update_goal": [
+      "category",
+      "currency",
+      "current_amount",
+      "goal_id",
+      "linked_account_ids",
+      "name",
+      "note",
+      "priority",
+      "status",
+      "target_amount",
+      "target_date"
+    ],
+    "update_grant": [
+      "account_id",
+      "account_name",
+      "create_new_account",
+      "currency",
+      "grant_date",
+      "grant_id",
+      "grant_price_per_unit",
+      "note",
+      "release_required",
+      "tax_event",
+      "tranches",
+      "tranches.*.condition_note",
+      "tranches.*.id",
+      "tranches.*.kind",
+      "tranches.*.units",
+      "tranches.*.vest_date"
+    ],
+    "update_instruments": [
+      "updates",
+      "updates.*.asset_class",
+      "updates.*.asset_subclass",
+      "updates.*.bond_terms",
+      "updates.*.bond_terms.coupon_freq_months",
+      "updates.*.bond_terms.coupon_rate_annual",
+      "updates.*.bond_terms.face_value",
+      "updates.*.bond_terms.issue_date",
+      "updates.*.bond_terms.issue_price",
+      "updates.*.bond_terms.maturity_date",
+      "updates.*.bond_terms.subtype",
+      "updates.*.dividend_rate_annual",
+      "updates.*.instrument_id",
+      "updates.*.manual_price",
+      "updates.*.name",
+      "updates.*.note",
+      "updates.*.precision",
+      "updates.*.price_source",
+      "updates.*.price_source_id",
+      "updates.*.quote_currency",
+      "updates.*.sector",
+      "updates.*.symbol",
+      "updates.*.unit"
+    ],
+    "update_lots": [
+      "reason",
+      "updates",
+      "updates.*.acquired_at",
+      "updates.*.cost_currency",
+      "updates.*.fees",
+      "updates.*.kind",
+      "updates.*.lot_id",
+      "updates.*.note",
+      "updates.*.quantity",
+      "updates.*.unit_cost"
+    ],
+    "update_model_config": [
+      "api_key",
+      "model",
+      "provider"
+    ],
+    "update_monitoring_config": [
+      "ai_opinion_level",
+      "crash_thresholds",
+      "crash_thresholds.commodity",
+      "crash_thresholds.crypto",
+      "crash_thresholds.equity",
+      "delivery_instructions",
+      "enabled",
+      "explained_alerts_enabled",
+      "holdings_brief_verbosity",
+      "news_freshness",
+      "news_scan_interval_hours",
+      "notify_routes",
+      "price_check_interval_minutes",
+      "search_budget",
+      "spike_factor",
+      "spike_min_abs",
+      "watch_reads_enabled",
+      "watch_reads_per_day",
+      "watchlist_brief_verbosity",
+      "web_search_enabled"
+    ],
+    "update_option": [
+      "collateral_account_id",
+      "collateral_amount",
+      "contract_id",
+      "note",
+      "open_date",
+      "strategy_tag"
+    ],
+    "update_plan_scenario": [
+      "events",
+      "events.*.age",
+      "events.*.amount",
+      "events.*.label",
+      "lifeExp",
+      "monthlyRetirementSpending",
+      "name",
+      "ret",
+      "retireAge",
+      "saving",
+      "scenario_id",
+      "streams",
+      "streams.*.age",
+      "streams.*.amount",
+      "streams.*.endAge",
+      "streams.*.label",
+      "swr",
+      "vol"
+    ],
+    "update_positions": [
+      "reason",
+      "updates",
+      "updates.*.changes",
+      "updates.*.position_id"
+    ],
+    "update_price_alerts": [
+      "alert_ids",
+      "channels",
+      "kind",
+      "label",
+      "name",
+      "note",
+      "op",
+      "updates",
+      "updates.*.alert_id",
+      "updates.*.channels",
+      "updates.*.kind",
+      "updates.*.label",
+      "updates.*.name",
+      "updates.*.note",
+      "updates.*.op",
+      "updates.*.value",
+      "value"
+    ],
+    "update_profile": [
+      "changes",
+      "changes.base_currency",
+      "changes.briefing_preferences",
+      "changes.cashflow_low_balance_threshold",
+      "changes.countries_of_residence",
+      "changes.date_of_birth",
+      "changes.employment_types",
+      "changes.fire_expected_return_pct",
+      "changes.fire_life_expectancy",
+      "changes.fire_monthly_retirement_spending",
+      "changes.fire_volatility_pct",
+      "changes.fire_withdrawal_rate_pct",
+      "changes.import_review_default",
+      "changes.liabilities",
+      "changes.liabilities.*.balance",
+      "changes.liabilities.*.monthly_payment",
+      "changes.liabilities.*.name",
+      "changes.liabilities.*.rate_pct",
+      "changes.marital_status",
+      "changes.monthly_expenses",
+      "changes.monthly_net_income",
+      "changes.monthly_saving",
+      "changes.name",
+      "changes.nationalities",
+      "changes.nickname",
+      "changes.notes",
+      "changes.retirement_target_age",
+      "changes.risk_tolerance",
+      "changes.target_allocation",
+      "changes.tax_residencies",
+      "reason"
+    ],
+    "update_run_task": [
+      "status",
+      "task_id"
+    ],
+    "update_skill": [
+      "changes",
+      "skill_id"
+    ],
+    "update_transactions": [
+      "updates",
+      "updates.*.category",
+      "updates.*.cleared",
+      "updates.*.date",
+      "updates.*.description",
+      "updates.*.external_refs",
+      "updates.*.external_refs.*.ref",
+      "updates.*.external_refs.*.source",
+      "updates.*.from_account_id",
+      "updates.*.from_amount",
+      "updates.*.from_currency",
+      "updates.*.kind",
+      "updates.*.memo",
+      "updates.*.needs_review",
+      "updates.*.original_amount",
+      "updates.*.original_currency",
+      "updates.*.payee_id",
+      "updates.*.splits",
+      "updates.*.splits.*.amount",
+      "updates.*.splits.*.category",
+      "updates.*.splits.*.memo",
+      "updates.*.tags",
+      "updates.*.to_account_id",
+      "updates.*.to_amount",
+      "updates.*.to_currency",
+      "updates.*.transaction_id"
+    ],
+    "update_watchlist_items": [
+      "custom_feed_urls",
+      "intent",
+      "intent.buy_above",
+      "intent.buy_below",
+      "intent.fair_value",
+      "intent.thesis",
+      "item_ids",
+      "label",
+      "linked_tickers",
+      "monitor_news",
+      "note",
+      "search_queries",
+      "updates",
+      "updates.*.custom_feed_urls",
+      "updates.*.intent",
+      "updates.*.intent.buy_above",
+      "updates.*.intent.buy_below",
+      "updates.*.intent.fair_value",
+      "updates.*.intent.thesis",
+      "updates.*.item_id",
+      "updates.*.label",
+      "updates.*.linked_tickers",
+      "updates.*.monitor_news",
+      "updates.*.note",
+      "updates.*.search_queries"
+    ],
+    "update_watchlists": [
+      "updates",
+      "updates.*.description",
+      "updates.*.is_auto_sync",
+      "updates.*.name",
+      "updates.*.order",
+      "updates.*.watchlist_id"
+    ],
+    "verify_statement_balance": [
+      "account_id",
+      "batch_id",
+      "closing_balance",
+      "date_from",
+      "date_to",
+      "opening_balance"
+    ],
+    "web_search": [
+      "max_results",
+      "query"
+    ],
+    "webhook_send_message": [
+      "message",
+      "title"
+    ],
+    "write_trading_file": [
+      "content",
+      "name"
+    ],
+    "x_search": [
+      "max_results",
+      "query"
+    ],
+    "yahoo_get_price_history": [
+      "ticker",
+      "timeframe"
+    ],
+    "yahoo_get_ticker_prices": [
+      "tickers"
+    ],
+    "ynab_fetch_transactions": [
+      "account",
+      "before",
+      "include_booked",
+      "include_pending",
+      "limit",
+      "offset",
+      "plan_id",
+      "since"
+    ],
+    "ynab_get_plan": [
+      "include_hidden",
+      "month",
+      "plan_id"
+    ],
+    "ynab_get_status": [],
+    "ynab_list_accounts": [
+      "plan_id"
+    ],
+    "ynab_list_plans": [],
+    "yodlee_fetch_transactions": [
+      "account",
+      "before",
+      "include_booked",
+      "include_pending",
+      "limit",
+      "offset",
+      "since"
+    ],
+    "yodlee_get_status": [],
+    "yodlee_list_accounts": []
+  },
+  "enums": {
+    "add_news_sources": {
+      "sources.*.cadence": [
+        "fast",
+        "hot",
+        "slow"
+      ]
+    },
+    "add_payee_rules": {
+      "rules.*.match_type": [
+        "contains",
+        "is",
+        "regex"
+      ]
+    },
+    "add_positions": {
+      "adds.*.account_type": [
+        "cash",
+        "credit",
+        "fixed_deposit",
+        "investment",
+        "loan",
+        "receivable",
+        "retirement"
+      ]
+    },
+    "add_transactions": {
+      "decisions.*.action": [
+        "create",
+        "link",
+        "skip"
+      ],
+      "transactions.*.direction": [
+        "credit",
+        "debit"
+      ],
+      "transactions.*.external_refs.*.source": [
+        "email"
+      ]
+    },
+    "add_watchlist_items": {
+      "items.*.type": [
+        "company",
+        "ticker",
+        "topic"
+      ]
+    },
+    "auto_assign": {
+      "mode": [
+        "assigned_last_month",
+        "average_assigned",
+        "average_spent",
+        "cover_overspending",
+        "reset_assigned",
+        "spent_last_month",
+        "underfunded"
+      ]
+    },
+    "check_duplicates": {
+      "transactions.*.direction": [
+        "credit",
+        "debit"
+      ],
+      "transactions.*.external_refs.*.source": [
+        "email"
+      ]
+    },
+    "coingecko_get_price_history": {
+      "timeframe": [
+        "1D",
+        "1M",
+        "1Y",
+        "5D",
+        "5Y",
+        "6M",
+        "MAX",
+        "YTD"
+      ]
+    },
+    "create_account": {
+      "type": [
+        "cash",
+        "credit",
+        "fixed_deposit",
+        "investment",
+        "loan",
+        "receivable",
+        "retirement"
+      ]
+    },
+    "create_artifact": {
+      "artifact_type": [
+        "csv",
+        "html",
+        "pdf",
+        "svg",
+        "xlsx"
+      ]
+    },
+    "create_automation": {
+      "effort": [
+        "high",
+        "low",
+        "max",
+        "medium",
+        "ultra",
+        "xhigh"
+      ],
+      "permission_mode": [
+        "auto",
+        "manual",
+        "skip"
+      ],
+      "status": [
+        "active",
+        "paused"
+      ]
+    },
+    "create_categories": {
+      "categories.*.kind": [
+        "adjustment",
+        "expense",
+        "income",
+        "investment",
+        "transfer"
+      ]
+    },
+    "create_grant": {
+      "grant_type": [
+        "ltip",
+        "rsu"
+      ],
+      "tax_event": [
+        "at_vest",
+        "deferred"
+      ],
+      "tranches.*.kind": [
+        "performance",
+        "time"
+      ]
+    },
+    "delete_transactions_where": {
+      "kind": [
+        "adjustment",
+        "expense",
+        "income",
+        "investment",
+        "transfer"
+      ]
+    },
+    "get_connector_tools": {
+      "group": [
+        "read",
+        "write"
+      ]
+    },
+    "get_forecast_scorecard": {
+      "window": [
+        "1M",
+        "1Y",
+        "3M",
+        "6M"
+      ]
+    },
+    "get_intel_digest": {
+      "period": [
+        "1M",
+        "1Y",
+        "3M",
+        "ALL",
+        "YTD"
+      ]
+    },
+    "get_net_worth_history": {
+      "period": [
+        "1M",
+        "1Y",
+        "3M",
+        "ALL",
+        "YTD"
+      ]
+    },
+    "get_notifications": {
+      "type": [
+        "macro",
+        "news",
+        "notification",
+        "opportunity"
+      ]
+    },
+    "get_rebalance_plan": {
+      "mode": [
+        "cash_only",
+        "sell_to_target"
+      ]
+    },
+    "get_recent_logs": {
+      "level": [
+        "CRITICAL",
+        "DEBUG",
+        "ERROR",
+        "INFO",
+        "WARNING"
+      ]
+    },
+    "get_recurring_streams": {
+      "direction": [
+        "in",
+        "out"
+      ]
+    },
+    "get_report": {
+      "period": [
+        "1M",
+        "1Y",
+        "3M",
+        "ALL",
+        "YTD"
+      ],
+      "type": [
+        "budget_vs_actual",
+        "cash_flow_statement",
+        "net_worth_statement",
+        "realized_income",
+        "spending_summary"
+      ]
+    },
+    "get_returns": {
+      "period": [
+        "1M",
+        "1Y",
+        "3M",
+        "7D",
+        "ALL",
+        "YTD"
+      ]
+    },
+    "get_spending_breakdown": {
+      "period": [
+        "month",
+        "week"
+      ]
+    },
+    "get_transactions": {
+      "q_field": [
+        "any",
+        "category",
+        "description",
+        "memo",
+        "payee"
+      ],
+      "transaction_types": [
+        "adjustment",
+        "expense",
+        "income",
+        "investment",
+        "transfer"
+      ],
+      "transaction_types.*": [
+        "adjustment",
+        "expense",
+        "income",
+        "investment",
+        "transfer"
+      ]
+    },
+    "get_watchlist": {
+      "type": [
+        "company",
+        "ticker",
+        "topic"
+      ]
+    },
+    "import_transactions": {
+      "default_action": [
+        "create",
+        "skip"
+      ],
+      "format": [
+        "auto",
+        "camt",
+        "csv",
+        "mt940",
+        "ofx",
+        "pdf",
+        "qfx",
+        "qif",
+        "xlsx"
+      ]
+    },
+    "list_accounts": {
+      "kind": [
+        "asset",
+        "liability"
+      ]
+    },
+    "list_automations": {
+      "status": [
+        "active",
+        "completed",
+        "paused"
+      ]
+    },
+    "list_documents": {
+      "kind": [
+        "artifact",
+        "asset",
+        "file",
+        "receipt",
+        "statement"
+      ]
+    },
+    "list_import_batches": {
+      "status": [
+        "active",
+        "rolled_back"
+      ]
+    },
+    "list_statements": {
+      "kind": [
+        "image",
+        "pdf_pages",
+        "text"
+      ],
+      "meta_status": [
+        "available",
+        "unavailable",
+        "unknown"
+      ]
+    },
+    "open_option": {
+      "option_type": [
+        "call",
+        "put"
+      ],
+      "side": [
+        "long",
+        "short"
+      ]
+    },
+    "preview_automation": {
+      "automation.effort": [
+        "high",
+        "low",
+        "max",
+        "medium",
+        "ultra",
+        "xhigh"
+      ],
+      "automation.permission_mode": [
+        "auto",
+        "manual",
+        "skip"
+      ],
+      "automation.status": [
+        "active",
+        "paused"
+      ]
+    },
+    "preview_trading_workspace": {
+      "environment.mode": [
+        "backtest",
+        "live",
+        "paper"
+      ],
+      "environment.observations.*.instrument.asset_class": [
+        "crypto",
+        "stock"
+      ],
+      "workspace.mandate.allowed_asset_classes.*": [
+        "crypto",
+        "stock"
+      ],
+      "workspace.mandate.instruments.*.asset_class": [
+        "crypto",
+        "stock"
+      ],
+      "workspace.mandate.market_data_source": [
+        "supplied",
+        "yahoo"
+      ]
+    },
+    "reconcile_accounts": {
+      "accounts.*.against": [
+        "cleared",
+        "working"
+      ]
+    },
+    "record_income": {
+      "income_kind": [
+        "distribution",
+        "dividend",
+        "interest"
+      ]
+    },
+    "record_trading_work": {
+      "kind": [
+        "actor",
+        "analysis",
+        "error",
+        "input",
+        "native_event",
+        "output",
+        "reasoning",
+        "tool_call",
+        "tool_result",
+        "wait"
+      ]
+    },
+    "remember_fact": {
+      "section": [
+        "money",
+        "open_items",
+        "other",
+        "plans",
+        "you"
+      ]
+    },
+    "request_trading_market_data": {
+      "instruments.*.asset_class": [
+        "crypto",
+        "stock"
+      ]
+    },
+    "resolve_match_reviews": {
+      "action": [
+        "accept",
+        "dismiss"
+      ]
+    },
+    "restore_checkpoint": {
+      "mode": [
+        "both",
+        "conversation",
+        "data"
+      ]
+    },
+    "save_code_as_skill": {
+      "language": [
+        "bash",
+        "node",
+        "python"
+      ]
+    },
+    "set_envelope_targets": {
+      "targets.*.type": [
+        "",
+        "by_date",
+        "monthly",
+        "weekly",
+        "yearly"
+      ]
+    },
+    "set_investment_theses": {
+      "updates.*.role": [
+        "core",
+        "satellite",
+        "speculative"
+      ]
+    },
+    "set_payees_default_category": {
+      "kind": [
+        "expense",
+        "income",
+        "investment",
+        "transfer"
+      ],
+      "updates.*.kind": [
+        "expense",
+        "income",
+        "investment",
+        "transfer"
+      ]
+    },
+    "set_payees_rules": {
+      "rules.*.match_type": [
+        "contains",
+        "is",
+        "regex"
+      ],
+      "updates.*.rules.*.match_type": [
+        "contains",
+        "is",
+        "regex"
+      ]
+    },
+    "set_price_alerts": {
+      "alerts.*.kind": [
+        "move",
+        "price"
+      ],
+      "alerts.*.op": [
+        "<",
+        "<=",
+        ">",
+        ">="
+      ]
+    },
+    "set_recurring_status": {
+      "status": [
+        "confirm",
+        "dismiss",
+        "reset"
+      ]
+    },
+    "show_guide": {
+      "guide": [
+        "attach",
+        "lucius_tour"
+      ]
+    },
+    "submit_trading_order": {
+      "instrument.asset_class": [
+        "crypto",
+        "stock"
+      ],
+      "order_type": [
+        "limit",
+        "market"
+      ],
+      "side": [
+        "buy",
+        "sell"
+      ],
+      "time_in_force": [
+        "day",
+        "gtc"
+      ]
+    },
+    "update_action_status": {
+      "status": [
+        "Done",
+        "Not Started"
+      ]
+    },
+    "update_automations": {
+      "updates.*.effort": [
+        "high",
+        "low",
+        "max",
+        "medium",
+        "ultra",
+        "xhigh"
+      ],
+      "updates.*.permission_mode": [
+        "auto",
+        "manual",
+        "skip"
+      ],
+      "updates.*.status": [
+        "active",
+        "paused"
+      ]
+    },
+    "update_commitments": {
+      "updates.*.status": [
+        "active",
+        "cancelled",
+        "completed"
+      ]
+    },
+    "update_goal": {
+      "status": [
+        "active",
+        "cancelled",
+        "completed"
+      ]
+    },
+    "update_grant": {
+      "tax_event": [
+        "at_vest",
+        "deferred"
+      ],
+      "tranches.*.kind": [
+        "performance",
+        "time"
+      ]
+    },
+    "update_instruments": {
+      "updates.*.asset_class": [
+        "bond",
+        "cash",
+        "commodity",
+        "crypto",
+        "equity",
+        "property"
+      ],
+      "updates.*.asset_subclass": [
+        "coin",
+        "etc",
+        "etf",
+        "etp",
+        "future",
+        "mutual_fund",
+        "physical",
+        "reit",
+        "stock"
+      ],
+      "updates.*.bond_terms.subtype": [
+        "",
+        "etf",
+        "fd",
+        "market",
+        "ssb",
+        "tbill"
+      ],
+      "updates.*.price_source": [
+        "coingecko",
+        "manual",
+        "yahoo"
+      ]
+    },
+    "update_lots": {
+      "updates.*.kind": [
+        "buy",
+        "drp",
+        "opening",
+        "transfer_in"
+      ]
+    },
+    "update_model_config": {
+      "provider": [
+        "anthropic",
+        "openai_compatible"
+      ]
+    },
+    "update_monitoring_config": {
+      "ai_opinion_level": [
+        "information",
+        "lean",
+        "suggest"
+      ],
+      "news_freshness": [
+        "balanced",
+        "fast",
+        "off"
+      ]
+    },
+    "update_price_alerts": {
+      "kind": [
+        "move",
+        "price"
+      ],
+      "op": [
+        "<",
+        "<=",
+        ">",
+        ">="
+      ],
+      "updates.*.kind": [
+        "move",
+        "price"
+      ],
+      "updates.*.op": [
+        "<",
+        "<=",
+        ">",
+        ">="
+      ]
+    },
+    "update_profile": {
+      "changes.base_currency": [
+        "AED",
+        "AFN",
+        "ALL",
+        "AMD",
+        "ANG",
+        "AOA",
+        "ARS",
+        "AUD",
+        "AWG",
+        "AZN",
+        "BAM",
+        "BBD",
+        "BDT",
+        "BGN",
+        "BHD",
+        "BIF",
+        "BMD",
+        "BND",
+        "BOB",
+        "BRL",
+        "BSD",
+        "BTN",
+        "BWP",
+        "BYN",
+        "BZD",
+        "CAD",
+        "CDF",
+        "CHF",
+        "CLP",
+        "CNY",
+        "COP",
+        "CRC",
+        "CUC",
+        "CUP",
+        "CVE",
+        "CZK",
+        "DJF",
+        "DKK",
+        "DOP",
+        "DZD",
+        "EGP",
+        "ERN",
+        "ETB",
+        "EUR",
+        "FJD",
+        "FKP",
+        "GBP",
+        "GEL",
+        "GHS",
+        "GIP",
+        "GMD",
+        "GNF",
+        "GTQ",
+        "GYD",
+        "HKD",
+        "HNL",
+        "HRK",
+        "HTG",
+        "HUF",
+        "IDR",
+        "ILS",
+        "INR",
+        "IQD",
+        "IRR",
+        "ISK",
+        "JMD",
+        "JOD",
+        "JPY",
+        "KES",
+        "KGS",
+        "KHR",
+        "KMF",
+        "KPW",
+        "KRW",
+        "KWD",
+        "KYD",
+        "KZT",
+        "LAK",
+        "LBP",
+        "LKR",
+        "LRD",
+        "LSL",
+        "LYD",
+        "MAD",
+        "MDL",
+        "MGA",
+        "MKD",
+        "MMK",
+        "MNT",
+        "MOP",
+        "MRU",
+        "MUR",
+        "MVR",
+        "MWK",
+        "MXN",
+        "MYR",
+        "MZN",
+        "NAD",
+        "NGN",
+        "NIO",
+        "NOK",
+        "NPR",
+        "NZD",
+        "OMR",
+        "PAB",
+        "PEN",
+        "PGK",
+        "PHP",
+        "PKR",
+        "PLN",
+        "PYG",
+        "QAR",
+        "RON",
+        "RSD",
+        "RUB",
+        "RWF",
+        "SAR",
+        "SBD",
+        "SCR",
+        "SDG",
+        "SEK",
+        "SGD",
+        "SHP",
+        "SLE",
+        "SLL",
+        "SOS",
+        "SRD",
+        "SSP",
+        "STN",
+        "SVC",
+        "SYP",
+        "SZL",
+        "THB",
+        "TJS",
+        "TMT",
+        "TND",
+        "TOP",
+        "TRY",
+        "TTD",
+        "TWD",
+        "TZS",
+        "UAH",
+        "UGX",
+        "USD",
+        "UYU",
+        "UZS",
+        "VES",
+        "VND",
+        "VUV",
+        "WST",
+        "XAF",
+        "XCD",
+        "XCG",
+        "XDR",
+        "XOF",
+        "XPF",
+        "XSU",
+        "YER",
+        "ZAR",
+        "ZMW",
+        "ZWG",
+        "ZWL"
+      ],
+      "changes.countries_of_residence.*": [
+        "AD",
+        "AE",
+        "AF",
+        "AG",
+        "AL",
+        "AM",
+        "AO",
+        "AR",
+        "AT",
+        "AU",
+        "AZ",
+        "BA",
+        "BB",
+        "BD",
+        "BE",
+        "BF",
+        "BG",
+        "BH",
+        "BI",
+        "BJ",
+        "BN",
+        "BO",
+        "BR",
+        "BS",
+        "BT",
+        "BW",
+        "BY",
+        "BZ",
+        "CA",
+        "CD",
+        "CF",
+        "CG",
+        "CH",
+        "CI",
+        "CL",
+        "CM",
+        "CN",
+        "CO",
+        "CR",
+        "CU",
+        "CV",
+        "CW",
+        "CY",
+        "CZ",
+        "DE",
+        "DJ",
+        "DK",
+        "DM",
+        "DO",
+        "DZ",
+        "EC",
+        "EE",
+        "EG",
+        "ER",
+        "ES",
+        "ET",
+        "FI",
+        "FJ",
+        "FM",
+        "FR",
+        "GA",
+        "GB",
+        "GD",
+        "GE",
+        "GH",
+        "GM",
+        "GN",
+        "GQ",
+        "GR",
+        "GT",
+        "GW",
+        "GY",
+        "HK",
+        "HN",
+        "HR",
+        "HT",
+        "HU",
+        "ID",
+        "IE",
+        "IL",
+        "IN",
+        "IQ",
+        "IR",
+        "IS",
+        "IT",
+        "JM",
+        "JO",
+        "JP",
+        "KE",
+        "KG",
+        "KH",
+        "KI",
+        "KM",
+        "KN",
+        "KP",
+        "KR",
+        "KW",
+        "KZ",
+        "LA",
+        "LB",
+        "LC",
+        "LI",
+        "LK",
+        "LR",
+        "LS",
+        "LT",
+        "LU",
+        "LV",
+        "LY",
+        "MA",
+        "MC",
+        "MD",
+        "ME",
+        "MG",
+        "MH",
+        "MK",
+        "ML",
+        "MM",
+        "MN",
+        "MO",
+        "MR",
+        "MT",
+        "MU",
+        "MV",
+        "MW",
+        "MX",
+        "MY",
+        "MZ",
+        "NA",
+        "NE",
+        "NG",
+        "NI",
+        "NL",
+        "NO",
+        "NP",
+        "NR",
+        "NZ",
+        "OM",
+        "PA",
+        "PE",
+        "PG",
+        "PH",
+        "PK",
+        "PL",
+        "PS",
+        "PT",
+        "PW",
+        "PY",
+        "QA",
+        "RO",
+        "RS",
+        "RU",
+        "RW",
+        "SA",
+        "SB",
+        "SC",
+        "SD",
+        "SE",
+        "SG",
+        "SI",
+        "SK",
+        "SL",
+        "SM",
+        "SN",
+        "SO",
+        "SR",
+        "SS",
+        "ST",
+        "SV",
+        "SY",
+        "SZ",
+        "TD",
+        "TG",
+        "TH",
+        "TJ",
+        "TL",
+        "TM",
+        "TN",
+        "TO",
+        "TR",
+        "TT",
+        "TV",
+        "TW",
+        "TZ",
+        "UA",
+        "UG",
+        "US",
+        "UY",
+        "UZ",
+        "VA",
+        "VC",
+        "VE",
+        "VN",
+        "VU",
+        "WS",
+        "XK",
+        "YE",
+        "ZA",
+        "ZM",
+        "ZW"
+      ],
+      "changes.employment_types.*": [
+        "business_owner",
+        "retired",
+        "salaried",
+        "self_employed",
+        "student"
+      ],
+      "changes.import_review_default": [
+        "merge",
+        "skip"
+      ],
+      "changes.marital_status": [
+        "divorced",
+        "married",
+        "single",
+        "widowed"
+      ],
+      "changes.nationalities.*": [
+        "AD",
+        "AE",
+        "AF",
+        "AG",
+        "AL",
+        "AM",
+        "AO",
+        "AR",
+        "AT",
+        "AU",
+        "AZ",
+        "BA",
+        "BB",
+        "BD",
+        "BE",
+        "BF",
+        "BG",
+        "BH",
+        "BI",
+        "BJ",
+        "BN",
+        "BO",
+        "BR",
+        "BS",
+        "BT",
+        "BW",
+        "BY",
+        "BZ",
+        "CA",
+        "CD",
+        "CF",
+        "CG",
+        "CH",
+        "CI",
+        "CL",
+        "CM",
+        "CN",
+        "CO",
+        "CR",
+        "CU",
+        "CV",
+        "CW",
+        "CY",
+        "CZ",
+        "DE",
+        "DJ",
+        "DK",
+        "DM",
+        "DO",
+        "DZ",
+        "EC",
+        "EE",
+        "EG",
+        "ER",
+        "ES",
+        "ET",
+        "FI",
+        "FJ",
+        "FM",
+        "FR",
+        "GA",
+        "GB",
+        "GD",
+        "GE",
+        "GH",
+        "GM",
+        "GN",
+        "GQ",
+        "GR",
+        "GT",
+        "GW",
+        "GY",
+        "HK",
+        "HN",
+        "HR",
+        "HT",
+        "HU",
+        "ID",
+        "IE",
+        "IL",
+        "IN",
+        "IQ",
+        "IR",
+        "IS",
+        "IT",
+        "JM",
+        "JO",
+        "JP",
+        "KE",
+        "KG",
+        "KH",
+        "KI",
+        "KM",
+        "KN",
+        "KP",
+        "KR",
+        "KW",
+        "KZ",
+        "LA",
+        "LB",
+        "LC",
+        "LI",
+        "LK",
+        "LR",
+        "LS",
+        "LT",
+        "LU",
+        "LV",
+        "LY",
+        "MA",
+        "MC",
+        "MD",
+        "ME",
+        "MG",
+        "MH",
+        "MK",
+        "ML",
+        "MM",
+        "MN",
+        "MO",
+        "MR",
+        "MT",
+        "MU",
+        "MV",
+        "MW",
+        "MX",
+        "MY",
+        "MZ",
+        "NA",
+        "NE",
+        "NG",
+        "NI",
+        "NL",
+        "NO",
+        "NP",
+        "NR",
+        "NZ",
+        "OM",
+        "PA",
+        "PE",
+        "PG",
+        "PH",
+        "PK",
+        "PL",
+        "PS",
+        "PT",
+        "PW",
+        "PY",
+        "QA",
+        "RO",
+        "RS",
+        "RU",
+        "RW",
+        "SA",
+        "SB",
+        "SC",
+        "SD",
+        "SE",
+        "SG",
+        "SI",
+        "SK",
+        "SL",
+        "SM",
+        "SN",
+        "SO",
+        "SR",
+        "SS",
+        "ST",
+        "SV",
+        "SY",
+        "SZ",
+        "TD",
+        "TG",
+        "TH",
+        "TJ",
+        "TL",
+        "TM",
+        "TN",
+        "TO",
+        "TR",
+        "TT",
+        "TV",
+        "TW",
+        "TZ",
+        "UA",
+        "UG",
+        "US",
+        "UY",
+        "UZ",
+        "VA",
+        "VC",
+        "VE",
+        "VN",
+        "VU",
+        "WS",
+        "XK",
+        "YE",
+        "ZA",
+        "ZM",
+        "ZW"
+      ],
+      "changes.risk_tolerance": [
+        "aggressive",
+        "conservative",
+        "moderate"
+      ],
+      "changes.tax_residencies.*": [
+        "AD",
+        "AE",
+        "AF",
+        "AG",
+        "AL",
+        "AM",
+        "AO",
+        "AR",
+        "AT",
+        "AU",
+        "AZ",
+        "BA",
+        "BB",
+        "BD",
+        "BE",
+        "BF",
+        "BG",
+        "BH",
+        "BI",
+        "BJ",
+        "BN",
+        "BO",
+        "BR",
+        "BS",
+        "BT",
+        "BW",
+        "BY",
+        "BZ",
+        "CA",
+        "CD",
+        "CF",
+        "CG",
+        "CH",
+        "CI",
+        "CL",
+        "CM",
+        "CN",
+        "CO",
+        "CR",
+        "CU",
+        "CV",
+        "CW",
+        "CY",
+        "CZ",
+        "DE",
+        "DJ",
+        "DK",
+        "DM",
+        "DO",
+        "DZ",
+        "EC",
+        "EE",
+        "EG",
+        "ER",
+        "ES",
+        "ET",
+        "FI",
+        "FJ",
+        "FM",
+        "FR",
+        "GA",
+        "GB",
+        "GD",
+        "GE",
+        "GH",
+        "GM",
+        "GN",
+        "GQ",
+        "GR",
+        "GT",
+        "GW",
+        "GY",
+        "HK",
+        "HN",
+        "HR",
+        "HT",
+        "HU",
+        "ID",
+        "IE",
+        "IL",
+        "IN",
+        "IQ",
+        "IR",
+        "IS",
+        "IT",
+        "JM",
+        "JO",
+        "JP",
+        "KE",
+        "KG",
+        "KH",
+        "KI",
+        "KM",
+        "KN",
+        "KP",
+        "KR",
+        "KW",
+        "KZ",
+        "LA",
+        "LB",
+        "LC",
+        "LI",
+        "LK",
+        "LR",
+        "LS",
+        "LT",
+        "LU",
+        "LV",
+        "LY",
+        "MA",
+        "MC",
+        "MD",
+        "ME",
+        "MG",
+        "MH",
+        "MK",
+        "ML",
+        "MM",
+        "MN",
+        "MO",
+        "MR",
+        "MT",
+        "MU",
+        "MV",
+        "MW",
+        "MX",
+        "MY",
+        "MZ",
+        "NA",
+        "NE",
+        "NG",
+        "NI",
+        "NL",
+        "NO",
+        "NP",
+        "NR",
+        "NZ",
+        "OM",
+        "PA",
+        "PE",
+        "PG",
+        "PH",
+        "PK",
+        "PL",
+        "PS",
+        "PT",
+        "PW",
+        "PY",
+        "QA",
+        "RO",
+        "RS",
+        "RU",
+        "RW",
+        "SA",
+        "SB",
+        "SC",
+        "SD",
+        "SE",
+        "SG",
+        "SI",
+        "SK",
+        "SL",
+        "SM",
+        "SN",
+        "SO",
+        "SR",
+        "SS",
+        "ST",
+        "SV",
+        "SY",
+        "SZ",
+        "TD",
+        "TG",
+        "TH",
+        "TJ",
+        "TL",
+        "TM",
+        "TN",
+        "TO",
+        "TR",
+        "TT",
+        "TV",
+        "TW",
+        "TZ",
+        "UA",
+        "UG",
+        "US",
+        "UY",
+        "UZ",
+        "VA",
+        "VC",
+        "VE",
+        "VN",
+        "VU",
+        "WS",
+        "XK",
+        "YE",
+        "ZA",
+        "ZM",
+        "ZW"
+      ]
+    },
+    "update_run_task": {
+      "status": [
+        "completed",
+        "failed",
+        "in_progress",
+        "pending"
+      ]
+    },
+    "update_transactions": {
+      "updates.*.external_refs.*.source": [
+        "email"
+      ],
+      "updates.*.kind": [
+        "adjustment",
+        "expense",
+        "income",
+        "investment",
+        "transfer"
+      ]
+    },
+    "yahoo_get_price_history": {
+      "timeframe": [
+        "1D",
+        "1M",
+        "1Y",
+        "5D",
+        "5Y",
+        "6M",
+        "MAX",
+        "YTD"
+      ]
+    }
+  }
+}

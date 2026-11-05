@@ -1,3 +1,4 @@
+import { useAppIntl } from '../../../i18n/useAppIntl'
 import { useCallback, useEffect, useState } from 'react'
 import { authFetch } from '../../../api/client'
 import { Stack, Cluster, Text, Button, FormField, Select } from '../../ui'
@@ -15,18 +16,6 @@ import { Stack, Cluster, Text, Button, FormField, Select } from '../../ui'
 // specified; a user just can't newly opt into them from this dropdown.
 export type AccessPolicy = 'pairing' | 'allowlist' | 'open' | 'disabled'
 
-const POLICY_OPTIONS = [
-  { value: 'pairing', label: 'Pairing — new senders ask for approval' },
-  { value: 'allowlist', label: 'Allowlist — only the IDs you list' },
-]
-
-const POLICY_HELP: Record<AccessPolicy, string> = {
-  pairing: 'Save, then message your bot and approve the request that appears below.',
-  allowlist: 'Only the senders listed below can reach Lucius.',
-  open: 'Anyone who can reach the bot can talk to Lucius and read your finances. Only use this while testing.',
-  disabled: 'Every incoming message is ignored. The bot stays connected but never answers.',
-}
-
 export function AccessPolicyField({
   idPrefix,
   value,
@@ -36,12 +25,14 @@ export function AccessPolicyField({
   value: AccessPolicy
   onChange: (v: AccessPolicy) => void
 }) {
+  const { formatMessage } = useAppIntl()
+  const help = value === 'pairing' ? formatMessage({ id: 'connectors.chat.pairingHelp', defaultMessage: 'Save, then message your bot and approve the request that appears below.' }) : value === 'allowlist' ? formatMessage({ id: 'connectors.chat.allowlistHelp', defaultMessage: 'Only the senders listed below can reach Lucius.' }) : value === 'open' ? formatMessage({ id: 'connectors.chat.openHelp', defaultMessage: 'Anyone who can reach the bot can talk to Lucius and read your finances. Only use this while testing.' }) : formatMessage({ id: 'connectors.chat.disabledHelp', defaultMessage: 'Every incoming message is ignored. The bot stays connected but never answers.' })
   return (
-    <FormField label="Who can chat" htmlFor={`${idPrefix}-policy`} help={POLICY_HELP[value]}>
+    <FormField label={formatMessage({ id: 'connectors.chat.who', defaultMessage: 'Who can chat' })} htmlFor={`${idPrefix}-policy`} help={help}>
       <Select
         id={`${idPrefix}-policy`}
         value={value}
-        options={POLICY_OPTIONS}
+        options={[{ value: 'pairing', label: formatMessage({ id: 'connectors.chat.pairing', defaultMessage: 'Pairing — new senders ask for approval' }) }, { value: 'allowlist', label: formatMessage({ id: 'connectors.chat.allowlist', defaultMessage: 'Allowlist — only the IDs you list' }) }]}
         onChange={(e) => onChange(e.target.value as AccessPolicy)}
       />
     </FormField>
@@ -73,6 +64,7 @@ export function PendingApprovals({
   active: boolean
   onApproved?: () => void
 }) {
+  const { formatMessage } = useAppIntl()
   const [rows, setRows] = useState<PendingRow[]>([])
   const [busy, setBusy] = useState<string | null>(null)
 
@@ -125,17 +117,16 @@ export function PendingApprovals({
     >
       <Stack gap="--space-2">
         <Text size="sm" weight={600}>
-          Pending approvals ({rows.length})
+          {formatMessage({ id: 'connectors.chat.pending', defaultMessage: 'Pending approvals ({count})' }, { count: rows.length })}
         </Text>
         <Text size="xs" tone="faint">
-          These senders messaged the bot but aren&apos;t approved yet. Approve one and their next
-          message reaches Lucius; reject to clear the request.
+          {formatMessage({ id: 'connectors.chat.pendingHelp', defaultMessage: "These senders messaged the bot but aren't approved yet. Approve one and their next message reaches Lucius; reject to clear the request." })}
         </Text>
         <Stack gap="--space-2">
           {rows.map((row) => (
             <Cluster key={row.sender_id} gap="--space-3" align="center" justify="between">
               <Text size="sm">
-                <code>{row.sender_label || row.sender_id}</code> • code <code>{row.code}</code>
+                <code>{row.sender_label || row.sender_id}</code> • {formatMessage({ id: 'connectors.chat.code', defaultMessage: 'code' })} <code>{row.code}</code>
               </Text>
               <Cluster gap="--space-2" align="center">
                 <Button
@@ -145,7 +136,7 @@ export function PendingApprovals({
                   loading={busy === row.sender_id}
                   onClick={() => act(row.sender_id, 'approve')}
                 >
-                  Approve
+                  {formatMessage({ id: 'connectors.chat.approve', defaultMessage: 'Approve' })}
                 </Button>
                 <Button
                   size="sm"
@@ -154,7 +145,7 @@ export function PendingApprovals({
                   disabled={busy === row.sender_id}
                   onClick={() => act(row.sender_id, 'reject')}
                 >
-                  Reject
+                  {formatMessage({ id: 'connectors.chat.reject', defaultMessage: 'Reject' })}
                 </Button>
               </Cluster>
             </Cluster>

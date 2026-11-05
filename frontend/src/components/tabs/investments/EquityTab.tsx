@@ -1,3 +1,5 @@
+import { equityError } from '../equity/equityErrors'
+import { useAppIntl } from '../../../i18n/useAppIntl'
 import { Fragment, useState } from 'react'
 import {
   Badge,
@@ -55,6 +57,7 @@ interface DrawerProps {
 }
 
 function EqDrawer({ gvm, rawGrant, onMark, onRefetch }: DrawerProps) {
+  const intl = useAppIntl()
   const [deleteState, setDeleteState] = useState<'idle' | 'confirm'>('idle')
   const [editOpen, setEditOpen] = useState(false)
   // Undo is confirmed in a Modal, never inline: the timeline row's action column is
@@ -94,14 +97,14 @@ function EqDrawer({ gvm, rawGrant, onMark, onRefetch }: DrawerProps) {
         return
       }
       const detail = await res.json().catch(() => ({}))
-      const msg =
+      const msg = equityError(intl, detail,
         (detail as { detail?: string }).detail ||
         (res.status === 409
-          ? 'Cannot undo — the lot has already been sold or disposed.'
-          : `Error ${res.status}`)
+          ? intl.formatMessage({ id: 'equity.undoDisposed', defaultMessage: 'Cannot undo — the lot has already been sold or disposed.' })
+          : intl.formatMessage({ id: 'equity.httpError', defaultMessage: 'Error {status}' }, { status: res.status })))
       setUndoErrors((prev) => ({ ...prev, [tranche.id]: msg }))
     } catch {
-      setUndoErrors((prev) => ({ ...prev, [tranche.id]: 'Undo failed — try again.' }))
+      setUndoErrors((prev) => ({ ...prev, [tranche.id]: intl.formatMessage({ id: 'equity.undoFailed', defaultMessage: 'Undo failed — try again.' }) }))
     } finally {
       setUndoingId(null)
     }
@@ -112,9 +115,9 @@ function EqDrawer({ gvm, rawGrant, onMark, onRefetch }: DrawerProps) {
       <div className="eq-dr-top">
         <div className="eq-dr-prog">
           <div className="eq-dr-prog-head">
-            <span className="eq-dr-prog-pct">{gvm.pct}% vested</span>
+            <span className="eq-dr-prog-pct">{intl.formatMessage({ id: 'equity.percentVested', defaultMessage: '{percent}% vested' }, { percent: gvm.pct })}</span>
             <span className="eq-dr-prog-sub">
-              {fNum(gvm.vested)} of {fNum(gvm.total)} units
+              {intl.formatMessage({ id: 'equity.vestedOf', defaultMessage: '{vested} of {total} units' }, { vested: fNum(gvm.vested), total: fNum(gvm.total) })}
             </span>
           </div>
           <div className="eq-dr-bar">
@@ -130,20 +133,20 @@ function EqDrawer({ gvm, rawGrant, onMark, onRefetch }: DrawerProps) {
                       ? 'color-mix(in srgb, var(--accent) 55%, var(--surface2))'
                       : 'var(--surface2)',
                 }}
-                title={`${fDate(t.date, 'short', 'always')} • ${fNum(t.units)} units`}
+                title={intl.formatMessage({ id: 'equity.dateUnits', defaultMessage: '{date} • {units} units' }, { date: fDate(t.date, 'short', 'always'), units: fNum(t.units) })}
               />
             ))}
           </div>
           {gvm.sinceGrantLine && <div className="eq-dr-since">{gvm.sinceGrantLine}</div>}
         </div>
         <div className="eq-dr-meta">
-          <div className="eq-dr-meta-k">Next vest</div>
+          <div className="eq-dr-meta-k">{intl.formatMessage({ id: 'equity.nextVest', defaultMessage: "Next vest" })}</div>
           <div className="eq-dr-meta-v">
-            {nextT ? fDate(nextT.date, 'short', 'always') : 'Fully vested'}
+            {nextT ? fDate(nextT.date, 'short', 'always') : intl.formatMessage({ id: 'equity.fullyVested', defaultMessage: "Fully vested" })}
           </div>
           {nextT && (
             <div className="eq-dr-meta-sub">
-              {nextT.sub} • {fNum(nextT.units)} units
+              {intl.formatMessage({ id: 'equity.subUnits', defaultMessage: '{sub} • {units} units' }, { sub: nextT.sub, units: fNum(nextT.units) })}
             </div>
           )}
         </div>
@@ -167,19 +170,19 @@ function EqDrawer({ gvm, rawGrant, onMark, onRefetch }: DrawerProps) {
         {deleteState === 'idle' ? (
           <>
             <button className="eq-link" onClick={() => setEditOpen(true)}>
-              Edit grant
+              {intl.formatMessage({ id: 'equity.editGrant', defaultMessage: "Edit grant" })}
             </button>
             <button className="eq-link eq-link--danger" onClick={() => setDeleteState('confirm')}>
-              Delete grant
+              {intl.formatMessage({ id: 'equity.deleteGrant', defaultMessage: "Delete grant" })}
             </button>
           </>
         ) : (
           <>
             <Button variant="danger" size="sm" onClick={handleDelete}>
-              Confirm delete?
+              {intl.formatMessage({ id: 'equity.confirmDelete', defaultMessage: "Confirm delete?" })}
             </Button>
             <Button variant="ghost" size="sm" onClick={() => setDeleteState('idle')}>
-              Cancel
+              {intl.formatMessage({ id: 'equity.cancel', defaultMessage: 'Cancel' })}
             </Button>
           </>
         )}
@@ -200,9 +203,9 @@ function EqDrawer({ gvm, rawGrant, onMark, onRefetch }: DrawerProps) {
         data={
           confirmUndo
             ? {
-                title: 'Undo this vest?',
-                body: `Reverses the ${fNum(confirmUndo.units)}-unit vest recorded on ${fDate(confirmUndo.vest_date, 'short', 'always')} — re-locks the units and removes the FMV lot (and the income row, if this vest was recorded before 22 Sep 2026).`,
-                confirmLabel: 'Undo vest',
+                title: intl.formatMessage({ id: 'equity.undoTitle', defaultMessage: "Undo this vest?" }),
+                body: intl.formatMessage({ id: 'equity.undoBody', defaultMessage: 'Reverses the {units}-unit vest recorded on {date} — re-locks the units and removes the FMV lot (and the income row, if this vest was recorded before 22 Sep 2026).' }, { units: fNum(confirmUndo.units), date: fDate(confirmUndo.vest_date, 'short', 'always') }),
+                confirmLabel: intl.formatMessage({ id: 'equity.undoVest', defaultMessage: "Undo vest" }),
                 danger: true,
               }
             : null
@@ -226,6 +229,7 @@ interface TlRowProps {
 }
 
 function TlRow({ t, rawGrant, onMark, onUndo, undoing, undoError }: TlRowProps) {
+  const intl = useAppIntl()
   function handleMark() {
     const rawTranche = rawGrant.tranches.find((rt) => rt.id === t.id)
     if (rawTranche) onMark({ grant: rawGrant, tranche: rawTranche })
@@ -239,7 +243,7 @@ function TlRow({ t, rawGrant, onMark, onUndo, undoing, undoError }: TlRowProps) 
       <div>
         <div className="eq-tl-date">{fDate(t.date, 'short', 'always')}</div>
         <div className="eq-tl-sub">
-          {fNum(t.units)} units • {t.sub}
+          {intl.formatMessage({ id: 'equity.unitsAndSub', defaultMessage: '{units} units • {sub}' }, { units: fNum(t.units), sub: t.sub })}
         </div>
         {undoError && <div className="eq-tl-err">{undoError}</div>}
       </div>
@@ -247,11 +251,11 @@ function TlRow({ t, rawGrant, onMark, onUndo, undoing, undoError }: TlRowProps) 
       <div className="eq-tl-act">
         {t.vested ? (
           <button className="eq-link" onClick={() => onUndo(t.id)} disabled={undoing}>
-            {undoing ? 'Undoing…' : 'Undo'}
+            {undoing ? intl.formatMessage({ id: 'equity.undoing', defaultMessage: "Undoing…" }) : intl.formatMessage({ id: 'equity.undo', defaultMessage: "Undo" })}
           </button>
         ) : (
           <button className="eq-link" onClick={handleMark}>
-            Mark vested
+            {intl.formatMessage({ id: 'equity.markVested', defaultMessage: "Mark vested" })}
           </button>
         )}
       </div>
@@ -270,8 +274,9 @@ interface UpcomingProps {
 const MAX_UPCOMING = 6
 
 function UpcomingVestsList({ upcoming, rawGrants, onMark }: UpcomingProps) {
+  const intl = useAppIntl()
   if (upcoming.length === 0) {
-    return <div className="mk-empty-filter">No upcoming vests.</div>
+    return <div className="mk-empty-filter">{intl.formatMessage({ id: 'equity.noUpcoming', defaultMessage: "No upcoming vests." })}</div>
   }
 
   return (
@@ -279,10 +284,10 @@ function UpcomingVestsList({ upcoming, rawGrants, onMark }: UpcomingProps) {
       {upcoming.slice(0, MAX_UPCOMING).map((u) => (
         <div className="eq-up-row" key={`${u.grantId}-${u.trancheId}`}>
           <div className="eq-up-l">
-            {u.overdue && <Badge tone="neg">Overdue</Badge>}
+            {u.overdue && <Badge tone="neg">{intl.formatMessage({ id: 'equity.overdue', defaultMessage: "Overdue" })}</Badge>}
             <span className="eq-up-date">{fDate(u.date, 'short', 'always')}</span>
             <span className="eq-up-meta">
-              {u.symbol} • {fNum(u.units)} units
+              {intl.formatMessage({ id: 'equity.symbolUnits', defaultMessage: '{symbol} • {units} units' }, { symbol: u.symbol, units: fNum(u.units) })}
             </span>
           </div>
           <button
@@ -293,13 +298,13 @@ function UpcomingVestsList({ upcoming, rawGrants, onMark }: UpcomingProps) {
               if (grant && tranche) onMark({ grant, tranche })
             }}
           >
-            Mark vested
+            {intl.formatMessage({ id: 'equity.markVested', defaultMessage: "Mark vested" })}
           </button>
         </div>
       ))}
       {upcoming.length > MAX_UPCOMING && (
         <div className="mk-field-help" style={{ marginTop: 10 }}>
-          +{upcoming.length - MAX_UPCOMING} more — open each grant's tranches for the full schedule.
+          {intl.formatMessage({ id: 'equity.moreUpcoming', defaultMessage: '+{count} more — open each grant’s tranches for the full schedule.' }, { count: fNum(upcoming.length - MAX_UPCOMING) })}
         </div>
       )}
     </div>
@@ -317,31 +322,32 @@ function VestHistoryPanel({
   rows: VestHistoryVM[]
   onRelease: (item: PendingReleaseItem) => void
 }) {
+  const intl = useAppIntl()
   const [showAll, setShowAll] = useState(false)
   const shown = showAll ? rows : rows.slice(0, MAX_HISTORY)
 
   return (
     <div className="mk-panel">
       <div className="mk-panel-head">
-        <span className="mk-panel-title">Vest history</span>
+        <span className="mk-panel-title">{intl.formatMessage({ id: 'equity.vestHistory', defaultMessage: "Vest history" })}</span>
         <span className="mk-panel-spacer" />
-        <span className="mk-panel-sub">{rows.length} recorded</span>
+        <span className="mk-panel-sub">{intl.formatMessage({ id: 'equity.recordedCount', defaultMessage: '{count} recorded' }, { count: fNum(rows.length) })}</span>
       </div>
       <div className="mk-panel-body">
         {rows.length === 0 ? (
           <EmptyState
-            title="No vest history yet"
-            body="Vests appear here after you mark a tranche vested."
+            title={intl.formatMessage({ id: 'equity.noHistory', defaultMessage: "No vest history yet" })}
+            body={intl.formatMessage({ id: 'equity.historyHelp', defaultMessage: "Vests appear here after you mark a tranche vested." })}
           />
         ) : (
           <>
             <div className="inv-event-table inv-event-table--vest">
               <div className="inv-event-head" aria-hidden="true">
-                <span>Date vested</span>
-                <span>Symbol</span>
-                <span>Units</span>
-                <span>Price at vest</span>
-                <span>Status</span>
+                <span>{intl.formatMessage({ id: 'equity.dateVested', defaultMessage: "Date vested" })}</span>
+                <span>{intl.formatMessage({ id: 'equity.symbol', defaultMessage: "Symbol" })}</span>
+                <span>{intl.formatMessage({ id: 'equity.units', defaultMessage: "Units" })}</span>
+                <span>{intl.formatMessage({ id: 'equity.vestPrice', defaultMessage: "Price at vest" })}</span>
+                <span>{intl.formatMessage({ id: 'equity.status', defaultMessage: "Status" })}</span>
               </div>
               {/* EntityRow renders the host <div> itself and stamps data-entity-id + draggable
                   + data-ctx-*, making a recorded vest @-mentionable, right-clickable
@@ -363,7 +369,7 @@ function VestHistoryPanel({
                     units: it.units,
                   })}
                   search={`${row.symbol} vest ${row.date}`}
-                  sublabel={`${fNum(row.units)} units • ${fDate(row.date, 'short', 'always')}`}
+                  sublabel={intl.formatMessage({ id: 'equity.unitsDate', defaultMessage: '{units} units • {date}' }, { units: fNum(row.units), date: fDate(row.date, 'short', 'always') })}
                 >
                   <time className="inv-event-date" dateTime={row.date}>
                     {fDate(row.date, 'short', 'always')}
@@ -372,7 +378,7 @@ function VestHistoryPanel({
                     <strong>{row.symbol}</strong>
                     <span className="inv-event-mobile-meta">
                       {' '}
-                      • {fNum(row.units)} units
+                      • {intl.formatMessage({ id: 'equity.unitCount', defaultMessage: '{units} units' }, { units: fNum(row.units) })}
                       {row.fmvPerUnit != null && row.fmvCurrency
                         ? ` • ${fCurrency(row.fmvPerUnit, row.fmvCurrency)}`
                         : ''}
@@ -389,23 +395,23 @@ function VestHistoryPanel({
                       className="inv-event-badges"
                       title={
                         row.releaseStatus === 'released' && row.releasedOn
-                          ? `Released ${fDate(row.releasedOn, 'short', 'always')}`
+                          ? intl.formatMessage({ id: 'equity.releasedDate', defaultMessage: 'Released {date}' }, { date: fDate(row.releasedOn, 'short', 'always') })
                           : row.releaseStatus === 'not_released'
-                            ? 'Release not recorded'
+                            ? intl.formatMessage({ id: 'equity.releaseNotRecorded', defaultMessage: "Release not recorded" })
                             : row.expectedReleaseDate
-                              ? `Expected ${fDate(row.expectedReleaseDate, 'short', 'always')}`
-                              : 'Release date not set'
+                              ? intl.formatMessage({ id: 'equity.expectedDate', defaultMessage: 'Expected {date}' }, { date: fDate(row.expectedReleaseDate, 'short', 'always') })
+                              : intl.formatMessage({ id: 'equity.releaseDateUnset', defaultMessage: "Release date not set" })
                       }
                     >
                       <Badge tone={row.releaseStatus === 'released' ? 'pos' : 'warn'}>
                         {row.releaseStatus === 'released'
-                          ? 'Released'
+                          ? intl.formatMessage({ id: 'equity.released', defaultMessage: "Released" })
                           : row.releaseStatus === 'awaiting_release'
-                            ? 'Awaiting release'
-                            : 'Not released'}
+                            ? intl.formatMessage({ id: 'equity.awaitingRelease', defaultMessage: "Awaiting release" })
+                            : intl.formatMessage({ id: 'equity.notReleased', defaultMessage: "Not released" })}
                       </Badge>
                       {row.releaseStatus === 'awaiting_release' && row.overdue && (
-                        <Badge tone="neg">Overdue</Badge>
+                        <Badge tone="neg">{intl.formatMessage({ id: 'equity.overdue', defaultMessage: "Overdue" })}</Badge>
                       )}
                     </span>
                     <span className="inv-event-action">
@@ -415,7 +421,7 @@ function VestHistoryPanel({
                           size="dense"
                           onClick={() => onRelease(row.releaseItem!)}
                         >
-                          Mark released
+                          {intl.formatMessage({ id: 'equity.markReleased', defaultMessage: "Mark released" })}
                         </Button>
                       )}
                     </span>
@@ -430,7 +436,7 @@ function VestHistoryPanel({
                 className="inv-event-toggle"
                 onClick={() => setShowAll((value) => !value)}
               >
-                {showAll ? 'Show top 8 only' : `Show all ${rows.length} vests`}
+                {showAll ? intl.formatMessage({ id: 'equity.showTop', defaultMessage: "Show top 8 only" }) : intl.formatMessage({ id: 'equity.showAll', defaultMessage: 'Show all {count} vests' }, { count: fNum(rows.length) })}
               </Button>
             )}
           </>
@@ -449,18 +455,19 @@ function EquityEmpty({
   onAdd: () => void
   onAskLucius?: (text: string) => void
 }) {
+  const intl = useAppIntl()
   return (
     <EmptyState
       fill
       icon={<Building2 size={28} strokeWidth={1.5} aria-hidden="true" />}
-      title="No equity grants yet"
-      body="Add an RSU, ESOW or LTIP grant and Lucius tracks your vesting schedule, upcoming tranches, and the gain at each vest."
+      title={intl.formatMessage({ id: 'equity.emptyTitle', defaultMessage: "No equity grants yet" })}
+      body={intl.formatMessage({ id: 'equity.emptyBody', defaultMessage: "Add an RSU, ESOW or LTIP grant and Lucius tracks your vesting schedule, upcoming tranches, and the gain at each vest." })}
       action={
         <Cluster gap="--space-3" justify="center">
           <Button variant="primary" size="sm" onClick={onAdd}>
-            Add grant
+            {intl.formatMessage({ id: 'equity.addGrant', defaultMessage: "Add grant" })}
           </Button>
-          <LuciusCta label="Add with Lucius" message={GRANTS_MESSAGE} onAskLucius={onAskLucius} />
+          <LuciusCta label={intl.formatMessage({ id: 'equity.addLucius', defaultMessage: "Add with Lucius" })} message={GRANTS_MESSAGE} onAskLucius={onAskLucius} />
         </Cluster>
       }
     />
@@ -470,6 +477,7 @@ function EquityEmpty({
 // ── EquityTab root ────────────────────────────────────────────────────────────
 
 export function EquityTab({ rows = [], onAskLucius }: Props) {
+  const intl = useAppIntl()
   const vm = useEquityView(rows)
   const [expandedId, setExpandedId] = useState<string | null>(null)
   const [vestTarget, setVestTarget] = useState<VestTarget | null>(null)
@@ -496,7 +504,7 @@ export function EquityTab({ rows = [], onAskLucius }: Props) {
       {/* Grants panel */}
       <div className="mk-panel">
         <div className="mk-panel-head">
-          <span className="mk-panel-title">Grants</span>
+          <span className="mk-panel-title">{intl.formatMessage({ id: 'equity.grants', defaultMessage: "Grants" })}</span>
           <span className="mk-panel-spacer" />
           {!isEmpty && (
             <Button
@@ -505,14 +513,14 @@ export function EquityTab({ rows = [], onAskLucius }: Props) {
               iconLeft={<Plus size={14} aria-hidden="true" />}
               onClick={() => setAddOpen(true)}
             >
-              Add grant
+              {intl.formatMessage({ id: 'equity.addGrant', defaultMessage: "Add grant" })}
             </Button>
           )}
         </div>
         <div className="mk-panel-body" style={{ overflowX: 'auto' }}>
-          {isLoading && <TabSkeleton variant="equity" label="Loading grants…" header={false} />}
+          {isLoading && <TabSkeleton variant="equity" label={intl.formatMessage({ id: 'equity.loadingGrants', defaultMessage: "Loading grants…" })} header={false} />}
 
-          {hasError && <ErrorState message="Couldn't load grants." onRetry={vm.refetch} />}
+          {hasError && <ErrorState message={intl.formatMessage({ id: 'equity.loadFailed', defaultMessage: "Couldn't load grants." })} onRetry={vm.refetch} />}
 
           {isEmpty && <EquityEmpty onAdd={() => setAddOpen(true)} onAskLucius={onAskLucius} />}
 
@@ -520,15 +528,15 @@ export function EquityTab({ rows = [], onAskLucius }: Props) {
             <table className="eq-table">
               <thead>
                 <tr>
-                  <th className="l">Symbol</th>
-                  <th className="l">Granted</th>
-                  <th>Grant price</th>
-                  <th>Total</th>
-                  <th>Vested</th>
-                  <th>Unvested</th>
-                  <th className="l">Next vest</th>
-                  <th className="l">Status</th>
-                  <th aria-label="Expand" />
+                  <th className="l">{intl.formatMessage({ id: 'equity.symbol', defaultMessage: "Symbol" })}</th>
+                  <th className="l">{intl.formatMessage({ id: 'equity.granted', defaultMessage: "Granted" })}</th>
+                  <th>{intl.formatMessage({ id: 'equity.grantPriceColumn', defaultMessage: "Grant price" })}</th>
+                  <th>{intl.formatMessage({ id: 'equity.total', defaultMessage: "Total" })}</th>
+                  <th>{intl.formatMessage({ id: 'equity.vested', defaultMessage: "Vested" })}</th>
+                  <th>{intl.formatMessage({ id: 'equity.unvested', defaultMessage: "Unvested" })}</th>
+                  <th className="l">{intl.formatMessage({ id: 'equity.nextVest', defaultMessage: "Next vest" })}</th>
+                  <th className="l">{intl.formatMessage({ id: 'equity.status', defaultMessage: "Status" })}</th>
+                  <th aria-label={intl.formatMessage({ id: 'equity.expand', defaultMessage: "Expand" })} />
                 </tr>
               </thead>
               <tbody>
@@ -571,7 +579,7 @@ export function EquityTab({ rows = [], onAskLucius }: Props) {
                           {g.nextVest ? (
                             <span style={{ display: 'inline-flex', gap: 8, alignItems: 'center' }}>
                               {fDate(g.nextVest, 'short', 'always')}
-                              {g.hasOverdue && <Badge tone="neg">Overdue</Badge>}
+                              {g.hasOverdue && <Badge tone="neg">{intl.formatMessage({ id: 'equity.overdue', defaultMessage: "Overdue" })}</Badge>}
                             </span>
                           ) : (
                             '—'
@@ -613,7 +621,7 @@ export function EquityTab({ rows = [], onAskLucius }: Props) {
       {!isLoading && !hasError && !isEmpty && (
         <div className="mk-panel">
           <div className="mk-panel-head">
-            <span className="mk-panel-title">Upcoming vests</span>
+            <span className="mk-panel-title">{intl.formatMessage({ id: 'equity.upcomingVests', defaultMessage: "Upcoming vests" })}</span>
           </div>
           <div className="mk-panel-body">
             <UpcomingVestsList

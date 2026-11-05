@@ -1,3 +1,4 @@
+import { getNumberLocale } from '../../../utils/format'
 // What the condition editor can show and write: anything else (an older rule's regex, a
 // direction, a non-create operation…) makes the trigger Custom — shown exactly, edited via Lucius.
 const EDITABLE_TRANSACTION_KEYS = new Set([
@@ -63,7 +64,7 @@ export function triggerAmountCurrency(
 }
 
 export function moneyLabel(currency: string, amount: unknown): string {
-  const figure = Number(amount).toLocaleString()
+  const figure = Number(amount).toLocaleString(getNumberLocale())
   return currency ? `${currency} ${figure}` : figure
 }
 

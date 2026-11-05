@@ -1,3 +1,4 @@
+import { useAppIntl } from '../../i18n/useAppIntl'
 // The purple "hand this to Lucius" button for an empty screen, shown beside the screen's own
 // primary action. A press is the user asking him to start, so the message SENDS in a fresh
 // conversation rather than landing in the composer as a draft.
@@ -18,12 +19,8 @@ export interface LuciusCtaProps {
   size?: ButtonSize
 }
 
-export function LuciusCta({
-  label = 'Ask Lucius',
-  message,
-  onAskLucius,
-  size = 'sm',
-}: LuciusCtaProps) {
+export function LuciusCta({ label, message, onAskLucius, size = 'sm' }: LuciusCtaProps) {
+  const { formatMessage } = useAppIntl()
   if (!onAskLucius) return null
   return (
     <Button
@@ -36,7 +33,7 @@ export function LuciusCta({
         onAskLucius(message)
       }}
     >
-      {label}
+      {label ?? formatMessage({ id: 'firstrun.intro.ask', defaultMessage: 'Ask Lucius' })}
     </Button>
   )
 }

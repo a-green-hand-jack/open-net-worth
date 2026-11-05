@@ -1,3 +1,4 @@
+import { useAppIntl } from '../../../i18n/useAppIntl'
 // One numbered step of a connector's setup (keys → link a bank → choose accounts). A done step
 // shows a check instead of its number; the current one is the only emphasised step, so the
 // order a new user has to follow is visible at a glance.
@@ -20,14 +21,15 @@ export function SetupStep({
   aside?: ReactNode
   children: ReactNode
 }) {
+  const { formatMessage } = useAppIntl()
   return (
-    <section className={`setup-step setup-step--${state}`} aria-label={`Step ${n}: ${title}`}>
+    <section className={`setup-step setup-step--${state}`} aria-label={formatMessage({ id: 'connectors.setup.step', defaultMessage: 'Step {number}: {title}' }, { number: n, title })}>
       <div className="setup-step-head">
         <span className="setup-step-n" aria-hidden="true">
           {state === 'done' ? <Check size={13} /> : n}
         </span>
         <h4 className="setup-step-title">{title}</h4>
-        {state === 'done' && <span className="sr-only">(done)</span>}
+        {state === 'done' && <span className="sr-only">{formatMessage({ id: 'connectors.setup.done', defaultMessage: '(done)' })}</span>}
         {aside && <div className="setup-step-aside">{aside}</div>}
       </div>
       <div className="setup-step-body">{children}</div>

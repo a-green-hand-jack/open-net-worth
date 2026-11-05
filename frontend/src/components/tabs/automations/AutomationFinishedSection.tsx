@@ -1,3 +1,4 @@
+import { useAppIntl } from '../../../i18n/useAppIntl'
 import { ChevronRight } from 'lucide-react'
 import { useState } from 'react'
 import type { Automation } from '../../../api/automations'
@@ -30,6 +31,7 @@ export function AutomationFinishedSection({
   onDelete: (automation: Automation) => void
   onClear: () => void
 }) {
+  const { formatMessage } = useAppIntl()
   const [open, setOpen] = useState(false)
   if (automations.length === 0) return null
   const expanded = open || searching
@@ -49,11 +51,14 @@ export function AutomationFinishedSection({
             strokeWidth={2}
             aria-hidden="true"
           />
-          Finished · {automations.length}
+          {formatMessage(
+            { id: 'automations.finishedCount', defaultMessage: 'Finished · {count}' },
+            { count: automations.length },
+          )}
         </button>
         <span className="rule" />
         <button type="button" className="a3-linkbtn a3-done-clear" onClick={onClear}>
-          Clear finished
+          {formatMessage({ id: 'automations.clearFinished', defaultMessage: 'Clear finished' })}
         </button>
       </div>
       {expanded && (

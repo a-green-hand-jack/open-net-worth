@@ -253,6 +253,15 @@ server running in the Dock; **Quit** stops them. On other platforms, keeping the
 running after closing the window requires **Keep running when the window closes**. The server binds
 to `127.0.0.1`, so this address works on this computer only. It is not a LAN/public listener.
 
+## Interface language
+
+The desktop uses the system language while it opens, before a book's profile is available.
+After the application loads, its resolved profile or browser language is sent to the desktop
+process; the application menu and tray update immediately, and subsequently opened localized
+native screens use that language. The macOS microphone permission prompt, the contents of its
+system-provided Services submenu, and Linux desktop launcher descriptions follow the operating
+system's language rather than the book profile.
+
 ## Validation
 
 `node qa/native-titlebar.mjs` (macOS only) checks the hidden title bar: the `data-desktop-chrome`

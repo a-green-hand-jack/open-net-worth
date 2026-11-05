@@ -1,3 +1,4 @@
+import { useAppIntl } from '../../i18n/useAppIntl'
 import { Button, Cluster, EmptyState } from '../ui'
 import { Globe } from '../../ui/icons'
 import { LuciusCta } from '../intro/LuciusCta'
@@ -17,20 +18,21 @@ export function MacroColdStart({
   onScan: () => void
   onAskLucius?: (text: string) => void
 }) {
+  const intl = useAppIntl()
   return (
     <div className="intel-coldstart">
       <EmptyState
         fill
         icon={<Globe size={28} strokeWidth={1.5} aria-hidden="true" />}
-        title="No topic or macro stories yet"
-        body="Follow a topic above, then scan — the themes you follow, central banks, currencies and the economy land here."
+        title={intl.formatMessage({ id: 'intel.noTopics', defaultMessage: "No topic or macro stories yet" })}
+        body={intl.formatMessage({ id: 'intel.topicsHelp', defaultMessage: "Follow a topic above, then scan — the themes you follow, central banks, currencies and the economy land here." })}
         action={
           <Cluster gap="--space-3" justify="center">
             <Button variant="primary" size="sm" onClick={onScan} disabled={scanning}>
-              {scanning ? 'Scanning…' : 'Scan now'}
+              {scanning ? intl.formatMessage({ id: 'intel.scanning', defaultMessage: "Scanning…" }) : intl.formatMessage({ id: 'intel.scanNow', defaultMessage: "Scan now" })}
             </Button>
             <LuciusCta
-              label="Follow with Lucius"
+              label={intl.formatMessage({ id: 'intel.followLucius', defaultMessage: "Follow with Lucius" })}
               message={TOPICS_MESSAGE}
               onAskLucius={onAskLucius}
             />

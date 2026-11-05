@@ -1,3 +1,5 @@
+import { FormattedMessage } from './FormattedMessage'
+import { useAppIntl } from '../../i18n/useAppIntl'
 import { useState } from 'react'
 import { Pencil } from 'lucide-react'
 import { Panel, Text } from '../ui'
@@ -31,6 +33,7 @@ interface Props {
 }
 
 export function WatchIntentSection({ sym, instrumentId, price = null, onSaved }: Props) {
+  const intl = useAppIntl()
   const key = `/api/investment-theses/for?instrument_id=${instrumentId ?? ''}&ticker=${sym}`
   const query = useQueryCache(key, () => fetchThesisFor({ instrumentId, ticker: sym }))
   const [editing, setEditing] = useState(false)
@@ -50,24 +53,24 @@ export function WatchIntentSection({ sym, instrumentId, price = null, onSaved }:
     hasContent && !editing ? (
       <button type="button" className="asd-rail-manage" onClick={() => setEditing(true)}>
         <Pencil size={12} aria-hidden="true" />
-        Edit
+        {<FormattedMessage id="intel.extra.21077124" defaultMessage={"Edit"} />}
       </button>
     ) : undefined
 
   return (
     <Panel
-      title="Why you're watching"
+      title={intl.formatMessage({ id: "intel.field.0af66fd3", defaultMessage: "Why you're watching" })}
       subtitle={`Turns ${sym}'s price moves into alerts about your thesis, not just the price.`}
       badge={role && !editing ? <ThesisRoleBadge role={role} /> : undefined}
       actions={actions}
     >
       {query.initialLoading ? (
         <Text size="sm" tone="muted">
-          Loading…
+          {<FormattedMessage id="intel.extra.8636cba2" defaultMessage={"Loading…"} />}
         </Text>
       ) : !ctx ? (
         <Text size="sm" tone="muted">
-          {query.error ? 'Couldn’t load the thesis.' : `Open ${sym}’s page once to start a thesis.`}
+          {query.error ? intl.formatMessage({ id: 'intel.intent.loadError', defaultMessage: 'Couldn’t load the thesis.' }) : intl.formatMessage({ id: 'intel.intent.openAsset', defaultMessage: 'Open {symbol}’s page once to start a thesis.' }, { symbol: sym })}
         </Text>
       ) : editing ? (
         <ThesisEditor

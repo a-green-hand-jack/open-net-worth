@@ -1,3 +1,4 @@
+import { useAppIntl } from '../../../i18n/useAppIntl'
 // "Payments & funding" timeline strip — a lollipop rail of unpaid installments (merged when
 // they share a due date) vs. dated funding draws, with a shaded region + gap-month label when
 // the commitment carries a real coverage shortfall.
@@ -130,6 +131,7 @@ interface Props {
 }
 
 export function TimelineStrip({ commitment: c, fx }: Props) {
+  const { formatMessage } = useAppIntl()
   const sectionRef = useRef<HTMLDivElement>(null)
   const scrollRef = useRef<HTMLDivElement>(null)
   const stripRef = useRef<HTMLDivElement>(null)
@@ -275,16 +277,27 @@ export function TimelineStrip({ commitment: c, fx }: Props) {
   return (
     <div className="c2-exp-sec c2-strip-section" ref={sectionRef}>
       <div className="c2-exp-sec-h">
-        <span className="c2-exp-sec-t">Payments &amp; funding</span>
+        <span className="c2-exp-sec-t">
+          {formatMessage({
+            id: 'commitments.timeline.heading',
+            defaultMessage: 'Payments & funding',
+          })}
+        </span>
       </div>
       <div className="c2-strip-legend">
-        <i className="c2-strip-key out" /> payment
+        <i className="c2-strip-key out" />{' '}
+        {formatMessage({ id: 'commitments.timeline.payment', defaultMessage: 'payment' })}
         {gapDate && (
           <>
-            &nbsp; <i className="c2-strip-key bad" /> not covered yet
+            &nbsp; <i className="c2-strip-key bad" />{' '}
+            {formatMessage({
+              id: 'commitments.timeline.notCovered',
+              defaultMessage: 'not covered yet',
+            })}
           </>
         )}
-        &nbsp; <i className="c2-strip-key in" /> funding draw
+        &nbsp; <i className="c2-strip-key in" />{' '}
+        {formatMessage({ id: 'commitments.timeline.funding', defaultMessage: 'funding draw' })}
       </div>
       <div className="c2-strip-scroll" ref={scrollRef} onScroll={hideTip}>
         <div className="c2-strip" style={{ width: W }} ref={stripRef}>
@@ -300,7 +313,12 @@ export function TimelineStrip({ commitment: c, fx }: Props) {
                   <span className="money">{fCompactCurrency(g.amount)}</span>
                 </span>
                 {bad && (
-                  <span className="c3-tip-w">Not covered yet — lands after the projected gap</span>
+                  <span className="c3-tip-w">
+                    {formatMessage({
+                      id: 'commitments.timeline.gap',
+                      defaultMessage: 'Not covered yet — lands after the projected gap',
+                    })}
+                  </span>
                 )}
               </>
             )
@@ -327,7 +345,13 @@ export function TimelineStrip({ commitment: c, fx }: Props) {
               <>
                 <b>
                   {group.items.length > 1
-                    ? `${group.items.length} funding draws`
+                    ? formatMessage(
+                        {
+                          id: 'commitments.timeline.draws',
+                          defaultMessage: '{count} funding draws',
+                        },
+                        { count: group.items.length },
+                      )
                     : group.items[0]!.label}
                 </b>
                 {group.items.map((f) => (

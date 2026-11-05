@@ -1,4 +1,5 @@
 import { useCallback } from 'react'
+import { useAppIntl } from '../../i18n/useAppIntl'
 import { authFetch } from '../../api/client'
 import { setCachedQueryData } from '../../state/queryCache'
 import { INTEL_SIGNALS_KEY } from '../../hooks/useIntelStoryIndex'
@@ -27,6 +28,7 @@ export function useSignalActions(
   stories: StoryArc[],
   setConfirm: (spec: ConfirmSpec | null) => void,
 ) {
+  const intl = useAppIntl()
   const markRead = useCallback((id: string) => {
     patchLocal(id, { read: true })
     void sendState(id, { read: true })
@@ -50,9 +52,9 @@ export function useSignalActions(
     (id: string) => {
       const s = stories.find((x) => x.id === id)
       setConfirm({
-        title: 'Delete this signal permanently?',
-        body: `“${s ? storyHeadline(s) : 'This signal'}” will be removed from your history for good. This can't be undone.`,
-        confirmLabel: 'Delete forever',
+        title: intl.formatMessage({ id: 'intel.signal.deleteTitle', defaultMessage: 'Delete this signal permanently?' }),
+        body: intl.formatMessage({ id: 'intel.signal.deleteBody', defaultMessage: "“{title}” will be removed from your history for good. This can't be undone." }, { title: s ? storyHeadline(s) : intl.formatMessage({ id: 'intel.signal.thisSignal', defaultMessage: 'This signal' }) }),
+        confirmLabel: intl.formatMessage({ id: 'intel.signal.deleteForever', defaultMessage: 'Delete forever' }),
         onConfirm: async () => {
           patchStories((prev) => prev.filter((x) => x.id !== id))
           setConfirm(null)
@@ -60,7 +62,7 @@ export function useSignalActions(
         },
       })
     },
-    [stories, setConfirm],
+    [stories, setConfirm, intl],
   )
   return { markRead, dismiss, restore, markAllRead, requestDelete }
 }

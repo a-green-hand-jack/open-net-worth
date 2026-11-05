@@ -1,3 +1,4 @@
+import { useAppIntl } from '../../i18n/useAppIntl'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useLocation, useNavigate } from '@tanstack/react-router'
 import {
@@ -23,6 +24,8 @@ import { AutomationEditorModal } from './automations/AutomationEditorModal'
 import { AutomationList, type AutomationSort } from './automations/AutomationList'
 import { useKeepAwakeSettled } from './automations/KeepAwakeBanner'
 import { ALL_TEMPLATES } from './automations/automationTemplates'
+import { automationError } from './automations/automationErrors'
+import { templateField } from './automations/templateMessages'
 import { DataSyncView } from './automations/datasync/DataSyncView'
 import { YnabSyncDetail } from './automations/datasync/YnabSyncDetail'
 import { YNAB_FLAG, YNAB_SYNC_KEY, useYnabSync } from './automations/datasync/ynabSync'
@@ -35,22 +38,15 @@ import './automations.css'
 
 type AutomationsView = 'lucius' | 'sync'
 
-// The masthead while the ynab_import_and_sync flag is off: one list, no Data sync tab.
-const LUCIUS_ONLY_SUBTITLE =
-  'Run on a schedule or when something happens. Every run is a conversation you can pick back up.'
-
-const VIEW_SUBTITLES: Record<AutomationsView, string> = {
-  lucius:
-    'Lucius runs these on a schedule or when something happens. Every run is a conversation you can pick back up.',
-  sync: 'Keep this book and your other apps in step, by fixed rules. No AI involved and nothing to pay.',
-}
-
 interface AutomationsProps {
   onOpenChat?: (prefill: string) => void
   onOpenConversation?: (sessionId: string, selection: { model: string; effort: string }) => void
 }
 
 export function Automations({ onOpenChat, onOpenConversation }: AutomationsProps) {
+  const intl = useAppIntl()
+  const { formatMessage } = intl
+  const messageOf = (error: unknown, fallback: string) => automationError(intl, error, fallback)
   const navigate = useNavigate()
   const location = useLocation()
   const search = location.search as {
@@ -116,7 +112,17 @@ export function Automations({ onOpenChat, onOpenConversation }: AutomationsProps
   useEffect(() => {
     if (!templateKey) return
     const template = ALL_TEMPLATES.find((t) => t.key === templateKey)
-    if (template) setEditor({ seed: template })
+    if (template)
+      setEditor({
+        seed: {
+          ...template,
+          template_source: {
+            name: template.key,
+            description: template.key,
+            instructions: template.key,
+          },
+        },
+      })
     void navigate({
       to: '/automations',
       search: ((previous: Record<string, unknown>) => ({
@@ -134,7 +140,11 @@ export function Automations({ onOpenChat, onOpenConversation }: AutomationsProps
         const draft = commandDraft(args.automation)
         if (!draft) {
           setActionError(
-            'Lucius’s draft could not be opened because it is incomplete. Ask Lucius to review it again.',
+            formatMessage({
+              id: 'automations.draftIncomplete',
+              defaultMessage:
+                'Lucius’s draft could not be opened because it is incomplete. Ask Lucius to review it again.',
+            }),
           )
           return
         }
@@ -151,11 +161,19 @@ export function Automations({ onOpenChat, onOpenConversation }: AutomationsProps
       const response = await listAutomations()
       setAutomations(response.automations)
     } catch (error) {
-      setLoadError(messageOf(error, 'Automations could not be loaded.'))
+      setLoadError(
+        messageOf(
+          error,
+          formatMessage({
+            id: 'automations.loadFailure',
+            defaultMessage: 'Automations could not be loaded.',
+          }),
+        ),
+      )
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [formatMessage])
 
   useEffect(() => {
     void load()
@@ -166,9 +184,17 @@ export function Automations({ onOpenChat, onOpenConversation }: AutomationsProps
     try {
       setOptions(await getAutomationOptions())
     } catch (error) {
-      setOptionsError(messageOf(error, 'Automation choices could not be loaded.'))
+      setOptionsError(
+        messageOf(
+          error,
+          formatMessage({
+            id: 'automations.optionsFailure',
+            defaultMessage: 'Automation choices could not be loaded.',
+          }),
+        ),
+      )
     }
-  }, [])
+  }, [formatMessage])
 
   // The choices (accounts, payees, instruments) change with any write — a new account, a payee,
   // or the instrument a saved price trigger was just pinned to — so reload them on every change.
@@ -199,7 +225,16 @@ export function Automations({ onOpenChat, onOpenConversation }: AutomationsProps
         if (current) setRuns(response.runs)
       })
       .catch((error) => {
-        if (current) setRunsError(messageOf(error, 'Run history could not be loaded.'))
+        if (current)
+          setRunsError(
+            messageOf(
+              error,
+              formatMessage({
+                id: 'automations.historyFailure',
+                defaultMessage: 'Run history could not be loaded.',
+              }),
+            ),
+          )
       })
       .finally(() => {
         if (current) setRunsLoading(false)
@@ -207,7 +242,7 @@ export function Automations({ onOpenChat, onOpenConversation }: AutomationsProps
     return () => {
       current = false
     }
-  }, [selectedAutomationId])
+  }, [selectedAutomationId, formatMessage])
 
   // A deep link can name a run that fell off the fetched page. Adopt it SILENTLY —
   // no spinner, no clearing of what is already on screen — by appending just that
@@ -403,7 +438,15 @@ export function Automations({ onOpenChat, onOpenConversation }: AutomationsProps
       setAutomations((rows) =>
         rows.map((row) => (row.id === automation.id ? { ...row, status: previous } : row)),
       )
-      setActionError(messageOf(error, 'Automation could not be updated.'))
+      setActionError(
+        messageOf(
+          error,
+          formatMessage({
+            id: 'automations.updateFailure',
+            defaultMessage: 'Automation could not be updated.',
+          }),
+        ),
+      )
     } finally {
       setBusyId(null)
     }
@@ -423,7 +466,15 @@ export function Automations({ onOpenChat, onOpenConversation }: AutomationsProps
         setPendingConversation({ automationId: automation.id, runId: run.id })
       }
     } catch (error) {
-      setActionError(messageOf(error, 'Automation could not be started.'))
+      setActionError(
+        messageOf(
+          error,
+          formatMessage({
+            id: 'automations.startFailure',
+            defaultMessage: 'Automation could not be started.',
+          }),
+        ),
+      )
     } finally {
       setBusyId(null)
     }
@@ -439,12 +490,26 @@ export function Automations({ onOpenChat, onOpenConversation }: AutomationsProps
       if (!result.stopped) {
         setActionError(
           result.reason === 'not_running'
-            ? 'That run had already finished — nothing to stop.'
-            : 'Run could not be stopped.',
+            ? formatMessage({
+                id: 'automations.alreadyFinished',
+                defaultMessage: 'That run had already finished — nothing to stop.',
+              })
+            : formatMessage({
+                id: 'automations.stopFailure',
+                defaultMessage: 'Run could not be stopped.',
+              }),
         )
       }
     } catch (error) {
-      setActionError(messageOf(error, 'Run could not be stopped.'))
+      setActionError(
+        messageOf(
+          error,
+          formatMessage({
+            id: 'automations.stopFailure',
+            defaultMessage: 'Run could not be stopped.',
+          }),
+        ),
+      )
     }
   }
 
@@ -458,7 +523,15 @@ export function Automations({ onOpenChat, onOpenConversation }: AutomationsProps
       if (selectedAutomationId === deleteTarget.id) setSelection(null)
       setDeleteTarget(null)
     } catch (error) {
-      setActionError(messageOf(error, 'Automation could not be deleted.'))
+      setActionError(
+        messageOf(
+          error,
+          formatMessage({
+            id: 'automations.deleteFailure',
+            defaultMessage: 'Automation could not be deleted.',
+          }),
+        ),
+      )
     } finally {
       setBusyId(null)
     }
@@ -477,7 +550,15 @@ export function Automations({ onOpenChat, onOpenConversation }: AutomationsProps
       }
       setClearingFinished(false)
     } catch (error) {
-      setActionError(messageOf(error, 'Some finished automations could not be cleared.'))
+      setActionError(
+        messageOf(
+          error,
+          formatMessage({
+            id: 'automations.clearFailure',
+            defaultMessage: 'Some finished automations could not be cleared.',
+          }),
+        ),
+      )
     } finally {
       setAutomations((rows) => rows.filter((row) => !cleared.includes(row.id)))
       if (selectedAutomationId && cleared.includes(selectedAutomationId)) setSelection(null)
@@ -508,18 +589,43 @@ export function Automations({ onOpenChat, onOpenConversation }: AutomationsProps
         >
           <PageHeader
             className="a3-masthead-head"
-            title="Automations"
-            subtitle={syncOn ? VIEW_SUBTITLES[view] : LUCIUS_ONLY_SUBTITLE}
+            title={formatMessage({ id: 'automations.pageTitle', defaultMessage: 'Automations' })}
+            subtitle={
+              syncOn
+                ? view === 'lucius'
+                  ? formatMessage({
+                      id: 'automations.subtitleLucius',
+                      defaultMessage:
+                        'Lucius runs these on a schedule or when something happens. Every run is a conversation you can pick back up.',
+                    })
+                  : formatMessage({
+                      id: 'automations.subtitleSync',
+                      defaultMessage:
+                        'Keep this book and your other apps in step, by fixed rules. No AI involved and nothing to pay.',
+                    })
+                : formatMessage({
+                    id: 'automations.subtitle',
+                    defaultMessage:
+                      'Run on a schedule or when something happens. Every run is a conversation you can pick back up.',
+                  })
+            }
           />
           {syncOn && (
             <PageTabs
               className="a3-views"
-              ariaLabel="Kind of automation"
+              ariaLabel={formatMessage({
+                id: 'automations.kind',
+                defaultMessage: 'Kind of automation',
+              })}
               value={view}
               onChange={setView}
               tabs={[
                 { key: 'lucius', label: 'Lucius' },
-                { key: 'sync', label: 'Data sync', badge: ynabSync.toReview || undefined },
+                {
+                  key: 'sync',
+                  label: formatMessage({ id: 'automations.dataSync', defaultMessage: 'Data sync' }),
+                  badge: ynabSync.toReview || undefined,
+                },
               ]}
             />
           )}
@@ -546,12 +652,22 @@ export function Automations({ onOpenChat, onOpenConversation }: AutomationsProps
         />
       ) : loading || !keepAwakeSettled ? (
         <div className="a3-wrap">
-          <TabSkeleton variant="automations" label="Loading automations…" header={false} />
+          <TabSkeleton
+            variant="automations"
+            label={formatMessage({
+              id: 'automations.loading',
+              defaultMessage: 'Loading automations…',
+            })}
+            header={false}
+          />
         </div>
       ) : loadError ? (
         <div className="a3-wrap">
           <ErrorState
-            title="Automations couldn’t load"
+            title={formatMessage({
+              id: 'automations.loadTitle',
+              defaultMessage: 'Automations couldn’t load',
+            })}
             message={loadError}
             onRetry={() => void load()}
           />
@@ -559,19 +675,34 @@ export function Automations({ onOpenChat, onOpenConversation }: AutomationsProps
       ) : unknownAutomation ? (
         <div className="a3-wrap">
           <ErrorState
-            title="Automation not found"
-            message="This automation does not exist or is no longer available."
+            title={formatMessage({
+              id: 'automations.notFound',
+              defaultMessage: 'Automation not found',
+            })}
+            message={formatMessage({
+              id: 'automations.notFoundHelp',
+              defaultMessage: 'This automation does not exist or is no longer available.',
+            })}
             onRetry={() => setSelection(null)}
           />
         </div>
       ) : selected && runsLoading ? (
         <div className="a3-wrap">
-          <TabSkeleton variant="automations" label="Loading automation history…" />
+          <TabSkeleton
+            variant="automations"
+            label={formatMessage({
+              id: 'automations.loadingHistory',
+              defaultMessage: 'Loading automation history…',
+            })}
+          />
         </div>
       ) : selected && runsError ? (
         <div className="a3-wrap">
           <ErrorState
-            title="Run history couldn’t load"
+            title={formatMessage({
+              id: 'automations.historyTitle',
+              defaultMessage: 'Run history couldn’t load',
+            })}
             message={runsError}
             onRetry={() => setSelection(selected.id)}
           />
@@ -579,8 +710,15 @@ export function Automations({ onOpenChat, onOpenConversation }: AutomationsProps
       ) : selected && unknownRun ? (
         <div className="a3-wrap">
           <ErrorState
-            title="Run not found"
-            message="This run does not belong to the selected automation or is no longer available."
+            title={formatMessage({
+              id: 'automations.runNotFound',
+              defaultMessage: 'Run not found',
+            })}
+            message={formatMessage({
+              id: 'automations.runNotFoundHelp',
+              defaultMessage:
+                'This run does not belong to the selected automation or is no longer available.',
+            })}
             onRetry={() => setSelection(selected.id)}
           />
         </div>
@@ -618,7 +756,15 @@ export function Automations({ onOpenChat, onOpenConversation }: AutomationsProps
               })
               setAutomations((rows) => rows.map((row) => (row.id === saved.id ? saved : row)))
             } catch (error) {
-              setActionError(messageOf(error, 'Permission could not be revoked.'))
+              setActionError(
+                messageOf(
+                  error,
+                  formatMessage({
+                    id: 'automations.revokeFailure',
+                    defaultMessage: 'Permission could not be revoked.',
+                  }),
+                ),
+              )
             } finally {
               setBusyId(null)
             }
@@ -630,7 +776,15 @@ export function Automations({ onOpenChat, onOpenConversation }: AutomationsProps
               const saved = await updateAutomation(selected.id, lists)
               setAutomations((rows) => rows.map((row) => (row.id === saved.id ? saved : row)))
             } catch (error) {
-              setActionError(messageOf(error, 'Tool permissions could not be saved.'))
+              setActionError(
+                messageOf(
+                  error,
+                  formatMessage({
+                    id: 'automations.permissionsFailure',
+                    defaultMessage: 'Tool permissions could not be saved.',
+                  }),
+                ),
+              )
             } finally {
               setBusyId(null)
             }
@@ -657,7 +811,14 @@ export function Automations({ onOpenChat, onOpenConversation }: AutomationsProps
               seed: {
                 ...automation,
                 status: automation.status === 'completed' ? 'active' : automation.status,
-                name: `${automation.name} (copy)`,
+                name: formatMessage(
+                  { id: 'automations.copyName', defaultMessage: '{name} (copy)' },
+                  { name: automation.name },
+                ),
+                template_source: {
+                  description: automation.template_source?.description,
+                  instructions: automation.template_source?.instructions,
+                },
               },
             })
           }
@@ -683,50 +844,76 @@ export function Automations({ onOpenChat, onOpenConversation }: AutomationsProps
       />
       <Modal
         open={deleteTarget !== null}
-        title="Delete this automation?"
+        title={formatMessage({
+          id: 'automations.deleteTitle',
+          defaultMessage: 'Delete this automation?',
+        })}
         onClose={() => setDeleteTarget(null)}
         footer={
           <>
-            <Button onClick={() => setDeleteTarget(null)}>Cancel</Button>
+            <Button onClick={() => setDeleteTarget(null)}>
+              {formatMessage({ id: 'automations.cancel', defaultMessage: 'Cancel' })}
+            </Button>
             <Button
               variant="danger"
               loading={busyId === deleteTarget?.id}
               onClick={() => void confirmDelete()}
             >
-              Delete automation
+              {formatMessage({
+                id: 'automations.deleteAutomation',
+                defaultMessage: 'Delete automation',
+              })}
             </Button>
           </>
         }
       >
         <p>
-          “{deleteTarget?.name}” stops running and its run history goes with it. This can’t be
-          undone.
+          {formatMessage(
+            {
+              id: 'automations.deleteHelp',
+              defaultMessage:
+                '“{name}” stops running and its run history goes with it. This can’t be undone.',
+            },
+            {
+              name: deleteTarget
+                ? templateField(intl, 'name', deleteTarget.name, deleteTarget.template_source?.name)
+                : '',
+            },
+          )}
         </p>
       </Modal>
       <Modal
         open={clearingFinished}
-        title={`Clear ${finishedAutomations.length} finished automation${finishedAutomations.length === 1 ? '' : 's'}?`}
+        title={formatMessage(
+          {
+            id: 'automations.clearTitle',
+            defaultMessage:
+              'Clear {count, plural, one {# finished automation} other {# finished automations}}?',
+          },
+          { count: finishedAutomations.length },
+        )}
         onClose={() => setClearingFinished(false)}
         footer={
           <>
-            <Button onClick={() => setClearingFinished(false)}>Cancel</Button>
+            <Button onClick={() => setClearingFinished(false)}>
+              {formatMessage({ id: 'automations.cancel', defaultMessage: 'Cancel' })}
+            </Button>
             <Button variant="danger" loading={clearBusy} onClick={() => void clearFinished()}>
-              Clear finished
+              {formatMessage({ id: 'automations.clearFinished', defaultMessage: 'Clear finished' })}
             </Button>
           </>
         }
       >
         <p>
-          These have no runs left on their schedule. Clearing deletes them and their run history.
-          This can’t be undone.
+          {formatMessage({
+            id: 'automations.clearHelp',
+            defaultMessage:
+              'These have no runs left on their schedule. Clearing deletes them and their run history. This can’t be undone.',
+          })}
         </p>
       </Modal>
     </div>
   )
-}
-
-function messageOf(error: unknown, fallback: string) {
-  return error instanceof Error && error.message ? error.message : fallback
 }
 
 function commandDraft(value: unknown): AutomationDraft | null {

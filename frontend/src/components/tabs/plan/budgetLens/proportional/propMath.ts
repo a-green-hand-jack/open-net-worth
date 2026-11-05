@@ -105,9 +105,33 @@ export interface PropDerived {
   pace: { byDay: boolean; now: number; then: number }
   paceDiff: number
   verdict: { text: string; bad: boolean }
+  /** Stable presentation facts for localizing the same verdict decision. */
+  verdictDetail: VerdictDetail
   /** The hero's status tint; null while there's no income or spend to judge by. */
   tone: HeroTone | null
   insights: Insight[]
+}
+
+export type VerdictDetail = {
+  kind:
+    | 'noIncome'
+    | 'overIncome'
+    | 'overGroupsSavings'
+    | 'shortGoal'
+    | 'overGroups'
+    | 'overCaps'
+    | 'capsOver'
+    | 'saved'
+    | 'early'
+    | 'onTrack'
+  past: boolean
+  current: boolean
+  early: boolean
+  amount: number
+  names: string[]
+  percent: number
+  target: number | null
+  caps: Array<{ label: string; by: number }>
 }
 
 export type HeroTone = 'good' | 'warn' | 'bad'
@@ -278,9 +302,14 @@ export function derive(m: PropMonth): PropDerived {
   const capsOnly = income > 0 && !overIncome && !shortOfGoal && !overGroups.length && !!capsOver
   // A closed month is told in the past tense, as how it ended (owner, 2026-09-26).
   const verdict = !income
-    ? { text: `${fmt(outflow)} spent${isPast ? '' : ' this month'}`, bad: false }
+    ? {
+        kind: 'noIncome' as const,
+        text: `${fmt(outflow)} spent${isPast ? '' : ' this month'}`,
+        bad: false,
+      }
     : overIncome
       ? {
+          kind: 'overIncome' as const,
           text: isPast
             ? `You spent ${fmt(outflow - income)} more than you earned`
             : `${fmt(outflow - income)} over your income`,
@@ -288,6 +317,7 @@ export function derive(m: PropMonth): PropDerived {
         }
       : shortOfGoal && overGroups.length
         ? {
+            kind: 'overGroupsSavings' as const,
             text: isPast
               ? `${overNames} ate into your savings`
               : `${overNames} ${are} eating into your savings`,
@@ -295,6 +325,7 @@ export function derive(m: PropMonth): PropDerived {
           }
         : shortOfGoal
           ? {
+              kind: 'shortGoal' as const,
               text: isCurrent
                 ? `Heading for ${saveP}% savings, your goal is ${saveTarget}%`
                 : `Saved ${saveP}%, your goal was ${saveTarget}%`,
@@ -302,6 +333,7 @@ export function derive(m: PropMonth): PropDerived {
             }
           : overGroups.length
             ? {
+                kind: 'overGroups' as const,
                 text: isPast
                   ? `${overNames} went over, but you still saved ${saveP}%`
                   : early
@@ -310,14 +342,16 @@ export function derive(m: PropMonth): PropDerived {
                 bad: early,
               }
             : overCap.length
-              ? { text: overCapText(overCap, isPast), bad: true }
+              ? { kind: 'overCaps' as const, text: overCapText(overCap, isPast), bad: true }
               : capsOnly
                 ? {
+                    kind: 'capsOver' as const,
                     text: `${capsOver!.g.name} caps add${isPast ? 'ed' : ''} up to more than ${capsOver!.g.target}%`,
                     bad: true,
                   }
                 : isPast
                   ? {
+                      kind: 'saved' as const,
                       text:
                         saveTarget === null
                           ? `Saved ${saveP}%`
@@ -325,8 +359,16 @@ export function derive(m: PropMonth): PropDerived {
                       bad: false,
                     }
                   : early
-                    ? { text: `Too early to call — ${fmt(outflow)} spent so far`, bad: false }
-                    : { text: isCurrent ? 'On track this month' : 'On target', bad: false }
+                    ? {
+                        kind: 'early' as const,
+                        text: `Too early to call — ${fmt(outflow)} spent so far`,
+                        bad: false,
+                      }
+                    : {
+                        kind: 'onTrack' as const,
+                        text: isCurrent ? 'On track this month' : 'On target',
+                        bad: false,
+                      }
   // Owner, 2026-09-26: "on track is green a bit, off track is yellow a bit … red a bit" — red
   // once spending passes income, yellow for every other warning the verdict gives, green when it
   // gives none.
@@ -376,7 +418,21 @@ export function derive(m: PropMonth): PropDerived {
     hasCmp,
     pace: { byDay, now: spent, then },
     paceDiff: spent - then,
-    verdict,
+    verdict: { text: verdict.text, bad: verdict.bad },
+    verdictDetail: {
+      kind: verdict.kind,
+      past: isPast,
+      current: isCurrent,
+      early,
+      amount: verdict.kind === 'overIncome' ? outflow - income : outflow,
+      names:
+        verdict.kind === 'capsOver' && capsOver
+          ? [capsOver.g.name]
+          : overGroups.map((f) => f.g.name),
+      percent: saveP,
+      target: verdict.kind === 'capsOver' ? (capsOver?.g.target ?? null) : saveTarget,
+      caps: overCap,
+    },
     tone,
     insights,
   }
@@ -394,9 +450,13 @@ export const ordinal = (d: number): string =>
         : 'th')
 
 /** "August by the 25th" / "August" — what the pace line compares against. */
-export function paceLabel(m: PropMonth, byDay: boolean): string {
+export function precedingMonthDate(m: PropMonth): Date {
   const [y, mo] = m.month.split('-').map(Number)
-  const prev = new Date(y!, (mo ?? 1) - 2, 1).toLocaleDateString('en', { month: 'long' })
+  return new Date(Date.UTC(y!, (mo ?? 1) - 2, 1))
+}
+
+export function paceLabel(m: PropMonth, byDay: boolean): string {
+  const prev = precedingMonthDate(m).toLocaleDateString('en', { month: 'long', timeZone: 'UTC' })
   return prev + (byDay ? ' by the ' + ordinal(m.day) : '')
 }
 

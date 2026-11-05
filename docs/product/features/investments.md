@@ -107,6 +107,9 @@ briefs.
    transaction, or leave it on **Don't book a cash leg**.
 5. Click **Record option**.
 
+Strategies selected in this form display in your chosen language. Older entries and labels you
+edit yourself retain their original text, because their source cannot be determined reliably.
+
 To close one, click **Close** on its row, enter the **Close date** and buyback or sale price, and
 optionally a **Book cash leg to** account. **Delete** removes an entry recorded by mistake.
 

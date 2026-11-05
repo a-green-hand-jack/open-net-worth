@@ -6,6 +6,7 @@
 import { fBase, fPct } from '../../utils/format'
 import { StatInfo } from '../ui/StatInfo'
 import type { DriverChip } from '../../types/portfolioDrivers'
+import { useAppIntl } from '../../i18n/useAppIntl'
 
 interface Props {
   gainers: DriverChip[]
@@ -35,15 +36,19 @@ function uniqueDrivers(chips: DriverChip[]): DriverChip[] {
 }
 
 export function DriverChips({ gainers, losers, onOpenAsset }: Props) {
+  const { formatMessage } = useAppIntl()
   const uniqueGainers = uniqueDrivers(gainers)
   const uniqueLosers = uniqueDrivers(losers)
   if (uniqueGainers.length + uniqueLosers.length === 0) return null
   return (
     <div className="intel-brief-movers">
       <span className="mvr-label">
-        today's drivers{' '}
+        {formatMessage({ id: 'investments.drivers.title', defaultMessage: "today's drivers" })}{' '}
         <StatInfo
-          text="Ranked by dollar impact on your portfolio today, not % move"
+          text={formatMessage({
+            id: 'investments.drivers.help',
+            defaultMessage: 'Ranked by dollar impact on your portfolio today, not % move',
+          })}
           className="stat-info-wrap--sm"
         />
       </span>
@@ -53,7 +58,10 @@ export function DriverChips({ gainers, losers, onOpenAsset }: Props) {
             type="button"
             className="mvr-chip"
             key={'g' + chip.instrument_id}
-            title={`Open ${chip.ticker || chip.label} — ${sgn(chip.day_change_base)} today`}
+            title={formatMessage(
+              { id: 'investments.drivers.open', defaultMessage: 'Open {name} — {amount} today' },
+              { name: chip.ticker || chip.label, amount: sgn(chip.day_change_base) },
+            )}
             onClick={() => onOpenAsset(chip)}
           >
             <span className="mvr-sym">{chip.ticker || chip.label}</span>
@@ -66,7 +74,10 @@ export function DriverChips({ gainers, losers, onOpenAsset }: Props) {
             type="button"
             className="mvr-chip"
             key={'l' + chip.instrument_id}
-            title={`Open ${chip.ticker || chip.label} — ${sgn(chip.day_change_base)} today`}
+            title={formatMessage(
+              { id: 'investments.drivers.open', defaultMessage: 'Open {name} — {amount} today' },
+              { name: chip.ticker || chip.label, amount: sgn(chip.day_change_base) },
+            )}
             onClick={() => onOpenAsset(chip)}
           >
             <span className="mvr-sym">{chip.ticker || chip.label}</span>

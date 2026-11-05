@@ -1,3 +1,5 @@
+import { getNumberLocale } from '../../../utils/format'
+import type { IntlShape } from 'react-intl'
 // A transaction trigger's conditions — the shape stored in `when.conditions` and the editor's
 // reading of it. Kept apart from the component so fast refresh sees a components-only file.
 export type ConditionField = 'account' | 'kind' | 'amount' | 'payee' | 'description' | 'memo'
@@ -180,7 +182,13 @@ function kindName(kind: string) {
 
 /** "When an expense over USD 500 posts on USD card, payee is Grab or Uber". Amounts carry the
  *  currency they are compared in: the one "Account is" account's, else the base currency. */
-export function transactionLabel(conditions: TxnCondition[], options: LabelOptions): string {
+export function transactionLabel(
+  conditions: TxnCondition[],
+  options: LabelOptions,
+  intl?: IntlShape,
+): string {
+  if (intl && !intl.locale.startsWith('en'))
+    return localizedTransactionLabel(conditions, options, intl)
   const account = conditionAccount(conditions)
   const currency =
     (account ? options.accounts.find((a) => a.id === account)?.currency : options.base_currency) ??
@@ -189,7 +197,7 @@ export function transactionLabel(conditions: TxnCondition[], options: LabelOptio
   const subjects = conditionValues(kind?.value ?? '').map((k) => KIND_SUBJECT[k] ?? kindName(k))
   let label = `When ${subjects.length ? joinOr(subjects) : 'a transaction'}`
   for (const c of conditions.filter((c) => c.field === 'amount')) {
-    const figure = Number(c.value).toLocaleString()
+    const figure = Number(c.value).toLocaleString(getNumberLocale())
     label += ` ${c.op} ${currency ? `${currency} ${figure}` : figure}`
   }
   label += ' posts'
@@ -209,4 +217,96 @@ export function transactionLabel(conditions: TxnCondition[], options: LabelOptio
     rest.push(`${c.field} ${CONDITION_OP_LABEL[c.op] ?? c.op} ${value}`)
   }
   return rest.length ? `${label}, ${rest.join(', ')}` : label
+}
+
+function localizedTransactionLabel(
+  conditions: TxnCondition[],
+  options: LabelOptions,
+  intl: IntlShape,
+): string {
+  const fields: Record<string, string> = {
+    account: intl.formatMessage({ id: 'automations.txn.account', defaultMessage: 'Account' }),
+    kind: intl.formatMessage({ id: 'automations.txn.kind', defaultMessage: 'Kind' }),
+    amount: intl.formatMessage({ id: 'automations.txn.amount', defaultMessage: 'Amount' }),
+    payee: intl.formatMessage({ id: 'automations.txn.payee', defaultMessage: 'Payee' }),
+    description: intl.formatMessage({
+      id: 'automations.txn.description',
+      defaultMessage: 'Description',
+    }),
+    memo: intl.formatMessage({ id: 'automations.txn.memo', defaultMessage: 'Memo' }),
+  }
+  const ops: Record<string, string> = {
+    is: intl.formatMessage({ id: 'automations.txn.is', defaultMessage: 'is' }),
+    is_not: intl.formatMessage({ id: 'automations.txn.isNot', defaultMessage: 'is not' }),
+    over: intl.formatMessage({ id: 'automations.txn.over', defaultMessage: 'over' }),
+    under: intl.formatMessage({ id: 'automations.txn.under', defaultMessage: 'under' }),
+    contains: intl.formatMessage({ id: 'automations.txn.contains', defaultMessage: 'contains' }),
+    not_contains: intl.formatMessage({
+      id: 'automations.txn.notContains',
+      defaultMessage: 'does not contain',
+    }),
+    starts_with: intl.formatMessage({
+      id: 'automations.txn.startsWith',
+      defaultMessage: 'starts with',
+    }),
+    regex: intl.formatMessage({ id: 'automations.txn.regex', defaultMessage: 'matches regex' }),
+  }
+  const kinds: Record<string, string> = {
+    expense: intl.formatMessage({ id: 'automations.txn.expense', defaultMessage: 'Expense' }),
+    income: intl.formatMessage({ id: 'automations.txn.income', defaultMessage: 'Income' }),
+    transfer: intl.formatMessage({ id: 'automations.txn.transfer', defaultMessage: 'Transfer' }),
+    investment: intl.formatMessage({
+      id: 'automations.txn.investment',
+      defaultMessage: 'Investment',
+    }),
+    investment_buy: intl.formatMessage({
+      id: 'automations.txn.buy',
+      defaultMessage: 'Investment: buy',
+    }),
+    investment_sale: intl.formatMessage({
+      id: 'automations.txn.sale',
+      defaultMessage: 'Investment: sale',
+    }),
+    adjustment: intl.formatMessage({
+      id: 'automations.txn.adjustment',
+      defaultMessage: 'Adjustment',
+    }),
+  }
+  if (!conditions.length)
+    return intl.formatMessage({
+      id: 'automations.txn.any',
+      defaultMessage: 'When a transaction posts',
+    })
+  const account = conditionAccount(conditions)
+  const currency =
+    (account ? options.accounts.find((a) => a.id === account)?.currency : options.base_currency) ??
+    ''
+  const rendered = conditions.map((condition) => {
+    const rawValues = conditionValues(condition.value)
+    const values = rawValues.map((value) =>
+      condition.field === 'account'
+        ? nameOf(options.accounts, value, value)
+        : condition.field === 'payee'
+          ? nameOf(options.payees ?? [], value, value)
+          : condition.field === 'kind'
+            ? (kinds[value] ?? value)
+            : value,
+    )
+    const value =
+      condition.field === 'amount'
+        ? `${currency ? `${currency} ` : ''}${Number(condition.value).toLocaleString(getNumberLocale())}`
+        : new Intl.ListFormat(intl.locale, { type: 'disjunction' }).format(values)
+    return intl.formatMessage(
+      { id: 'automations.txn.condition', defaultMessage: '{field} {operator} {value}' },
+      {
+        field: fields[condition.field] ?? condition.field,
+        operator: ops[condition.op] ?? condition.op,
+        value: value || '—',
+      },
+    )
+  })
+  return intl.formatMessage(
+    { id: 'automations.txn.when', defaultMessage: 'When a transaction posts: {conditions}' },
+    { conditions: new Intl.ListFormat(intl.locale, { type: 'conjunction' }).format(rendered) },
+  )
 }

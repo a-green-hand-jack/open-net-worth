@@ -34,7 +34,14 @@ from backend.core.channels import (
 logger = logging.getLogger(__name__)
 
 
-async def notify(message: str, channels: list[str] | None = None, title: str | None = None) -> dict:
+async def notify(
+    message: str,
+    channels: list[str] | None = None,
+    title: str | None = None,
+    *,
+    title_message: dict | None = None,
+    summary_message: dict | None = None,
+) -> dict:
     """Fan ``message`` out to the named ``channels`` (or all registered ones).
 
     Returns ``{channel_name: result_dict}``. An unknown channel name is skipped
@@ -58,7 +65,14 @@ async def notify(message: str, channels: list[str] | None = None, title: str | N
             results[name] = {"skipped": "unknown_channel"}
             continue
         try:
-            if subject and _takes_title(fn):
+            if fn is _in_app_send:
+                results[name] = await _in_app_send(
+                    message,
+                    title=subject,
+                    title_message=title_message,
+                    summary_message=summary_message,
+                )
+            elif subject and _takes_title(fn):
                 # `Channel` is typed one-arg, but _takes_title has just PROVEN by inspection
                 # that this channel has a real title slot — a runtime fact the static type
                 # cannot carry. Widening `Channel` instead would drop arity checking for
@@ -136,7 +150,13 @@ def _takes_title(fn) -> bool:
 # ── In-app channel (always registered, headless-safe) ─────────────────────────
 
 
-async def _in_app_send(message: str, title: str | None = None) -> dict:
+async def _in_app_send(
+    message: str,
+    title: str | None = None,
+    *,
+    title_message: dict | None = None,
+    summary_message: dict | None = None,
+) -> dict:
     """Surface a notification in the app's notification log (/api/notification-log).
 
     Appends a ``type="notification"`` unread row so a Telegram-less instance still
@@ -148,6 +168,14 @@ async def _in_app_send(message: str, title: str | None = None) -> dict:
         {
             "type": "notification",
             "title": (title or "").strip() or "Notification",
+            **(
+                {"title_message": title_message}
+                if title_message
+                else {"title_message": {"id": "inbox.server.notification", "params": {}}}
+                if not (title or "").strip()
+                else {}
+            ),
+            **({"summary_message": summary_message} if summary_message else {}),
             "summary": message,
             "trigger": "notify",
         }

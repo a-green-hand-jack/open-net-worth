@@ -13,6 +13,14 @@ import { catOf, compositionView, fmt, fmtOrDash, gainPctOf, pct, sharePct } from
 import { Icons } from './icons'
 import { photoUrl } from './api'
 import { EntityRow } from '../../../lucius/EntityRow'
+import { useAppIntl } from '../../../i18n/useAppIntl'
+import {
+  assetCategoryLabel,
+  assetCategoryPlural,
+  assetClassDescription,
+  assetClassName,
+  assetClassShortName,
+} from './categoryLabels'
 
 // Field mapping shared by every EntityRow wrapping an OwnedAsset — mirrors the backend's
 // "asset" mention descriptor (backend/services/mentions/descriptors/new_types.py) verbatim so
@@ -39,22 +47,31 @@ export interface SummaryStripProps {
 }
 
 export function SummaryStrip({ summary }: SummaryStripProps) {
+  const intl = useAppIntl()
   return (
     <div className="as-sum">
       <div>
-        <div className="as-sum-k">Everything you own</div>
+        <div className="as-sum-k">
+          {intl.formatMessage({ id: 'assets.summary.own', defaultMessage: 'Everything you own' })}
+        </div>
         <div className="as-sum-v money">{fmt(summary.own)}</div>
       </div>
       <div>
-        <div className="as-sum-k">What you owe</div>
+        <div className="as-sum-k">
+          {intl.formatMessage({ id: 'assets.summary.owe', defaultMessage: 'What you owe' })}
+        </div>
         <div className="as-sum-v money">{'−' + fmt(summary.owe)}</div>
       </div>
       <div className="hi">
-        <div className="as-sum-k">Net worth</div>
+        <div className="as-sum-k">
+          {intl.formatMessage({ id: 'assets.summary.netWorth', defaultMessage: 'Net worth' })}
+        </div>
         <div className="as-sum-v money">{fmt(summary.net_worth)}</div>
       </div>
       <div>
-        <div className="as-sum-k">Unrealized</div>
+        <div className="as-sum-k">
+          {intl.formatMessage({ id: 'assets.summary.unrealized', defaultMessage: 'Unrealized' })}
+        </div>
         <div className={'as-sum-v money ' + (summary.unrealized >= 0 ? 'pos' : 'neg')}>
           {(summary.unrealized >= 0 ? '+' : '') + fmt(summary.unrealized)}
         </div>
@@ -73,6 +90,7 @@ export interface FilterBarProps {
 // Categories only. Cash, Investments and Retirement are one card each, always first on All —
 // a chip for a single card pushed the category chips off a phone's row (owner, 2026-10-03).
 export function FilterBar({ list, cats, cat, setCat }: FilterBarProps) {
+  const intl = useAppIntl()
   const counts: Record<string, number> = {}
   list.forEach((a) => {
     counts[a.category] = (counts[a.category] || 0) + 1
@@ -95,7 +113,7 @@ export function FilterBar({ list, cats, cat, setCat }: FilterBarProps) {
     <div className="as-bar">
       <div className="as-bar-wrap" ref={wrap}>
         <button className={'as-chip' + (cat === 'all' ? ' on' : '')} onClick={() => setCat('all')}>
-          All <em>{list.length}</em>
+          {intl.formatMessage({ id: 'common.all', defaultMessage: 'All' })} <em>{list.length}</em>
         </button>
         {cats
           .filter((c) => counts[c.key])
@@ -106,7 +124,7 @@ export function FilterBar({ list, cats, cat, setCat }: FilterBarProps) {
               onClick={() => setCat(c.key)}
             >
               <i style={{ background: c.color }} />
-              {c.plural} <em>{counts[c.key]}</em>
+              {assetCategoryPlural(intl, c)} <em>{counts[c.key]}</em>
             </button>
           ))}
         {/* Trailing-edge padding on a scrollable container isn't reliably honored as real
@@ -129,6 +147,7 @@ export interface ThumbProps {
 }
 
 export function Thumb({ a, cats, size, editable, onPhoto }: ThumbProps) {
+  const intl = useAppIntl()
   const c = catOf(cats, a.category)
   const Ic = Icons[a.category] ?? Icons.other!
   const s = size || 46
@@ -190,7 +209,11 @@ export function Thumb({ a, cats, size, editable, onPhoto }: ThumbProps) {
     <label
       className="as-thumb editable"
       style={{ ...wrapStyle, cursor: 'pointer' }}
-      title={photoSrc ? 'Replace photo' : 'Add a photo'}
+      title={
+        photoSrc
+          ? intl.formatMessage({ id: 'assets.replacePhoto', defaultMessage: 'Replace photo' })
+          : intl.formatMessage({ id: 'assets.addPhoto', defaultMessage: 'Add a photo' })
+      }
     >
       {body}
       <span className="as-thumb-edit">{Icons.pencil!({ width: 13, height: 13 })}</span>
@@ -213,6 +236,7 @@ export interface AssetCardProps {
 }
 
 export function AssetCard({ a, cats, onOpen }: AssetCardProps) {
+  const intl = useAppIntl()
   const c = catOf(cats, a.category)
   const gp = gainPctOf(a)
   return (
@@ -221,7 +245,7 @@ export function AssetCard({ a, cats, onOpen }: AssetCardProps) {
       className="as-card"
       type="asset"
       id={a.id}
-      label={a.name || '(unnamed)'}
+      label={a.name || intl.formatMessage({ id: 'assets.unnamed', defaultMessage: '(unnamed)' })}
       item={a}
       toFields={assetFields}
       search={`${a.name} ${a.category} ${a.description ?? ''}`}
@@ -235,7 +259,12 @@ export function AssetCard({ a, cats, onOpen }: AssetCardProps) {
           {/* A jointly-owned card says so beside its category, so it agrees with the
               composition rail, which counts only your share. */}
           <div className="as-card-sub">
-            {a.share_pct < 100 ? `${c.label} · Your ${sharePct(a.share_pct)}%` : c.label}
+            {a.share_pct < 100
+              ? intl.formatMessage(
+                  { id: 'assets.yourShare', defaultMessage: '{category} · Your {share}%' },
+                  { category: assetCategoryLabel(intl, c), share: sharePct(a.share_pct) },
+                )
+              : assetCategoryLabel(intl, c)}
           </div>
         </div>
       </div>
@@ -257,6 +286,7 @@ export interface ClassCardProps {
 }
 
 export function ClassCard({ c, onNav }: ClassCardProps) {
+  const intl = useAppIntl()
   const Ic = Icons[c.key]!
   const showRows = c.rows != null && c.rows.length >= 2
   // Investments nulls its own card-level gainPct once it has rows (Positions vs.
@@ -283,8 +313,8 @@ export function ClassCard({ c, onNav }: ClassCardProps) {
           {Ic({ width: 21, height: 21 })}
         </div>
         <div className="as-card-id">
-          <div className="as-card-nm">{c.name}</div>
-          <div className="as-card-sub">{c.sub}</div>
+          <div className="as-card-nm">{assetClassName(intl, c.key)}</div>
+          <div className="as-card-sub">{assetClassDescription(intl, c.key)}</div>
         </div>
       </div>
       <div className="as-card-row">
@@ -329,19 +359,34 @@ const DEBT_COLOR: Record<string, string> = {
 }
 
 export function Rail({ cats, classes, summary }: RailProps) {
+  const intl = useAppIntl()
   // The server builds these from the same net-worth breakdown as "Everything you own" — each
   // owned asset at your share, in the base currency — and hands back whole percentages that
   // sum to 100. Recomputing them here from full asset values was the "Property 151%" bug.
   const rows = compositionView(summary.composition, cats, classes)
+  const compositionLabel = (index: number, fallback: string) => {
+    const source = summary.composition.rows[index]
+    const cls =
+      source?.kind === 'class' ? classes.find((item) => item.key === source.key) : undefined
+    const category =
+      source?.kind === 'category' ? cats.find((item) => item.key === source.key) : undefined
+    return cls
+      ? assetClassShortName(intl, cls.key)
+      : category
+        ? assetCategoryPlural(intl, category)
+        : fallback
+  }
   return (
     <aside className="as-rail">
       <div className="as-rcard">
-        <div className="as-rk">Asset Composition</div>
+        <div className="as-rk">
+          {intl.formatMessage({ id: 'assets.composition', defaultMessage: 'Asset Composition' })}
+        </div>
         <div className="as-comp">
-          {rows.map((r) => (
+          {rows.map((r, index) => (
             <div className="as-comp-row" key={r.key}>
               {/* The label and its % share one line; the bar runs full width under them. */}
-              <span>{r.label}</span>
+              <span>{compositionLabel(index, r.label)}</span>
               <span className="as-comp-bar">
                 <i style={{ width: r.pct + '%', background: r.color }} />
               </span>
@@ -358,11 +403,22 @@ export function Rail({ cats, classes, summary }: RailProps) {
           one-row card repeating the "What you owe" KPI. */}
       {summary.debt && (
         <div className="as-rcard">
-          <div className="as-rk">Debt Composition</div>
+          <div className="as-rk">
+            {intl.formatMessage({
+              id: 'assets.debtComposition',
+              defaultMessage: 'Debt Composition',
+            })}
+          </div>
           <div className="as-comp">
             {summary.debt.map((r) => (
               <div className="as-comp-row" key={r.key}>
-                <span>{r.label}</span>
+                <span>
+                  {r.key === 'credit'
+                    ? intl.formatMessage({ id: 'assets.debtCredit', defaultMessage: 'Credit' })
+                    : r.key === 'loan'
+                      ? intl.formatMessage({ id: 'assets.debtLoans', defaultMessage: 'Loans' })
+                      : r.label}
+                </span>
                 <span className="as-comp-bar">
                   <i
                     style={{

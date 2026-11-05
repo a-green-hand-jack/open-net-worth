@@ -1,3 +1,4 @@
+import { useAppIntl } from '../../i18n/useAppIntl'
 import { useState } from 'react'
 import type { VaultItem } from '../../api/vault'
 import { Modal } from '../ui/Modal'
@@ -6,13 +7,14 @@ import { ZoomImage } from '../ui/ZoomImage'
 /** A photo, and a tap opens it large IN the app. Never a link to the raw file: an installed
  *  app on a phone opens that link in its own window, with no way back (owner report). */
 export function ImagePreview({ item, src }: { item: VaultItem; src: string }) {
+  const vaultIntl = useAppIntl()
   const [open, setOpen] = useState(false)
   return (
     <>
       <button
         type="button"
         className="vault-preview vault-preview--image"
-        aria-label={`Open ${item.title}`}
+        aria-label={vaultIntl.formatMessage({ id: 'vault.openNamed', defaultMessage: 'Open {title}' }, { title: item.title })}
         onClick={() => setOpen(true)}
       >
         <img className="vault-preview-img" src={src} alt={item.title} />

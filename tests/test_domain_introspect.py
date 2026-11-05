@@ -125,7 +125,7 @@ _CODE_ONLY = {
     # Broker fill projection passes canonical execution refs internally, never from a model.
     "lot.acquire": {"account_id", "instrument_id", "source", "txn_id", "external_refs"},
     "lot.dispose": {"txn_id", "source", "external_refs"},
-    "option.open": {"quote_currency"},
+    "option.open": {"quote_currency", "strategy_preset"},
     # units_withheld closed 2026-07-19: propose_vest/record_vest now offer it (informational
     # RSU withholding, mirrors the REST VestApply field the AI surface was missing).
     "equity.vest_apply": {"source"},

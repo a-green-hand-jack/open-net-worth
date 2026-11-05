@@ -101,6 +101,25 @@ def test_a_service_validation_error_is_a_422(client, monkeypatch):
     assert "2-letter" in resp.json()["detail"]
 
 
+def test_institutions_error_preserves_known_message_metadata(client, monkeypatch):
+    from backend.services.aggregation import gocardless as svc
+
+    def invalid_country(_country):
+        raise ValidationError(
+            "country must be a 2-letter ISO code (e.g. GB, DE, FR)",
+            message_id="connector.error.goCardlessInvalidCountry",
+        )
+
+    monkeypatch.setattr(svc, "list_institutions", invalid_country)
+    response = client.get("/api/gocardless/institutions?country=GBR")
+    assert response.status_code == 422
+    assert response.json() == {
+        "detail": "country must be a 2-letter ISO code (e.g. GB, DE, FR)",
+        "message_id": "connector.error.goCardlessInvalidCountry",
+        "message_params": {},
+    }
+
+
 def test_check_link_without_a_bank_is_refused(client):
     resp = client.post("/api/gocardless/check-link")
     assert resp.status_code == 422

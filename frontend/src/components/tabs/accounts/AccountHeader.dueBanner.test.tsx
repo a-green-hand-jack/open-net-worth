@@ -22,6 +22,8 @@
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { IntlProvider } from 'react-intl'
+import messages from './zh-CN.messages.json'
 import { AccountHeader } from './AccountHeader'
 import type { DueInfo } from './AccountHeader'
 import { AccountsTab } from './AccountsTab'
@@ -47,7 +49,7 @@ const API_ACCOUNT: ApiAccount = {
 const ACCOUNT = fromApiAccount(API_ACCOUNT)
 const noop = () => {}
 
-function renderHeader(dueInfo: DueInfo | null) {
+function renderHeader(dueInfo: DueInfo | null, chinese = false) {
   return render(
     <AccountHeader
       account={ACCOUNT}
@@ -69,11 +71,41 @@ function renderHeader(dueInfo: DueInfo | null) {
       onReview={noop}
       onStartReview={noop}
     />,
+    chinese
+      ? {
+          wrapper: ({ children }) => (
+            <IntlProvider locale="zh-CN" messages={messages}>
+              {children}
+            </IntlProvider>
+          ),
+        }
+      : undefined,
   )
 }
 
 describe('AccountHeader credit-card due banner (CC1)', () => {
   afterEach(cleanup)
+
+  it('distinguishes estimated payments and overdue amounts in Chinese', () => {
+    renderHeader(
+      {
+        amountDue: 50,
+        currency: 'SGD',
+        days: -3,
+        closeDays: null,
+        partial: true,
+        paidAmount: 120,
+        totalDue: 170,
+      },
+      true,
+    )
+    const banner = document.querySelector('.acct-alert')!
+    expect(banner.textContent).toContain('预计')
+    expect(banner.textContent).toContain('已支付 S$120')
+    expect(banner.textContent).toContain('仍欠 S$50')
+    expect(banner.textContent).toContain('已逾期 3 天')
+    expect(banner.textContent).not.toContain('全额付清')
+  })
 
   it('hides the banner entirely when dueInfo is null (e.g. a fully-paid statement)', () => {
     renderHeader(null)

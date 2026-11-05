@@ -25,6 +25,14 @@ from pathlib import Path
 
 LAYOUT_FILE = Path(__file__).with_name("dashboard_layout.json")
 
+_SEED_VIEW_SOURCES = {
+    "Overview": "preset_overview",
+    "Investing": "preset_investing",
+    "Cash flow": "preset_cash_flow",
+    "Plan": "preset_plan",
+    "Reports": "preset_reports",
+}
+
 
 def views() -> list[dict]:
     """The saved views, with full geometry on every widget."""
@@ -32,6 +40,7 @@ def views() -> list[dict]:
     return [
         {
             "name": view["name"],
+            "nameSource": _SEED_VIEW_SOURCES[view["name"]],
             "widgets": [
                 {
                     "defId": w["defId"],

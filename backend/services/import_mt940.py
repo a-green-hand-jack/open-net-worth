@@ -204,12 +204,12 @@ def _txn_to_draft(
     Mt940ImportError with a per-row reason for any unmappable line (recorded as a skip)."""
     date_raw = (txn.get("date") or "").strip()
     if not date_raw:
-        raise Mt940ImportError("missing date")
+        raise Mt940ImportError("missing date", message_id="statement.skip.missing_date")
     amount = _parse_amount(txn.get("amount", ""))
     if amount is None:
-        raise Mt940ImportError("unparseable amount")
+        raise Mt940ImportError("unparseable amount", message_id="statement.skip.unparseable_amount")
     if amount == 0:
-        raise Mt940ImportError("zero amount")
+        raise Mt940ImportError("zero amount", message_id="statement.skip.zero_amount")
 
     dc = (txn.get("dc") or "").upper()
     # C/RC = credit (money in / income); D/RD = debit (money out / expense).
@@ -218,7 +218,7 @@ def _txn_to_draft(
     description = (txn.get("description") or "").strip() or "Imported transaction"
     acct = ledger_service.accounts.find_by_id(resolved_account)
     if acct is None:
-        raise Mt940ImportError("account not found")
+        raise Mt940ImportError("account not found", message_id="statement.skip.account_not_found")
     # Native currency: the account's own currency wins; fall back to the file's :60F: ccy,
     # then the base currency (the leg is always in the account's native currency).
     currency = (acct.get("currency") or file_currency or ledger_service.base_currency()).upper()
@@ -272,7 +272,7 @@ def _map_rows(
         try:
             draft = _txn_to_draft(txn, acct_id_in_file, file_currency, resolved)
         except Mt940ImportError as exc:
-            results.append(RowResult(line=i, skip_reason=str(exc)))
+            results.append(RowResult(line=i, skip_reason=str(exc), skip_message=exc.skip_message))
             continue
         results.append(RowResult(line=i, draft=draft))
     disambiguate_identical_rows(results)

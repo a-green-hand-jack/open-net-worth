@@ -1383,11 +1383,9 @@ body.hide-amounts .mask::after {
   white-space: nowrap;
   text-transform: none;
   letter-spacing: 0;
-  /* Fixed width (owner ask, 2026-09-14): a genuine `width`, not `min-width` — a min-width
-     still lets the box grow past it (and shift everything after it) the moment one month's
-     rendered text is a few px wider than another's, which is exactly what kept happening.
-     76px is generous enough that no real "Mmm YYYY" label can ever exceed it. */
-  width: 76px;
+  /* A fixed width keeps the arrows stationary as months change. Allow the wider localized
+     year-and-month labels as well as English abbreviations. */
+  width: 110px;
   text-align: center;
   overflow: hidden;
   text-overflow: ellipsis;

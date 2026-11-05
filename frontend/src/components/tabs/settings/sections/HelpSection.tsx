@@ -9,24 +9,34 @@ import { useNavigate } from '@tanstack/react-router'
 import { Panel, row } from '../ds'
 import { useChatComposerOptional } from '../../../../state/chatComposer'
 import { openReportProblem } from '../../../../state/reportProblem'
+import { useAppIntl } from '../../../../i18n/useAppIntl'
 
 const DOCS_URL = 'https://docs.opennetworth.ai'
 
 // No SectionProps: this section renders no data and raises no toast, and an unused
 // parameter is a lint error the section registry does not require anyone to pay.
 export function HelpSection() {
+  const { formatMessage } = useAppIntl()
   const navigate = useNavigate()
   const composer = useChatComposerOptional()
 
   return (
     <>
       <Panel
-        title="Help center"
-        sub="Guides, concepts, and answers — bundled with the app, so they work offline."
+        title={formatMessage({ id: 'settings.help.title', defaultMessage: 'Help center' })}
+        sub={formatMessage({
+          id: 'settings.help.subtitle',
+          defaultMessage:
+            'Guides, concepts, and answers — bundled with the app, so they work offline.',
+        })}
       >
         {row(
-          'Browse the docs',
-          'Installing it, the ideas behind it, every feature, and what Lucius can do on your behalf.',
+          formatMessage({ id: 'settings.help.browse', defaultMessage: 'Browse the docs' }),
+          formatMessage({
+            id: 'settings.help.browseBody',
+            defaultMessage:
+              'Installing it, the ideas behind it, every feature, and what Lucius can do on your behalf.',
+          }),
           // A button, not an <a href="/help">: that was a real page load, which threw away the
           // whole app just to read a doc — and Help is now an overlay this navigation opens
           // over Settings, returning here when it closes.
@@ -35,22 +45,38 @@ export function HelpSection() {
             type="button"
             onClick={() => void navigate({ to: '/help' })}
           >
-            Open
+            {formatMessage({ id: 'settings.help.open', defaultMessage: 'Open' })}
           </button>,
         )}
         {row(
-          'Docs on the web',
-          'The same pages, published — easier to send someone a link to.',
+          formatMessage({ id: 'settings.help.web', defaultMessage: 'Docs on the web' }),
+          formatMessage({
+            id: 'settings.help.webBody',
+            defaultMessage: 'The same pages, published — easier to send someone a link to.',
+          }),
           <a className="rd-btn secondary" href={DOCS_URL} target="_blank" rel="noopener noreferrer">
-            Visit
+            {formatMessage({ id: 'settings.help.visit', defaultMessage: 'Visit' })}
           </a>,
         )}
       </Panel>
 
-      <Panel title="Ask Lucius" sub="He reads the same pages you do.">
+      <Panel
+        title={formatMessage({ id: 'settings.help.ask', defaultMessage: 'Ask Lucius' })}
+        sub={formatMessage({
+          id: 'settings.help.askSubtitle',
+          defaultMessage: 'He reads the same pages you do.',
+        })}
+      >
         {row(
-          'Ask instead of searching',
-          'Lucius searches these docs before answering questions about how the app works, and cites the page he used.',
+          formatMessage({
+            id: 'settings.help.askInstead',
+            defaultMessage: 'Ask instead of searching',
+          }),
+          formatMessage({
+            id: 'settings.help.askBody',
+            defaultMessage:
+              'Lucius searches these docs before answering questions about how the app works, and cites the page he used.',
+          }),
           // Opens a FRESH thread, for the same reason "Ask Lucius about <asset>" does: a
           // question about how the app works has nothing to do with whatever conversation
           // happens to be open. The composer is left empty — we don't know what they want to
@@ -63,19 +89,32 @@ export function HelpSection() {
             disabled={!composer}
             onClick={() => composer?.requestOpen(true)}
           >
-            Ask Lucius
+            {formatMessage({ id: 'settings.help.ask', defaultMessage: 'Ask Lucius' })}
           </button>,
         )}
       </Panel>
 
-      <Panel title="Send feedback" sub="Tell us when something breaks.">
+      <Panel
+        title={formatMessage({ id: 'settings.help.feedback', defaultMessage: 'Send feedback' })}
+        sub={formatMessage({
+          id: 'settings.help.feedbackSubtitle',
+          defaultMessage: 'Tell us when something breaks.',
+        })}
+      >
         {row(
-          'Send feedback or report a problem',
-          'You see and can edit the whole report before it is sent. Never your book or your files.',
+          formatMessage({
+            id: 'settings.help.report',
+            defaultMessage: 'Send feedback or report a problem',
+          }),
+          formatMessage({
+            id: 'settings.help.reportBody',
+            defaultMessage:
+              'You see and can edit the whole report before it is sent. Never your book or your files.',
+          }),
           // The dialog (or, in the desktop app, its native twin) is where the user reads and
           // edits the report; this row only opens it, so nothing here sends anything.
           <button className="rd-btn secondary" type="button" onClick={() => openReportProblem()}>
-            Send feedback…
+            {formatMessage({ id: 'settings.help.send', defaultMessage: 'Send feedback…' })}
           </button>,
         )}
       </Panel>

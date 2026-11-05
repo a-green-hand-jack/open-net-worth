@@ -1,4 +1,7 @@
+import { getNumberLocale } from '../../utils/format'
 import { useState, useEffect, useRef } from 'react'
+import { useAppIntl } from '../../i18n/useAppIntl'
+import { defineMessages, type IntlShape } from 'react-intl'
 import { createPortal } from 'react-dom'
 import ReactMarkdown from 'react-markdown'
 import { SAFE_MARKDOWN_COMPONENTS } from '../ui/safeMarkdown'
@@ -212,6 +215,7 @@ interface Props {
 }
 
 function SearchCallItem({ s }: { s: SearchCall }) {
+  const intl = useAppIntl()
   const [open, setOpen] = useState(false)
   return (
     <div className="msg-search-item">
@@ -230,7 +234,7 @@ function SearchCallItem({ s }: { s: SearchCall }) {
         <span className="msg-search-query">{s.query}</span>
         {!s.loading && s.results.length > 0 && (
           <span className="msg-search-count">
-            {s.results.length} sources{' '}
+            {intl.formatMessage({ id: 'miss.sources', defaultMessage: '{count, plural, one {# source} other {# sources}}' }, { count: s.results.length })}{' '}
             {open ? (
               <ChevronUp size={11} aria-hidden="true" />
             ) : (
@@ -401,6 +405,7 @@ function changeIsVisible(change: ProposedChange, firstUnanswered: string | undef
 
 function renderGroupedBlock(
   block: GroupedBlockWithChange,
+  intl: IntlShape,
   i: number,
   onSendMessage: (text: string) => void,
   onRespond?: (changeId: string | undefined, status: 'confirmed' | 'dismissed') => void,
@@ -461,12 +466,6 @@ function renderGroupedBlock(
   // A positioned `thinking` block never reaches here: `groupBlocks` folds it into the
   // `actions` run it happened inside, so it draws as a row on that group's rail.
   if (block.type === 'skill') {
-    const prefix =
-      block.status === 'loading'
-        ? 'Loading'
-        : block.status === 'loaded'
-          ? 'Loaded'
-          : 'Could not load'
     return (
       <div
         key={i}
@@ -482,7 +481,7 @@ function renderGroupedBlock(
       >
         <div className="msg-skill-activity__line">
           <FileText size={13} strokeWidth={1.5} aria-hidden="true" />
-          <span>{`${prefix} ${block.name} skill`}</span>
+          <span>{block.status === 'loading' ? intl.formatMessage({ id: 'chat.skill.loading', defaultMessage: 'Loading {name} skill' }, { name: block.name }) : block.status === 'loaded' ? intl.formatMessage({ id: 'chat.skill.loaded', defaultMessage: 'Loaded {name} skill' }, { name: block.name }) : intl.formatMessage({ id: 'chat.skill.failed', defaultMessage: 'Could not load {name} skill' }, { name: block.name })}</span>
         </div>
         {block.status === 'failed' && block.error && (
           <span className="msg-skill-activity__error">{block.error}</span>
@@ -563,6 +562,7 @@ function messageText(m: Message): string {
 }
 
 function CopyButton({ text }: { text: string }) {
+  const intl = useAppIntl()
   const [copied, setCopied] = useState(false)
 
   async function copy() {
@@ -576,16 +576,16 @@ function CopyButton({ text }: { text: string }) {
   }
 
   return (
-    <button className="msg-copy-btn" onClick={copy} title={copied ? 'Copied' : 'Copy message'}>
+    <button className="msg-copy-btn" onClick={copy} title={copied ? intl.formatMessage({ id: 'chat.copy.copied', defaultMessage: 'Copied' }) : intl.formatMessage({ id: 'chat.copy.message', defaultMessage: 'Copy message' })}>
       {copied ? (
         <>
           <Check size={11} strokeWidth={1.6} aria-hidden="true" />
-          Copied
+          {intl.formatMessage({ id: 'chat.copy.copied', defaultMessage: 'Copied' })}
         </>
       ) : (
         <>
           <Copy size={11} strokeWidth={1.4} aria-hidden="true" />
-          Copy
+          {intl.formatMessage({ id: 'chat.tool.copy', defaultMessage: 'Copy' })}
         </>
       )}
     </button>
@@ -628,10 +628,10 @@ export function CostChip({ usage }: { usage: TurnUsage }) {
         : `~$${usage.cost_usd.toFixed(3)}`
 
   const parts: string[] = []
-  if (inp) parts.push(`${inp.toLocaleString()} in`)
-  if (cWrite) parts.push(`${cWrite.toLocaleString()} cache↑`)
-  if (cRead) parts.push(`${cRead.toLocaleString()} cache↓`)
-  if (out) parts.push(`${out.toLocaleString()} out`)
+  if (inp) parts.push(`${inp.toLocaleString(getNumberLocale())} in`)
+  if (cWrite) parts.push(`${cWrite.toLocaleString(getNumberLocale())} cache↑`)
+  if (cRead) parts.push(`${cRead.toLocaleString(getNumberLocale())} cache↓`)
+  if (out) parts.push(`${out.toLocaleString(getNumberLocale())} out`)
 
   // Show which model answered on EVERY turn (short name, no provider prefix or date
   // suffix — "claude-haiku-4-5-20251001" → "haiku-4-5"); "(auto)" marks a routed turn.
@@ -656,6 +656,7 @@ export function CostChip({ usage }: { usage: TurnUsage }) {
  *  nothing is retrying, the message is exactly where it should be.
  *  concurrent-conversations-ui-spec.md §5.3. */
 function PendingChip() {
+  const intl = useAppIntl()
   const [stale, setStale] = useState(false)
   useEffect(() => {
     const t = setTimeout(() => setStale(true), 30_000)
@@ -666,59 +667,50 @@ function PendingChip() {
       <Clock size={11} strokeWidth={1.6} aria-hidden="true" />
       <span>
         {stale
-          ? 'Still queued — Lucius hasn’t reached it yet'
-          : 'Queued — Lucius will read this at its next step'}
+          ? intl.formatMessage({ id: 'chat.pending.still', defaultMessage: 'Still queued — Lucius hasn’t reached it yet' })
+          : intl.formatMessage({ id: 'chat.pending.queued', defaultMessage: 'Queued — Lucius will read this at its next step' })}
       </span>
     </div>
   )
 }
 
-const FILE_LABELS: Record<string, string> = {
-  'transactions.json': 'transactions',
-  'accounts.json': 'accounts',
-  'profile.json': 'profile',
-  'positions.json': 'positions',
-  'instruments.json': 'instruments',
-  'actions.json': 'actions',
-  'watchlist.json': 'watchlist',
-  'intel_signals.json': 'intel signals',
-  'import_batches.json': 'import batches',
-  'statements.json': 'statements',
-  'memory.json': 'assistant memory',
-}
+const PREVIEW_LABELS = defineMessages({
+  'transactions.json': { id: 'chat.restore.label.transactions_json', defaultMessage: 'transactions' },
+  'accounts.json': { id: 'chat.restore.label.accounts_json', defaultMessage: 'accounts' },
+  'profile.json': { id: 'chat.restore.label.profile_json', defaultMessage: 'profile' },
+  'positions.json': { id: 'chat.restore.label.positions_json', defaultMessage: 'positions' },
+  'instruments.json': { id: 'chat.restore.label.instruments_json', defaultMessage: 'instruments' },
+  'actions.json': { id: 'chat.restore.label.actions_json', defaultMessage: 'actions' },
+  'watchlist.json': { id: 'chat.restore.label.watchlist_json', defaultMessage: 'watchlist' },
+  'intel_signals.json': { id: 'chat.restore.label.intel_signals_json', defaultMessage: 'intel signals' },
+  'import_batches.json': { id: 'chat.restore.label.import_batches_json', defaultMessage: 'import batches' },
+  'statements.json': { id: 'chat.restore.label.statements_json', defaultMessage: 'statements' },
+  'memory.json': { id: 'chat.restore.label.memory_json', defaultMessage: 'assistant memory' },
+  'db:automation_runs': { id: 'chat.restore.label.db_automation_runs', defaultMessage: 'Automation run history' },
+  'db:transaction_external_refs': { id: 'chat.restore.label.db_transaction_external_refs', defaultMessage: 'transaction references' },
+  'db:connector_snapshots': { id: 'chat.restore.label.db_connector_snapshots', defaultMessage: 'connection snapshots' },
+  'db:intel_stories': { id: 'chat.restore.label.db_intel_stories', defaultMessage: 'intel stories' },
+  'db:memory': { id: 'chat.restore.label.db_memory', defaultMessage: 'assistant memory' },
+})
 
-// DB-backed stores preview as `db:<table>`. Names a person would not recognise get a
-// readable one; every other table reads as its name with spaces ("import batches").
-const TABLE_LABELS: Record<string, string> = {
-  automation_runs: 'Automation run history',
-  transaction_external_refs: 'transaction references',
-  connector_snapshots: 'connection snapshots',
-  intel_stories: 'intel stories',
-  memory: 'assistant memory',
+function previewLabel(file: string, intl: IntlShape): string {
+  if (Object.hasOwn(PREVIEW_LABELS, file)) return intl.formatMessage(PREVIEW_LABELS[file as keyof typeof PREVIEW_LABELS])
+  return file.startsWith('db:') ? file.slice(3).replace(/_/g, ' ') : file
 }
-
-function previewLabel(file: string): string {
-  if (FILE_LABELS[file]) return FILE_LABELS[file]
-  if (!file.startsWith('db:')) return file
-  const table = file.slice(3)
-  return TABLE_LABELS[table] ?? table.replace(/_/g, ' ')
-}
-
-function summarisePreview(changes: CheckpointFileChange[]): string {
+function summarisePreview(changes: CheckpointFileChange[], intl: IntlShape): string {
   const parts: string[] = []
   for (const c of changes) {
-    const label = previewLabel(c.file)
-    if (c.delta > 0) parts.push(`restore ${c.delta} ${label}`)
-    else if (c.delta < 0) parts.push(`remove ${-c.delta} ${label}`)
-    else parts.push(`revert ${label}`)
+    const label = previewLabel(c.file, intl)
+    if (c.delta > 0) parts.push(intl.formatMessage({ id: 'chat.restore.addItems', defaultMessage: 'restore {count} {label}' }, { count: c.delta, label }))
+    else if (c.delta < 0) parts.push(intl.formatMessage({ id: 'chat.restore.removeItems', defaultMessage: 'remove {count} {label}' }, { count: -c.delta, label }))
+    else parts.push(intl.formatMessage({ id: 'chat.restore.revertItems', defaultMessage: 'revert {label}' }, { label }))
   }
-  if (parts.length === 0) return 'No changes to restore.'
+  if (parts.length === 0) return intl.formatMessage({ id: 'chat.restore.noChanges', defaultMessage: 'No changes to restore.' })
   return parts.join(', ') + '.'
 }
 
 // Restore is point-in-time: it rewinds to before this message, undoing this turn
 // AND every change made after it. Make that explicit so totals aren't surprising.
-const RESTORE_LEAD = 'Rewinds to before this message — undoes this and any later changes:'
 
 function RestoreControl({
   message: m,
@@ -731,6 +723,7 @@ function RestoreControl({
   onPreview?: (id: string) => Promise<PreviewResult>
   onRestore?: (id: string, mode?: RestoreMode) => Promise<unknown>
 }) {
+  const intl = useAppIntl()
   const [open, setOpen] = useState(false)
   const [preview, setPreview] = useState<string | null>(null)
   const [cross, setCross] = useState<CrossSessionChange[]>([])
@@ -778,7 +771,7 @@ function RestoreControl({
           setGone(true)
           setPreview('This checkpoint is no longer available.')
         } else {
-          setPreview(summarisePreview(res.changes || []))
+          setPreview(summarisePreview(res.changes || [], intl))
           setCross(res.cross_session_changes || [])
         }
       } catch {
@@ -799,7 +792,7 @@ function RestoreControl({
         setGone(true)
         setPreview('This checkpoint is no longer available.')
       } else {
-        setErr((e as Error).message || 'Restore failed')
+        setErr((e as Error).message || intl.formatMessage({ id: 'chat.restore.failed', defaultMessage: 'Restore failed' }))
       }
     } finally {
       setBusy(false)
@@ -813,7 +806,7 @@ function RestoreControl({
     try {
       await onRestore(m.undoCheckpointId, 'data')
     } catch (e) {
-      setErr((e as Error).message || 'Undo failed')
+      setErr((e as Error).message || intl.formatMessage({ id: 'chat.restore.undoFailed', defaultMessage: 'Undo failed' }))
     } finally {
       setBusy(false)
     }
@@ -822,10 +815,10 @@ function RestoreControl({
   if (m.restored) {
     return (
       <div className="msg-restore-done">
-        <span>✓ Restored to before this message</span>
+        <span>✓ {intl.formatMessage({ id: 'chat.restore.done', defaultMessage: 'Restored to before this message' })}</span>
         {m.undoCheckpointId && onRestore && (
           <button className="msg-restore-undo" disabled={busy} onClick={undoRestore}>
-            {busy ? 'Undoing…' : 'Undo'}
+            {busy ? intl.formatMessage({ id: 'chat.restore.undoing', defaultMessage: 'Undoing…' }) : intl.formatMessage({ id: 'chat.restore.undo', defaultMessage: 'Undo' })}
           </button>
         )}
         {err && <span className="msg-restore-err">{err}</span>}
@@ -841,10 +834,10 @@ function RestoreControl({
         data-tour={guide ? 'lucius-restore' : undefined}
         aria-expanded={open}
         onClick={toggle}
-        title="Restore data to before this message"
+        title={intl.formatMessage({ id: 'chat.restore.title', defaultMessage: 'Restore data to before this message' })}
       >
         <RotateCcw size={11} strokeWidth={1.4} aria-hidden="true" />
-        Restore
+        {intl.formatMessage({ id: 'chat.restore.button', defaultMessage: 'Restore' })}
       </button>
       {open &&
         createPortal(
@@ -860,13 +853,12 @@ function RestoreControl({
             }
           >
             {!gone && preview !== null && preview !== 'Could not load preview.' && (
-              <div className="msg-restore-lead">{RESTORE_LEAD}</div>
+              <div className="msg-restore-lead">{intl.formatMessage({ id: 'chat.restore.lead', defaultMessage: 'Rewinds to before this message — undoes this and any later changes:' })}</div>
             )}
-            <div className="msg-restore-preview">{preview ?? 'Checking impact…'}</div>
+            <div className="msg-restore-preview">{preview === 'Could not load preview.' ? intl.formatMessage({ id: 'chat.restore.previewFailed', defaultMessage: 'Could not load preview.' }) : gone ? intl.formatMessage({ id: 'chat.restore.gone', defaultMessage: 'This checkpoint is no longer available.' }) : preview ?? intl.formatMessage({ id: 'chat.restore.checking', defaultMessage: 'Checking impact…' })}</div>
             {!gone && cross.length > 0 && (
               <div className="msg-restore-warn">
-                ⚠ Also undoes {cross.length} later change{cross.length > 1 ? 's' : ''} from{' '}
-                {[...new Set(cross.map((c) => c.session_label))].join(', ')}:
+                ⚠ {intl.formatMessage({ id: 'chat.restore.cross', defaultMessage: 'Also undoes {count, plural, one {# later change} other {# later changes}} from {sessions}:' }, { count: cross.length, sessions: [...new Set(cross.map((c) => c.session_label))].join(', ') })}
                 <ul>
                   {cross.map((c, i) => (
                     <li key={i}>
@@ -882,27 +874,27 @@ function RestoreControl({
             {gone ? (
               <div className="msg-restore-actions">
                 <button className="msg-restore-cancel" onClick={() => setOpen(false)}>
-                  Close
+                  {intl.formatMessage({ id: 'chat.restore.close', defaultMessage: 'Close' })}
                 </button>
               </div>
             ) : (
               <>
                 <div className="msg-restore-actions">
                   <button disabled={busy} onClick={() => doRestore('data')}>
-                    Restore data
+                    {intl.formatMessage({ id: 'chat.restore.data', defaultMessage: 'Restore data' })}
                   </button>
                   <button disabled={busy} onClick={() => doRestore('both')}>
-                    Restore data &amp; rewind chat
+                    {intl.formatMessage({ id: 'chat.restore.both', defaultMessage: 'Restore data & rewind chat' })}
                   </button>
                   <button
                     disabled={busy}
                     className="msg-restore-cancel"
                     onClick={() => setOpen(false)}
                   >
-                    Cancel
+                    {intl.formatMessage({ id: 'chat.restore.cancel', defaultMessage: 'Cancel' })}
                   </button>
                 </div>
-                <div className="msg-restore-hint">This restore can itself be undone.</div>
+                <div className="msg-restore-hint">{intl.formatMessage({ id: 'chat.restore.hint', defaultMessage: 'This restore can itself be undone.' })}</div>
               </>
             )}
           </div>,
@@ -943,6 +935,7 @@ export function MessageBubble({
   onRestoreCheckpoint,
   restoreGuide = false,
 }: Props) {
+  const intl = useAppIntl()
   const isUser = m.role === 'user'
   const [lightboxAtt, setLightboxAtt] = useState<Attachment | null>(null)
   // Settings -> AI -> Chat. Default OFF: reasoning is drawn where it happened.
@@ -987,7 +980,7 @@ export function MessageBubble({
                 className="msg-attachment-pill msg-attachment-download"
                 href={`/api/uploads/${a.ref_id}/file`}
                 download
-                title={`Download ${a.summary}`}
+                title={intl.formatMessage({ id: 'chat.downloadAttachment', defaultMessage: 'Download {name}' }, { name: a.summary })}
               >
                 📄 {a.summary}
               </a>
@@ -1043,6 +1036,7 @@ export function MessageBubble({
               }
               return renderGroupedBlock(
                 block,
+                intl,
                 i,
                 onSendMessage,
                 respond,
@@ -1149,7 +1143,7 @@ export function MessageBubble({
             {m.error}
             {onOpenAiSettings && (
               <Button variant="ghost" size="dense" onClick={onOpenAiSettings}>
-                Open AI settings
+                {intl.formatMessage({ id: 'chat.openAiSettings', defaultMessage: 'Open AI settings' })}
               </Button>
             )}
           </span>
@@ -1161,12 +1155,12 @@ export function MessageBubble({
           <span className="msg-error-text">{m.error}</span>
           {onOpenAiSettings && (
             <Button variant="ghost" size="dense" onClick={onOpenAiSettings}>
-              Open AI settings
+              {intl.formatMessage({ id: 'chat.openAiSettings', defaultMessage: 'Open AI settings' })}
             </Button>
           )}
           {onRetry && (
             <button className="msg-retry-btn" onClick={onRetry}>
-              <RotateCcw size={12} aria-hidden="true" /> Retry
+              <RotateCcw size={12} aria-hidden="true" /> {intl.formatMessage({ id: 'chat.retry', defaultMessage: 'Retry' })}
             </button>
           )}
         </div>

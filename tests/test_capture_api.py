@@ -341,7 +341,7 @@ def slow_turn(monkeypatch):
             "error": None,
         }
 
-    async def _notify(message, channels=None, title=None):
+    async def _notify(message, channels=None, title=None, **_presentation):
         state["notified"].append((title, message))
         state["channels"] = channels
         return {}
@@ -428,7 +428,7 @@ async def test_a_backgrounded_failure_is_notified(monkeypatch):
 
     notified = []
 
-    async def _notify(message, channels=None, title=None):
+    async def _notify(message, channels=None, title=None, **_presentation):
         notified.append(message)
         return {}
 

@@ -211,6 +211,28 @@ Backend tests live in `tests/` and run under pytest (config in `pyproject.toml`;
 Frontend tests use Vitest (`cd frontend && npm run test`). The frontend typecheck
 (`npm run typecheck`) is run as part of `make check`.
 
+### Interface translations
+
+Declare user-visible messages with React Intl descriptors (`id` and `defaultMessage`) so
+`npm run i18n:extract` can find them. Translate complete sentences and preserve ICU arguments,
+plural logic and rich-text tags. Add Simplified Chinese messages to the appropriate catalog;
+user-supplied text, identifiers and external content are not translation messages.
+
+`npm run i18n:check` checks the extracted messages for missing Chinese translations, invalid ICU
+syntax and mismatched arguments. The frontend build runs this check. It only sees declared
+messages: passing it does not prove that a screen contains no hardcoded English, so review and
+exercise the affected screens in both languages. Language is independent of financial and date
+format preferences; never translate stored currency codes or change how amounts are parsed.
+Application-generated Inbox and matching messages carry a stable ID and parameters alongside
+the original English text; add a frontend descriptor and translation when introducing an ID.
+The check also compares declared backend trading, Inbox and matching IDs with those descriptors.
+Unknown IDs and historical records without metadata retain their original text; model and
+user-generated content is never inferred from its wording.
+Adding another language also requires registering its locale and browser matching in
+`frontend/src/i18n/locale.ts`, loading its catalog in `LocaleProvider`, offering it in the
+language setting, allowing it in the profile validator, and extending catalog validation and
+desktop-native translations. Test the new locale and its fallback before advertising support.
+
 ---
 
 ## `make check` — the local gate

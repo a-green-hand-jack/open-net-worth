@@ -84,6 +84,7 @@ class OptionContract(ONBaseModel):
     )
 
     strategy_tag: str = ""  # "covered_call" | "csp" | "long_call" | "protective_put" | ""
+    strategy_preset: Optional[str] = None
     idempotency_key: Optional[str] = None  # broker order id (dedupe)
     note: str = ""
 
@@ -115,5 +116,6 @@ class OptionContractCreate(ONBaseModel):
     collateral_account_id: Optional[str] = None
     collateral_amount: Optional[float] = None
     strategy_tag: str = ""
+    strategy_preset: Optional[str] = None
     idempotency_key: Optional[str] = None
     note: str = ""

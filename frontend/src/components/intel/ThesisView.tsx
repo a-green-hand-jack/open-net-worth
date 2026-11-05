@@ -1,9 +1,11 @@
+import { useAppIntl } from '../../i18n/useAppIntl'
+import { FormattedMessage } from './FormattedMessage'
 import { Plus } from 'lucide-react'
 import { useChatComposerOptional } from '../../state/chatComposer'
 import { BuildWithLucius } from './BuildWithLucius'
 import { Button, InfoPopover } from '../ui'
 import type { InvestmentThesis } from '../../types/assetDetail'
-import { BREAKS_IF_LABEL, thesisLevels, type ROLES, type ThesisLevel } from './thesisFields'
+import { thesisLevels, type ROLES, type ThesisLevel } from './thesisFields'
 
 // ThesisView — the one read view of a stock's investment thesis: its reason, what would break it
 // and its price levels against today's price. The asset page's Your Thesis card and the alerts
@@ -25,6 +27,7 @@ function PriceBar({
   price: number
   fmt: (v: number) => string
 }) {
+  const intl = useAppIntl()
   const zoneLow = thesis.buy_below != null ? (thesis.buy_above ?? null) : null
   const points = [price, ...levels.map((l) => l.at), ...(zoneLow != null ? [zoneLow] : [])]
   const lo = Math.min(...points) * 0.9
@@ -32,7 +35,7 @@ function PriceBar({
   const pct = (v: number) => `${(((v - lo) / (hi - lo)) * 100).toFixed(2)}%`
   const zoneFrom =
     thesis.buy_below != null ? (zoneLow ?? Math.max(lo, thesis.buy_below * 0.88)) : null
-  const label = `Price ${fmt(price)} against your thesis: ${levels.map((l) => `${l.label} ${l.value}`).join(', ')}`
+  const label = intl.formatMessage({ id: 'intel.thesis.priceAgainst', defaultMessage: 'Price {price} against your thesis: {levels}' }, { price: fmt(price), levels: levels.map((l) => `${l.label} ${l.value}`).join(', ') })
   return (
     <div className="asd-thesis-bar" role="img" aria-label={label}>
       <div className="asd-thesis-track" />
@@ -102,9 +105,8 @@ export function ThesisStart({
   instrumentId?: string
 }) {
   const composer = useChatComposerOptional()
-  const blurb = held
-    ? `Why you own ${sym}, what would prove you wrong, and the prices that matter.`
-    : `Why you’d buy ${sym}, what would prove the case wrong, and the prices that matter.`
+  const intl = useAppIntl()
+  const blurb = intl.formatMessage({ id: 'intel.thesis.startBlurb', defaultMessage: '{held, select, yes {Why you own {symbol}, what would prove you wrong, and the prices that matter.} other {Why you’d buy {symbol}, what would prove the case wrong, and the prices that matter.}}' }, { held: held ? 'yes' : 'no', symbol: sym })
   if (!composer || !instrumentId) {
     return (
       <Button
@@ -113,7 +115,7 @@ export function ThesisStart({
         iconLeft={<Plus size={13} aria-hidden="true" />}
         onClick={onClick}
       >
-        {held ? `Write down why you own ${sym}` : `Write down why you’d buy ${sym}`}
+        {intl.formatMessage({ id: 'intel.thesis.writeReason', defaultMessage: '{held, select, yes {Write down why you own {symbol}} other {Write down why you’d buy {symbol}}}' }, { held: held ? 'yes' : 'no', symbol: sym })}
       </Button>
     )
   }
@@ -133,7 +135,7 @@ export function ThesisStart({
           iconLeft={<Plus size={14} aria-hidden="true" />}
           onClick={onClick}
         >
-          Add thesis
+          {<FormattedMessage id="intel.extra.16ec1196" defaultMessage={"Add thesis"} />}
         </Button>
       </div>
     </div>
@@ -142,10 +144,13 @@ export function ThesisStart({
 
 /** The role chip with its one-line meaning. */
 export function ThesisRoleBadge({ role }: { role: (typeof ROLES)[number] }) {
+  const intl = useAppIntl()
+  const label = intl.formatMessage({ id: 'intel.thesis.role', defaultMessage: '{role, select, core {Core} satellite {Satellite} other {Speculative}}' }, { role: role.value })
+  const help = intl.formatMessage({ id: 'intel.thesis.roleHelp', defaultMessage: '{role, select, core {The long-term base of your portfolio.} satellite {An active bet around your core holdings.} other {A small, high-risk bet you can afford to lose.}}' }, { role: role.value })
   return (
     <span className="asd-thesis-role-wrap">
-      <span className="asd-thesis-role">{role.label}</span>
-      <InfoPopover text={role.help} label={`What ${role.label} means`} />
+      <span className="asd-thesis-role">{label}</span>
+      <InfoPopover text={help} label={intl.formatMessage({ id: 'intel.thesis.roleMeaning', defaultMessage: 'What {role} means' }, { role: label })} />
     </span>
   )
 }
@@ -161,13 +166,14 @@ export function ThesisView({
   price: number | null
   fmt: (v: number) => string
 }) {
-  const levels = thesisLevels(thesis, held, fmt)
+  const intl = useAppIntl()
+  const levels = thesisLevels(thesis, held, fmt).map(level => ({ ...level, label: intl.formatMessage({ id: 'intel.thesis.levelLabel', defaultMessage: '{key, select, stop {Stop below} zone {Buy zone} fair {Fair value} other {Trim above}}' }, { key: level.key }) }))
   return (
     <div className="asd-thesis-body">
       {thesis.reason && <p className="asd-thesis-reason">{thesis.reason}</p>}
       {held && thesis.breaks_if && (
         <div className="asd-thesis-breaks">
-          <p className="asd-thesis-breaks-label">{BREAKS_IF_LABEL}</p>
+          <p className="asd-thesis-breaks-label">{intl.formatMessage({ id: 'intel.thesis.breaksIf', defaultMessage: 'Thesis breaks if' })}</p>
           <p className="asd-thesis-reason">{thesis.breaks_if}</p>
         </div>
       )}

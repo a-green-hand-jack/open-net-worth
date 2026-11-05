@@ -1,14 +1,16 @@
 import { useState } from 'react'
+import { useAppIntl } from '../../i18n/useAppIntl'
 import { safeHref } from '../../utils/format'
 import { TrendingUp, TrendingDown, ChevronDown, ChevronRight } from '../../ui/icons'
 import type { Citation, KeyIssue } from '../../types/assetDetail'
 
 function SourcesList({ sources, tone }: { sources: Citation[]; tone: 'bull' | 'bear' }) {
+  const intl = useAppIntl()
   if (!sources.length) return null
   return (
     <div className="asd-ki-sources">
       <span className={`asd-ki-sources-pill asd-ki-sources-pill--${tone}`}>
-        {sources.length} {sources.length === 1 ? 'source' : 'sources'}
+        {intl.formatMessage({ id: 'remaining.sources', defaultMessage: '{count, plural, one {# source} other {# sources}}' }, { count: sources.length })}
       </span>
       <span className="asd-ki-sources-links">
         {sources.map((src, i) => {
@@ -37,6 +39,7 @@ function SourcesList({ sources, tone }: { sources: Citation[]; tone: 'bull' | 'b
 }
 
 function IssueItem({ issue, defaultOpen }: { issue: KeyIssue; defaultOpen: boolean }) {
+  const intl = useAppIntl()
   // Only the first issue starts expanded — the rest stay collapsed until clicked.
   const [open, setOpen] = useState(defaultOpen)
 
@@ -57,7 +60,7 @@ function IssueItem({ issue, defaultOpen }: { issue: KeyIssue; defaultOpen: boole
         <div className="asd-ki-body">
           <div className="asd-ki-col asd-ki-col--bull">
             <div className="asd-ki-col-head">
-              Bullish view
+              {intl.formatMessage({ id: 'remaining.bullish', defaultMessage: 'Bullish view' })}
               <TrendingUp size={13} aria-hidden />
             </div>
             <p className="asd-ki-col-text">{issue.bullish.text}</p>
@@ -65,7 +68,7 @@ function IssueItem({ issue, defaultOpen }: { issue: KeyIssue; defaultOpen: boole
           </div>
           <div className="asd-ki-col asd-ki-col--bear">
             <div className="asd-ki-col-head">
-              Bearish view
+              {intl.formatMessage({ id: 'remaining.bearish', defaultMessage: 'Bearish view' })}
               <TrendingDown size={13} aria-hidden />
             </div>
             <p className="asd-ki-col-text">{issue.bearish.text}</p>

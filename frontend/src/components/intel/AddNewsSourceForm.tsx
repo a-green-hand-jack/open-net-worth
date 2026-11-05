@@ -1,3 +1,5 @@
+import { FormattedMessage } from './FormattedMessage'
+import { useAppIntl } from '../../i18n/useAppIntl'
 import { useState } from 'react'
 import { authFetch } from '../../api/client'
 import { Button, FormField, Stack, Text, TextField } from '../ui'
@@ -20,6 +22,7 @@ interface Props {
 }
 
 export function AddNewsSourceForm({ userCount, onAdded }: Props) {
+  const intl = useAppIntl()
   const [label, setLabel] = useState('')
   const [url, setUrl] = useState('')
   const [labelError, setLabelError] = useState<string | null>(null)
@@ -42,7 +45,7 @@ export function AddNewsSourceForm({ userCount, onAdded }: Props) {
       })
       if (!res.ok) {
         if (res.status === 422) {
-          const detail = await errorDetail(res, 'Could not add — try again.')
+          const detail = await errorDetail(res, intl.formatMessage({ id: 'intel.error.addFailed', defaultMessage: 'Could not add — try again.' }), intl)
           const { field } = sourceFieldError(detail)
           if (field === 'label') setLabelError(detail)
           else if (field === 'url') setUrlError(detail)
@@ -53,14 +56,14 @@ export function AddNewsSourceForm({ userCount, onAdded }: Props) {
           else setGenericError(detail)
           return
         }
-        setGenericError('Could not add — try again.')
+        setGenericError(intl.formatMessage({ id: 'intel.error.addFailed', defaultMessage: 'Could not add — try again.' }))
         return
       }
       setLabel('')
       setUrl('')
       onAdded()
     } catch {
-      setGenericError('Could not add — try again.')
+      setGenericError(intl.formatMessage({ id: 'intel.error.addFailed', defaultMessage: 'Could not add — try again.' }))
     } finally {
       setBusy(false)
     }
@@ -69,18 +72,18 @@ export function AddNewsSourceForm({ userCount, onAdded }: Props) {
   if (atCap) {
     return (
       <Text size="sm" tone="muted">
-        You&rsquo;ve reached the limit of 20 feeds — remove one to add another.
+        {<FormattedMessage id="intel.extra.ff1bffac" defaultMessage={"You’ve reached the limit of 20 feeds — remove one to add another."} />}
       </Text>
     )
   }
 
   return (
     <Stack gap="--space-4">
-      <FormField label="Feed name" htmlFor="src-add-label" error={labelError}>
+      <FormField label={intl.formatMessage({ id: "intel.field.27c760ec", defaultMessage: "Feed name" })} htmlFor="src-add-label" error={labelError}>
         <TextField
           id="src-add-label"
           value={label}
-          placeholder="e.g. Reuters Markets"
+          placeholder={intl.formatMessage({ id: "intel.field.cf6c051e", defaultMessage: "e.g. Reuters Markets" })}
           invalid={!!labelError}
           onChange={(e) => {
             setLabel(e.target.value)
@@ -89,13 +92,13 @@ export function AddNewsSourceForm({ userCount, onAdded }: Props) {
         />
       </FormField>
       <FormField
-        label="Feed URL"
+        label={intl.formatMessage({ id: "intel.field.5a77492d", defaultMessage: "Feed URL" })}
         htmlFor="src-add-url"
         error={urlError}
         help={
           urlError
             ? undefined
-            : 'Must be a public http(s) RSS/Atom feed — Lucius checks it before saving.'
+            : intl.formatMessage({ id: 'intel.sources.feedValidationHelp', defaultMessage: 'Must be a public http(s) RSS/Atom feed — Lucius checks it before saving.' })
         }
       >
         <TextField
@@ -110,7 +113,7 @@ export function AddNewsSourceForm({ userCount, onAdded }: Props) {
         />
       </FormField>
       <Text size="xs" tone="muted">
-        Lucius checks this feed on its own schedule, alongside your other sources.
+        {<FormattedMessage id="intel.extra.09ed8e99" defaultMessage={"Lucius checks this feed on its own schedule, alongside your other sources."} />}
       </Text>
       {genericError && <div className="intel-wlc-add-err">{genericError}</div>}
       <Button
@@ -119,7 +122,7 @@ export function AddNewsSourceForm({ userCount, onAdded }: Props) {
         onClick={() => void submit()}
         disabled={!label.trim() || !url.trim() || busy}
       >
-        {busy ? 'Adding…' : 'Add feed'}
+        {busy ? intl.formatMessage({ id: 'miss.feed.adding', defaultMessage: 'Adding…' }) : intl.formatMessage({ id: 'miss.feed.add', defaultMessage: 'Add feed' })}
       </Button>
     </Stack>
   )

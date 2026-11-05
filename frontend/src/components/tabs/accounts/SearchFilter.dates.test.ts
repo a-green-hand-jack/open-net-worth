@@ -6,6 +6,12 @@ const SUGGEST = { categories: [], payees: [], accounts: [], tags: [] }
 const Y = new Date().getFullYear()
 
 describe('parseDateInput — accepted forms', () => {
+  it('accepts unambiguous Chinese year-month and year-month-day', () => {
+    expect(parseDateInput('2026年')?.prefix).toBe('2026')
+    expect(parseDateInput('2026年6月')?.prefix).toBe('2026-06')
+    expect(parseDateInput('2026年6月1日')?.prefix).toBe('2026-06-01')
+    expect(parseDateInput('2026年2月30日')).toBeNull()
+  })
   it('ISO day', () => {
     const d = parseDateInput('2026-06-01')!
     expect(d.kind).toBe('day')

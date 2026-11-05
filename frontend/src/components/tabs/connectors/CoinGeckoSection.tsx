@@ -1,3 +1,5 @@
+import { useConnectorRelativeTime } from './useConnectorRelativeTime'
+import { useAppIntl } from '../../../i18n/useAppIntl'
 import { useCallback, useEffect, useState } from 'react'
 import { authFetch } from '../../../api/client'
 import {
@@ -11,7 +13,6 @@ import {
   Text,
   useSecretReveal,
 } from '../../ui'
-import { timeAgo } from '../../../utils/format'
 import { unrevealed, useConnectorSave } from './formSave'
 import { revealConnectorSecret } from './secrets'
 
@@ -61,11 +62,6 @@ const TIER_OPTIONS = [
   { value: 'pro' as const, label: 'Pro' },
 ]
 
-function relativeTime(iso: string): string {
-  const at = new Date(iso).getTime()
-  return Number.isFinite(at) && at > Date.now() ? 'just now' : timeAgo(iso)
-}
-
 function health(status: ProviderHealth): {
   label: string
   tone: 'pos' | 'warn' | 'neg' | 'neutral'
@@ -81,6 +77,8 @@ function health(status: ProviderHealth): {
 }
 
 export function CoinGeckoSection() {
+  const { formatMessage } = useAppIntl()
+  const relativeTime = useConnectorRelativeTime()
   const [cfg, setCfg] = useState<MarketDataConfig | null>(null)
   const [status, setStatus] = useState<MarketDataStatus | null>(null)
   const [error, setError] = useState(false)
@@ -147,13 +145,13 @@ export function CoinGeckoSection() {
         body: JSON.stringify(body),
       })
       if (!r.ok) {
-        setSaveErr('Could not save the API key.')
+        setSaveErr(formatMessage({ id: 'connectors.coingecko.save', defaultMessage: 'Could not save the API key.' }))
         return false
       }
       load()
       return true
     } catch {
-      setSaveErr('Could not save — could not reach the server.')
+      setSaveErr(formatMessage({ id: 'connectors.email.serverFailed', defaultMessage: 'Could not save — could not reach the server.' }))
       return false
     } finally {
       setSaving(false)
@@ -179,14 +177,14 @@ export function CoinGeckoSection() {
   if (error) {
     return (
       <Text size="sm" tone="bad">
-        Could not load CoinGecko&apos;s settings.
+        {formatMessage({ id: 'connectors.coingecko.load', defaultMessage: "Could not load CoinGecko's settings." })}
       </Text>
     )
   }
   if (!cfg) {
     return (
       <Text size="sm" tone="faint">
-        Loading…
+        {formatMessage({ id: 'connectors.email.loading', defaultMessage: 'Loading…' })}
       </Text>
     )
   }
@@ -200,23 +198,20 @@ export function CoinGeckoSection() {
   const quotaLabel =
     tier === 'pro' && cfg.has_coingecko_key
       ? status
-        ? `${status.calls_last_minute} calls this minute`
-        : 'Provider status unavailable.'
+        ? formatMessage({ id: 'connectors.coingecko.quota', defaultMessage: '{count} calls this minute' }, { count: status.calls_last_minute })
+        : formatMessage({ id: 'connectors.coingecko.statusUnavailable', defaultMessage: 'Provider status unavailable.' })
       : status
-        ? `${status.calls_last_minute} / ${cfg.has_coingecko_key ? 25 : 4} calls this minute`
-        : 'Provider status unavailable.'
+        ? formatMessage({ id: 'connectors.coingecko.quotaLimit', defaultMessage: '{count} / {limit} calls this minute' }, { count: status.calls_last_minute, limit: cfg.has_coingecko_key ? 25 : 4 })
+        : formatMessage({ id: 'connectors.coingecko.statusUnavailable', defaultMessage: 'Provider status unavailable.' })
   const lastOk =
     status?.last_ok_at && status.last_ok_at
-      ? ` • Last successful ${relativeTime(status.last_ok_at)}`
+      ? formatMessage({ id: 'connectors.coingecko.last', defaultMessage: ' • Last successful {time}' }, { time: relativeTime(status.last_ok_at) })
       : ''
 
   return (
     <Stack gap="--space-4">
       <Text size="sm" tone="faint">
-        Used whenever Yahoo Finance can&apos;t price a crypto asset, plus crypto search and facts.
-        Works with no key on a small shared free quota; add a Demo or Pro API key (from
-        CoinGecko&apos;s own site) for a higher one — Pro plans set their own limits with CoinGecko
-        directly.
+        {formatMessage({ id: 'connectors.coingecko.intro', defaultMessage: "Used whenever Yahoo Finance can't price a crypto asset, plus crypto search and facts. Works with no key on a small shared free quota; add a Demo or Pro API key (from CoinGecko's own site) for a higher one — Pro plans set their own limits with CoinGecko directly." })}
       </Text>
 
       <Cluster justify="between" gap="--space-4" wrap={false}>
@@ -224,12 +219,12 @@ export function CoinGeckoSection() {
           {quotaLabel}
           {lastOk}
         </Text>
-        <Badge tone={cgHealth.tone}>{cgHealth.label}</Badge>
+        <Badge tone={cgHealth.tone}>{cgHealth.label === 'Cooling down' ? formatMessage({ id: 'connectors.yahoo.cooling', defaultMessage: 'Cooling down' }) : cgHealth.label === 'Recovering' ? formatMessage({ id: 'connectors.yahoo.recovering', defaultMessage: 'Recovering' }) : cgHealth.label === 'Unavailable' ? formatMessage({ id: 'connectors.yahoo.unavailable', defaultMessage: 'Unavailable' }) : cgHealth.label === 'Available' ? formatMessage({ id: 'connectors.yahoo.available', defaultMessage: 'Available' }) : formatMessage({ id: 'connectors.yahoo.notChecked', defaultMessage: 'Not checked yet' })}</Badge>
       </Cluster>
 
-      <FormField label="Key tier" htmlFor="conn-coingecko-tier">
+      <FormField label={formatMessage({ id: 'connectors.coingecko.tier', defaultMessage: 'Key tier' })} htmlFor="conn-coingecko-tier">
         <SegmentedControl
-          ariaLabel="CoinGecko key tier"
+          ariaLabel={formatMessage({ id: 'connectors.coingecko.tierAria', defaultMessage: 'CoinGecko key tier' })}
           value={tier}
           onChange={setTier}
           options={TIER_OPTIONS}
@@ -237,22 +232,22 @@ export function CoinGeckoSection() {
       </FormField>
 
       <FormField
-        label="API key"
+        label={formatMessage({ id: 'connectors.mcpField.key', defaultMessage: 'API key' })}
         htmlFor="conn-coingecko-key"
         help={
           keyReveal.caption ||
           (clearRequested
-            ? 'The saved key will be removed when you save.'
+            ? formatMessage({ id: 'connectors.coingecko.clearPending', defaultMessage: "The saved key will be removed when you save." })
             : cfg.has_coingecko_key
-              ? 'A key is saved — leave blank to keep it. Changing the tier above applies to the saved key too.'
-              : 'Optional. Raises the quota above the small shared free one — Demo and Pro keys use different limits.')
+              ? formatMessage({ id: 'connectors.coingecko.keep', defaultMessage: "A key is saved — leave blank to keep it. Changing the tier above applies to the saved key too." })
+              : formatMessage({ id: 'connectors.coingecko.optional', defaultMessage: "Optional. Raises the quota above the small shared free one — Demo and Pro keys use different limits." }))
         }
         error={keyReveal.error}
       >
         <PasswordField
           id="conn-coingecko-key"
           value={key}
-          placeholder={cfg.has_coingecko_key ? '••••••••' : 'Paste your Demo or Pro API key'}
+          placeholder={cfg.has_coingecko_key ? '••••••••' : formatMessage({ id: 'connectors.coingecko.placeholder', defaultMessage: "Paste your Demo or Pro API key" })}
           onChange={(e) => handleKeyChange(e.target.value)}
           {...keyReveal.fieldProps}
         />
@@ -261,7 +256,7 @@ export function CoinGeckoSection() {
       {cfg.has_coingecko_key && (
         <Cluster gap="--space-3" align="center">
           <Button size="sm" variant="ghost" disabled={saving} onClick={handleClearKey}>
-            {clearRequested ? 'Undo clear' : 'Clear saved key'}
+            {clearRequested ? formatMessage({ id: 'connectors.coingecko.undo', defaultMessage: "Undo clear" }) : formatMessage({ id: 'connectors.coingecko.clear', defaultMessage: "Clear saved key" })}
           </Button>
         </Cluster>
       )}

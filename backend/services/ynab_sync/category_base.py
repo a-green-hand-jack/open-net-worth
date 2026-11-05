@@ -173,20 +173,31 @@ class Base:
         return self._figures
 
     # ── telling the person ──
-    def count(self, direction: str, text: str) -> None:
+    def count(self, direction: str, text: str, text_message: dict | None = None) -> None:
         self.tally["categories"] += 1
-        recorder.category_change(direction, text)
+        if text_message is None:
+            recorder.category_change(direction, text)
+        else:
+            recorder.category_change(direction, text, text_message)
 
     def note_shared(self, env: dict) -> None:
         """Said once, ever: the import (or an earlier run) may have said it already."""
         if not self.base.told(env["id"]):
             self.base.tell(env["id"])
-            self.note_once(env["id"], env["name"], shared_line(env["name"]))
+            self.note_once(
+                env["id"],
+                env["name"],
+                shared_line(env["name"]),
+                {"message_id": "ynab.sync.note.sharedEnvelope", "params": {"name": env["name"]}},
+            )
 
-    def note_once(self, key: str, item: str, line: str) -> None:
+    def note_once(self, key: str, item: str, line: str, reason_message: dict | None = None) -> None:
         if key not in self.noted:
             self.noted.add(key)
-            recorder.note(item, line)
+            if reason_message is None:
+                recorder.note(item, line)
+            else:
+                recorder.note(item, line, reason_message)
 
     def file(self, kind: str, key: str, title: str, reason: str, **extra) -> None:
         if self.quiet:
@@ -202,5 +213,8 @@ class Base:
         if self.deferred:
             self.tally["deferred"] += self.deferred
             recorder.deferred(
-                "Categories", "Some category changes wait for the next run (YNAB request limit)."
+                "Categories",
+                "Some category changes wait for the next run (YNAB request limit).",
+                {"message_id": "ynab.sync.deferred.categoryLimit", "params": {}},
+                {"message_id": "ynab.sync.item.categories", "params": {}},
             )

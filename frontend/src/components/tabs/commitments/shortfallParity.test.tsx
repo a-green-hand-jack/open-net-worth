@@ -22,6 +22,8 @@ import { useFundingCoverage } from '../overview/useWidgetData'
 import { deriveClientCoverage } from './coverageEngine'
 import { setBaseCurrency } from '../../../utils/format'
 import type { PortfolioCoverage } from '../../../types/commitments'
+import { IntlProvider } from 'react-intl'
+import zh from '../../../i18n/zh-CN.json'
 
 setBaseCurrency('USD')
 
@@ -65,7 +67,10 @@ function jsonOk(body: unknown) {
   return Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve(body) } as Response)
 }
 
-async function overviewFlagText(coverage: PortfolioCoverage = COVERAGE): Promise<string> {
+async function overviewFlagText(
+  coverage: PortfolioCoverage = COVERAGE,
+  chinese = false,
+): Promise<string> {
   authFetch.mockImplementation((url: string) => {
     if (url.startsWith('/api/commitments/coverage')) return jsonOk(coverage)
     if (url.startsWith('/api/commitments/summary')) {
@@ -84,8 +89,19 @@ async function overviewFlagText(coverage: PortfolioCoverage = COVERAGE): Promise
     h: 200,
     config: {},
   }
-  const { container } = render(<Comp instance={instance} def={def} onPatch={vi.fn()} />)
-  await waitFor(() => expect(container.textContent).toContain('Funding shortfall'))
+  const widget = <Comp instance={instance} def={def} onPatch={vi.fn()} />
+  const { container } = render(
+    chinese ? (
+      <IntlProvider locale="zh-CN" defaultLocale="en" messages={zh}>
+        {widget}
+      </IntlProvider>
+    ) : (
+      widget
+    ),
+  )
+  await waitFor(() =>
+    expect(container.textContent).toContain(chinese ? '资金缺口' : 'Funding shortfall'),
+  )
   return container.textContent ?? ''
 }
 
@@ -109,6 +125,12 @@ function mastheadText(coverage: PortfolioCoverage = COVERAGE): string {
 }
 
 describe('funding shortfall — one verdict, two screens', () => {
+  it('renders the Chinese warning with the same shortfall and cash floor', async () => {
+    const text = await overviewFlagText(COVERAGE, true)
+    expect(text).toContain('73,453')
+    expect(text).toContain('2,500')
+    expect(text).toContain('未来 12 个月')
+  })
   it('both screens quote the same deepest-gap dollars, low point and window', async () => {
     const overview = await overviewFlagText()
     cleanup()

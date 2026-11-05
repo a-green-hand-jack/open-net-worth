@@ -28,9 +28,12 @@ Appendix 8B PDF import routes (L6 — stretch lane):
 from __future__ import annotations
 
 import asyncio
+import json
+from pathlib import Path
 from typing import Optional
 
 from fastapi import APIRouter, File, Form, HTTPException, Request, UploadFile
+from fastapi.responses import JSONResponse
 
 from backend.api._deps import _bearer_token
 from backend.core.errors import OpenNetWorthError, to_http_status
@@ -40,6 +43,32 @@ from backend.services import equity_release as equity_release_service
 from backend.services.equity_report import equity_report
 
 router = APIRouter()
+_ERROR_CONTRACT = json.loads(
+    (Path(__file__).resolve().parents[1] / "core/equity_message_contract.json").read_text(
+        encoding="utf-8"
+    )
+)
+
+
+def _equity_error(exc: OpenNetWorthError):
+    message_id = exc.context.get("message_id")
+    params = exc.context.get("message_params", {})
+    if (
+        isinstance(message_id, str)
+        and message_id in _ERROR_CONTRACT
+        and isinstance(params, dict)
+        and set(params) == set(_ERROR_CONTRACT[message_id])
+        and all(isinstance(value, str) for value in params.values())
+    ):
+        return JSONResponse(
+            status_code=to_http_status(exc),
+            content={
+                "detail": exc.message or str(exc),
+                "message_id": message_id,
+                "message_params": params,
+            },
+        )
+    raise HTTPException(to_http_status(exc), exc.message or str(exc)) from exc
 
 
 # ── Grant reads ─────────────────────────────────────────────────────────────────────
@@ -81,7 +110,7 @@ def create_grant(body: GrantCreate):
     try:
         return equity_service.apply_equity_change(change)
     except OpenNetWorthError as exc:
-        raise HTTPException(to_http_status(exc), exc.message or str(exc)) from exc
+        return _equity_error(exc)
 
 
 @router.patch("/api/equity/grants/{grant_id}")
@@ -114,7 +143,7 @@ def update_grant(grant_id: str, body: GrantUpdate):
     try:
         return equity_service.apply_equity_change(change)
     except OpenNetWorthError as exc:
-        raise HTTPException(to_http_status(exc), exc.message or str(exc)) from exc
+        return _equity_error(exc)
 
 
 @router.post("/api/equity/grants/{grant_id}/cancel")
@@ -123,7 +152,7 @@ def cancel_grant(grant_id: str):
     try:
         return equity_service.apply_equity_change({"type": "grant_cancel", "grant_id": grant_id})
     except OpenNetWorthError as exc:
-        raise HTTPException(to_http_status(exc), exc.message or str(exc)) from exc
+        return _equity_error(exc)
 
 
 # ── Vest writes ──────────────────────────────────────────────────────────────────────
@@ -153,7 +182,7 @@ def vest_tranche(grant_id: str, tranche_id: str, body: VestApply):
     try:
         return equity_service.apply_equity_change(change)
     except OpenNetWorthError as exc:
-        raise HTTPException(to_http_status(exc), exc.message or str(exc)) from exc
+        return _equity_error(exc)
 
 
 @router.post("/api/equity/vest-events/{vest_event_id}/release")
@@ -170,7 +199,7 @@ def release_vest(vest_event_id: str, body: ReleaseApply):
     try:
         return equity_service.apply_equity_change(change)
     except OpenNetWorthError as exc:
-        raise HTTPException(to_http_status(exc), exc.message or str(exc)) from exc
+        return _equity_error(exc)
 
 
 @router.get("/api/equity/pending-releases")
@@ -200,7 +229,7 @@ def undo_vest(vest_event_id: str):
             {"type": "vest_undo", "vest_event_id": vest_event_id}
         )
     except OpenNetWorthError as exc:
-        raise HTTPException(to_http_status(exc), exc.message or str(exc)) from exc
+        return _equity_error(exc)
 
 
 # ── Report + calendar + FMV prefill ─────────────────────────────────────────────────
@@ -231,7 +260,7 @@ def get_fmv_prefill(grant_id: str, tranche_id: str):
     try:
         return equity_service.fmv_prefill(grant_id=grant_id, tranche_id=tranche_id)
     except OpenNetWorthError as exc:
-        raise HTTPException(to_http_status(exc), exc.message or str(exc)) from exc
+        return _equity_error(exc)
 
 
 # ── Appendix 8B PDF import (L6 — stretch lane) ──────────────────────────────────
@@ -314,7 +343,7 @@ async def preview_8b_import(
     except EightBImportError as exc:
         raise HTTPException(422, str(exc)) from exc
     except OpenNetWorthError as exc:
-        raise HTTPException(to_http_status(exc), exc.message or str(exc)) from exc
+        return _equity_error(exc)
 
 
 @router.post("/api/equity/import/8b/commit")
@@ -340,4 +369,4 @@ async def commit_8b_import(
     except EightBImportError as exc:
         raise HTTPException(422, str(exc)) from exc
     except OpenNetWorthError as exc:
-        raise HTTPException(to_http_status(exc), exc.message or str(exc)) from exc
+        return _equity_error(exc)

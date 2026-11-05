@@ -12,6 +12,8 @@ import {
 import { swapCanonical, forgetMatchDecision } from '../../../api/matches'
 import type { MatchReview, MatchTxn } from '../../../api/matches'
 import { fDate } from '../../../utils/format'
+import { useAppIntl } from '../../../i18n/useAppIntl'
+import { matchingMessage } from './matchingMessages'
 
 interface DeduplicationPairRowProps {
   review: MatchReview
@@ -40,6 +42,7 @@ interface AltCandidateProps {
 }
 
 function AltCandidate({ alt, reviewId, accountNames, disabled, onSwapped }: AltCandidateProps) {
+  const { formatMessage } = useAppIntl()
   const [swapping, setSwapping] = useState(false)
   const [swapError, setSwapError] = useState<string | null>(null)
 
@@ -53,7 +56,11 @@ function AltCandidate({ alt, reviewId, accountNames, disabled, onSwapped }: AltC
       await swapCanonical(reviewId, alt.id)
       onSwapped()
     } catch (e) {
-      setSwapError(e instanceof Error ? e.message : 'Could not swap canonical.')
+      setSwapError(
+        e instanceof Error
+          ? e.message
+          : formatMessage({ id: 'dedup.swapFailed', defaultMessage: 'Could not swap canonical.' }),
+      )
       setSwapping(false)
     }
   }
@@ -80,7 +87,7 @@ function AltCandidate({ alt, reviewId, accountNames, disabled, onSwapped }: AltC
             disabled={disabled && !swapping}
             onClick={() => void handleSwap()}
           >
-            Use this as existing
+            {formatMessage({ id: 'dedup.useExisting', defaultMessage: 'Use this as existing' })}
           </Button>
           {swapError && (
             <Text tone="bad" size="xs">
@@ -103,6 +110,8 @@ export function DeduplicationPairRow({
   onUndo,
   onReload,
 }: DeduplicationPairRowProps) {
+  const intl = useAppIntl()
+  const { formatMessage } = intl
   const [rowStatus, setRowStatus] = useState<RowStatus>('pending')
   const [accepting, setAccepting] = useState(false)
   const [dismissing, setDismissing] = useState(false)
@@ -119,16 +128,28 @@ export function DeduplicationPairRow({
       <Panel className="dedup-pair-row">
         <Stack gap="--space-3">
           <Cluster gap="--space-2" align="center">
-            <Badge tone="muted">Already resolved</Badge>
+            <Badge tone="muted">
+              {formatMessage({ id: 'dedup.resolved', defaultMessage: 'Already resolved' })}
+            </Badge>
           </Cluster>
           <ErrorState
-            title="This review can no longer be actioned."
-            message="One or both transactions were deleted or merged elsewhere. Dismiss this item to clear it."
+            title={formatMessage({
+              id: 'dedup.noLongerActionable',
+              defaultMessage: 'This review can no longer be actioned.',
+            })}
+            message={formatMessage({
+              id: 'dedup.missingTransaction',
+              defaultMessage:
+                'One or both transactions were deleted or merged elsewhere. Dismiss this item to clear it.',
+            })}
           />
           {rowStatus === 'dismissed' ? (
             <Cluster gap="--space-2" align="center">
               <Text size="xs" tone="muted">
-                Dismissed — remembered as different.
+                {formatMessage({
+                  id: 'dedup.rememberedDifferent',
+                  defaultMessage: 'Dismissed — remembered as different.',
+                })}
               </Text>
               <Button
                 variant="ghost"
@@ -146,7 +167,7 @@ export function DeduplicationPairRow({
                   })()
                 }}
               >
-                Undo
+                {formatMessage({ id: 'dedup.undo', defaultMessage: 'Undo' })}
               </Button>
             </Cluster>
           ) : (
@@ -168,7 +189,7 @@ export function DeduplicationPairRow({
                 })()
               }}
             >
-              Dismiss
+              {formatMessage({ id: 'dedup.dismiss', defaultMessage: 'Dismiss' })}
             </Button>
           )}
           {error && (
@@ -232,7 +253,13 @@ export function DeduplicationPairRow({
   )
   const incomingSourceLabel = incoming.source ?? incoming.kind
   const canonicalSourceLabel = canonical.source ?? canonical.kind
-  const reasonText = review.llm_reason ?? review.reasons.join('. ')
+  const reasonText =
+    review.llm_reason ??
+    (review.reason_messages?.length === review.reasons.length
+      ? review.reasons
+          .map((reason, i) => matchingMessage(intl, review.reason_messages![i]!, reason))
+          .join('. ')
+      : review.reasons.join('. '))
   const hasAlts = (review.alternatives?.length ?? 0) > 0
   const altCount = review.alternatives?.length ?? 0
   // Accept/Dismiss blocked while alternatives are open
@@ -245,13 +272,33 @@ export function DeduplicationPairRow({
         <Cluster justify="between" align="start" gap="--space-3">
           <Cluster gap="--space-2" align="center">
             {review.klass === 'near_duplicate' ? (
-              <Badge tone="warn">Near duplicate</Badge>
+              <Badge tone="warn">
+                {formatMessage({ id: 'dedup.nearDuplicate', defaultMessage: 'Near duplicate' })}
+              </Badge>
             ) : (
-              <Badge tone="neutral">Transfer pair</Badge>
+              <Badge tone="neutral">
+                {formatMessage({ id: 'dedup.transferPair', defaultMessage: 'Transfer pair' })}
+              </Badge>
             )}
-            <Badge tone="muted">{Math.round(review.score * 100)}% match</Badge>
-            {hasAlts && <Badge tone="warn">Ambiguous match</Badge>}
-            {review.become_transfer && <Badge tone="pos">Will become transfer</Badge>}
+            <Badge tone="muted">
+              {formatMessage(
+                { id: 'dedup.matchPercent', defaultMessage: '{percent}% match' },
+                { percent: Math.round(review.score * 100) },
+              )}
+            </Badge>
+            {hasAlts && (
+              <Badge tone="warn">
+                {formatMessage({ id: 'dedup.ambiguous', defaultMessage: 'Ambiguous match' })}
+              </Badge>
+            )}
+            {review.become_transfer && (
+              <Badge tone="pos">
+                {formatMessage({
+                  id: 'dedup.becomeTransfer',
+                  defaultMessage: 'Will become transfer',
+                })}
+              </Badge>
+            )}
           </Cluster>
 
           {rowStatus === 'pending' && (
@@ -262,9 +309,12 @@ export function DeduplicationPairRow({
                 loading={accepting}
                 disabled={actionsDisabled}
                 onClick={() => void handleAccept()}
-                aria-label={`Accept: ${incoming.description} / ${canonical.description}`}
+                aria-label={formatMessage(
+                  { id: 'dedup.acceptNamed', defaultMessage: 'Accept: {incoming} / {existing}' },
+                  { incoming: incoming.description, existing: canonical.description },
+                )}
               >
-                Accept
+                {formatMessage({ id: 'dedup.accept', defaultMessage: 'Accept' })}
               </Button>
               <Button
                 variant="ghost"
@@ -272,9 +322,12 @@ export function DeduplicationPairRow({
                 loading={dismissing}
                 disabled={actionsDisabled}
                 onClick={() => void handleDismiss()}
-                aria-label={`Dismiss: ${incoming.description} / ${canonical.description}`}
+                aria-label={formatMessage(
+                  { id: 'dedup.dismissNamed', defaultMessage: 'Dismiss: {incoming} / {existing}' },
+                  { incoming: incoming.description, existing: canonical.description },
+                )}
               >
-                Dismiss
+                {formatMessage({ id: 'dedup.dismiss', defaultMessage: 'Dismiss' })}
               </Button>
             </Cluster>
           )}
@@ -282,10 +335,20 @@ export function DeduplicationPairRow({
           {rowStatus === 'accepted' && (
             <Cluster gap="--space-2" align="center">
               <Text size="xs" tone="good">
-                Merged into {mergedIntoDescription || 'the existing transaction'}.
+                {formatMessage(
+                  { id: 'dedup.mergedInto', defaultMessage: 'Merged into {transaction}.' },
+                  {
+                    transaction:
+                      mergedIntoDescription ||
+                      formatMessage({
+                        id: 'dedup.existingTransaction',
+                        defaultMessage: 'the existing transaction',
+                      }),
+                  },
+                )}
               </Text>
               <Button variant="ghost" size="sm" loading={undoing} onClick={() => void handleUndo()}>
-                Undo
+                {formatMessage({ id: 'dedup.undo', defaultMessage: 'Undo' })}
               </Button>
             </Cluster>
           )}
@@ -293,10 +356,13 @@ export function DeduplicationPairRow({
           {rowStatus === 'dismissed' && (
             <Cluster gap="--space-2" align="center">
               <Text size="xs" tone="muted">
-                Dismissed — remembered as different.
+                {formatMessage({
+                  id: 'dedup.rememberedDifferent',
+                  defaultMessage: 'Dismissed — remembered as different.',
+                })}
               </Text>
               <Button variant="ghost" size="sm" loading={undoing} onClick={() => void handleUndo()}>
-                Undo
+                {formatMessage({ id: 'dedup.undo', defaultMessage: 'Undo' })}
               </Button>
               <Button
                 variant="ghost"
@@ -310,14 +376,21 @@ export function DeduplicationPairRow({
                       await forgetMatchDecision(review.signature)
                       setRowStatus('forgotten')
                     } catch (e) {
-                      setForgetError(e instanceof Error ? e.message : 'Could not forget decision.')
+                      setForgetError(
+                        e instanceof Error
+                          ? e.message
+                          : formatMessage({
+                              id: 'dedup.forgetFailed',
+                              defaultMessage: 'Could not forget decision.',
+                            }),
+                      )
                     } finally {
                       setForgetting(false)
                     }
                   })()
                 }}
               >
-                Forget
+                {formatMessage({ id: 'dedup.forget', defaultMessage: 'Forget' })}
               </Button>
               {forgetError && (
                 <Text tone="bad" size="xs">
@@ -329,7 +402,11 @@ export function DeduplicationPairRow({
 
           {rowStatus === 'forgotten' && (
             <Text size="xs" tone="faint">
-              Dismissed. Decision cleared — the engine will re-evaluate this pair if seen again.
+              {formatMessage({
+                id: 'dedup.forgotten',
+                defaultMessage:
+                  'Dismissed. Decision cleared — the engine will re-evaluate this pair if seen again.',
+              })}
             </Text>
           )}
         </Cluster>
@@ -339,7 +416,7 @@ export function DeduplicationPairRow({
           {/* Incoming */}
           <Stack gap="--space-2">
             <Text size="xs" tone="muted" weight={600}>
-              Incoming
+              {formatMessage({ id: 'dedup.incoming', defaultMessage: 'Incoming' })}
             </Text>
             <Text size="sm" tone="faint">
               {fDate(incoming.date, 'numeric')}
@@ -358,7 +435,7 @@ export function DeduplicationPairRow({
           {/* Existing / canonical */}
           <Stack gap="--space-2">
             <Text size="xs" tone="muted" weight={600}>
-              Existing
+              {formatMessage({ id: 'dedup.existing', defaultMessage: 'Existing' })}
             </Text>
             <Text size="sm" tone="faint">
               {fDate(canonical.date, 'numeric')}
@@ -385,22 +462,36 @@ export function DeduplicationPairRow({
         {/* UX-4: tie hint — shown when alternatives exist but section is collapsed */}
         {hasAlts && !altOpen && (
           <Text size="xs" tone="warn" as="p">
-            Two candidates matched equally — expand below to choose before accepting.
+            {formatMessage({
+              id: 'dedup.tieHint',
+              defaultMessage:
+                'Two candidates matched equally — expand below to choose before accepting.',
+            })}
           </Text>
         )}
 
         {/* F20: alternatives disclosure */}
         {hasAlts && (
           <CollapsibleSection
-            title={`${altCount} alternative match${altCount > 1 ? 'es' : ''} at the same score`}
+            title={formatMessage(
+              {
+                id: 'dedup.alternatives',
+                defaultMessage:
+                  '{count, plural, one {# alternative match} other {# alternative matches}} at the same score',
+              },
+              { count: altCount },
+            )}
             defaultOpen={false}
             open={altOpen}
             onOpenChange={setAltOpen}
           >
             <Stack gap="--space-3">
               <Text as="p" size="xs" tone="warn">
-                A second transaction matched with equal confidence. Choose which existing
-                transaction is the duplicate before accepting.
+                {formatMessage({
+                  id: 'dedup.chooseAlternative',
+                  defaultMessage:
+                    'A second transaction matched with equal confidence. Choose which existing transaction is the duplicate before accepting.',
+                })}
               </Text>
               {review.alternatives!.map((alt) => (
                 <AltCandidate

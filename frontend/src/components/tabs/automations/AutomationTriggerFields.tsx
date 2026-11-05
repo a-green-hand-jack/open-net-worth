@@ -1,3 +1,4 @@
+import { useAppIntl } from '../../../i18n/useAppIntl'
 import { useState } from 'react'
 import { Clock3, Sparkles, Zap } from 'lucide-react'
 import type { AutomationEventType, AutomationTrigger, ScheduleType } from '../../../api/automations'
@@ -12,38 +13,7 @@ import { Input, OptionSelect, Row, Select } from './automationFormControls'
 import { TransactionConditionFields } from './AutomationConditionFields'
 import { TickerConfirm, TickerPicker, type PickedInstrument } from './TickerPicker'
 
-const DAYS = [
-  ['mon', 'Monday'],
-  ['tue', 'Tuesday'],
-  ['wed', 'Wednesday'],
-  ['thu', 'Thursday'],
-  ['fri', 'Friday'],
-  ['sat', 'Saturday'],
-  ['sun', 'Sunday'],
-] as const
-const SCHEDULES = [
-  ['manual', 'Manual'],
-  ['interval', 'Hourly'],
-  ['daily', 'Daily'],
-  ['weekdays', 'Weekdays'],
-  ['weekly', 'Weekly'],
-  ['monthly', 'Monthly'],
-  ['once', 'Once, on a date'],
-  ['custom', 'Custom'],
-] as const
-// What each Run choice does — nothing that matches is dropped; it only changes how many runs.
-const RUN_HINT: Record<'each' | 'hour' | 'day', string> = {
-  each: 'A run for every match, one after another.',
-  hour: 'Runs on the first match; anything later in the hour waits and comes in one run.',
-  day: 'Runs on the first match; anything later in the day waits and comes in one run.',
-}
 const HOURLY_SECONDS = 3600
-const EVENTS: Array<[AutomationEventType, string]> = [
-  ['txn', 'A transaction posts'],
-  ['balance', 'A balance crosses a threshold'],
-  ['price', 'A price moves'],
-]
-
 export function AutomationTriggerFields({
   trigger,
   onChange,
@@ -60,6 +30,103 @@ export function AutomationTriggerFields({
   /** Hand the cadence to Lucius — the caller supplies the draft's context. */
   onAskForCadence?: () => void
 }) {
+  const intl = useAppIntl()
+  const { formatMessage } = intl
+  const schedules = [
+    ['manual', formatMessage({ id: 'automations.form.manual', defaultMessage: 'Manual' })],
+    ['interval', formatMessage({ id: 'automations.form.hourly', defaultMessage: 'Hourly' })],
+    ['daily', formatMessage({ id: 'automations.form.daily', defaultMessage: 'Daily' })],
+    ['weekdays', formatMessage({ id: 'automations.form.weekdays', defaultMessage: 'Weekdays' })],
+    ['weekly', formatMessage({ id: 'automations.form.weekly', defaultMessage: 'Weekly' })],
+    ['monthly', formatMessage({ id: 'automations.form.monthly', defaultMessage: 'Monthly' })],
+    ['once', formatMessage({ id: 'automations.form.once', defaultMessage: 'Once, on a date' })],
+    ['custom', formatMessage({ id: 'automations.form.custom', defaultMessage: 'Custom' })],
+  ] as const
+  const days = [
+    ['mon', formatMessage({ id: 'automations.day.mon', defaultMessage: 'Monday' })],
+    ['tue', formatMessage({ id: 'automations.day.tue', defaultMessage: 'Tuesday' })],
+    ['wed', formatMessage({ id: 'automations.day.wed', defaultMessage: 'Wednesday' })],
+    ['thu', formatMessage({ id: 'automations.day.thu', defaultMessage: 'Thursday' })],
+    ['fri', formatMessage({ id: 'automations.day.fri', defaultMessage: 'Friday' })],
+    ['sat', formatMessage({ id: 'automations.day.sat', defaultMessage: 'Saturday' })],
+    ['sun', formatMessage({ id: 'automations.day.sun', defaultMessage: 'Sunday' })],
+  ] as const
+  const events = [
+    [
+      'txn',
+      formatMessage({ id: 'automations.form.txnEvent', defaultMessage: 'A transaction posts' }),
+    ],
+    [
+      'balance',
+      formatMessage({
+        id: 'automations.form.balanceEvent',
+        defaultMessage: 'A balance crosses a threshold',
+      }),
+    ],
+    [
+      'price',
+      formatMessage({ id: 'automations.form.priceEvent', defaultMessage: 'A price moves' }),
+    ],
+  ] as const
+  const directions = [
+    [
+      '',
+      formatMessage({
+        id: 'automations.form.chooseDirection',
+        defaultMessage: 'Choose a direction',
+      }),
+    ],
+    ['below', formatMessage({ id: 'automations.form.dropsBelow', defaultMessage: 'Drops below' })],
+    ['above', formatMessage({ id: 'automations.form.risesAbove', defaultMessage: 'Rises above' })],
+  ] as const
+  const priceDirections = [
+    [
+      '',
+      formatMessage({
+        id: 'automations.form.chooseDirection',
+        defaultMessage: 'Choose a direction',
+      }),
+    ],
+    [
+      'below',
+      formatMessage({ id: 'automations.form.fallsPrice', defaultMessage: 'Falls below a price' }),
+    ],
+    [
+      'above',
+      formatMessage({ id: 'automations.form.risesPrice', defaultMessage: 'Rises above a price' }),
+    ],
+    [
+      'fall',
+      formatMessage({ id: 'automations.form.fallsPercent', defaultMessage: 'Falls more than %' }),
+    ],
+    [
+      'rise',
+      formatMessage({ id: 'automations.form.risesPercent', defaultMessage: 'Rises more than %' }),
+    ],
+    [
+      'move',
+      formatMessage({
+        id: 'automations.form.movesPercent',
+        defaultMessage: 'Moves more than % (either way)',
+      }),
+    ],
+  ] as const
+  const runHints = {
+    each: formatMessage({
+      id: 'automations.form.eachHint',
+      defaultMessage: 'A run for every match, one after another.',
+    }),
+    hour: formatMessage({
+      id: 'automations.form.hourHint',
+      defaultMessage:
+        'Runs on the first match; anything later in the hour waits and comes in one run.',
+    }),
+    day: formatMessage({
+      id: 'automations.form.dayHint',
+      defaultMessage:
+        'Runs on the first match; anything later in the day waits and comes in one run.',
+    }),
+  }
   const missing = new Set(missingTriggerFields(trigger))
   // A ticker resolved from the market search this session — not in `options` until they reload.
   const [picked, setPicked] = useState<PickedInstrument[]>([])
@@ -118,7 +185,15 @@ export function AutomationTriggerFields({
 
   return (
     <div className="a3-trigger-details" id="a3-trigger-details" data-od-id="trigger-details">
-      <div className="a3-seg" role="radiogroup" aria-label="Trigger type" data-od-id="trigger-row">
+      <div
+        className="a3-seg"
+        role="radiogroup"
+        aria-label={formatMessage({
+          id: 'automations.form.triggerType',
+          defaultMessage: 'Trigger type',
+        })}
+        data-od-id="trigger-row"
+      >
         <button
           type="button"
           role="radio"
@@ -126,7 +201,8 @@ export function AutomationTriggerFields({
           className={`a3-seg-btn${!eventMode ? ' on' : ''}`}
           onClick={() => setKind('schedule')}
         >
-          <Clock3 size={13} aria-hidden="true" /> Schedule
+          <Clock3 size={13} aria-hidden="true" />{' '}
+          {formatMessage({ id: 'automations.form.schedule', defaultMessage: 'Schedule' })}
         </button>
         <button
           type="button"
@@ -135,7 +211,8 @@ export function AutomationTriggerFields({
           className={`a3-seg-btn${eventMode ? ' on' : ''}`}
           onClick={() => setKind('event')}
         >
-          <Zap size={13} aria-hidden="true" /> Event
+          <Zap size={13} aria-hidden="true" />{' '}
+          {formatMessage({ id: 'automations.form.event', defaultMessage: 'Event' })}
         </button>
       </div>
       {optionsError && (
@@ -143,25 +220,45 @@ export function AutomationTriggerFields({
           <span>{optionsError}</span>
           {onRetryOptions && (
             <button type="button" className="a3-linkbtn" onClick={onRetryOptions}>
-              Retry
+              {formatMessage({ id: 'automations.form.retry', defaultMessage: 'Retry' })}
             </button>
           )}
         </div>
       )}
       {eventMode && trigger.kind === 'event' ? (
         <div className="a3-trows">
-          <Row label="Event" htmlFor="automation-event" required>
+          <Row
+            label={formatMessage({ id: 'automations.form.event', defaultMessage: 'Event' })}
+            htmlFor="automation-event"
+            required
+          >
             <Select
               id="automation-event"
               value={transactionView?.custom ? 'custom' : trigger.event}
-              options={transactionView?.custom ? [...EVENTS, ['custom', 'Custom']] : EVENTS}
+              options={
+                transactionView?.custom
+                  ? [
+                      ...events,
+                      [
+                        'custom',
+                        formatMessage({ id: 'automations.form.custom', defaultMessage: 'Custom' }),
+                      ],
+                    ]
+                  : events
+              }
               onChange={(value) => {
                 if (value !== 'custom') setEventType(value as AutomationEventType)
               }}
             />
           </Row>
           {transactionView?.custom && (
-            <Row label="Conditions" htmlFor="automation-custom-conditions">
+            <Row
+              label={formatMessage({
+                id: 'automations.form.conditions',
+                defaultMessage: 'Conditions',
+              })}
+              htmlFor="automation-custom-conditions"
+            >
               <output id="automation-custom-conditions" className="a3-muted">
                 {transactionView.exactConditions}
               </output>
@@ -178,27 +275,49 @@ export function AutomationTriggerFields({
           )}
           {trigger.event === 'balance' && (
             <>
-              <Row label="Account" htmlFor="automation-account" required>
+              <Row
+                label={formatMessage({ id: 'automations.form.account', defaultMessage: 'Account' })}
+                htmlFor="automation-account"
+                required
+              >
                 <OptionSelect
                   needed={missing.has('account')}
                   id="automation-account"
                   value={trigger.when.account}
                   options={options.accounts}
-                  placeholder="Choose an account"
+                  placeholder={formatMessage({
+                    id: 'automations.form.chooseAccount',
+                    defaultMessage: 'Choose an account',
+                  })}
                   onChange={(value) => setWhen({ account: value }, 'trigger.when.account')}
                 />
               </Row>
-              <Row label="Direction" htmlFor="automation-direction" required>
+              <Row
+                label={formatMessage({
+                  id: 'automations.form.direction',
+                  defaultMessage: 'Direction',
+                })}
+                htmlFor="automation-direction"
+                required
+              >
                 <Select
                   needed={missing.has('direction')}
                   id="automation-direction"
                   value={String(trigger.when.direction ?? '')}
-                  placeholder="Choose a direction"
-                  options={CROSS_DIRECTION}
+                  placeholder={formatMessage({
+                    id: 'automations.form.chooseDirection',
+                    defaultMessage: 'Choose a direction',
+                  })}
+                  options={directions}
                   onChange={(value) => setWhen({ direction: value }, 'trigger.when.direction')}
                 />
               </Row>
-              <Row label="Amount" htmlFor="automation-amount" required unit={amountCurrency}>
+              <Row
+                label={formatMessage({ id: 'automations.form.amount', defaultMessage: 'Amount' })}
+                htmlFor="automation-amount"
+                required
+                unit={amountCurrency}
+              >
                 <Input
                   needed={missing.has('amount')}
                   id="automation-amount"
@@ -212,7 +331,7 @@ export function AutomationTriggerFields({
           {trigger.event === 'price' && (
             <>
               <Row
-                label="Ticker"
+                label={formatMessage({ id: 'automations.form.ticker', defaultMessage: 'Ticker' })}
                 htmlFor="automation-symbol"
                 required
                 below={
@@ -246,23 +365,39 @@ export function AutomationTriggerFields({
                   }}
                 />
               </Row>
-              <Row label="Direction" htmlFor="automation-price-direction" required>
+              <Row
+                label={formatMessage({
+                  id: 'automations.form.direction',
+                  defaultMessage: 'Direction',
+                })}
+                htmlFor="automation-price-direction"
+                required
+              >
                 <Select
                   needed={missing.has('direction')}
                   id="automation-price-direction"
                   value={String(trigger.when.direction ?? '')}
-                  placeholder="Choose a direction"
-                  options={PRICE_DIRECTION}
+                  placeholder={formatMessage({
+                    id: 'automations.form.chooseDirection',
+                    defaultMessage: 'Choose a direction',
+                  })}
+                  options={priceDirections}
                   onChange={(value) => setWhen({ direction: value }, 'trigger.when.direction')}
                 />
               </Row>
               <Row
-                label="Threshold"
+                label={formatMessage({
+                  id: 'automations.form.threshold',
+                  defaultMessage: 'Threshold',
+                })}
                 htmlFor="automation-value"
                 required
                 unit={
                   PERCENT_PRICE_DIRECTIONS.has(String(trigger.when.direction ?? ''))
-                    ? '% vs. prior close'
+                    ? formatMessage({
+                        id: 'automations.form.priorClose',
+                        defaultMessage: '% vs. prior close',
+                      })
                     : triggerAmountCurrency('price', trigger.when, { ...options, instruments }) ||
                       undefined
                 }
@@ -274,8 +409,8 @@ export function AutomationTriggerFields({
                   min={0}
                   placeholder={
                     PERCENT_PRICE_DIRECTIONS.has(String(trigger.when.direction ?? ''))
-                      ? 'e.g. 5'
-                      : 'Price'
+                      ? formatMessage({ id: 'automations.form.example5', defaultMessage: 'e.g. 5' })
+                      : formatMessage({ id: 'automations.form.price', defaultMessage: 'Price' })
                   }
                   value={trigger.when.value}
                   onChange={(value) => setWhen({ value }, 'trigger.when.value')}
@@ -284,17 +419,32 @@ export function AutomationTriggerFields({
             </>
           )}
           <Row
-            label="Run"
+            label={formatMessage({ id: 'automations.form.run', defaultMessage: 'Run' })}
             htmlFor="automation-limit"
-            below={<span className="a3-muted">{RUN_HINT[trigger.limit]}</span>}
+            below={<span className="a3-muted">{runHints[trigger.limit]}</span>}
           >
             <Select
               id="automation-limit"
               value={trigger.limit}
               options={[
-                ['each', 'each time'],
-                ['hour', 'at most once an hour'],
-                ['day', 'at most once a day'],
+                [
+                  'each',
+                  formatMessage({ id: 'automations.form.each', defaultMessage: 'each time' }),
+                ],
+                [
+                  'hour',
+                  formatMessage({
+                    id: 'automations.form.onceHour',
+                    defaultMessage: 'at most once an hour',
+                  }),
+                ],
+                [
+                  'day',
+                  formatMessage({
+                    id: 'automations.form.onceDay',
+                    defaultMessage: 'at most once a day',
+                  }),
+                ],
               ]}
               onChange={(value) =>
                 onChange({ ...trigger, limit: value as 'each' | 'hour' | 'day' }, 'trigger.limit')
@@ -305,7 +455,7 @@ export function AutomationTriggerFields({
       ) : (
         <div className="a3-trows">
           <Row
-            label="Repeats"
+            label={formatMessage({ id: 'automations.form.repeats', defaultMessage: 'Repeats' })}
             htmlFor="automation-schedule-type"
             required
             below={
@@ -316,7 +466,10 @@ export function AutomationTriggerFields({
                   onClick={onAskForCadence}
                 >
                   <Sparkles size={12} aria-hidden="true" />
-                  Create via Lucius for a custom cadence
+                  {formatMessage({
+                    id: 'automations.form.askCadence',
+                    defaultMessage: 'Create via Lucius for a custom cadence',
+                  })}
                 </button>
               ) : undefined
             }
@@ -324,28 +477,45 @@ export function AutomationTriggerFields({
             <Select
               id="automation-schedule-type"
               value={pickedSchedule}
-              options={SCHEDULES}
+              options={schedules}
               onChange={setScheduleType}
             />
           </Row>
           {trigger.kind === 'schedule' && trigger.type === 'weekly' && (
-            <Row label="On" htmlFor="automation-weekday" required>
+            <Row
+              label={formatMessage({ id: 'automations.form.on', defaultMessage: 'On' })}
+              htmlFor="automation-weekday"
+              required
+            >
               <Select
                 id="automation-weekday"
                 value={String(trigger.day ?? 'mon')}
-                options={DAYS}
+                options={days}
                 onChange={(value) => setSchedule({ day: value }, 'trigger.day')}
               />
             </Row>
           )}
           {trigger.kind === 'schedule' && trigger.type === 'monthly' && (
-            <Row label="On the" htmlFor="automation-monthday" required>
+            <Row
+              label={formatMessage({ id: 'automations.form.onThe', defaultMessage: 'On the' })}
+              htmlFor="automation-monthday"
+              required
+            >
               <Select
                 id="automation-monthday"
                 value={String(trigger.day ?? 1)}
                 options={Array.from(
                   { length: 28 },
-                  (_, index) => [String(index + 1), ordinal(index + 1)] as const,
+                  (_, index) =>
+                    [
+                      String(index + 1),
+                      intl.locale.startsWith('en')
+                        ? ordinal(index + 1)
+                        : formatMessage(
+                            { id: 'automations.form.monthDay', defaultMessage: 'Day {day}' },
+                            { day: index + 1 },
+                          ),
+                    ] as const,
                 )}
                 onChange={(value) => setSchedule({ day: Number(value) }, 'trigger.day')}
               />
@@ -353,7 +523,11 @@ export function AutomationTriggerFields({
           )}
           {trigger.kind === 'schedule' &&
             ['daily', 'weekdays', 'weekly', 'monthly'].includes(trigger.type) && (
-              <Row label="At" htmlFor="automation-hour" required>
+              <Row
+                label={formatMessage({ id: 'automations.form.at', defaultMessage: 'At' })}
+                htmlFor="automation-hour"
+                required
+              >
                 <TimePick
                   value={trigger.time ?? '09:00'}
                   needed={missing.has('time')}
@@ -363,7 +537,11 @@ export function AutomationTriggerFields({
             )}
           {trigger.kind === 'schedule' && trigger.type === 'once' && (
             <>
-              <Row label="On" htmlFor="automation-once-date" required>
+              <Row
+                label={formatMessage({ id: 'automations.form.on', defaultMessage: 'On' })}
+                htmlFor="automation-once-date"
+                required
+              >
                 <Input
                   needed={missing.has('date and time')}
                   id="automation-once-date"
@@ -377,7 +555,11 @@ export function AutomationTriggerFields({
                   }
                 />
               </Row>
-              <Row label="At" htmlFor="automation-once-hour" required>
+              <Row
+                label={formatMessage({ id: 'automations.form.at', defaultMessage: 'At' })}
+                htmlFor="automation-once-hour"
+                required
+              >
                 <TimePick
                   value={(trigger.at ?? '').split('T')[1] || '09:00'}
                   needed={missing.has('date and time')}
@@ -398,19 +580,6 @@ export function AutomationTriggerFields({
   )
 }
 
-const CROSS_DIRECTION = [
-  ['', 'Choose a direction'],
-  ['below', 'Drops below'],
-  ['above', 'Rises above'],
-] as const
-const PRICE_DIRECTION = [
-  ['', 'Choose a direction'],
-  ['below', 'Falls below a price'],
-  ['above', 'Rises above a price'],
-  ['fall', 'Falls more than %'],
-  ['rise', 'Rises more than %'],
-  ['move', 'Moves more than % (either way)'],
-] as const
 const PERCENT_PRICE_DIRECTIONS = new Set(['move', 'rise', 'fall'])
 
 function TimePick({
@@ -424,6 +593,7 @@ function TimePick({
   needed?: boolean
   idPrefix?: string
 }) {
+  const { formatMessage } = useAppIntl()
   const [hour24 = '09', minute = '00'] = value.split(':')
   const numericHour = Number(hour24)
   const period = numericHour >= 12 ? 'PM' : 'AM'
@@ -448,7 +618,7 @@ function TimePick({
       </select>
       <span className="sep">:</span>
       <select
-        aria-label="Minute"
+        aria-label={formatMessage({ id: 'automations.form.minute', defaultMessage: 'Minute' })}
         className={`a3-mini-select${needed ? ' needed' : ''}`}
         value={minute}
         onChange={(event) => apply(hour, event.target.value, period)}
@@ -460,13 +630,17 @@ function TimePick({
         )}
       </select>
       <select
-        aria-label="AM or PM"
+        aria-label={formatMessage({ id: 'automations.form.amPm', defaultMessage: 'AM or PM' })}
         className={`a3-mini-select${needed ? ' needed' : ''}`}
         value={period}
         onChange={(event) => apply(hour, minute, event.target.value)}
       >
-        <option>AM</option>
-        <option>PM</option>
+        <option value="AM">
+          {formatMessage({ id: 'automations.form.am', defaultMessage: 'AM' })}
+        </option>
+        <option value="PM">
+          {formatMessage({ id: 'automations.form.pm', defaultMessage: 'PM' })}
+        </option>
       </select>
     </div>
   )

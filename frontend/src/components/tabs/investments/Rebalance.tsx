@@ -2,6 +2,8 @@
 // Shows trades needed to bring each asset class back to its target allocation.
 
 import { fBase } from '../../../utils/format'
+import { useAppIntl } from '../../../i18n/useAppIntl'
+import { investmentClassLabel } from './investmentClassLabel'
 
 interface AllocRow {
   cls: string
@@ -42,13 +44,23 @@ function Card({
 }
 
 export function Rebalance({ alloc, thresholdPp }: Props) {
+  const intl = useAppIntl()
+  const { formatMessage } = intl
+  const className = (value: string) => investmentClassLabel(value, value, intl)
   const hasTargets = alloc.some((a) => a.tgt > 0)
 
   if (!hasTargets) {
     return (
-      <Card title="Rebalancing" meta="no targets set">
+      <Card
+        title={formatMessage({ id: 'rebalance.title', defaultMessage: 'Rebalancing' })}
+        meta={formatMessage({ id: 'rebalance.noTargets', defaultMessage: 'no targets set' })}
+      >
         <div style={{ fontSize: 12.5, color: 'var(--faint)' }}>
-          Set allocation targets in the panel above to see rebalancing suggestions.
+          {formatMessage({
+            id: 'rebalance.setTargets',
+            defaultMessage:
+              'Set allocation targets in the panel above to see rebalancing suggestions.',
+          })}
         </div>
       </Card>
     )
@@ -60,22 +72,51 @@ export function Rebalance({ alloc, thresholdPp }: Props) {
     .filter((a) => Math.abs(a.driftPp) >= thresholdPp)
     .map((a) => ({
       act: a.driftPp > 0 ? 'trim' : 'buy',
-      cls: a.cls,
+      cls: className(a.cls),
       amt: a.tradeBase,
-      why: `${a.cls} ${a.cur}% → ${a.driftPp > 0 ? 'trim' : 'top up'} toward ${a.tgt}%`,
+      why:
+        a.driftPp > 0
+          ? formatMessage(
+              {
+                id: 'rebalance.trimWhy',
+                defaultMessage: '{className} {current}% → trim toward {target}%',
+              },
+              { className: className(a.cls), current: a.cur, target: a.tgt },
+            )
+          : formatMessage(
+              {
+                id: 'rebalance.buyWhy',
+                defaultMessage: '{className} {current}% → top up toward {target}%',
+              },
+              { className: className(a.cls), current: a.cur, target: a.tgt },
+            ),
     }))
     .sort((a, b) => Math.abs(b.amt) - Math.abs(a.amt))
 
   return (
     <Card
-      title="Rebalancing"
-      meta={trades.length ? `${trades.length} trade${trades.length === 1 ? '' : 's'}` : 'on target'}
+      title={formatMessage({ id: 'rebalance.title', defaultMessage: 'Rebalancing' })}
+      meta={
+        trades.length
+          ? formatMessage(
+              {
+                id: 'rebalance.trades',
+                defaultMessage: '{count, plural, one {# trade} other {# trades}}',
+              },
+              { count: trades.length },
+            )
+          : formatMessage({ id: 'rebalance.onTarget', defaultMessage: 'on target' })
+      }
     >
       {trades.length ? (
         <div className="mk-rb">
           {trades.map((t, i) => (
             <div className="mk-rb-row" key={i}>
-              <span className={`mk-rb-act ${t.act}`}>{t.act === 'trim' ? 'TRIM' : 'BUY'}</span>
+              <span className={`mk-rb-act ${t.act}`}>
+                {t.act === 'trim'
+                  ? formatMessage({ id: 'rebalance.trim', defaultMessage: 'TRIM' })
+                  : formatMessage({ id: 'rebalance.buy', defaultMessage: 'BUY' })}
+              </span>
               <span className="mk-rb-cls">{t.cls}</span>
               <span
                 className="mk-rb-amt mask"
@@ -89,14 +130,20 @@ export function Rebalance({ alloc, thresholdPp }: Props) {
         </div>
       ) : (
         <div style={{ fontSize: 12.5, color: 'var(--faint)' }}>
-          Already on target — no trades needed.
+          {formatMessage({
+            id: 'rebalance.already',
+            defaultMessage: 'Already on target — no trades needed.',
+          })}
         </div>
       )}
       {trades.length > 0 && (
         <div className="mk-rb-foot">
           <div className="mk-rb-note">
-            Suggested trades to place at your brokerage — ONW tracks your book, it doesn&apos;t
-            execute.
+            {formatMessage({
+              id: 'rebalance.disclaimer',
+              defaultMessage:
+                "Suggested trades to place at your brokerage — ONW tracks your book, it doesn't execute.",
+            })}
           </div>
         </div>
       )}

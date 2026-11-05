@@ -2,7 +2,7 @@
 
 from datetime import timedelta
 
-from backend.core.errors import ConflictError
+from backend.core.errors import ConflictError, OpenNetWorthError
 from backend.db.account_store import AccountStore
 from backend.db.instrument_store import InstrumentStore
 from backend.db.lot_store import LotStore
@@ -10,7 +10,7 @@ from backend.db.realized_event_store import RealizedEventStore
 from backend.db.trading_store import TradingStore, trading_transaction
 from backend.db.transaction_store import TransactionStore
 from backend.services import lots, positions
-from backend.services.trading.common import event, instant, now
+from backend.services.trading.common import error_notice, event, instant, now
 from backend.services.trading.fees import book_execution_terms
 
 
@@ -34,7 +34,10 @@ def has_unresolved_book_fills(run_id, *, conn):
 def project_live_fills(run_id):
     run = TradingStore("runs").required(run_id)
     if run["mode"] != "live":
-        raise ConflictError("Simulated executions cannot enter the real book")
+        raise ConflictError(
+            "Simulated executions cannot enter the real book",
+            message_id="trading.error.simulated_real_book",
+        )
     results = []
     for fill in TradingStore("fills").list_scope(run_id):
         account = TradingStore("accounts").required(fill["account_id"])
@@ -58,10 +61,15 @@ def _project_one(run, account, fill):
     try:
         result = _book(account, fill)
         if result.get("error"):
-            raise ConflictError(result["error"])
-        status, reason = "booked", None
+            # The lower-level ledger/lot result is unstructured. Keep its text out of the
+            # public failure (as before), while giving the persisted class-only reason an ID.
+            raise ConflictError(
+                result["error"], message_id="trading.error.book_projection_conflict"
+            )
+        status, reason, localized = "booked", None, None
     except Exception as exc:
         result, status, reason = {}, "needs_reconciliation", type(exc).__name__
+        localized = error_notice(exc, reason) if isinstance(exc, OpenNetWorthError) else None
     with trading_transaction() as conn:
         TradingStore("fills").update_by_id(
             fill["id"],
@@ -69,6 +77,7 @@ def _project_one(run, account, fill):
                 "book_status": status,
                 "book_result": result,
                 "book_error": reason,
+                "book_error_message": localized,
                 "projection_lease_until": None,
             },
             conn=conn,
@@ -77,7 +86,12 @@ def _project_one(run, account, fill):
             conn,
             run,
             "book_projection",
-            {"fill_id": fill["id"], "status": status, "reason": reason},
+            {
+                "fill_id": fill["id"],
+                "status": status,
+                "reason": reason,
+                "reason_message": localized,
+            },
         )
         if status == "needs_reconciliation":
             TradingStore("runs").update_by_id(
@@ -88,14 +102,19 @@ def _project_one(run, account, fill):
 
 def _book(account, fill):
     if not fill.get("fees_complete", True):
-        raise ConflictError("Broker commissions are not yet known")
+        raise ConflictError(
+            "Broker commissions are not yet known", message_id="trading.error.commissions_unknown"
+        )
     book_account = AccountStore().find_by_id(account["book_account_id"])
     if (
         not book_account
         or book_account["currency"] != account["currency"]
         or book_account.get("archived")
     ):
-        raise ConflictError("Book account binding is missing, archived or has another currency")
+        raise ConflictError(
+            "Book account binding is missing, archived or has another currency",
+            message_id="trading.error.book_account_mismatch",
+        )
     existing = (
         LotStore().find_by_idempotency_key(fill["id"])
         if fill["side"] == "buy"
@@ -105,10 +124,16 @@ def _book(account, fill):
     cash = TransactionStore().by_external_ref(ref["source"], ref["ref"])
     if existing:
         if cash is None or existing.get("txn_id") != cash["id"]:
-            raise ConflictError("Book fill and cash record disagree after restore")
+            raise ConflictError(
+                "Book fill and cash record disagree after restore",
+                message_id="trading.error.book_records_disagree",
+            )
         return {"idempotent": True, "cash_leg_id": cash["id"]}
     if cash is not None:
-        raise ConflictError("Execution cash is already imported; reconcile its lot before booking")
+        raise ConflictError(
+            "Execution cash is already imported; reconcile its lot before booking",
+            message_id="trading.error.book_cash_already_imported",
+        )
     instrument = _book_instrument(fill["instrument"])
     quantity, price, fees = book_execution_terms(fill)
     change = {
@@ -133,7 +158,10 @@ def _book(account, fill):
     else:
         position = positions.find_active_liquid_position(instrument["id"], book_account["id"])
         if position is None:
-            raise ConflictError("Sold instrument has no managed book position")
+            raise ConflictError(
+                "Sold instrument has no managed book position",
+                message_id="trading.error.book_position_missing",
+            )
         change.update(
             type="dispose",
             position_id=position["id"],
@@ -158,6 +186,7 @@ def _book_instrument(instrument):
     ]
     if len(matches) != 1:
         raise ConflictError(
-            "Book instrument identity requires a unique existing instrument mapping"
+            "Book instrument identity requires a unique existing instrument mapping",
+            message_id="trading.error.book_instrument_mapping",
         )
     return matches[0]

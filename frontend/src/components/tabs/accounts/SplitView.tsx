@@ -1,3 +1,5 @@
+import { getNumberLocale } from '../../../utils/format'
+import { useAppIntl } from '../../../i18n/useAppIntl'
 // SplitView.tsx — the read-only face of a split transaction, shared by the register (desktop
 // row + mobile card) and the detail drawer. A bare "Split • 6" said nothing about where the
 // money went (owner, 2026-10-29): the chip leads with the largest line's category on a blend
@@ -27,6 +29,7 @@ export function SplitChip({
   open: boolean
   onToggle: () => void
 }) {
+  const { formatMessage } = useAppIntl()
   const lead = splitLead(splits)
   const c = lead ? catMap[lead.category] : undefined
   const more = splits.length - 1
@@ -40,14 +43,14 @@ export function SplitChip({
       className="acct-split-chip"
       style={{ background }}
       aria-expanded={open}
-      title={`Split across ${splits.length} categories — ${open ? 'hide' : 'show'} the lines`}
+      title={formatMessage({ id: 'accounts.visible.splitTitle', defaultMessage: 'Split across {count} categories — {action, select, hide {hide} other {show}} the lines' }, { count: splits.length.toLocaleString(getNumberLocale()), action: open ? 'hide' : 'show' })}
       onClick={(e) => {
         e.stopPropagation()
         onToggle()
       }}
     >
-      <span className="acct-split-chip-lead">{c?.label || 'Uncategorized'}</span>
-      {more > 0 && <span className="acct-split-chip-more">+{more}</span>}
+      <span className="acct-split-chip-lead">{c?.label || formatMessage({ id: 'accounts.visible.uncategorized', defaultMessage: 'Uncategorized' })}</span>
+      {more > 0 && <span className="acct-split-chip-more">+{more.toLocaleString(getNumberLocale())}</span>}
       {open ? (
         <ChevronUp size={12} aria-hidden="true" />
       ) : (
@@ -71,6 +74,7 @@ export function SplitLines({
   sign: '+' | '−'
   className: string
 }) {
+  const { formatMessage } = useAppIntl()
   return (
     <div className={'acct-splitlines ' + className}>
       {splits.map((s, i) => {
@@ -79,7 +83,7 @@ export function SplitLines({
           <div className="acct-splitline" key={i}>
             <i className="acct-splitline-dot" style={{ background: c?.color || '#7c8595' }} />
             <span className="acct-splitline-text">
-              <span className="acct-splitline-cat">{c?.label || 'Uncategorized'}</span>
+              <span className="acct-splitline-cat">{c?.label || formatMessage({ id: 'accounts.visible.uncategorized', defaultMessage: 'Uncategorized' })}</span>
               {s.note && <span className="acct-splitline-note">{s.note}</span>}
             </span>
             <span className="acct-splitline-amt">

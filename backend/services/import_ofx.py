@@ -129,20 +129,20 @@ def _txn_to_draft(txn: dict, acct_id_in_file: str, resolved_account: str) -> dic
     OfxImportError with a per-row reason for any unmappable txn (recorded as a skip)."""
     date_raw = (txn.get("date") or "").strip()
     if not date_raw:
-        raise OfxImportError("missing date")
+        raise OfxImportError("missing date", message_id="statement.skip.missing_date")
     amount = _parse_amount(txn.get("amount", ""))
     if amount is None:
-        raise OfxImportError("unparseable amount")
+        raise OfxImportError("unparseable amount", message_id="statement.skip.unparseable_amount")
     if amount == 0:
-        raise OfxImportError("zero amount")
+        raise OfxImportError("zero amount", message_id="statement.skip.zero_amount")
     fitid = (txn.get("fitid") or "").strip()
     if not fitid:
-        raise OfxImportError("missing FITID")
+        raise OfxImportError("missing FITID", message_id="statement.skip.missing_fitid")
 
     description = (txn.get("description") or "").strip() or "Imported transaction"
     acct = ledger_service.accounts.find_by_id(resolved_account)
     if acct is None:
-        raise OfxImportError("account not found")
+        raise OfxImportError("account not found", message_id="statement.skip.account_not_found")
     currency = (acct.get("currency") or ledger_service.base_currency()).upper()
     magnitude = abs(amount)
 
@@ -191,7 +191,7 @@ def _map_rows(raw: list[dict], acct_id_in_file: str, account_id: str | None) -> 
         try:
             draft = _txn_to_draft(txn, acct_id_in_file, resolved)
         except OfxImportError as exc:
-            results.append(RowResult(line=i, skip_reason=str(exc)))
+            results.append(RowResult(line=i, skip_reason=str(exc), skip_message=exc.skip_message))
             continue
         results.append(RowResult(line=i, draft=draft))
     flag_duplicates(results)

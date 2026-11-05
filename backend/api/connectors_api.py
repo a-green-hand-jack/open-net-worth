@@ -34,11 +34,13 @@ Both ``PATCH`` and ``DELETE`` are ``async def`` for two reasons:
 
 from __future__ import annotations
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter
+from fastapi.responses import JSONResponse
 from starlette.concurrency import run_in_threadpool
 
 from backend.ai.permissions import engine
-from backend.core.errors import OpenNetWorthError, to_http_status
+from backend.api.connector_error_responses import connector_domain_error
+from backend.core.errors import OpenNetWorthError
 from backend.models.connector import ConnectorPatch
 from backend.services import connectors as connectors_service
 
@@ -93,13 +95,13 @@ def get_connector_accounts(connector_id: str):
     try:
         connectors_service.get_connector(connector_id)
     except OpenNetWorthError as exc:
-        raise HTTPException(to_http_status(exc), exc.message or str(exc)) from exc
+        return connector_domain_error(exc)
     from backend.services.connector_fetch import provider_accounts
 
     try:
         return provider_accounts(connector_id)
     except OpenNetWorthError as exc:
-        raise HTTPException(to_http_status(exc), exc.message or str(exc)) from exc
+        return connector_domain_error(exc)
 
 
 @router.get("/api/connectors/{connector_id:path}")
@@ -110,7 +112,7 @@ def get_connector(connector_id: str):
             connector_id, ladder_v2=engine().ladder_v2
         ).model_dump()
     except OpenNetWorthError as exc:
-        raise HTTPException(to_http_status(exc), exc.message or str(exc)) from exc
+        return connector_domain_error(exc)
 
 
 @router.patch("/api/connectors/{connector_id:path}")
@@ -122,13 +124,20 @@ async def patch_connector(connector_id: str, body: ConnectorPatch):
     warning if this comes back ``False``).
     """
     if body.enabled is None:
-        raise HTTPException(422, "enabled is required")
+        return JSONResponse(
+            status_code=422,
+            content={
+                "detail": "enabled is required",
+                "message_id": "connector.error.enabledRequired",
+                "message_params": {},
+            },
+        )
     try:
         view = await run_in_threadpool(
             connectors_service.set_connector_enabled, connector_id, body.enabled
         )
     except OpenNetWorthError as exc:
-        raise HTTPException(to_http_status(exc), exc.message or str(exc)) from exc
+        return connector_domain_error(exc)
     result = view.model_dump()
     if connector_id in (connectors_service.TELEGRAM_ID, "voice"):
         result["reloaded"] = await _reload_live_connector(connector_id)
@@ -157,12 +166,16 @@ async def remove_connector(connector_id: str):
         stopped = await telegram_bot.stop()
         result["reloaded"] = stopped
         if not stopped:
-            raise HTTPException(
-                502,
-                "Could not confirm the Telegram bot stopped, so its credentials were NOT "
-                "cleared — removing them first would risk a still-live bot losing its "
-                "allowlist while it keeps running. Try again, or restart the app to force "
-                "a clean stop.",
+            return JSONResponse(
+                status_code=502,
+                content={
+                    "detail": "Could not confirm the Telegram bot stopped, so its credentials were NOT "
+                    "cleared — removing them first would risk a still-live bot losing its "
+                    "allowlist while it keeps running. Try again, or restart the app to force "
+                    "a clean stop.",
+                    "message_id": "connector.error.telegramStop",
+                    "message_params": {},
+                },
             )
     if connector_id == "voice":
         # Stop the worker before its LiveKit credentials are removed out from under it.
@@ -172,5 +185,5 @@ async def remove_connector(connector_id: str):
     try:
         await run_in_threadpool(connectors_service.remove_connector, connector_id)
     except OpenNetWorthError as exc:
-        raise HTTPException(to_http_status(exc), exc.message or str(exc)) from exc
+        return connector_domain_error(exc)
     return result

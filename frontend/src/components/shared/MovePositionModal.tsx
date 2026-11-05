@@ -1,8 +1,10 @@
 import { useState } from 'react'
+import { useAppIntl } from '../../i18n/useAppIntl'
 import type { ComputedRow } from '../../types/portfolio'
 import { authFetch } from '../../api/client'
 import { Modal, FormField, Select, Stack, Button, Badge, ErrorState, Text } from '../ui'
 import type { SelectOptGroup, SelectOption } from '../ui'
+import { positionsMessage } from './positionsMessages'
 
 // A non-archived account the position can be moved to. institution=null means no
 // custodian was set (renders in the "Other" group in the Select).
@@ -29,16 +31,19 @@ interface Props {
  *  institution accounts fall into "Other". Groups sorted alphabetically; "Other"
  *  always last. Options within each group sorted by name. */
 // eslint-disable-next-line react-refresh/only-export-components
-export function buildDestinationOptions(accounts: MoveableAccount[]): SelectOptGroup[] {
+export function buildDestinationOptions(
+  accounts: MoveableAccount[],
+  otherLabel = 'Other',
+): SelectOptGroup[] {
   const groups = new Map<string, MoveableAccount[]>()
   for (const a of accounts) {
-    const key = (a.institution || '').trim() || 'Other'
+    const key = (a.institution || '').trim() || ''
     const bucket = groups.get(key) ?? []
     bucket.push(a)
     groups.set(key, bucket)
   }
-  const other = groups.get('Other') ?? []
-  groups.delete('Other')
+  const other = groups.get('') ?? []
+  groups.delete('')
   const sorted = [...groups.keys()].sort()
   const result: SelectOptGroup[] = sorted.map((g) => ({
     group: g,
@@ -48,7 +53,7 @@ export function buildDestinationOptions(accounts: MoveableAccount[]): SelectOptG
   }))
   if (other.length) {
     result.push({
-      group: 'Other',
+      group: otherLabel,
       options: other
         .sort((a, b) => a.name.localeCompare(b.name))
         .map((a) => ({ value: a.id, label: `${a.name} (${a.currency})` })),
@@ -81,6 +86,8 @@ export function isLastPositionInAccount(row: ComputedRow, allRows: ComputedRow[]
 type MoveState = 'idle' | 'busy' | 'error'
 
 export function MovePositionModal({ open, onClose, row, accounts, onMoved, allRows }: Props) {
+  const intl = useAppIntl()
+  const { formatMessage } = intl
   const [destId, setDestId] = useState('')
   const [state, setState] = useState<MoveState>('idle')
   const [errorMsg, setErrorMsg] = useState<string | null>(null)
@@ -93,7 +100,10 @@ export function MovePositionModal({ open, onClose, row, accounts, onMoved, allRo
     onClose()
   }
 
-  const optgroups: SelectOptGroup[] = buildDestinationOptions(accounts)
+  const optgroups: SelectOptGroup[] = buildDestinationOptions(
+    accounts,
+    formatMessage({ id: 'shared.move.other', defaultMessage: 'Other' }),
+  )
   // Flatten to check if any destination exists.
   const hasDestinations = optgroups.some((g) => g.options.length > 0)
 
@@ -104,7 +114,10 @@ export function MovePositionModal({ open, onClose, row, accounts, onMoved, allRo
   const noDestOption: SelectOption[] = [
     {
       value: '',
-      label: 'No other accounts — add one in the Accounts tab first.',
+      label: formatMessage({
+        id: 'shared.move.noAccounts',
+        defaultMessage: 'No other accounts — add one in the Accounts tab first.',
+      }),
       disabled: true,
     },
   ]
@@ -123,14 +136,18 @@ export function MovePositionModal({ open, onClose, row, accounts, onMoved, allRo
       })
       if (!res.ok) {
         const body = await res.json().catch(() => ({}))
-        throw new Error(body?.detail || `HTTP ${res.status}`)
+        throw new Error(positionsMessage(body, `HTTP ${res.status}`, intl))
       }
       setState('idle')
       onMoved()
       handleClose()
     } catch (err) {
       setState('error')
-      setErrorMsg(err instanceof Error ? err.message : 'Unknown error')
+      setErrorMsg(
+        err instanceof Error
+          ? err.message
+          : formatMessage({ id: 'shared.move.unknown', defaultMessage: 'Unknown error' }),
+      )
     }
   }
 
@@ -142,37 +159,63 @@ export function MovePositionModal({ open, onClose, row, accounts, onMoved, allRo
   const footer = (
     <>
       <Button variant="secondary" onClick={handleClose} disabled={state === 'busy'}>
-        Cancel
+        {formatMessage({ id: 'shared.move.cancel', defaultMessage: 'Cancel' })}
       </Button>
       <Button variant="primary" onClick={submit} disabled={!canMove}>
-        {state === 'busy' ? 'Moving…' : 'Move position'}
+        {state === 'busy'
+          ? formatMessage({ id: 'shared.move.moving', defaultMessage: 'Moving…' })
+          : formatMessage({ id: 'shared.move.title', defaultMessage: 'Move position' })}
       </Button>
     </>
   )
 
   return (
-    <Modal open={open} onClose={handleClose} title="Move position" size="sm" footer={footer}>
+    <Modal
+      open={open}
+      onClose={handleClose}
+      title={formatMessage({ id: 'shared.move.title', defaultMessage: 'Move position' })}
+      size="sm"
+      footer={footer}
+    >
       <Stack gap="--space-5">
         <div>
           <Text size="base" weight={600}>
             {holdingName} {row.label && row.symbol ? row.label : ''}
           </Text>
           <Text size="sm" tone="muted">
-            from {fromLabel}
+            {formatMessage(
+              { id: 'shared.move.from', defaultMessage: 'from {account}' },
+              { account: fromLabel },
+            )}
           </Text>
         </div>
 
         {state === 'error' && errorMsg && (
-          <ErrorState message={errorMsg ?? 'Could not move position.'} onRetry={submit} />
+          <ErrorState
+            message={
+              errorMsg ??
+              formatMessage({ id: 'shared.move.error', defaultMessage: 'Could not move position.' })
+            }
+            onRetry={submit}
+          />
         )}
 
-        <FormField label="Destination account" htmlFor="move-pos-dest">
+        <FormField
+          label={formatMessage({
+            id: 'shared.move.destination',
+            defaultMessage: 'Destination account',
+          })}
+          htmlFor="move-pos-dest"
+        >
           {hasDestinations ? (
             <Select
               id="move-pos-dest"
               value={destId}
               onChange={(e) => setDestId(e.target.value)}
-              placeholder="— Choose account —"
+              placeholder={formatMessage({
+                id: 'shared.move.choose',
+                defaultMessage: '— Choose account —',
+              })}
               options={optgroups}
             />
           ) : (
@@ -198,17 +241,28 @@ export function MovePositionModal({ open, onClose, row, accounts, onMoved, allRo
 
         {isLastPos && (
           <Text size="xs" tone="muted">
-            This is the only position in {sourceAccountName}. The account will remain open with a
-            zero balance.
+            {formatMessage(
+              {
+                id: 'shared.move.lastPosition',
+                defaultMessage:
+                  'This is the only position in {account}. The account will remain open with a zero balance.',
+              },
+              { account: sourceAccountName },
+            )}
           </Text>
         )}
 
         {row.vesting_state === 'unvested' && (
           <>
-            <Badge tone="warn">Grant-managed</Badge>
+            <Badge tone="warn">
+              {formatMessage({ id: 'shared.move.grantManaged', defaultMessage: 'Grant-managed' })}
+            </Badge>
             <Text size="xs" tone="muted">
-              Grant-managed position — moving this holding may affect lot association. Verify tax
-              treatment.
+              {formatMessage({
+                id: 'shared.move.grantWarning',
+                defaultMessage:
+                  'Grant-managed position — moving this holding may affect lot association. Verify tax treatment.',
+              })}
             </Text>
           </>
         )}

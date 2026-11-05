@@ -3,6 +3,8 @@
 // — envelopes are shared between the two methods — told what 50/30/20 keeps in place of
 // Zero-Based's assigned money: a cap and a share (owner, 2026-09-25).
 import { useState } from 'react'
+import { useAppIntl } from '../../../../../i18n/useAppIntl'
+import { BudgetVerbRequestError } from '../api'
 import {
   DeleteEnvelopeModal,
   MergeEnvelopeModal,
@@ -15,6 +17,7 @@ import {
   addCategory,
   createEnvelope,
   deleteEnvelope,
+  EnvelopeRequestError,
   removeCategory,
   undoDeleteEnvelope,
 } from './envelopeOps'
@@ -57,6 +60,7 @@ export function PropDialogs({
   captureUndo: (label: string, inverse: () => Promise<void>) => void
   onClose: () => void
 }) {
+  const { formatMessage } = useAppIntl()
   const [busy, setBusy] = useState(false)
   if (!dialog) return null
   const run = async (fn: () => Promise<void>) => {
@@ -65,7 +69,24 @@ export function PropDialogs({
       await fn()
       onClose()
     } catch (e) {
-      toast(e instanceof Error ? e.message : 'Something went wrong — try again.')
+      toast(
+        e instanceof BudgetVerbRequestError
+          ? formatMessage(
+              { id: 'plan.model.requestFailed', defaultMessage: 'Request failed ({status})' },
+              { status: e.status },
+            )
+          : e instanceof EnvelopeRequestError
+            ? formatMessage(
+                { id: 'plan.model.requestFailed', defaultMessage: 'Request failed ({status})' },
+                { status: e.status },
+              )
+            : e instanceof Error
+              ? e.message
+              : formatMessage({
+                  id: 'plan.somethingWrong',
+                  defaultMessage: 'Something went wrong — try again.',
+                }),
+      )
     } finally {
       setBusy(false)
     }
@@ -85,7 +106,17 @@ export function PropDialogs({
           void run(async () => {
             const id = await createEnvelope(name, color, dialog.groupId)
             for (const c of categoryIds) await addCategory(id, c)
-            toast(`“${name}” is in ${dialog.groupName ?? 'Others'}`)
+            toast(
+              formatMessage(
+                { id: 'plan.envelopeInGroup', defaultMessage: '“{name}” is in {group}' },
+                {
+                  name,
+                  group:
+                    dialog.groupName ??
+                    formatMessage({ id: 'plan.others', defaultMessage: 'Others' }),
+                },
+              ),
+            )
           })
         }
       />
@@ -101,7 +132,20 @@ export function PropDialogs({
         categoryLabels={env.category_ids.map(catLabel)}
         notes={
           env.cap
-            ? [`Its ${fmt(env.cap)} cap stops counting toward ${env.group || 'its group'}`]
+            ? [
+                formatMessage(
+                  {
+                    id: 'plan.propDeleteCap',
+                    defaultMessage: 'Its {amount} cap stops counting toward {group}',
+                  },
+                  {
+                    amount: fmt(env.cap),
+                    group:
+                      env.group ||
+                      formatMessage({ id: 'plan.itsGroup', defaultMessage: 'its group' }),
+                  },
+                ),
+              ]
             : []
         }
         busy={busy}
@@ -110,10 +154,24 @@ export function PropDialogs({
           void run(async () => {
             const { undoToken, deltaRta } = await deleteEnvelope(env.id, ym)
             toast(
-              `Envelope “${env.label}” deleted` +
-                (deltaRta > 0.005 ? ` — ${fmt(deltaRta)} returned to Ready to Assign` : ''),
+              deltaRta > 0.005
+                ? formatMessage(
+                    {
+                      id: 'plan.propEnvelopeDeletedReturned',
+                      defaultMessage:
+                        'Envelope “{name}” deleted — {amount} returned to Ready to Assign',
+                    },
+                    { name: env.label, amount: fmt(deltaRta) },
+                  )
+                : formatMessage(
+                    { id: 'plan.propEnvelopeDeleted', defaultMessage: 'Envelope “{name}” deleted' },
+                    { name: env.label },
+                  ),
             )
-            captureUndo('Envelope deleted', () => undoDeleteEnvelope(undoToken))
+            captureUndo(
+              formatMessage({ id: 'plan.envelopeDeleted', defaultMessage: 'Envelope deleted' }),
+              () => undoDeleteEnvelope(undoToken),
+            )
           })
         }
       />
@@ -132,10 +190,27 @@ export function PropDialogs({
         moneyLine={(dest) =>
           env.cap && !capsLocked ? (
             <>
-              Its <b>{fmt(env.cap)}</b> cap adds to {dest}&rsquo;s, from {monthLabel} on
+              {formatMessage(
+                {
+                  id: 'plan.propMergeCap',
+                  defaultMessage:
+                    'Its <b>{amount}</b> cap adds to {destination}’s, from {month} on',
+                },
+                {
+                  amount: fmt(env.cap),
+                  destination: dest,
+                  month: monthLabel,
+                  b: (chunks) => <b>{chunks}</b>,
+                },
+              )}
             </>
           ) : (
-            <>{dest} keeps its own cap</>
+            <>
+              {formatMessage(
+                { id: 'plan.propMergeKeepsCap', defaultMessage: '{destination} keeps its own cap' },
+                { destination: dest },
+              )}
+            </>
           )
         }
         onCancel={onClose}
@@ -144,7 +219,12 @@ export function PropDialogs({
           if (!to) return
           void run(async () => {
             await mergeEnvelopes(env, to, { ym, capsLocked })
-            toast(`Merged “${env.label}” into “${targetName}”`)
+            toast(
+              formatMessage(
+                { id: 'plan.envelopeMerged', defaultMessage: 'Merged “{source}” into “{target}”' },
+                { source: env.label, target: targetName },
+              ),
+            )
           })
         }}
       />
@@ -159,16 +239,40 @@ export function PropDialogs({
       sole={env.category_ids.length === 1}
       whereLine={
         <>
-          {label}&rsquo;s spending will then be in no envelope. It reduces your savings until you
-          put it in one
+          {formatMessage(
+            {
+              id: 'plan.propUnlinkedSpending',
+              defaultMessage:
+                '{name}’s spending will then be in no envelope. It reduces your savings until you put it in one',
+            },
+            { name: label },
+          )}
         </>
       }
-      keepsLine={env.cap ? `${env.label} keeps its ${fmt(env.cap)} cap` : `${env.label} stays put`}
+      keepsLine={
+        env.cap
+          ? formatMessage(
+              { id: 'plan.propKeepsCap', defaultMessage: '{name} keeps its {amount} cap' },
+              { name: env.label, amount: fmt(env.cap) },
+            )
+          : formatMessage(
+              { id: 'plan.propStays', defaultMessage: '{name} stays put' },
+              { name: env.label },
+            )
+      }
       onCancel={onClose}
       onConfirm={() =>
         void run(async () => {
           await removeCategory(env.id, dialog.categoryId)
-          toast(`${label} removed from ${env.label}`)
+          toast(
+            formatMessage(
+              {
+                id: 'plan.categoryRemovedFrom',
+                defaultMessage: '{category} removed from {envelope}',
+              },
+              { category: label, envelope: env.label },
+            ),
+          )
         })
       }
     />

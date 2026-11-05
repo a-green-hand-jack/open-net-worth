@@ -4,6 +4,8 @@
 // `timeline.jsx`. Reusable for anything laid out on one time axis (calendar,
 // upcoming, dividend schedule).
 
+import { useAppIntl } from '../../../i18n/useAppIntl'
+
 export interface TimelineEvent {
   pos: number
   color?: string
@@ -79,6 +81,7 @@ export function TimelineList({
   extra?: number
   moreLabel?: string
 }) {
+  const intl = useAppIntl()
   const hi = axis ? axis[1] : Infinity
   return (
     <div className="ov-tl-list">
@@ -103,7 +106,10 @@ export function TimelineList({
       ))}
       {!!extra && extra > 0 && (
         <div className="ov-more">
-          +{extra} more{moreLabel ? ' ' + moreLabel : ''}
+          {intl.formatMessage(
+            { id: 'overview.timeline.more', defaultMessage: '+{count} more{label}' },
+            { count: extra, label: moreLabel ? ' ' + moreLabel : '' },
+          )}
         </div>
       )}
     </div>

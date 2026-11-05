@@ -10,7 +10,10 @@ from backend.services.trading.market import instrument_key
 def apply_fill(conn, run, order, raw):
     base_fee = base_fee_quantity(raw)
     if not isinstance(raw.get("execution_id"), str) or not raw["execution_id"]:
-        raise ValidationError("Broker fill needs a stable execution identity")
+        raise ValidationError(
+            "Broker fill needs a stable execution identity",
+            message_id="trading.error.fill_identity_missing",
+        )
     account = TradingStore("accounts").required(order["account_id"], conn=conn)
     fill_id = identity(
         account.get("provider_id") or account["venue"],
@@ -20,13 +23,22 @@ def apply_fill(conn, run, order, raw):
     existing = TradingStore("fills").find_by_id(fill_id, conn=conn)
     if existing:
         if existing["order_id"] != order["id"]:
-            raise ConflictError("Execution identity already belongs to another order")
+            raise ConflictError(
+                "Execution identity already belongs to another order",
+                message_id="trading.error.fill_identity_conflict",
+            )
         for name in ("quantity", "price", "fees"):
             if amount(existing[name]) != amount(raw.get(name, 0)):
-                raise ConflictError("Execution correction requires explicit reconciliation")
+                raise ConflictError(
+                    "Execution correction requires explicit reconciliation",
+                    message_id="trading.error.fill_correction_reconciliation",
+                )
         for name in ("fee_asset", "fee_quantity", "fee_value_quote"):
             if existing.get(name) != raw.get(name):
-                raise ConflictError("Execution fee correction requires explicit reconciliation")
+                raise ConflictError(
+                    "Execution fee correction requires explicit reconciliation",
+                    message_id="trading.error.fee_correction_reconciliation",
+                )
         return order
     quantity, price, fees = (
         amount(raw["quantity"]),
@@ -35,11 +47,18 @@ def apply_fill(conn, run, order, raw):
     )
     remaining = amount(order["quantity"]) - amount(order["filled_quantity"])
     if quantity <= 0 or quantity > remaining or price <= 0 or fees < 0:
-        raise ValidationError("Invalid fill quantity, price or fee")
+        raise ValidationError(
+            "Invalid fill quantity, price or fee", message_id="trading.error.fill_values_invalid"
+        )
     if instrument_key(raw["instrument"]) != order["instrument_key"] or raw["side"] != order["side"]:
-        raise ConflictError("Broker fill does not match the order instrument and side")
+        raise ConflictError(
+            "Broker fill does not match the order instrument and side",
+            message_id="trading.error.fill_order_mismatch",
+        )
     if instant(raw["timestamp"]) < instant(order["created_at"]) and uses_broker_execution(run):
-        raise ConflictError("Broker fill predates the order")
+        raise ConflictError(
+            "Broker fill predates the order", message_id="trading.error.fill_predates_order"
+        )
     gross = quantity * price
     positions = dict(account["positions"])
     position = dict(
@@ -52,7 +71,10 @@ def apply_fill(conn, run, order, raw):
     cash = amount(account["cash"])
     if order["side"] == "buy":
         if gross + fees > cash or base_fee >= quantity:
-            raise ConflictError("Fill exceeds account cash; reconciliation required")
+            raise ConflictError(
+                "Fill exceeds account cash; reconciliation required",
+                message_id="trading.error.fill_cash_insufficient",
+            )
         position.update(
             quantity=str(held + quantity - base_fee), cost_basis=str(basis + gross + fees)
         )
@@ -60,7 +82,10 @@ def apply_fill(conn, run, order, raw):
     else:
         disposed = quantity + base_fee
         if disposed > held or fees > gross:
-            raise ConflictError("Fill exceeds held quantity or proceeds")
+            raise ConflictError(
+                "Fill exceeds held quantity or proceeds",
+                message_id="trading.error.fill_quantity_insufficient",
+            )
         position.update(
             quantity=str(held - disposed), cost_basis=str(basis * (held - disposed) / held)
         )
@@ -121,7 +146,9 @@ def apply_receipt(conn, run, order, receipt):
         "cancel_pending",
     }
     if receipt.get("status") not in allowed or not receipt.get("broker_order_id"):
-        raise ValidationError("Invalid broker order receipt")
+        raise ValidationError(
+            "Invalid broker order receipt", message_id="trading.error.broker_receipt_invalid"
+        )
     order = TradingStore("orders").update_by_id(
         order["id"], {"broker_order_id": receipt["broker_order_id"]}, conn=conn
     )
@@ -129,7 +156,10 @@ def apply_receipt(conn, run, order, receipt):
         order = apply_fill(conn, run, order, raw)
     status = receipt["status"]
     if status == "filled" and amount(order["filled_quantity"]) != amount(order["quantity"]):
-        raise ConflictError("Broker reports filled without complete execution records")
+        raise ConflictError(
+            "Broker reports filled without complete execution records",
+            message_id="trading.error.fill_records_incomplete",
+        )
     if order["status"] == "filled":
         status = "filled"
     elif amount(order["filled_quantity"]) > 0 and status == "open":

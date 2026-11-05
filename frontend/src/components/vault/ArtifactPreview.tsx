@@ -1,3 +1,4 @@
+import { useAppIntl } from '../../i18n/useAppIntl'
 import { desktopArtifactUrl } from '../../platform/desktop'
 import { useEffect, useRef, useState } from 'react'
 import type { VaultItem } from '../../api/vault'
@@ -33,12 +34,13 @@ function FilePreview({
   type: NonNullable<VaultItem['artifact_type']>
   onOpen: () => void
 }) {
+  const vaultIntl = useAppIntl()
   return (
     <button
       type="button"
       className="vault-artifact vault-artifact--file"
       onClick={onOpen}
-      aria-label={`Open ${item.title}`}
+      aria-label={vaultIntl.formatMessage({ id: 'vault.openNamed', defaultMessage: 'Open {title}' }, { title: item.title })}
     >
       <span className="vault-artifact-file-tile">
         <ArtifactTypeIcon type={type} size={32} />
@@ -62,6 +64,7 @@ function MarkupPreview({
   type: 'html' | 'svg'
   onOpen: () => void
 }) {
+  const vaultIntl = useAppIntl()
   const { frameSrc, failed } = useArtifactContent(item.source_id, type)
   const pageRef = useRef<HTMLSpanElement>(null)
   const [box, setBox] = useState<{ w: number; h: number } | null>(null)
@@ -81,7 +84,7 @@ function MarkupPreview({
       type="button"
       className="vault-artifact"
       onClick={onOpen}
-      aria-label={`Open ${item.title}`}
+      aria-label={vaultIntl.formatMessage({ id: 'vault.openNamed', defaultMessage: 'Open {title}' }, { title: item.title })}
     >
       <span className="vault-artifact-page" ref={pageRef}>
         {frameSrc && box && box.w > 0 && (
@@ -99,11 +102,11 @@ function MarkupPreview({
             }}
           />
         )}
-        {failed && <span className="vault-pages-error">Can't show it here — open it instead.</span>}
+        {failed && <span className="vault-pages-error">{vaultIntl.formatMessage({ id: "vault.ui.18b25bd843f7", defaultMessage: "Can't show it here — open it instead." })}</span>}
       </span>
       <span className="vault-page-expand" aria-hidden="true">
         <Maximize2 size={13} strokeWidth={1.8} />
-        Open
+        {vaultIntl.formatMessage({ id: "vault.ui.ed077f3d8125", defaultMessage: "Open" })}
       </span>
     </button>
   )

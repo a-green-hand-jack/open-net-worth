@@ -9,8 +9,11 @@
 // On any error the hook degrades silently to the on-track fallback.
 
 import { authFetch } from '../api/client'
+import { useMemo } from 'react'
 import { useQueryCache } from '../state/queryCache'
 import type { InvestmentSignal } from '../types/investmentSignals'
+import { useAppIntl } from '../i18n/useAppIntl'
+import { portfolioMessage } from './portfolioMessages'
 
 export interface SignalsResult {
   signals: InvestmentSignal[]
@@ -24,11 +27,14 @@ const ONTRACK: InvestmentSignal = {
   kind: 'ontrack',
   tone: 'good',
   actionable: false,
+  appFallback: true,
   tag: 'On track',
   narrative: 'Your portfolio is within guidelines. No rebalancing or concentration alerts.',
 }
 
 export function useInvestmentSignals(): SignalsResult {
+  const intl = useAppIntl()
+  const { formatMessage } = intl
   const query = useQueryCache<Omit<SignalsResult, 'loading'>>(
     '/api/investments/brief',
     async () => {
@@ -44,7 +50,37 @@ export function useInvestmentSignals(): SignalsResult {
     },
     { staleTime: 0 },
   )
-  if (query.data) return { ...query.data, loading: false }
-  if (query.error) return { signals: [ONTRACK], decisionsCount: 0, loading: false }
+  const fallback = useMemo(
+    () => ({
+      ...ONTRACK,
+      tag: formatMessage({ id: 'investments.brief.onTrack', defaultMessage: 'On track' }),
+      narrative: formatMessage({
+        id: 'investments.brief.onTrackBody',
+        defaultMessage:
+          'Your portfolio is within guidelines. No rebalancing or concentration alerts.',
+      }),
+    }),
+    [formatMessage],
+  )
+  const signals = useMemo(
+    () =>
+      query.data?.signals.map((s) =>
+        s.appFallback === true
+          ? fallback
+          : {
+              ...s,
+              tag: portfolioMessage(intl, s.tag_message, s.tag),
+              narrative: portfolioMessage(intl, s.narrative_message, s.narrative),
+            },
+      ),
+    [query.data?.signals, fallback, intl],
+  )
+  if (query.data)
+    return {
+      ...query.data,
+      signals: signals ?? [],
+      loading: false,
+    }
+  if (query.error) return { signals: [fallback], decisionsCount: 0, loading: false }
   return { signals: [], decisionsCount: 0, loading: true }
 }

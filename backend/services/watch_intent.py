@@ -46,11 +46,27 @@ def intent_findings(snap: dict, intent: dict | None) -> list[dict]:
         if not was_in:
             out.append(
                 _finding(
-                    "entered_buy_zone", "good", 45, "medium", f"Entered your buy zone ({label})"
+                    "entered_buy_zone",
+                    "good",
+                    45,
+                    "medium",
+                    f"Entered your buy zone ({label})",
+                    message_id="entered_buy_zone",
+                    params={"zone": label},
                 )
             )
         else:
-            out.append(_finding("in_buy_zone", "good", 18, "low", f"In your buy zone ({label})"))
+            out.append(
+                _finding(
+                    "in_buy_zone",
+                    "good",
+                    18,
+                    "low",
+                    f"In your buy zone ({label})",
+                    message_id="in_buy_zone",
+                    params={"zone": label},
+                )
+            )
     fair = intent.get("fair_value")
     if fair:
         fair = float(fair)
@@ -65,6 +81,8 @@ def intent_findings(snap: dict, intent: dict | None) -> list[dict]:
                     35 if crossed else 16,
                     "medium" if crossed else "low",
                     f"{abs(gap):.0f}% below your fair value of {_fmt(fair)}",
+                    message_id="below_fair",
+                    params={"percent": f"{abs(gap):.0f}", "level": _fmt(fair)},
                 )
             )
         elif gap >= FAIR_VALUE_GAP_PCT:
@@ -75,6 +93,8 @@ def intent_findings(snap: dict, intent: dict | None) -> list[dict]:
                     12,
                     "low",
                     f"{gap:.0f}% above your fair value of {_fmt(fair)}",
+                    message_id="above_fair",
+                    params={"percent": f"{gap:.0f}", "level": _fmt(fair)},
                 )
             )
     return out
@@ -92,7 +112,17 @@ def held_thesis_findings(snap: dict, thesis: dict | None) -> list[dict]:
     stance = j["stance"]
     if stance == "below_stop":
         level = lv["stop_below"]["price"]
-        return [_finding("at_stop", "bad", 50, "medium", f"At or below your stop of {_fmt(level)}")]
+        return [
+            _finding(
+                "at_stop",
+                "bad",
+                50,
+                "medium",
+                f"At or below your stop of {_fmt(level)}",
+                message_id="at_stop",
+                params={"level": _fmt(level)},
+            )
+        ]
     if stance in ("above_trim", "near_trim"):
         level = lv["trim_above"]
         if stance == "above_trim":
@@ -101,11 +131,41 @@ def held_thesis_findings(snap: dict, thesis: dict | None) -> list[dict]:
             text = (
                 f"{abs(level['distance_pct']):.0f}% under your trim level of {_fmt(level['price'])}"
             )
-        return [_finding(stance, "warn", 40 if stance == "above_trim" else 25, "low", text)]
+        return [
+            _finding(
+                stance,
+                "warn",
+                40 if stance == "above_trim" else 25,
+                "low",
+                text,
+                message_id="above_trim" if stance == "above_trim" else "near_trim",
+                params={
+                    "level": _fmt(level["price"]),
+                    **(
+                        {"percent": f"{abs(level['distance_pct']):.0f}"}
+                        if stance == "near_trim"
+                        else {}
+                    ),
+                },
+            )
+        ]
     if stance == "near_fair_value":
         level = lv["fair_value"]
         text = f"{abs(level['distance_pct']):.0f}% under your fair value of {_fmt(level['price'])}"
-        return [_finding("near_fair_value", "warn", 14, "low", text)]
+        return [
+            _finding(
+                "near_fair_value",
+                "warn",
+                14,
+                "low",
+                text,
+                message_id="near_fair",
+                params={
+                    "level": _fmt(level["price"]),
+                    "percent": f"{abs(level['distance_pct']):.0f}",
+                },
+            )
+        ]
     return []
 
 

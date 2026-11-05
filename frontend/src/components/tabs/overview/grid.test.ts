@@ -208,6 +208,22 @@ describe('normalize', () => {
     expect(out[0]!.w).toBe(COLS)
   })
 
+  it('preserves only valid default-section provenance during normalization', () => {
+    const items = normalize(
+      [
+        { kind: 'section', title: 'Section', titleSource: 'default_section' },
+        { kind: 'section', title: 'Custom', titleSource: 'default_section' },
+        { kind: 'section', title: 'Section' },
+      ],
+      DEFS,
+    )
+    expect(items.map((item) => (item.kind === 'section' ? item.titleSource : undefined))).toEqual([
+      'default_section',
+      undefined,
+      undefined,
+    ])
+  })
+
   it('seeds per-widget config from the def settings schema', () => {
     const out = normalize([{ defId: 'movers' }], DEFS)
     expect((out[0] as WidgetInstance).config.range).toBe('1M')

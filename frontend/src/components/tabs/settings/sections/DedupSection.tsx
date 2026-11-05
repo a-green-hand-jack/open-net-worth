@@ -4,6 +4,8 @@
 // Two panels: the engine's configuration, then the pairs it has already ruled on. The engine
 // skips re-flagging what it has decided, so forgetting a decision is how you make it look again.
 import { useState } from 'react'
+import { defineMessages, type IntlShape } from 'react-intl'
+import { useAppIntl } from '../../../../i18n/useAppIntl'
 import {
   forgetMatchDecision,
   getDedupConfig,
@@ -23,27 +25,42 @@ import { ModelPicker } from '../../../ui'
 import { Btn, Field, Panel, Select, Toggle, row, useSectionBusy } from '../ds'
 import type { SectionProps } from '../ds'
 
-const POLICY_LABELS: Record<DedupPolicy, string> = {
-  review_all: 'Conservative — ask on ambiguity',
-  auto_transfers: 'Balanced — auto-merge transfers',
-  auto_high: 'Aggressive — merge likely dupes',
-}
-
-const VERDICT_LABELS: Record<MatchDecision['verdict'], string> = {
-  same: 'Merged',
-  different: 'Not duplicates',
-  pair: 'Linked as a transfer',
-}
-
-function decisionLine(d: MatchDecision): string {
-  const payee = d.payee_label || 'Unlabelled pair'
+const POLICY_LABELS = defineMessages({
+  review_all: {
+    id: 'dedupSettings.policy.conservative',
+    defaultMessage: 'Conservative — ask on ambiguity',
+  },
+  auto_transfers: {
+    id: 'dedupSettings.policy.balanced',
+    defaultMessage: 'Balanced — auto-merge transfers',
+  },
+  auto_high: {
+    id: 'dedupSettings.policy.aggressive',
+    defaultMessage: 'Aggressive — merge likely dupes',
+  },
+})
+const VERDICT_LABELS = defineMessages({
+  same: { id: 'dedupSettings.verdict.same', defaultMessage: 'Merged' },
+  different: { id: 'dedupSettings.verdict.different', defaultMessage: 'Not duplicates' },
+  pair: { id: 'dedupSettings.verdict.pair', defaultMessage: 'Linked as a transfer' },
+})
+function decisionLine(d: MatchDecision, intl: IntlShape): string {
+  const payee =
+    d.payee_label ||
+    intl.formatMessage({ id: 'dedupSettings.unlabelled', defaultMessage: 'Unlabelled pair' })
   const amount = d.amount_bucket ? ' • ' + d.amount_bucket : ''
   const outcome =
-    d.verdict === 'same' ? ' — merged' : d.verdict === 'pair' ? ' — linked' : ' — kept both'
+    d.verdict === 'same'
+      ? intl.formatMessage({ id: 'dedupSettings.outcome.merged', defaultMessage: ' — merged' })
+      : d.verdict === 'pair'
+        ? intl.formatMessage({ id: 'dedupSettings.outcome.linked', defaultMessage: ' — linked' })
+        : intl.formatMessage({ id: 'dedupSettings.outcome.kept', defaultMessage: ' — kept both' })
   return payee + amount + outcome
 }
 
 export function DedupSection({ toast }: SectionProps) {
+  const intl = useAppIntl()
+  const { formatMessage } = intl
   const {
     data: cfg,
     initialLoading: loadingCfg,
@@ -68,7 +85,12 @@ export function DedupSection({ toast }: SectionProps) {
       void refreshCfg()
       toast(message)
     } catch {
-      toast('Could not save — try again')
+      toast(
+        formatMessage({
+          id: 'dedupSettings.CouldNotSaveTryAgain',
+          defaultMessage: 'Could not save — try again',
+        }),
+      )
     } finally {
       setBusy(false)
     }
@@ -78,9 +100,19 @@ export function DedupSection({ toast }: SectionProps) {
     try {
       await forgetMatchDecision(signature)
       void refreshDecisions()
-      toast('Decision forgotten — pair will be re-evaluated')
+      toast(
+        formatMessage({
+          id: 'dedupSettings.DecisionForgottenPairWillBeReEvaluated',
+          defaultMessage: 'Decision forgotten — pair will be re-evaluated',
+        }),
+      )
     } catch {
-      toast('Could not forget that decision')
+      toast(
+        formatMessage({
+          id: 'dedupSettings.CouldNotForgetThatDecision',
+          defaultMessage: 'Could not forget that decision',
+        }),
+      )
     }
   }
 
@@ -91,45 +123,96 @@ export function DedupSection({ toast }: SectionProps) {
   return (
     <>
       <Panel
-        title="Engine configuration"
-        sub="How imported transactions are matched against what's already in the ledger"
+        title={formatMessage({
+          id: 'dedupSettings.EngineConfiguration',
+          defaultMessage: 'Engine configuration',
+        })}
+        sub={formatMessage({
+          id: 'dedupSettings.HowImportedTransactionsAreMatchedAgainstWhatSAlreadyInTheLedger',
+          defaultMessage:
+            "How imported transactions are matched against what's already in the ledger",
+        })}
       >
         <div className="rd-formgrid">
           <Field
-            label="Auto-merge policy"
-            help="Conservative asks before merging anything ambiguous"
+            label={formatMessage({
+              id: 'dedupSettings.AutoMergePolicy',
+              defaultMessage: 'Auto-merge policy',
+            })}
+            help={formatMessage({
+              id: 'dedupSettings.ConservativeAsksBeforeMergingAnythingAmbiguous',
+              defaultMessage: 'Conservative asks before merging anything ambiguous',
+            })}
           >
             <Select
+              aria-label={formatMessage({
+                id: 'dedupSettings.AutoMergePolicy',
+                defaultMessage: 'Auto-merge policy',
+              })}
               value={cfg?.policy ?? 'auto_transfers'}
               disabled={busy || !cfg}
               onChange={(e) =>
-                void patch({ policy: e.target.value as DedupPolicy }, 'Auto-merge policy updated')
+                void patch(
+                  { policy: e.target.value as DedupPolicy },
+                  formatMessage({
+                    id: 'dedupSettings.AutoMergePolicyUpdated',
+                    defaultMessage: 'Auto-merge policy updated',
+                  }),
+                )
               }
             >
               {policyOptions.map((p) => (
                 <option key={p} value={p}>
-                  {POLICY_LABELS[p] ?? p}
+                  {POLICY_LABELS[p] ? formatMessage(POLICY_LABELS[p]) : p}
                 </option>
               ))}
             </Select>
           </Field>
           <Field
-            label="Judgment model"
-            help="Which model rules on a lookalike pair. Cheap models are usually enough."
+            label={formatMessage({
+              id: 'dedupSettings.JudgmentModel',
+              defaultMessage: 'Judgment model',
+            })}
+            help={formatMessage({
+              id: 'dedupSettings.WhichModelRulesOnALookalikePairCheapModelsAreUsuallyEnough',
+              defaultMessage:
+                'Which model rules on a lookalike pair. Cheap models are usually enough.',
+            })}
           >
             <ModelPicker
-              label="Judgment model"
+              label={formatMessage({
+                id: 'dedupSettings.JudgmentModel',
+                defaultMessage: 'Judgment model',
+              })}
               models={models}
               value={cfg?.l3_model ?? ''}
-              defaultLabel="Default"
+              defaultLabel={formatMessage({
+                id: 'dedupSettings.Default',
+                defaultMessage: 'Default',
+              })}
               defaultModelId={defaultModel}
               disabled={busy || !cfg}
-              onChange={(next) => void patch({ l3_model: next }, 'Judgment model updated')}
+              onChange={(next) =>
+                void patch(
+                  { l3_model: next },
+                  formatMessage({
+                    id: 'dedupSettings.JudgmentModelUpdated',
+                    defaultMessage: 'Judgment model updated',
+                  }),
+                )
+              }
             />
           </Field>
           <Field
-            label="Max AI checks per run"
-            help="Caps the spend on one import — pairs beyond this are left for you to review."
+            label={formatMessage({
+              id: 'dedupSettings.MaxAiChecksPerRun',
+              defaultMessage: 'Max AI checks per run',
+            })}
+            help={formatMessage({
+              id: 'dedupSettings.CapsTheSpendOnOneImportPairsBeyondThisAreLeftForYouToReview',
+              defaultMessage:
+                'Caps the spend on one import — pairs beyond this are left for you to review.',
+            })}
           >
             <input
               className="rd-input"
@@ -140,7 +223,13 @@ export function DedupSection({ toast }: SectionProps) {
               onBlur={(e) => {
                 const next = Number(e.target.value)
                 if (!Number.isFinite(next) || next < 0 || next === cfg?.l3_max_per_run) return
-                void patch({ l3_max_per_run: next }, 'Check limit updated')
+                void patch(
+                  { l3_max_per_run: next },
+                  formatMessage({
+                    id: 'dedupSettings.CheckLimitUpdated',
+                    defaultMessage: 'Check limit updated',
+                  }),
+                )
               }}
               onKeyDown={(e) => {
                 if (e.key === 'Enter') e.currentTarget.blur()
@@ -149,22 +238,47 @@ export function DedupSection({ toast }: SectionProps) {
           </Field>
         </div>
         {row(
-          'Use AI to judge ambiguous duplicates',
-          'Exact-match pairs never need AI; this covers same-day/same-amount lookalikes.',
+          formatMessage({
+            id: 'dedupSettings.UseAiToJudgeAmbiguousDuplicates',
+            defaultMessage: 'Use AI to judge ambiguous duplicates',
+          }),
+          formatMessage({
+            id: 'dedupSettings.ExactMatchPairsNeverNeedAiThisCoversSameDaySameAmountLookalikes',
+            defaultMessage:
+              'Exact-match pairs never need AI; this covers same-day/same-amount lookalikes.',
+          }),
           <Toggle
             on={cfg?.l3_enabled ?? false}
             disabled={busy || !cfg}
             onChange={(v) =>
-              void patch({ l3_enabled: v }, v ? 'AI judgment enabled' : 'AI judgment disabled')
+              void patch(
+                { l3_enabled: v },
+                v
+                  ? formatMessage({
+                      id: 'dedupSettings.AiJudgmentEnabled',
+                      defaultMessage: 'AI judgment enabled',
+                    })
+                  : formatMessage({
+                      id: 'dedupSettings.AiJudgmentDisabled',
+                      defaultMessage: 'AI judgment disabled',
+                    }),
+              )
             }
-            label="AI judge"
+            label={formatMessage({ id: 'dedupSettings.AiJudge', defaultMessage: 'AI judge' })}
           />,
         )}
       </Panel>
 
       <Panel
-        title="Remembered decisions"
-        sub="The engine skips re-flagging pairs it has already decided on. Forget a decision to let the engine re-evaluate that pair."
+        title={formatMessage({
+          id: 'dedupSettings.RememberedDecisions',
+          defaultMessage: 'Remembered decisions',
+        })}
+        sub={formatMessage({
+          id: 'dedupSettings.TheEngineSkipsReFlaggingPairsItHasAlreadyDecidedOnForgetADecisionToLetTheEngineReEvaluateThatPair',
+          defaultMessage:
+            'The engine skips re-flagging pairs it has already decided on. Forget a decision to let the engine re-evaluate that pair.',
+        })}
         flush
       >
         {rows.length ? (
@@ -172,16 +286,16 @@ export function DedupSection({ toast }: SectionProps) {
             <div className="rd-row" key={d.signature}>
               <div className="rd-row-main">
                 <div className="rd-row-sub" style={{ color: 'var(--ink)' }}>
-                  {decisionLine(d)}
+                  {decisionLine(d, intl)}
                 </div>
                 <div className="rd-row-meta">
-                  <span>{VERDICT_LABELS[d.verdict]}</span>
+                  <span>{formatMessage(VERDICT_LABELS[d.verdict])}</span>
                   <span>{fDate(d.created_at, 'short', 'always')}</span>
                 </div>
               </div>
               <div className="rd-row-actions">
                 <Btn size="xs" variant="ghost" onClick={() => void forget(d.signature)}>
-                  Forget
+                  {formatMessage({ id: 'dedupSettings.Forget', defaultMessage: 'Forget' })}
                 </Btn>
               </div>
             </div>
@@ -189,8 +303,11 @@ export function DedupSection({ toast }: SectionProps) {
         ) : (
           <div style={{ padding: '14px 18px' }}>
             <span className="rd-help">
-              Nothing decided yet — the engine records a decision the first time it rules on a
-              lookalike pair.
+              {formatMessage({
+                id: 'dedupSettings.NothingDecidedYetTheEngineRecordsADecisionTheFirstTimeItRulesOnALookalikePair',
+                defaultMessage:
+                  'Nothing decided yet — the engine records a decision the first time it rules on a lookalike pair.',
+              })}
             </span>
           </div>
         )}

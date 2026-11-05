@@ -5,11 +5,12 @@
 // as props here. These components only re-lay that JSX into `.pl-mcard`/`.pl-mgroup-head`
 // stacks — no new state, no re-derived business logic, no drag-to-reorder (desktop-only).
 import type { ReactNode, CSSProperties, MouseEvent } from 'react'
+import { useAppIntl } from '../../../i18n/useAppIntl'
 
 export function MobileNumsGrid({
-  assignedLabel = 'ASSIGNED',
-  activityLabel = 'ACTIVITY',
-  availableLabel = 'AVAILABLE',
+  assignedLabel,
+  activityLabel,
+  availableLabel,
   assigned,
   activity,
   available,
@@ -21,18 +22,28 @@ export function MobileNumsGrid({
   activity: ReactNode
   available: ReactNode
 }) {
+  const { formatMessage } = useAppIntl()
   return (
     <div className="pl-mcard-nums">
       <div className="pl-mnum">
-        <span className="pl-mnum-lbl">{assignedLabel}</span>
+        <span className="pl-mnum-lbl">
+          {assignedLabel ??
+            formatMessage({ id: 'plan.budgetRow.assignedUpper', defaultMessage: 'ASSIGNED' })}
+        </span>
         {assigned}
       </div>
       <div className="pl-mnum">
-        <span className="pl-mnum-lbl">{activityLabel}</span>
+        <span className="pl-mnum-lbl">
+          {activityLabel ??
+            formatMessage({ id: 'plan.budgetRow.activityUpper', defaultMessage: 'ACTIVITY' })}
+        </span>
         {activity}
       </div>
       <div className="pl-mnum">
-        <span className="pl-mnum-lbl">{availableLabel}</span>
+        <span className="pl-mnum-lbl">
+          {availableLabel ??
+            formatMessage({ id: 'plan.budgetRow.availableUpper', defaultMessage: 'AVAILABLE' })}
+        </span>
         {available}
       </div>
     </div>

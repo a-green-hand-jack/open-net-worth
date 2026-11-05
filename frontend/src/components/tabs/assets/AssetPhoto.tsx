@@ -11,6 +11,7 @@ import * as api from './api'
 import { catOf } from './assetsData'
 import { SaveError, useEditorSave } from './editorKit'
 import { Icons } from './icons'
+import { useAppIntl } from '../../../i18n/useAppIntl'
 
 /** A hidden image picker: `pick()` opens it, a chosen file goes to `onPhoto`. */
 export function usePhotoPicker(onPhoto: (file: File) => void) {
@@ -44,6 +45,7 @@ export interface HeaderPhotoProps {
 
 /** The photo, big, opening on tap — or, with none, the same place holding the category. */
 export function HeaderPhoto({ a, cats, cover, onOpen, onAdd }: HeaderPhotoProps) {
+  const { formatMessage } = useAppIntl()
   const place = cover ? 'as-dphoto as-dcover' : 'as-dphoto'
   if (!a.photo_ref) {
     const c = catOf(cats, a.category)
@@ -60,7 +62,9 @@ export function HeaderPhoto({ a, cats, cover, onOpen, onAdd }: HeaderPhotoProps)
         onClick={onAdd}
       >
         {Ic({ width: 30, height: 30 })}
-        <span className="as-dphoto-add">Add a photo</span>
+        <span className="as-dphoto-add">
+          {formatMessage({ id: 'assets.photo.add', defaultMessage: 'Add a photo' })}
+        </span>
       </button>
     )
   }
@@ -68,7 +72,10 @@ export function HeaderPhoto({ a, cats, cover, onOpen, onAdd }: HeaderPhotoProps)
     <button
       type="button"
       className={place}
-      aria-label={`Open the photo of ${a.name}`}
+      aria-label={formatMessage(
+        { id: 'assets.photo.open', defaultMessage: 'Open the photo of {name}' },
+        { name: a.name },
+      )}
       onClick={onOpen}
     >
       <img src={api.photoUrl(a.photo_ref)} alt="" />
@@ -85,6 +92,7 @@ export interface PhotoViewerProps {
 
 /** The photo at full size, with its two edits: change it, or remove it (its file goes too). */
 export function PhotoViewer({ a, onClose, onChange, onRemoved }: PhotoViewerProps) {
+  const { formatMessage } = useAppIntl()
   const { saving, save, dialogError } = useEditorSave()
   const [confirming, setConfirming] = useState(false)
   async function remove() {
@@ -106,13 +114,13 @@ export function PhotoViewer({ a, onClose, onChange, onRemoved }: PhotoViewerProp
               className="as-footer-danger"
               onClick={() => setConfirming(true)}
             >
-              Remove photo
+              {formatMessage({ id: 'assets.photo.remove', defaultMessage: 'Remove photo' })}
             </Button>
             <Button variant="ghost" size="sm" onClick={onClose}>
-              Close
+              {formatMessage({ id: 'assets.photo.close', defaultMessage: 'Close' })}
             </Button>
             <Button variant="secondary" size="sm" onClick={onChange}>
-              Change photo
+              {formatMessage({ id: 'assets.photo.change', defaultMessage: 'Change photo' })}
             </Button>
           </>
         }
@@ -124,14 +132,22 @@ export function PhotoViewer({ a, onClose, onChange, onRemoved }: PhotoViewerProp
       {confirming && (
         <ConfirmDialog
           data={{
-            title: 'Remove this photo?',
+            title: formatMessage({
+              id: 'assets.photo.confirm',
+              defaultMessage: 'Remove this photo?',
+            }),
             body: (
               <>
-                Its file is deleted too, and that can't be undone.
+                {formatMessage({
+                  id: 'assets.photo.warning',
+                  defaultMessage: "Its file is deleted too, and that can't be undone.",
+                })}
                 <SaveError message={dialogError([])} />
               </>
             ),
-            confirmLabel: saving ? 'Removing…' : 'Remove',
+            confirmLabel: saving
+              ? formatMessage({ id: 'assets.photo.removing', defaultMessage: 'Removing…' })
+              : formatMessage({ id: 'assets.photo.removeAction', defaultMessage: 'Remove' }),
             danger: true,
             confirmDisabled: saving,
           }}

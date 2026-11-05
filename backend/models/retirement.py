@@ -9,7 +9,7 @@ screen exactly.
 
 from __future__ import annotations
 
-from typing import List, Optional
+from typing import List, Literal, Optional
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -27,6 +27,7 @@ class StreamLever(BaseModel):
     model_config = ConfigDict(extra="ignore")
 
     label: str = ""
+    labelSource: Optional[Literal["default_income"]] = None
     amount: float = Field(allow_inf_nan=False, ge=0, le=1e9)
     age: float = Field(allow_inf_nan=False, ge=0, le=150)
     endAge: Optional[float] = Field(  # noqa: N815 — camelCase is the wire contract
@@ -41,6 +42,16 @@ class EventLever(BaseModel):
 
     id: str = ""
     label: str = ""
+    labelSource: Optional[
+        Literal[
+            "preset_home",
+            "preset_baby",
+            "preset_tuition",
+            "preset_inheritance",
+            "preset_sabbatical",
+            "default_event",
+        ]
+    ] = None
     amount: float = Field(allow_inf_nan=False, ge=-1e12, le=1e12)
     age: float = Field(allow_inf_nan=False, ge=0, le=150)
 

@@ -101,14 +101,23 @@ def _sign_jwt(application_id: str, private_key_pem: str) -> str:
         from cryptography.hazmat.primitives import hashes, serialization
         from cryptography.hazmat.primitives.asymmetric import padding, rsa
     except ImportError as exc:  # pragma: no cover - cryptography is a dependency
-        raise ValidationError("the cryptography package is required for Enable Banking") from exc
+        raise ValidationError(
+            "the cryptography package is required for Enable Banking",
+            message_id="connector.error.enableCryptoRequired",
+        ) from exc
 
     try:
         key = serialization.load_pem_private_key(private_key_pem.encode("utf-8"), password=None)
     except (ValueError, TypeError) as exc:
-        raise ValidationError("the Enable Banking private key is not a valid PEM RSA key") from exc
+        raise ValidationError(
+            "the Enable Banking private key is not a valid PEM RSA key",
+            message_id="connector.error.enableInvalidPrivateKey",
+        ) from exc
     if not isinstance(key, rsa.RSAPrivateKey):
-        raise ValidationError("the Enable Banking private key must be an RSA key")
+        raise ValidationError(
+            "the Enable Banking private key must be an RSA key",
+            message_id="connector.error.enablePrivateKeyRSA",
+        )
 
     now = int(datetime.now(timezone.utc).timestamp())
     header = {"alg": "RS256", "kid": application_id, "typ": "JWT"}
@@ -128,7 +137,10 @@ def _bearer(store: EnableBankingConfigStore) -> str:
     application_id = store.application_id()
     private_key = store.private_key()
     if not application_id or not private_key.strip():
-        raise ValidationError("Enable Banking application_id / private_key are not configured")
+        raise ValidationError(
+            "Enable Banking application_id / private_key are not configured",
+            message_id="connector.error.enableNotConfigured",
+        )
     return _sign_jwt(application_id, private_key)
 
 
@@ -145,7 +157,10 @@ def list_institutions(country: str) -> list[dict]:
     the UI picker. Raises ``ValidationError`` on a bad country / auth / transport failure."""
     code = (country or "").strip().upper()
     if len(code) != 2:
-        raise ValidationError("country must be a 2-letter ISO code (e.g. FI, DE, FR)")
+        raise ValidationError(
+            "country must be a 2-letter ISO code (e.g. FI, DE, FR)",
+            message_id="connector.error.enableInvalidCountry",
+        )
 
     store = EnableBankingConfigStore()
     token = _bearer(store)
@@ -194,7 +209,9 @@ def start_authorization(aspsp: str, country: str, redirect: str) -> dict:
     ``ValidationError`` on a bad bank / auth / transport failure."""
     bank = (aspsp or "").strip()
     if not bank:
-        raise ValidationError("aspsp (bank) is required")
+        raise ValidationError(
+            "aspsp (bank) is required", message_id="connector.error.enableBankRequired"
+        )
     code = (country or "").strip().upper()
     redirect_url = (redirect or "").strip() or _DEFAULT_REDIRECT
 
@@ -226,7 +243,10 @@ def start_authorization(aspsp: str, country: str, redirect: str) -> dict:
     url = (data.get("url") or data.get("authorization_url") or "").strip()
     authorization_id = (data.get("authorization_id") or data.get("state") or "").strip()
     if not url:
-        raise ValidationError("Enable Banking did not return a consent URL")
+        raise ValidationError(
+            "Enable Banking did not return a consent URL",
+            message_id="connector.error.enableNoConsentURL",
+        )
 
     store.update({"aspsp": bank, "country": code})
     return {"url": url, "authorization_id": authorization_id, "aspsp": bank}
@@ -241,7 +261,9 @@ def create_session(code: str) -> dict:
     code / auth / transport failure."""
     auth_code = (code or "").strip()
     if not auth_code:
-        raise ValidationError("the authorization code is required")
+        raise ValidationError(
+            "the authorization code is required", message_id="connector.error.enableCodeRequired"
+        )
 
     store = EnableBankingConfigStore()
     token = _bearer(store)
@@ -260,7 +282,10 @@ def create_session(code: str) -> dict:
     data = resp.json() or {}
     session_id = (data.get("session_id") or data.get("id") or "").strip()
     if not session_id:
-        raise ValidationError("Enable Banking did not return a session id")
+        raise ValidationError(
+            "Enable Banking did not return a session id",
+            message_id="connector.error.enableNoSession",
+        )
 
     store.update({"session_id": session_id})
     accounts = data.get("accounts") or []

@@ -1,3 +1,4 @@
+import { useAppIntl } from '../../../i18n/useAppIntl'
 import type { Automation, AutomationRun } from '../../../api/automations'
 import { fDate } from '../../../utils/format'
 
@@ -8,6 +9,7 @@ export function AutomationCostPanel({
   automation: Automation
   runs: AutomationRun[]
 }) {
+  const { formatMessage, locale } = useAppIntl()
   const recordedRuns = runs.filter((run) => run.cost_usd != null)
   const stats = automation.stats
   const perRun = numeric(stats.cost_per_run) ?? average(recordedRuns.map((run) => run.cost_usd!))
@@ -25,31 +27,60 @@ export function AutomationCostPanel({
       : 0
   const expectedRuns = runsPerMonth(automation.trigger)
   return (
-    <section className="a3-cost-card" aria-label="Cost and usage">
+    <section
+      className="a3-cost-card"
+      aria-label={formatMessage({ id: 'automations.cost.label', defaultMessage: 'Cost and usage' })}
+    >
       {!hasData ? (
-        <p className="a3-muted">No cost data yet.</p>
+        <p className="a3-muted">
+          {formatMessage({ id: 'automations.run.noCost', defaultMessage: 'No cost data yet.' })}
+        </p>
       ) : (
         <>
           <div className="a3-cost-nums">
             <CostMetric
-              label="Per run"
-              value={money(perRun)}
-              detail={recordedRuns.length ? `average of ${recordedRuns.length}` : undefined}
-            />
-            <CostMetric
-              label="This month"
-              value={money(month)}
+              label={formatMessage({ id: 'automations.cost.perRun', defaultMessage: 'Per run' })}
+              value={money(perRun, locale)}
               detail={
-                typeof stats.runs_this_month === 'number'
-                  ? `${stats.runs_this_month} runs so far`
-                  : `${monthRuns.length} runs so far`
+                recordedRuns.length
+                  ? formatMessage(
+                      { id: 'automations.cost.average', defaultMessage: 'average of {count}' },
+                      { count: recordedRuns.length },
+                    )
+                  : undefined
               }
             />
             <CostMetric
-              label="Last run"
-              value={money(last)}
+              label={formatMessage({
+                id: 'automations.cost.thisMonth',
+                defaultMessage: 'This month',
+              })}
+              value={money(month, locale)}
               detail={
-                trend === 0 ? 'flat' : `${trend > 0 ? '↑' : '↓'} ${money(Math.abs(trend))} vs first`
+                typeof stats.runs_this_month === 'number'
+                  ? formatMessage(
+                      { id: 'automations.cost.runsSoFar', defaultMessage: '{count} runs so far' },
+                      { count: stats.runs_this_month },
+                    )
+                  : formatMessage(
+                      { id: 'automations.cost.runsSoFar', defaultMessage: '{count} runs so far' },
+                      { count: monthRuns.length },
+                    )
+              }
+            />
+            <CostMetric
+              label={formatMessage({ id: 'automations.cost.lastRun', defaultMessage: 'Last run' })}
+              value={money(last, locale)}
+              detail={
+                trend === 0
+                  ? formatMessage({ id: 'automations.cost.flat', defaultMessage: 'flat' })
+                  : formatMessage(
+                      {
+                        id: 'automations.cost.trend',
+                        defaultMessage: '{direction} {amount} vs first',
+                      },
+                      { direction: trend > 0 ? '↑' : '↓', amount: money(Math.abs(trend), locale) },
+                    )
               }
             />
           </div>
@@ -61,7 +92,7 @@ export function AutomationCostPanel({
                     key={run.id}
                     className={`a3-bar${run.status === 'failed' ? ' bad' : ''}`}
                     style={{ height: Math.max(8, Math.round(((run.cost_usd ?? 0) / max) * 46)) }}
-                    title={`${fDate(run.started_at)} • ${money(run.cost_usd)}`}
+                    title={`${fDate(run.started_at)} • ${money(run.cost_usd, locale)}`}
                   />
                 ))}
               </div>
@@ -70,15 +101,33 @@ export function AutomationCostPanel({
                 <span>{fDate(chronological.at(-1)!.started_at)}</span>
               </div>
               <div className="a3-bars-note">
-                Each bar is one run
+                {formatMessage({
+                  id: 'automations.cost.bar',
+                  defaultMessage: 'Each bar is one run',
+                })}
                 {automation.status === 'active' && expectedRuns != null && perRun != null
-                  ? ` • about ${expectedRuns} expected this month, ~${money(perRun * expectedRuns)}`
+                  ? formatMessage(
+                      {
+                        id: 'automations.cost.expected',
+                        defaultMessage: ' • about {count} expected this month, ~{amount}',
+                      },
+                      { count: expectedRuns, amount: money(perRun * expectedRuns, locale) },
+                    )
                   : ''}
               </div>
             </div>
           )}
           <div className="a3-tokens">
-            Avg tokens <b>{tokenCount(averageInput)} in</b> • <b>{tokenCount(averageOutput)} out</b>
+            {formatMessage(
+              {
+                id: 'automations.cost.avgTokens',
+                defaultMessage: 'Avg tokens {input} in • {output} out',
+              },
+              {
+                input: <b>{tokenCount(averageInput, locale)}</b>,
+                output: <b>{tokenCount(averageOutput, locale)}</b>,
+              },
+            )}
           </div>
         </>
       )}
@@ -86,10 +135,10 @@ export function AutomationCostPanel({
   )
 }
 
-export function money(value: number | null | undefined) {
+export function money(value: number | null | undefined, locale = 'en-US') {
   if (value == null) return '—'
   const digits = value > 0 && value < 0.1 ? 3 : 2
-  return new Intl.NumberFormat('en-US', {
+  return new Intl.NumberFormat(locale, {
     style: 'currency',
     currency: 'USD',
     minimumFractionDigits: digits,
@@ -97,9 +146,9 @@ export function money(value: number | null | undefined) {
   }).format(value)
 }
 
-export function tokenCount(value: number | null | undefined) {
+export function tokenCount(value: number | null | undefined, locale = 'en-US') {
   if (value == null) return '—'
-  return new Intl.NumberFormat('en-US', {
+  return new Intl.NumberFormat(locale, {
     notation: value >= 1000 ? 'compact' : 'standard',
     maximumFractionDigits: 1,
   }).format(value)

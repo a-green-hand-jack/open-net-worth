@@ -136,14 +136,28 @@ async def _title_session(session_id: str, opening_message: str) -> None:
         logger.warning("could not title session %s", session_id, exc_info=True)
 
 
-def set_title(session_id: str, title: str, *, auto: bool) -> bool:
+def set_title(
+    session_id: str, title: str, *, auto: bool, placeholder: bool = False, onboarding: bool = False
+) -> bool:
     """A title from the client: typed by the person (``auto=False``, always wins) or derived
     by the client itself (``auto=True``, yields to an AI title and a rename). Best-effort,
     like the rest of the listing metadata — returns whether it was written."""
     from backend.ai.assistant import _store
 
     try:
-        return _store().write_title(session_id, title, source="auto" if auto else "user")
+        return _store().write_title(
+            session_id,
+            title,
+            source=(
+                "placeholder"
+                if auto and placeholder
+                else "onboarding"
+                if auto and onboarding and title == "Onboarding to Open Net Worth"
+                else "auto"
+                if auto
+                else "user"
+            ),
+        )
     except Exception:  # noqa: BLE001 — listing metadata never fails the request
         logger.warning("could not write title for session %s", session_id, exc_info=True)
         return False

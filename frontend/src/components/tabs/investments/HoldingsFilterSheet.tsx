@@ -7,6 +7,7 @@
 
 import { FilterSheet } from './FilterSheet'
 import type { FilterOption } from './FilterSheet'
+import { useAppIntl } from '../../../i18n/useAppIntl'
 
 export type { FilterOption } from './FilterSheet'
 
@@ -36,17 +37,18 @@ export function HoldingsFilterSheet({
   accountValue,
   onAccountChange,
 }: Props) {
+  const { formatMessage } = useAppIntl()
   return (
     <FilterSheet
       className={className}
       presentation={presentation}
-      title="Filter holdings"
+      title={formatMessage({ id: 'investments.filter.title', defaultMessage: 'Filter holdings' })}
       active={isFiltered(classValue, accountValue)}
       groups={[
         ...(classOptions && onClassChange
           ? [
               {
-                title: 'Type',
+                title: formatMessage({ id: 'investments.filter.type', defaultMessage: 'Type' }),
                 options: classOptions,
                 value: classValue ?? 'all',
                 onChange: onClassChange,
@@ -54,7 +56,7 @@ export function HoldingsFilterSheet({
             ]
           : []),
         {
-          title: 'Account',
+          title: formatMessage({ id: 'investments.group.account', defaultMessage: 'Account' }),
           options: accountOptions,
           value: accountValue,
           onChange: onAccountChange,

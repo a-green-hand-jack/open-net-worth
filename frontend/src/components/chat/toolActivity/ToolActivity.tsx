@@ -1,3 +1,5 @@
+import { useAppIntl } from '../../../i18n/useAppIntl'
+import { localizedAction } from './localizedDisplay'
 // A group of tool calls: what happened overall, then what happened step by step.
 //
 // This is the ONE renderer for tool activity. Every chat surface reaches it through
@@ -26,6 +28,7 @@ import { useToolOwnerLogos } from './useToolOwnerLogos'
 
 /** A plain page fetch — no tool call behind it, so it has no request/result to expand. */
 function FetchRow({ url }: { url: string }) {
+  const intl = useAppIntl()
   let host = url
   try {
     host = new URL(url).hostname
@@ -37,7 +40,7 @@ function FetchRow({ url }: { url: string }) {
       <div className="msg-toolact__head msg-toolact__head--static">
         <span className="msg-toolact__icon">↗</span>
         <span className="msg-toolact__label">
-          <span className="msg-toolact__text">Opened {host}</span>
+          <span className="msg-toolact__text">{intl.formatMessage({ id: 'chat.tool.opened', defaultMessage: 'Opened {host}' }, { host })}</span>
         </span>
       </div>
     </div>
@@ -45,6 +48,7 @@ function FetchRow({ url }: { url: string }) {
 }
 
 export function ToolActivity({ items, sessionId }: { items: ActionItem[]; sessionId?: string }) {
+  const intl = useAppIntl()
   const declinedIsNotFailure = useFlag('permissions_v2') === true
   // Segment first, cluster within a segment. Clustering the tool items as one list and
   // rendering fetches separately would print every fetch above every tool call, silently
@@ -85,7 +89,28 @@ export function ToolActivity({ items, sessionId }: { items: ActionItem[]; sessio
     () => rows.flatMap((r) => (r.kind === 'cluster' ? [r.cluster] : [])),
     [rows],
   )
-  const { phrase, failed } = useMemo(() => summaryParts(clusters), [clusters])
+  const { phrase, failed } = useMemo(() => {
+    const fallback = summaryParts(clusters)
+    if (intl.locale.startsWith('en')) return fallback
+    const totals = new Map<string, { label: string; count: number }>()
+    let failures = 0
+    for (const cluster of clusters) {
+      if (cluster.failed) { failures += 1; continue }
+      const display = cluster.items[0]?.display
+      const localized = display && localizedAction(display, intl, false)
+      const key = localized ? `${display?.localization?.tool}|${display?.localization?.operation || ''}|${display?.localization?.engine || ''}` : `${cluster.verb}|${cluster.noun}`
+      const label = localized || summaryParts([cluster]).phrase
+      const current = totals.get(key)
+      if (current) current.count += 1
+      else totals.set(key, { label, count: 1 })
+    }
+    const values = [...totals.values()]
+    const phrase = values.slice(0, 3).map(({ label, count }) => count > 1 ? `${label} ×${count}` : label).join('，')
+    return {
+      phrase: values.length > 3 ? intl.formatMessage({ id: 'chat.tool.summaryMore', defaultMessage: '{phrase} +{count} more' }, { phrase, count: values.length - 3 }) : phrase,
+      failed: failures ? intl.formatMessage({ id: 'chat.tool.failures', defaultMessage: '{count, plural, one {# failed} other {# failed}}' }, { count: failures }) : '',
+    }
+  }, [clusters, intl])
   // The bar is the fold control as well as the summary, so it appears whenever there is
   // more than one thing to fold.
   // CALLS, not rows: a cluster of two renders as one row, and counting rows made a bar
@@ -97,7 +122,7 @@ export function ToolActivity({ items, sessionId }: { items: ActionItem[]; sessio
   )
   // Every call is a step, a failed one included — it ran, it just did not work. A count that
   // silently dropped failures would make the bar disagree with the rows underneath it.
-  const stepLabel = steps === 1 ? '1 step' : `${steps} steps`
+  const stepLabel = intl.formatMessage({ id: 'chat.tool.steps', defaultMessage: '{count, plural, one {# step} other {# steps}}' }, { count: steps })
   // The trailing tallies, in reading order: how much happened, then how much of it went
   // wrong — the failure count qualifies the step count, so it follows it. When there is no
   // phrase the step count IS the sentence, so it does not repeat here.

@@ -1,3 +1,5 @@
+import { useConnectorPrompt } from './useConnectorPrompts'
+import { useConnectorDescription, useConnectorLongDescription, useCuratedDescription, useCuratedLongDescription } from './useConnectorDescription'
 // The connector detail page (spec §3) — ported from the prototype's `Detail`.
 //
 // ONE page per connector, identical in shape for all four families: the previous design
@@ -32,6 +34,8 @@
 //     the item's own description ("reopens the setup drawer pre-filled") is what a native
 //     connector needs here, word for word.
 
+import { useAppIntl } from '../../../i18n/useAppIntl'
+import { useConnectorLabels, useConnectorName } from './useConnectorLabels'
 import { useEffect, useState, type JSX, type ReactNode } from 'react'
 import { useNavigate } from '@tanstack/react-router'
 import { ArrowRight } from '../../../ui/icons'
@@ -137,8 +141,12 @@ export function ConnectorDetail({
   onConfigClosed,
   onSaved,
 }: ConnectorDetailProps): JSX.Element {
+  const { formatMessage } = useAppIntl()
+  const prompt = useConnectorPrompt()
+  const longDescription = useConnectorLongDescription()
+  const curatedLong = useCuratedLongDescription()
   // permissions_v2 names the level Ask; the dialog below must use the word the ladder shows.
-  const askLabel = useFlag('permissions_v2') === true ? 'Ask' : 'Needs approval'
+  const askLabel = useFlag('permissions_v2') === true ? formatMessage({ id: 'connectors.action.ask', defaultMessage: 'Ask' }) : formatMessage({ id: 'connectors.action.approval', defaultMessage: 'Needs approval' })
   // Optimistic mirror of the saved levels: the ladder must respond to a click without
   // waiting for a round trip. Reseeded whenever a different connector is shown, and
   // whenever the server's own view of the levels changes underneath us.
@@ -262,21 +270,21 @@ export function ConnectorDetail({
   const phoneRunningItems: KebabItem[] =
     isMobile && running
       ? [
-          ...(automateKey ? [{ label: 'Automate', onClick: () => openTemplate(automateKey) }] : []),
-          { label: 'Pause connector', onClick: () => setConfirmingPause(true) },
+          ...(automateKey ? [{ label: formatMessage({ id: 'connectors.action.automate', defaultMessage: 'Automate' }), onClick: () => openTemplate(automateKey) }] : []),
+          { label: formatMessage({ id: 'connectors.action.pauseConnector', defaultMessage: 'Pause connector' }), onClick: () => setConfirmingPause(true) },
         ]
       : []
   const kebabItems: KebabItem[] = [
     ...phoneRunningItems,
-    { label: 'View details', onClick: onViewDetails },
+    { label: formatMessage({ id: 'connectors.action.viewDetails', defaultMessage: 'View details' }), onClick: onViewDetails },
     ...(configForm
-      ? [{ label: 'Edit configuration', onClick: () => setConfiguringId(entry.id) }]
+      ? [{ label: formatMessage({ id: 'connectors.action.editConfiguration', defaultMessage: 'Edit configuration' }), onClick: () => setConfiguringId(entry.id) }]
       : entry.mcp
-        ? [{ label: 'Edit configuration', onClick: onEditConnection }]
+        ? [{ label: formatMessage({ id: 'connectors.action.editConfiguration', defaultMessage: 'Edit configuration' }), onClick: onEditConnection }]
         : []),
-    { label: 'Refresh tools list', onClick: onRefreshTools },
+    { label: formatMessage({ id: 'connectors.action.refreshTools', defaultMessage: 'Refresh tools list' }), onClick: onRefreshTools },
     {
-      label: 'Remove connector',
+      label: formatMessage({ id: 'connectors.action.removeConnector', defaultMessage: 'Remove connector' }),
       danger: true,
       onClick: removable ? () => setConfirmingRemove(true) : onRemove,
     },
@@ -300,9 +308,9 @@ export function ConnectorDetail({
       onClose={() => setConfirmingRemove(false)}
       footer={
         <>
-          <Btn onClick={() => setConfirmingRemove(false)}>Cancel</Btn>
+          <Btn onClick={() => setConfirmingRemove(false)}>{formatMessage({ id: 'connectors.action.cancel', defaultMessage: 'Cancel' })}</Btn>
           <Btn variant="danger" disabled={removing} onClick={remove}>
-            {removing ? 'Removing…' : 'Remove'}
+            {removing ? formatMessage({ id: 'connectors.action.removing', defaultMessage: 'Removing…' }) : formatMessage({ id: 'connectors.action.remove', defaultMessage: 'Remove' })}
           </Btn>
         </>
       }
@@ -310,25 +318,7 @@ export function ConnectorDetail({
       <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
         <Identity entry={entry} />
         <p style={{ fontSize: 13, color: 'var(--muted)', lineHeight: 1.6, margin: 0 }}>
-          {entry.mcp ? (
-            <>
-              Remove <strong>{entry.name}</strong>? Lucius loses{' '}
-              {entry.tools.length > 0
-                ? `the ${entry.tools.length} tool${entry.tools.length === 1 ? '' : 's'} it offers`
-                : 'access to it'}
-              , and every permission level you set for them is forgotten — so adding this server
-              again starts it back at {askLabel} rather than inheriting what you allowed before.
-              Nothing else on this instance is touched. This can&apos;t be undone. If you just want
-              to pause it without losing your saved credentials, use Pause instead.
-            </>
-          ) : (
-            <>
-              Remove <strong>{entry.name}</strong>? This clears your saved credentials and resets
-              its settings — you&apos;ll need to set it up again from scratch to use it again. This
-              can&apos;t be undone. {removeProviderRevokeNote(entry)}If you just want to pause it
-              without losing your saved credentials, use Pause instead.
-            </>
-          )}
+          {entry.mcp ? formatMessage({ id: 'connectors.detail.removeMcp', defaultMessage: "Remove <strong>{name}</strong>? Lucius loses {tools}, and every permission level you set for them is forgotten — so adding this server again starts it back at {ask} rather than inheriting what you allowed before. Nothing else on this instance is touched. This can't be undone. If you just want to pause it without losing your saved credentials, use Pause instead." }, { name: entry.name, strong: (chunks) => <strong>{chunks}</strong>, tools: entry.tools.length > 0 ? formatMessage({ id: 'connectors.detail.removeTools', defaultMessage: 'the {count} {count, plural, one {tool} other {tools}} it offers' }, { count: entry.tools.length }) : formatMessage({ id: 'connectors.detail.removeAccess', defaultMessage: 'access to it' }), ask: askLabel }) : formatMessage({ id: 'connectors.detail.removeNative', defaultMessage: "Remove <strong>{name}</strong>? This clears your saved credentials and resets its settings — you'll need to set it up again from scratch to use it again. This can't be undone. {revoke}If you just want to pause it without losing your saved credentials, use Pause instead." }, { name: entry.name, strong: (chunks) => <strong>{chunks}</strong>, revoke: removeProviderRevokeNote(entry) ? formatMessage({ id: 'connectors.detail.revoke', defaultMessage: 'You may also want to revoke access from your {provider} account directly. ' }, { provider: entry.id === 'enable_banking' ? 'bank' : entry.id === 'plaid' ? 'Plaid' : 'Yodlee' }) : '' })}
         </p>
       </div>
     </Modal>
@@ -343,9 +333,9 @@ export function ConnectorDetail({
       onClose={() => setConfirmingPause(false)}
       footer={
         <>
-          <Btn onClick={() => setConfirmingPause(false)}>Cancel</Btn>
+          <Btn onClick={() => setConfirmingPause(false)}>{formatMessage({ id: 'connectors.action.cancel', defaultMessage: 'Cancel' })}</Btn>
           <Btn variant="danger" disabled={pausing} onClick={pause}>
-            {pausing ? 'Pausing…' : 'Pause'}
+            {pausing ? formatMessage({ id: 'connectors.action.pausing', defaultMessage: 'Pausing…' }) : formatMessage({ id: 'connectors.action.pause', defaultMessage: 'Pause' })}
           </Btn>
         </>
       }
@@ -353,9 +343,7 @@ export function ConnectorDetail({
       <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
         <Identity entry={entry} />
         <p style={{ fontSize: 13, color: 'var(--muted)', lineHeight: 1.6, margin: 0 }}>
-          Pause <strong>{entry.name}</strong>? {pauseVerb(entry)} until you resume. Your saved
-          credentials and settings stay put — resuming won&apos;t ask for them again. To clear your
-          saved credentials instead, use Remove connector from the menu.
+          {formatMessage({ id: 'connectors.detail.pauseConfirm', defaultMessage: 'Pause <strong>{name}</strong>? {effect} until you resume. Your saved credentials and settings stay put — resuming won’t ask for them again. To clear your saved credentials instead, use Remove connector from the menu.' }, { name: entry.name, strong: (chunks) => <strong>{chunks}</strong>, effect: entry.mcp ? formatMessage({ id: 'connectors.pause.mcp', defaultMessage: 'Lucius loses access to its tools' }) : entry.id === 'telegram' ? formatMessage({ id: 'connectors.pause.telegram', defaultMessage: 'It stops responding to messages and sending alerts' }) : entry.id === 'email' ? formatMessage({ id: 'connectors.pause.email', defaultMessage: 'It stops checking for mail and sending' }) : entry.id === 'webhook' ? formatMessage({ id: 'connectors.pause.webhook', defaultMessage: 'It stops sending notifications' }) : entry.id.startsWith('web_search:') ? formatMessage({ id: 'connectors.pause.web', defaultMessage: 'Lucius stops being able to search with it' }) : formatMessage({ id: 'connectors.pause.sync', defaultMessage: 'Scheduled syncing stops' }) })}
         </p>
       </div>
     </Modal>
@@ -371,13 +359,13 @@ export function ConnectorDetail({
         footer={
           save ? (
             <Btn variant="primary" disabled={!save.dirty || save.saving} onClick={saveConfig}>
-              {save.saving ? 'Saving…' : 'Save'}
+              {save.saving ? formatMessage({ id: 'connectors.action.saving', defaultMessage: 'Saving…' }) : formatMessage({ id: 'connectors.action.save', defaultMessage: 'Save' })}
             </Btn>
           ) : (
             // A form that publishes no save (still loading, or failed to load) gets the
             // plain dismiss — offering Save over a form with nothing in it would be a lie.
             <Btn variant="primary" onClick={leaveConfig}>
-              Done
+              {formatMessage({ id: 'connectors.action.done', defaultMessage: 'Done' })}
             </Btn>
           )
         }
@@ -405,11 +393,11 @@ export function ConnectorDetail({
       // credentials, so this opens the same config view "Edit configuration"
       // does, rather than routing through `onReconnect`'s enable-flip/OAuth path.
       <Btn size="lg" variant="primary" onClick={() => setConfiguringId(entry.id)}>
-        Reconnect
+        {formatMessage({ id: 'connectors.reconnect', defaultMessage: 'Reconnect' })}
       </Btn>
     ) : (
       <Btn size="lg" variant="primary" disabled={reconnecting} onClick={onReconnect}>
-        {reconnecting ? 'Reconnecting…' : 'Reconnect'}
+        {reconnecting ? formatMessage({ id: 'connectors.action.reconnecting', defaultMessage: 'Reconnecting…' }) : formatMessage({ id: 'connectors.reconnect', defaultMessage: 'Reconnect' })}
       </Btn>
     )
   ) : entry.enabled ? (
@@ -418,16 +406,16 @@ export function ConnectorDetail({
         // Puts the connector to work: opens its Automation template (logging from
         // the mailbox, a bank or broker sync) as an unsaved draft.
         <Btn size="lg" onClick={() => openTemplate(automateKey)}>
-          Automate
+          {formatMessage({ id: 'connectors.action.automate', defaultMessage: 'Automate' })}
         </Btn>
       ) : null}
       <Btn size="lg" variant="danger" onClick={() => setConfirmingPause(true)}>
-        Pause
+        {formatMessage({ id: 'connectors.action.pause', defaultMessage: 'Pause' })}
       </Btn>
     </>
   ) : (
     <Btn size="lg" variant="primary" onClick={connect}>
-      {setupPending ? 'Connect' : 'Resume'}
+      {setupPending ? formatMessage({ id: 'connectors.action.connect', defaultMessage: 'Connect' }) : formatMessage({ id: 'connectors.action.resume', defaultMessage: 'Resume' })}
     </Btn>
   )
   const phoneFix = isMobile && !running ? stateAction : null
@@ -435,7 +423,7 @@ export function ConnectorDetail({
   return (
     <>
       <Modal
-        title={<BackTitle label="Connectors" onClick={onClose} />}
+        title={<BackTitle label={formatMessage({ id: 'connectors.title', defaultMessage: 'Connectors' })} onClick={onClose} />}
         onClose={onClose}
         size="lg"
         escapeDisabled={confirmingRemove || confirmingPause}
@@ -446,7 +434,7 @@ export function ConnectorDetail({
               variant={phoneFix ? 'secondary' : 'primary'}
               onClick={onClose}
             >
-              Done
+              {formatMessage({ id: 'connectors.action.done', defaultMessage: 'Done' })}
             </Btn>
             {phoneFix}
           </>
@@ -473,7 +461,7 @@ export function ConnectorDetail({
 
           {entry.desc ? (
             <p style={{ fontSize: 13, color: 'var(--muted)', lineHeight: 1.6, margin: 0 }}>
-              <LinkedDesc desc={entry.desc} service={entry.service} />
+              <LinkedDesc desc={entry.curatedDescriptionId ? curatedLong(entry.curatedDescriptionId, entry.desc) : longDescription(entry.id, entry.desc, entry.mcp)} service={entry.service} />
             </p>
           ) : null}
 
@@ -499,7 +487,7 @@ export function ConnectorDetail({
             line just answers one question cleanly: did WE build this. */}
           {entry.developer ? (
             <div style={{ fontSize: 13, fontWeight: 400, color: 'var(--ink)' }}>
-              Developed by{' '}
+              {formatMessage({ id: 'connectors.detail.developedBy', defaultMessage: 'Developed by ' })}
               {entry.mcp ? (
                 entry.developerUrl ? (
                   <ExternalLink href={entry.developerUrl}>{entry.developer}</ExternalLink>
@@ -514,7 +502,7 @@ export function ConnectorDetail({
 
           {entry.instructions ? (
             <details className="cn-fold">
-              <summary>The server&rsquo;s instructions for AI</summary>
+              <summary>{formatMessage({ id: 'connectors.detail.instructions', defaultMessage: 'The server’s instructions for AI' })}</summary>
               <p>{entry.instructions}</p>
             </details>
           ) : null}
@@ -530,17 +518,17 @@ export function ConnectorDetail({
           {entry.prompts.length > 0 ? (
             <div>
               <div className="cn-sublabel" style={{ marginBottom: 8 }}>
-                Prompt suggestions
+                {formatMessage({ id: 'connectors.detail.prompts', defaultMessage: 'Prompt suggestions' })}
               </div>
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 7 }}>
-                {entry.prompts.map((p) => (
+                {entry.prompts.map((p, i) => (
                   <button
                     key={p}
                     type="button"
                     className="cn-tagchip cn-promptchip"
-                    onClick={() => onUsePrompt(p)}
+                    onClick={() => onUsePrompt(prompt(entry.kind, i, p))}
                   >
-                    {p}
+                    {prompt(entry.kind, i, p)}
                     <ArrowRight size={12} aria-hidden="true" className="cn-promptchip-arrow" />
                   </button>
                 ))}
@@ -550,12 +538,12 @@ export function ConnectorDetail({
 
           <div>
             <div className="cn-sublabel" style={{ marginBottom: 4 }}>
-              Tool permissions
+              {formatMessage({ id: 'connectors.detail.permissions', defaultMessage: 'Tool permissions' })}
             </div>
             {entry.toolGroups.length > 0 ? (
               <>
                 <div className="rd-help" style={{ marginBottom: 8, fontSize: 12.5 }}>
-                  Choose when Lucius is allowed to use these tools.
+                  {formatMessage({ id: 'connectors.detail.permissionsHelp', defaultMessage: 'Choose when Lucius is allowed to use these tools.' })}
                 </div>
                 <PermissionLadderSwitch
                   groups={entry.toolGroups}
@@ -570,8 +558,8 @@ export function ConnectorDetail({
               </>
             ) : (
               <div className="rd-help" style={{ fontSize: 12.5 }}>
-                This connector gives Lucius no tools yet, so there is nothing to set here.
-                {entry.mcp ? ' Use Refresh tools list once the server is reachable.' : ''}
+                {formatMessage({ id: 'connectors.detail.noTools', defaultMessage: 'This connector gives Lucius no tools yet, so there is nothing to set here.' })}
+                {entry.mcp ? formatMessage({ id: 'connectors.detail.noToolsMcp', defaultMessage: ' Use Refresh tools list once the server is reachable.' }) : ''}
               </div>
             )}
           </div>
@@ -600,49 +588,34 @@ function Identity({
   /** Phone layout: the only action is the ⋮, kept inline at the top right. */
   compact?: boolean
 }): JSX.Element {
+  const { formatMessage } = useAppIntl()
+  const labels = useConnectorLabels()
+  const displayName = useConnectorName()
+  const description = useConnectorDescription()
+  const curatedDescription = useCuratedDescription()
   return (
     <div className={compact ? 'cn-idhead cn-idhead-compact' : 'cn-idhead'}>
       <Mono icon={entry.icon} hue={entry.hue} logo={entry.logo} size="lg" />
       <div className="cn-idhead-main">
         <div className="cn-idhead-name">
-          {entry.name}
+          {displayName(entry.id, entry.name)}
           {entry.version ? (
             <span className="cn-version">v{entry.version.replace(/^v/i, '')}</span>
           ) : null}
-          {entry.tag ? <span className="cn-tag">{entry.tag}</span> : null}
+          {entry.tag ? <span className="cn-tag">{entry.tag === 'Default' ? formatMessage({ id: 'connectors.defaultTag', defaultMessage: 'Default' }) : entry.tag}</span> : null}
           {entry.lastError ? (
             <span className="cn-statushint" title={entry.lastError}>
-              <Badge tone={entry.tone}>{entry.statusText}</Badge>
+              <Badge tone={entry.tone}>{labels.rowStatus(entry.statusText)}</Badge>
             </span>
           ) : (
-            <Badge tone={entry.tone}>{entry.statusText}</Badge>
+            <Badge tone={entry.tone}>{labels.rowStatus(entry.statusText)}</Badge>
           )}
         </div>
-        <div className="cn-idhead-sub">{entry.sub}</div>
+        <div className="cn-idhead-sub">{entry.curatedDescriptionId ? curatedDescription(entry.curatedDescriptionId, entry.sub) : description(entry.id, entry.sub, entry.mcp)}</div>
       </div>
       {actions ? <div className="cn-idhead-actions">{actions}</div> : null}
     </div>
   )
-}
-
-/** What "pausing" actually stops, worded per connector family — the one fact that changes
- *  across the Pause confirmation's otherwise-fixed copy (credentials kept, Remove is the
- *  alternative). A data-aggregation connector "syncs"; Telegram, email and webhook do not,
- *  so each gets its own verb rather than a stretched "syncing" that would be wrong for them. */
-function pauseVerb(entry: ConnectorDetailEntry): string {
-  if (entry.mcp) return 'Lucius loses access to its tools'
-  switch (entry.id) {
-    case 'telegram':
-      return 'It stops responding to messages and sending alerts'
-    case 'email':
-      return 'It stops checking for mail and sending'
-    case 'webhook':
-      return 'It stops sending notifications'
-    default:
-      return entry.id.startsWith('web_search:')
-        ? 'Lucius stops being able to search with it'
-        : 'Scheduled syncing stops'
-  }
 }
 
 /** Only Lunch Flow's revoke is actually wired (its `disconnect_connection` primitive

@@ -1,6 +1,7 @@
 // Settings → Security. Ported from the SecuritySection in
 // design_handoffs/settings_handoff/prototype/redesign/settings.jsx.
 import { useState } from 'react'
+import { useAppIntl } from '../../../../i18n/useAppIntl'
 import { authFetch } from '../../../../api/client'
 import { useCachedFetchState } from '../../../../state/queryCache'
 import { Btn, Field, Panel, Select, Toggle, row, useSectionBusy } from '../ds'
@@ -37,6 +38,7 @@ async function getJson<T>(path: string): Promise<T> {
 }
 
 export function SecuritySection({ toast, gatewayMode = false }: SectionProps) {
+  const { formatMessage } = useAppIntl()
   const {
     data: settings,
     initialLoading: loadingSettings,
@@ -71,14 +73,27 @@ export function SecuritySection({ toast, gatewayMode = false }: SectionProps) {
         body: JSON.stringify(patch),
       })
       if (!res.ok) {
-        toast(`Could not save (HTTP ${res.status})`)
+        toast(
+          formatMessage(
+            {
+              id: 'settings.remaining.securitySaveHttp',
+              defaultMessage: 'Could not save (HTTP {status})',
+            },
+            { status: res.status },
+          ),
+        )
         void refreshSettings()
         return
       }
       void refreshSettings()
       toast(message)
     } catch {
-      toast('Could not reach the server. Try again.')
+      toast(
+        formatMessage({
+          id: 'settings.remaining.securityNetwork',
+          defaultMessage: 'Could not reach the server. Try again.',
+        }),
+      )
       void refreshSettings()
     } finally {
       setBusy(false)
@@ -89,13 +104,31 @@ export function SecuritySection({ toast, gatewayMode = false }: SectionProps) {
     try {
       const res = await authFetch('/api/auth/api-token/rotate', { method: 'POST' })
       if (!res.ok) {
-        toast(`Could not rotate (HTTP ${res.status})`)
+        toast(
+          formatMessage(
+            {
+              id: 'settings.remaining.securityRotateHttp',
+              defaultMessage: 'Could not rotate (HTTP {status})',
+            },
+            { status: res.status },
+          ),
+        )
         return
       }
       void refreshToken()
-      toast('Token rotated — old token is now invalid')
+      toast(
+        formatMessage({
+          id: 'settings.remaining.securityRotated',
+          defaultMessage: 'Token rotated — old token is now invalid',
+        }),
+      )
     } catch {
-      toast('Could not reach the server. Try again.')
+      toast(
+        formatMessage({
+          id: 'settings.remaining.securityNetwork',
+          defaultMessage: 'Could not reach the server. Try again.',
+        }),
+      )
     }
   }
 
@@ -104,9 +137,14 @@ export function SecuritySection({ toast, gatewayMode = false }: SectionProps) {
     if (!t) return
     try {
       await navigator.clipboard.writeText(t)
-      toast('Copied')
+      toast(formatMessage({ id: 'settings.remaining.securityCopied', defaultMessage: 'Copied' }))
     } catch {
-      toast('Could not copy — reveal it and copy manually')
+      toast(
+        formatMessage({
+          id: 'settings.remaining.securityCopyFailed',
+          defaultMessage: 'Could not copy — reveal it and copy manually',
+        }),
+      )
     }
   }
 
@@ -121,8 +159,14 @@ export function SecuritySection({ toast, gatewayMode = false }: SectionProps) {
       {!gatewayMode && <PasswordPanel state={settings} refresh={refreshSettings} toast={toast} />}
 
       <Panel
-        title="API token"
-        sub="Authenticates external clients (Claude Desktop, CLIs) against this app"
+        title={formatMessage({
+          id: 'settings.remaining.securityToken',
+          defaultMessage: 'API token',
+        })}
+        sub={formatMessage({
+          id: 'settings.remaining.securityTokenHelp',
+          defaultMessage: 'Authenticates external clients (Claude Desktop, CLIs) against this app',
+        })}
       >
         <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
           <input
@@ -133,47 +177,93 @@ export function SecuritySection({ toast, gatewayMode = false }: SectionProps) {
             // characters and the panel is full width, so the cap only wasted space and
             // truncated the thing the field exists to show.
             style={{ flex: 1, minWidth: 0, fontFamily: 'ui-monospace, monospace' }}
-            aria-label="API token"
+            aria-label={formatMessage({
+              id: 'settings.remaining.securityToken',
+              defaultMessage: 'API token',
+            })}
           />
           {/* Sized for the LONGER label so swapping Reveal/Hide doesn't reflow Copy and
               Rotate out from under the pointer mid-click. */}
           <Btn size="xs" style={{ minWidth: 62 }} onClick={() => setReveal(!reveal)}>
-            {reveal ? 'Hide' : 'Reveal'}
+            {reveal
+              ? formatMessage({ id: 'settings.remaining.securityHide', defaultMessage: 'Hide' })
+              : formatMessage({
+                  id: 'settings.remaining.securityReveal',
+                  defaultMessage: 'Reveal',
+                })}
           </Btn>
           <Btn size="xs" onClick={() => void copyToken()}>
-            Copy
+            {formatMessage({ id: 'settings.remaining.securityCopy', defaultMessage: 'Copy' })}
           </Btn>
           <Btn size="xs" variant="danger" onClick={() => void rotate()}>
-            Rotate
+            {formatMessage({ id: 'settings.remaining.securityRotate', defaultMessage: 'Rotate' })}
           </Btn>
         </div>
       </Panel>
 
       {!gatewayMode && (
-        <Panel title="Auth behaviour">
+        <Panel
+          title={formatMessage({
+            id: 'settings.remaining.securityAuthBehaviour',
+            defaultMessage: 'Auth behaviour',
+          })}
+        >
           <div className="rd-formgrid">
             <Field
-              label="Stay signed in for"
-              help="How long before you're asked for your password again. Shorter is safer on a shared machine."
+              label={formatMessage({
+                id: 'settings.remaining.securityStay',
+                defaultMessage: 'Stay signed in for',
+              })}
+              help={formatMessage({
+                id: 'settings.remaining.securityStayHelp',
+                defaultMessage:
+                  "How long before you're asked for your password again. Shorter is safer on a shared machine.",
+              })}
             >
               <Select
                 value={ttlValue}
                 disabled={!settings || busy}
                 onChange={(e) =>
-                  void patchAuth({ session_ttl: Number(e.target.value) }, 'Session length updated')
+                  void patchAuth(
+                    { session_ttl: Number(e.target.value) },
+                    formatMessage({
+                      id: 'settings.remaining.securityTtlUpdated',
+                      defaultMessage: 'Session length updated',
+                    }),
+                  )
                 }
               >
-                {TTL_OPTIONS.map(([label, value]) => (
+                {TTL_OPTIONS.map(([, value]) => (
                   <option key={value} value={value}>
-                    {label}
+                    {value === 8 * 3600
+                      ? formatMessage({
+                          id: 'settings.remaining.security8h',
+                          defaultMessage: '8 hours',
+                        })
+                      : value === 7 * 86400
+                        ? formatMessage({
+                            id: 'settings.remaining.security7d',
+                            defaultMessage: '7 days',
+                          })
+                        : formatMessage({
+                            id: 'settings.remaining.security30d',
+                            defaultMessage: '30 days',
+                          })}
                   </option>
                 ))}
               </Select>
             </Field>
           </div>
           {row(
-            "Don't ask for the password on this computer",
-            'Requests from the computer running Open Net Worth skip the password. Turn off on a shared computer.',
+            formatMessage({
+              id: 'settings.remaining.securityTrust',
+              defaultMessage: "Don't ask for the password on this computer",
+            }),
+            formatMessage({
+              id: 'settings.remaining.securityTrustHelp',
+              defaultMessage:
+                'Requests from the computer running Open Net Worth skip the password. Turn off on a shared computer.',
+            }),
             <Toggle
               on={settings?.trust_loopback ?? false}
               disabled={!settings || busy}
@@ -181,26 +271,55 @@ export function SecuritySection({ toast, gatewayMode = false }: SectionProps) {
                 void patchAuth(
                   { trust_loopback: v },
                   v
-                    ? 'This computer skips the password'
-                    : 'This computer now asks for the password',
+                    ? formatMessage({
+                        id: 'settings.remaining.securityTrustOn',
+                        defaultMessage: 'This computer skips the password',
+                      })
+                    : formatMessage({
+                        id: 'settings.remaining.securityTrustOff',
+                        defaultMessage: 'This computer now asks for the password',
+                      }),
                 )
               }
-              label="Don't ask for the password on this computer"
+              label={formatMessage({
+                id: 'settings.remaining.securityTrust',
+                defaultMessage: "Don't ask for the password on this computer",
+              })}
             />,
           )}
           {row(
-            <span style={{ color: 'var(--bad)' }}>Disable auth entirely</span>,
-            'All requests accepted without credentials. Only behind a VPN you trust.',
+            <span style={{ color: 'var(--bad)' }}>
+              {formatMessage({
+                id: 'settings.remaining.securityDisableAll',
+                defaultMessage: 'Disable auth entirely',
+              })}
+            </span>,
+            formatMessage({
+              id: 'settings.remaining.securityDisableHelp',
+              defaultMessage:
+                'All requests accepted without credentials. Only behind a VPN you trust.',
+            }),
             <Toggle
               on={settings?.auth_disabled ?? false}
               disabled={!settings || busy}
               onChange={(v) =>
                 void patchAuth(
                   { auth_disabled: v },
-                  v ? 'Careful — auth is now off' : 'Auth is back on',
+                  v
+                    ? formatMessage({
+                        id: 'settings.remaining.securityAuthOff',
+                        defaultMessage: 'Careful — auth is now off',
+                      })
+                    : formatMessage({
+                        id: 'settings.remaining.securityAuthOn',
+                        defaultMessage: 'Auth is back on',
+                      }),
                 )
               }
-              label="Disable auth"
+              label={formatMessage({
+                id: 'settings.remaining.securityDisable',
+                defaultMessage: 'Disable auth',
+              })}
             />,
           )}
         </Panel>

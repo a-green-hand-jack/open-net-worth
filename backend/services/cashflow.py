@@ -424,10 +424,25 @@ def _stream_month_map(streams: list, today: date, months: int) -> dict:
             slot["events"].append(
                 {
                     "label": stream.get("label") or "Recurring",
+                    **(
+                        {"label_message": {"id": "cashflow.label.recurring", "params": {}}}
+                        if not stream.get("label")
+                        else {}
+                    ),
                     "category": "Income" if direction == "in" else "Expenses",
+                    "category_message": {
+                        "id": "cashflow.category.income"
+                        if direction == "in"
+                        else "cashflow.category.expenses",
+                        "params": {},
+                    },
                     "direction": direction,
                     "amount_base": round(amount, 2),
                     "note": f"{stream.get('cadence', '')} · recurring".strip(" ·"),
+                    "note_message": {
+                        "id": "cashflow.note.recurring",
+                        "params": {"cadence": stream.get("cadence") or ""},
+                    },
                     "status": "recurring",
                 }
             )
@@ -592,8 +607,18 @@ def _historical_months(
         events = [
             {
                 "label": t.get("description") or "Income",
+                **(
+                    {"label_message": {"id": "cashflow.label.income", "params": {}}}
+                    if not t.get("description")
+                    else {}
+                ),
                 "category": (
                     _category_label(t["category"], label_map) if t.get("category") else "Income"
+                ),
+                **(
+                    {"category_message": {"id": "cashflow.category.income", "params": {}}}
+                    if not t.get("category")
+                    else {}
                 ),
                 "direction": "in",
                 "amount_base": svc.txn_base_amount(t, base, rates),
@@ -604,8 +629,18 @@ def _historical_months(
         ] + [
             {
                 "label": t.get("description") or "Expense",
+                **(
+                    {"label_message": {"id": "cashflow.label.expense", "params": {}}}
+                    if not t.get("description")
+                    else {}
+                ),
                 "category": (
                     _category_label(t["category"], label_map) if t.get("category") else "Expenses"
+                ),
+                **(
+                    {"category_message": {"id": "cashflow.category.expenses", "params": {}}}
+                    if not t.get("category")
+                    else {}
                 ),
                 "direction": "out",
                 "amount_base": svc.txn_base_amount(t, base, rates),
@@ -670,8 +705,18 @@ def _current_month_actuals(
     events = [
         {
             "label": t.get("description") or "Income",
+            **(
+                {"label_message": {"id": "cashflow.label.income", "params": {}}}
+                if not t.get("description")
+                else {}
+            ),
             "category": (
                 _category_label(t["category"], label_map) if t.get("category") else "Income"
+            ),
+            **(
+                {"category_message": {"id": "cashflow.category.income", "params": {}}}
+                if not t.get("category")
+                else {}
             ),
             "direction": "in",
             "amount_base": svc.txn_base_amount(t, base, rates),
@@ -682,8 +727,18 @@ def _current_month_actuals(
     ] + [
         {
             "label": t.get("description") or "Expense",
+            **(
+                {"label_message": {"id": "cashflow.label.expense", "params": {}}}
+                if not t.get("description")
+                else {}
+            ),
             "category": (
                 _category_label(t["category"], label_map) if t.get("category") else "Expenses"
+            ),
+            **(
+                {"category_message": {"id": "cashflow.category.expenses", "params": {}}}
+                if not t.get("category")
+                else {}
             ),
             "direction": "out",
             "amount_base": svc.txn_base_amount(t, base, rates),
@@ -904,9 +959,21 @@ def build_projection(
             events.append(
                 {
                     "label": "Irregular income" if classified["classified"] else "Salary",
+                    "label_message": {
+                        "id": "cashflow.label.irregular_income"
+                        if classified["classified"]
+                        else "cashflow.label.salary",
+                        "params": {},
+                    },
                     "category": "Income",
+                    "category_message": {"id": "cashflow.category.income", "params": {}},
                     "direction": "in",
                     "note": _VARIABLE_NOTE if classified["classified"] else "",
+                    **(
+                        {"note_message": {"id": "cashflow.note.variable", "params": {}}}
+                        if classified["classified"]
+                        else {}
+                    ),
                     # Third group: neither a dated one-off nor a named stream, but an average
                     # over many items — the UI separates it so it never reads as a single bill.
                     "variable": bool(classified["classified"]),
@@ -919,9 +986,21 @@ def build_projection(
             events.append(
                 {
                     "label": "Everyday spending" if classified["classified"] else "Living expenses",
+                    "label_message": {
+                        "id": "cashflow.label.everyday_spending"
+                        if classified["classified"]
+                        else "cashflow.label.living_expenses",
+                        "params": {},
+                    },
                     "category": "Expenses",
+                    "category_message": {"id": "cashflow.category.expenses", "params": {}},
                     "direction": "out",
                     "note": _VARIABLE_NOTE if classified["classified"] else "",
+                    **(
+                        {"note_message": {"id": "cashflow.note.variable", "params": {}}}
+                        if classified["classified"]
+                        else {}
+                    ),
                     "variable": bool(classified["classified"]),
                     "amount_base": round(month_expenses, 2),
                     "status": "recurring",

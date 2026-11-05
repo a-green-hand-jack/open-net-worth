@@ -41,7 +41,9 @@ const desktopEntry = (appName, version) => `[Desktop Entry]
 Type=Application
 Name=${appName}
 GenericName=Wealth manager
+GenericName[zh_CN]=财富管理
 Comment=Your wealth, on your computer
+Comment[zh_CN]=在你的电脑上管理财富
 Exec=${EXECUTABLE}
 Icon=${EXECUTABLE}
 Terminal=false

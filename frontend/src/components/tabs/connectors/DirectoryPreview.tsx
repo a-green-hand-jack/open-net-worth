@@ -1,3 +1,7 @@
+import { useConnectorPrompt } from './useConnectorPrompts'
+import { useConnectorDescription, useConnectorLongDescription, useCuratedDescription, useCuratedLongDescription } from './useConnectorDescription'
+import { useAppIntl } from '../../../i18n/useAppIntl'
+import { useConnectorLabels, useConnectorName } from './useConnectorLabels'
 // The directory preview page (spec §6) — ported from the prototype's `dirPreview` branch.
 //
 // Top to bottom: who this is and one action, the description, the attribution line, the chip
@@ -62,13 +66,14 @@ export function PreviewAction({
 }: Pick<DirectoryPreviewProps, 'd' | 'onAdd' | 'onConfigure'> & {
   className?: string
 }): JSX.Element {
+  const { formatMessage } = useAppIntl()
   return d.installed ? (
     <Btn size="lg" className={className} onClick={() => onConfigure(d)}>
-      Open settings
+      {formatMessage({ id: 'connectors.preview.openSettings', defaultMessage: 'Open settings' })}
     </Btn>
   ) : (
     <Btn size="lg" variant="primary" className={className} onClick={() => onAdd(d)}>
-      Add{d.mcp ? '' : ' connector'}
+      {d.mcp ? formatMessage({ id: 'connectors.preview.add', defaultMessage: 'Add' }) : formatMessage({ id: 'connectors.preview.addConnector', defaultMessage: 'Add connector' })}
     </Btn>
   )
 }
@@ -108,6 +113,7 @@ function ChipRow({
   note?: string
   fold?: boolean
 }): JSX.Element | null {
+  const { formatMessage } = useAppIntl()
   const [expanded, setExpanded] = useState(false)
   if (!items.length) return null
   const folded = fold && !expanded && items.length > CHIP_FOLD
@@ -143,7 +149,7 @@ function ChipRow({
             aria-expanded={expanded}
             onClick={() => setExpanded((v) => !v)}
           >
-            {expanded ? 'Show less' : `Show all ${items.length}`}
+            {expanded ? formatMessage({ id: 'connectors.preview.showLess', defaultMessage: 'Show less' }) : formatMessage({ id: 'connectors.preview.showAll', defaultMessage: 'Show all {count}' }, { count: items.length })}
           </button>
         ) : null}
       </div>
@@ -155,6 +161,7 @@ function ChipRow({
  *  jsdom, so the failure is swallowed rather than thrown at the user — the value is on screen
  *  and selectable either way. */
 function CopyButton({ value }: { value: string }): JSX.Element {
+  const { formatMessage } = useAppIntl()
   const [copied, setCopied] = useState(false)
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null)
   useEffect(
@@ -166,8 +173,8 @@ function CopyButton({ value }: { value: string }): JSX.Element {
   return (
     <Btn
       size="xs"
-      aria-label={copied ? 'Copied' : 'Copy'}
-      title={copied ? 'Copied' : 'Copy'}
+      aria-label={copied ? formatMessage({ id: 'connectors.preview.copied', defaultMessage: 'Copied' }) : formatMessage({ id: 'connectors.preview.copy', defaultMessage: 'Copy' })}
+      title={copied ? formatMessage({ id: 'connectors.preview.copied', defaultMessage: 'Copied' }) : formatMessage({ id: 'connectors.preview.copy', defaultMessage: 'Copy' })}
       className="cn-copybtn"
       onClick={() => {
         navigator.clipboard?.writeText(value).catch(() => {})
@@ -188,12 +195,13 @@ function CopyButton({ value }: { value: string }): JSX.Element {
  * included, disappears when an entry has none of it.
  */
 function Details({ d }: { d: DirectoryRow }): JSX.Element | null {
+  const { formatMessage } = useAppIntl()
   const endpoint = previewEndpoint(d)
   const links: [string, string][] = []
-  if (d.homepageUrl) links.push(['Documentation', d.homepageUrl])
-  if (d.repoUrl) links.push(['Source repository', d.repoUrl])
-  if (d.supportUrl) links.push(['Support', d.supportUrl])
-  if (d.privacyUrl) links.push(['Privacy policy', d.privacyUrl])
+  if (d.homepageUrl) links.push([formatMessage({ id: 'connectors.preview.documentation', defaultMessage: 'Documentation' }), d.homepageUrl])
+  if (d.repoUrl) links.push([formatMessage({ id: 'connectors.preview.source', defaultMessage: 'Source repository' }), d.repoUrl])
+  if (d.supportUrl) links.push([formatMessage({ id: 'connectors.preview.support', defaultMessage: 'Support' }), d.supportUrl])
+  if (d.privacyUrl) links.push([formatMessage({ id: 'connectors.preview.privacy', defaultMessage: 'Privacy policy' }), d.privacyUrl])
   if (!d.publisher && !endpoint && !links.length) return null
 
   const href = publisherHref(d)
@@ -207,7 +215,7 @@ function Details({ d }: { d: DirectoryRow }): JSX.Element | null {
       <hr className="rd-hr" />
       <div>
         <div className="cn-sublabel" style={{ marginBottom: 8 }}>
-          Details
+          {formatMessage({ id: 'connectors.preview.details', defaultMessage: 'Details' })}
         </div>
         <div className="cn-details-grid">
           {d.publisher ? (
@@ -215,14 +223,14 @@ function Details({ d }: { d: DirectoryRow }): JSX.Element | null {
             // connector's integration is ours — the named publisher just operates the API it
             // calls — so it reads "Vendor" instead (owner correction, 2026-08-21; same
             // `mcp`-bound distinction as `PublisherLine`'s "Developed by"/"Powered by" verb).
-            <Field label={d.mcp || d.publisher === FIRST_PARTY_PUBLISHER ? 'Author' : 'Vendor'}>
+            <Field label={d.mcp || d.publisher === FIRST_PARTY_PUBLISHER ? formatMessage({ id: 'connectors.preview.author', defaultMessage: 'Author' }) : formatMessage({ id: 'connectors.preview.vendor', defaultMessage: 'Vendor' })}>
               <span style={{ fontSize: 13, color: 'var(--muted)' }}>
                 {href ? <ExternalLink href={href}>{d.publisher}</ExternalLink> : d.publisher}
               </span>
             </Field>
           ) : null}
           {links.length ? (
-            <Field label="More info">
+            <Field label={formatMessage({ id: 'connectors.preview.moreInfo', defaultMessage: 'More info' })}>
               <span
                 style={{
                   display: 'flex',
@@ -241,7 +249,7 @@ function Details({ d }: { d: DirectoryRow }): JSX.Element | null {
             </Field>
           ) : null}
           {endpoint ? (
-            <Field label={isUrl ? 'Connector URL' : 'Command'}>
+            <Field label={isUrl ? formatMessage({ id: 'connectors.preview.url', defaultMessage: 'Connector URL' }) : formatMessage({ id: 'connectors.preview.command', defaultMessage: 'Command' })}>
               <span style={{ display: 'flex', alignItems: 'stretch', gap: 8 }}>
                 <code className="rd-code" style={{ padding: '7px 10px', flex: 1, minWidth: 0 }}>
                   {endpoint}
@@ -268,17 +276,21 @@ function Header({
   status: ReactNode
   action: ReactNode
 }): JSX.Element {
+  const { formatMessage } = useAppIntl()
+  const displayName = useConnectorName()
+  const description = useConnectorDescription()
+  const curatedDescription = useCuratedDescription()
   return (
     <div className="cn-idhead">
       <Mono icon={d.icon} hue={d.hue} logo={d.logo} size="lg" />
       <div className="cn-idhead-main">
         <div className="cn-idhead-name">
-          {d.name}
-          {d.verification === 'verified' ? <span className="cn-verified-tag">Verified</span> : null}
-          {d.tag ? <span className="cn-tag">{d.tag}</span> : null}
+          {displayName(d.id, d.name)}
+          {d.verification === 'verified' ? <span className="cn-verified-tag">{formatMessage({ id: 'connectors.verified', defaultMessage: 'Verified' })}</span> : null}
+          {d.tag ? <span className="cn-tag">{d.tag === 'Default' ? formatMessage({ id: 'connectors.defaultTag', defaultMessage: 'Default' }) : d.tag}</span> : null}
           {status}
         </div>
-        <div className="cn-idhead-sub">{d.sub}</div>
+        <div className="cn-idhead-sub">{d.mcp ? curatedDescription(d.id, d.sub) : description(d.id, d.sub, false)}</div>
       </div>
       {action ? <div className="cn-idhead-actions">{action}</div> : null}
     </div>
@@ -295,6 +307,11 @@ export function DirectoryPreview({
   actionInFooter = false,
   liveTools,
 }: DirectoryPreviewProps): JSX.Element {
+  const { formatMessage } = useAppIntl()
+  const labels = useConnectorLabels()
+  const prompt = useConnectorPrompt()
+  const longDescription = useConnectorLongDescription()
+  const curatedLong = useCuratedLongDescription()
   const composer = useChatComposerOptional()
   const toolList = resolveToolList(d, liveTools)
   return (
@@ -308,13 +325,13 @@ export function DirectoryPreview({
     >
       <Header
         d={d}
-        status={d.installed && statusText ? <Badge tone={statusTone}>{statusText}</Badge> : null}
+        status={d.installed && statusText ? <Badge tone={statusTone}>{labels.rowStatus(statusText)}</Badge> : null}
         action={
           actionInFooter ? null : <PreviewAction d={d} onAdd={onAdd} onConfigure={onConfigure} />
         }
       />
 
-      <p style={{ fontSize: 13, color: 'var(--muted)', lineHeight: 1.6, margin: 0 }}>{d.desc}</p>
+      <p style={{ fontSize: 13, color: 'var(--muted)', lineHeight: 1.6, margin: 0 }}>{d.mcp ? curatedLong(d.id, d.desc) : longDescription(d.id, d.desc, false)}</p>
 
       <PublisherLine
         publisher={d.publisher}
@@ -324,19 +341,19 @@ export function DirectoryPreview({
       />
 
       <ChipRow
-        label={toolList.label}
+        label={toolList.label === 'Tools' ? formatMessage({ id: 'connectors.preview.tools', defaultMessage: 'Tools' }) : formatMessage({ id: 'connectors.preview.examples', defaultMessage: 'Example tools' })}
         items={toolList.names.map(plainChip)}
-        note={toolList.note}
+        note={toolList.note === 'from your connection' ? formatMessage({ id: 'connectors.preview.connection', defaultMessage: 'from your connection' }) : toolList.note === "from the vendor's docs" ? formatMessage({ id: 'connectors.preview.vendorDocs', defaultMessage: "from the vendor's docs" }) : toolList.note?.startsWith('as of ') ? formatMessage({ id: 'connectors.preview.asOf', defaultMessage: 'as of {date}' }, { date: toolList.note.slice(6) }) : toolList.note}
         fold
       />
       <ChipRow
-        label="Prompt suggestions"
-        items={(prompts ?? []).map((p) => ({
-          ...plainChip(p),
+        label={formatMessage({ id: 'connectors.detail.prompts', defaultMessage: 'Prompt suggestions' })}
+        items={(prompts ?? []).map((p, i) => ({
+          ...plainChip(prompt(d.id.startsWith('web_search:') ? 'web_search' : d.id, i, p)),
           // Same as on a connector's own page: the prompt lands in Lucius's composer, unsent.
           onClick: composer
             ? () => {
-                composer.setPendingText(p)
+                composer.setPendingText(prompt(d.id.startsWith('web_search:') ? 'web_search' : d.id, i, p))
                 composer.requestOpen()
               }
             : undefined,
@@ -345,7 +362,7 @@ export function DirectoryPreview({
       {/* The connector's TOPICS, never its family. The family is the lane the reader is
           already browsing — printing it back as the sole "category" (Stripe → `MCP`) said
           nothing. `families` keeps its real job: the list sections and the directory filter. */}
-      <ChipRow label="Categories" items={d.categories.map(plainChip)} />
+      <ChipRow label={formatMessage({ id: 'connectors.preview.categories', defaultMessage: 'Categories' })} items={d.categories.map((category) => ({ key: category, label: labels.category(category) }))} />
 
       <Details d={d} />
     </div>

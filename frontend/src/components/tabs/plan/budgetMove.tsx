@@ -11,6 +11,7 @@
 //   • Both flows call ONE transfer (envelope↔envelope OR envelope↔RTA) = the adapter's
 //     moveBetweenEnvelopes(from, to, amount) — `__rta` on either end is a live backend sentinel.
 import { useState, useRef, useEffect, useLayoutEffect } from 'react'
+import { useAppIntl } from '../../../i18n/useAppIntl'
 import { createPortal } from 'react-dom'
 import * as PD from './planData'
 import { getCurrencySymbol } from '../../../utils/format'
@@ -77,6 +78,7 @@ export function CatSelect({
   onChange: (key: string) => void
   placeholder?: string
 }) {
+  const { formatMessage } = useAppIntl()
   const [open, setOpen] = useState(false)
   const [q, setQ] = useState('')
   const [pos, setPos] = useState<{
@@ -187,7 +189,10 @@ export function CatSelect({
             {selected.label}
           </span>
         ) : (
-          <span className="pl-catsel-ph">{placeholder || 'Select an envelope…'}</span>
+          <span className="pl-catsel-ph">
+            {placeholder ||
+              formatMessage({ id: 'plan.selectEnvelope', defaultMessage: 'Select an envelope…' })}
+          </span>
         )}
         <span className="pl-sel-caret">
           <Chevron dir={open ? 'up' : 'down'} size={13} />
@@ -223,7 +228,10 @@ export function CatSelect({
             <input
               ref={searchRef}
               value={q}
-              placeholder="Search envelopes…"
+              placeholder={formatMessage({
+                id: 'plan.searchEnvelopes',
+                defaultMessage: 'Search envelopes…',
+              })}
               onChange={(e) => setQ(e.target.value)}
               onKeyDown={(e) => {
                 if (e.key === 'Enter' && firstMatch) {
@@ -235,7 +243,9 @@ export function CatSelect({
           </div>
           <div className="pl-catsel-list">
             {filtered.length === 0 ? (
-              <div className="pl-menu-empty">No envelopes found</div>
+              <div className="pl-menu-empty">
+                {formatMessage({ id: 'plan.noEnvelopes', defaultMessage: 'No envelopes found' })}
+              </div>
             ) : (
               filtered.map((g) => (
                 <div key={g.name}>
@@ -298,6 +308,7 @@ export function AvailCell({
 }) {
   const val = c ? c.available : (n ?? 0)
   const { text, isZero, isNeg } = fFig(val)
+  const { formatMessage } = useAppIntl()
   const [open, setOpen] = useState(false)
   const [dest, setDest] = useState('')
   const [amount, setAmount] = useState('')
@@ -411,7 +422,19 @@ export function AvailCell({
   }
 
   const amt = Math.round((parseFloat(amount) || 0) * 100) / 100
-  const options: CatOption[] = buildMoveOptions(c!.key, allGroups || [], rta ?? 0)
+  const options: CatOption[] = buildMoveOptions(c!.key, allGroups || [], rta ?? 0).map(
+    (group, index) =>
+      index === 0
+        ? {
+            ...group,
+            name: formatMessage({ id: 'plan.budget', defaultMessage: 'Budget' }),
+            cats: group.cats.map((option) => ({
+              ...option,
+              label: formatMessage({ id: 'plan.readyToAssign', defaultMessage: 'Ready to Assign' }),
+            })),
+          }
+        : group,
+  )
   const okEnabled =
     mode === 'move'
       ? !!dest && amt > 0.005 && amt <= Math.round(val * 100) / 100 + 0.005
@@ -429,7 +452,11 @@ export function AvailCell({
       <button
         ref={btnRef}
         className={'pl-avail pl-avail--btn mask ' + tone}
-        title={mode === 'move' ? 'Move money' : 'Cover overspending'}
+        title={
+          mode === 'move'
+            ? formatMessage({ id: 'plan.moveMoney', defaultMessage: 'Move money' })
+            : formatMessage({ id: 'plan.coverOverspending', defaultMessage: 'Cover overspending' })
+        }
         onClick={(e) => {
           e.stopPropagation()
           setOpen((o) => !o)
@@ -466,7 +493,12 @@ export function AvailCell({
               }}
             />
             <div className="pl-mvpop-title">
-              {mode === 'move' ? 'Move' : 'Cover overspending from'}
+              {mode === 'move'
+                ? formatMessage({ id: 'plan.move', defaultMessage: 'Move' })
+                : formatMessage({
+                    id: 'plan.coverFrom',
+                    defaultMessage: 'Cover overspending from',
+                  })}
             </div>
             {mode === 'move' && (
               <div className="pl-mvpop-amt">
@@ -487,24 +519,41 @@ export function AvailCell({
                 />
               </div>
             )}
-            {mode === 'move' && <div className="pl-mvpop-label">To</div>}
+            {mode === 'move' && (
+              <div className="pl-mvpop-label">
+                {formatMessage({ id: 'plan.to', defaultMessage: 'To' })}
+              </div>
+            )}
             <CatSelect
               options={options}
               value={dest}
               onChange={setDest}
-              placeholder="Select an envelope…"
+              placeholder={formatMessage({
+                id: 'plan.selectEnvelope',
+                defaultMessage: 'Select an envelope…',
+              })}
             />
             {mode === 'cover' && (
               <div className="pl-mvpop-hint">
-                Covers <b className="mask">{fSmart(cover)}</b> overspent in {c!.label}.
+                {formatMessage(
+                  {
+                    id: 'plan.coverHint',
+                    defaultMessage: 'Covers <b>{amount}</b> overspent in {name}.',
+                  },
+                  {
+                    amount: fSmart(cover),
+                    name: c!.label,
+                    b: (chunks) => <b className="mask">{chunks}</b>,
+                  },
+                )}
               </div>
             )}
             <div className="pl-mvpop-foot">
               <Button variant="secondary" size="dense" onClick={() => setOpen(false)}>
-                Cancel
+                {formatMessage({ id: 'plan.cancel', defaultMessage: 'Cancel' })}
               </Button>
               <Button variant="primary" size="dense" disabled={!okEnabled} onClick={submit}>
-                OK
+                {formatMessage({ id: 'plan.ok', defaultMessage: 'OK' })}
               </Button>
             </div>
           </div>,

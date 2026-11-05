@@ -20,6 +20,10 @@ import { bundledRuntime, type RuntimeConfig } from './runtime';
 import { externalUrl } from './security';
 import { DesktopWindow } from './window';
 import { goMenu, helpMenu, newItems, privateCloudItems, viewMenu, windowMenu } from './app-menu';
+import { localizeMenu, localizeNativeRoles } from './menu-locale';
+import { desktopBrowserLocale, desktopLocale, getDesktopLocale, setDesktopDateFormat, setDesktopLocale, type DesktopLocale } from './desktop-locale';
+import { ProfileDisplayGate } from './profile-display-gate';
+import { message as t } from './native-messages';
 import { qaInactiveMode } from './window-chrome';
 import { desktopEvent } from './desktop-events';
 import { initialBookRoot, inspectBookFolder, verifyConfirmedBookRoot, verifyRememberedBookRoot, type BookFolder } from './book-folder';
@@ -49,7 +53,7 @@ import { PRIVATE_CLOUD_ENABLED, assertPrivateCloudEnabled, displayVersion } from
 import { RELEASES_PAGE, UpdateController, releaseHighlights, releasePage, updateFeedUrl, updatesSupported } from './updates';
 import { LATEST_RELEASE_API, LinuxUpdater, fetchLatestVersion, fetchReleaseNotes, linuxUpdatesSupported, relaunchAppImage } from './linux-updates';
 import { LinuxAutostart, autostartPath } from './linux-autostart';
-import { loginItemOptions, squirrelUpdateExe } from './login-item';
+import { LoginSettingError, loginItemOptions, squirrelUpdateExe } from './login-item';
 import squirrelStartup from 'electron-squirrel-startup';
 import { desktopProfile } from './desktop-profile';
 
@@ -68,6 +72,8 @@ const microphoneReopen = new MicrophoneReopen(() => systemPreferences.getMediaAc
 const SERVER_STARTUP_PATIENCE_MS = 60_000;
 const pendingFiles: string[] = [];
 let main: DesktopWindow | null = null;
+let displayGate: ProfileDisplayGate | null = null;
+let browserFallbackLocale: DesktopLocale = 'en';
 let backend: BackendSupervisor | null = null;
 let folders: FolderWatcher | null = null;
 let notifications: NativeNotifications | null = null;
@@ -143,10 +149,10 @@ if (squirrelStartup || !app.requestSingleInstanceLock()) {
   });
   process.on('SIGTERM', () => app.quit());
   process.on('SIGINT', () => app.quit());
-  void app.whenReady().then(async () => { if (!await handOffToUpdateInstall()) await boot(); }).catch((error: unknown) => {
+  void app.whenReady().then(async () => { setDesktopLocale(desktopLocale(app.getLocale())); if (!await handOffToUpdateInstall()) await boot(); }).catch((error: unknown) => {
     desktopEvent({ event: 'desktop.startup_failed', error: error instanceof Error ? error.name : 'Error', message: error instanceof Error ? error.message : 'Startup failed' });
     // showErrorBox blocks the main process until dismissed, which would also hold off SIGTERM and every quit.
-    void dialog.showMessageBox({ type: 'error', title: 'Open Net Worth could not open', message: 'Open Net Worth could not open', detail: 'Your book has been kept. Verify the app installation and open it again.' }).finally(() => app.quit());
+    void dialog.showMessageBox({ type: 'error', title: t('Open Net Worth could not open'), message: t('Open Net Worth could not open'), detail: t('Your book has been kept. Verify the app installation and open it again.') }).finally(() => app.quit());
   });
 }
 
@@ -235,7 +241,7 @@ function startUpdates(): void {
     ask: async (message, detail, buttons) => (await dialog.showMessageBox({ type: 'info', title: 'Open Net Worth', message, detail, buttons, defaultId: 0, cancelId: buttons.length - 1 })).response,
     notify: (body, onClick) => {
       if (!preferences?.current.notifications || !Notification.isSupported() || qaInactiveMode(app.isPackaged, process.env)) return;
-      const notification = new Notification({ title: 'Open Net Worth update', body });
+      const notification = new Notification({ title: t('Open Net Worth update'), body });
       notification.on('click', onClick);
       notification.show();
     },
@@ -351,11 +357,27 @@ function createWindow(serverOrigin: string | null, signedIn = false): DesktopWin
   } : null;
   replacingWindow = false;
   const window = new DesktopWindow(backend!, () => preferences?.current.background ?? false, () => app.quit(), serverOrigin, !loginLaunch, hostedWindow);
+  displayGate?.dispose();
+  const gate = displayGate = new ProfileDisplayGate();
+  browserFallbackLocale = desktopLocale(app.getLocale());
+  window.window.webContents.on('did-start-loading', () => { gate.reset(); if (displayGate === gate) browserFallbackLocale = desktopLocale(app.getLocale()); });
+  window.window.on('closed', () => { gate.dispose(); if (displayGate === gate) displayGate = null; });
   const offer = () => { if (main === window) void activity?.offer(); };
   window.offerBookChoice = () => firstLaunch && !serverOrigin && !(qaMode && process.env.ONW_DESKTOP_ROOT);
   window.window.webContents.on('did-finish-load', offer);
   window.window.webContents.on('did-navigate-in-page', offer);
-  const settled = () => { if (main !== window) return; if (signedIn) void hosted?.refreshIdentity(); else if (PRIVATE_CLOUD_ENABLED && !serverOrigin) void moves?.noticeIfMoved(origin => books!.exclusive(() => connections!.open({ mode: 'server', serverUrl: origin, hosted: { entryUrl: null } }))).catch(() => {}); };
+  const settled = () => {
+    if (main !== window) return;
+    gate.finishLoading();
+    window.contents?.send('desktop-client:request-profile-display');
+    if (signedIn) { void hosted?.refreshIdentity(); return; }
+    if (!PRIVATE_CLOUD_ENABLED || serverOrigin) return;
+    gate.requestWithBanner(
+      () => { if (main === window) moves?.refreshMovedBanner(); },
+      () => { if (main === window) void moves?.noticeIfMoved(origin => books!.exclusive(() => connections!.open({ mode: 'server', serverUrl: origin, hosted: { entryUrl: null } }))).catch(() => {}); },
+      () => { setDesktopLocale(browserFallbackLocale); setDesktopDateFormat(null); installMenu(); installTray(); },
+    );
+  };
   window.window.webContents.on('did-finish-load', settled);
   window.onHistoryChange = () => { if (main === window) syncHistoryMenu(); };
   return window;
@@ -365,7 +387,7 @@ function startBackend(): Promise<void> { return books!.exclusive(restartBackend)
 
 async function restartBackend(): Promise<void> {
   if (starting || quitting || !backend || !main) return;
-  if (firstLaunch && !initialSelection) throw new Error('Choose and confirm a book folder first.');
+  if (firstLaunch && !initialSelection) throw new Error(t("Choose and confirm a book folder first."));
   starting = true;
   await main.showRecovery(true);
   try {
@@ -415,7 +437,7 @@ function startWorkers(): void {
 
 async function openConfirmedBook(folder: BookFolder, entry: BookEntry = 'folder'): Promise<boolean> {
   if (!firstLaunch) { const opened = await books!.open(folder); if (opened && connections) connections.current = { mode: 'local', serverUrl: null, bookFolder: backend!.bookRoot }; return opened; }
-  if (entry === 'restore' && folder.existing) throw new Error('Choose an empty folder to restore a backup.');
+  if (entry === 'restore' && folder.existing) throw new Error(t("Choose an empty folder to restore a backup."));
   initialSelection = { folder, entry };
   let opened: boolean;
   try { opened = await books!.openInitial(folder, entry); }
@@ -429,10 +451,10 @@ async function openConfirmedBook(folder: BookFolder, entry: BookEntry = 'folder'
 }
 
 async function initialBookAction(value: unknown): Promise<void> {
-  if (!firstLaunch || starting || choosingBook || quitting) throw new Error('Book selection is unavailable right now.');
-  if (!['setup', 'use-default', 'server', 'back'].includes(value as string)) throw new Error('Invalid book action.');
+  if (!firstLaunch || starting || choosingBook || quitting) throw new Error(t("Book selection is unavailable right now."));
+  if (!['setup', 'use-default', 'server', 'back'].includes(value as string)) throw new Error(t("Invalid book action."));
   if (value === 'back') {
-    if (initialServer.connecting) throw new Error('Wait for the current connection operation to finish.');
+    if (initialServer.connecting) throw new Error(t('Wait for the current connection operation to finish.'));
     initialServer.abort();
     // From a failed first open (book in use, could not start): drop that folder and choose again.
     initialSelection = null;
@@ -440,7 +462,7 @@ async function initialBookAction(value: unknown): Promise<void> {
     await main!.showWelcome(suggestedRoot, 'folder');
     return;
   }
-  if (initialServer.busy) throw new Error('Wait for the current connection operation to finish.');
+  if (initialServer.busy) throw new Error(t('Wait for the current connection operation to finish.'));
   if (value === 'use-default') {
     await mkdir(suggestedRoot, { recursive: true, mode: 0o700 });
     await initialChoice!.select(await inspectBookFolder(suggestedRoot));
@@ -451,38 +473,38 @@ async function initialBookAction(value: unknown): Promise<void> {
 
 // The first-launch "On your own server" page runs the Connection dialog's own submit path.
 async function connectInitialServer(value: unknown): Promise<void> {
-  if (!firstLaunch || starting || choosingBook || quitting || initialActionPending) throw new Error('Book selection is unavailable right now.');
+  if (!firstLaunch || starting || choosingBook || quitting || initialActionPending) throw new Error(t("Book selection is unavailable right now."));
   const owner = main!;
   await initialServer.submit(value, {
     surface: () => main === owner && !owner.window.isDestroyed() ? owner.window : null,
     localRunning: () => Boolean(backend?.origin),
     ask: async (parent, options) => (await dialog.showMessageBox(parent, options)).response,
     connect: origin => books!.exclusive(() => connections!.open({ mode: 'server', serverUrl: origin })),
-    lost: async error => { await dialog.showMessageBox(main!.window, { type: 'error', title: 'Open Net Worth', message: error instanceof Error ? error.message : 'Your previous connection has been kept.' }); },
+    lost: async error => { await dialog.showMessageBox(main!.window, { type: 'error', title: 'Open Net Worth', message: error instanceof Error ? error.message : t('Your previous connection has been kept.') }); },
   });
 }
 
 async function openBookFolder(restore = false): Promise<{ cancelled: boolean; opened: boolean }> {
-  if (!main || !books || starting || choosingBook || quitting || initialActionPending) throw new Error('Wait for the current book operation to finish.');
+  if (!main || !books || starting || choosingBook || quitting || initialActionPending) throw new Error(t("Wait for the current book operation to finish."));
   choosingBook = true;
   try {
     return await chooseBookFolder({
       choose: async () => {
-        const result = await dialog.showOpenDialog(main!.window, { title: 'Open a book folder', properties: ['openDirectory', 'createDirectory'] });
+        const result = await dialog.showOpenDialog(main!.window, { title: t('Open a book folder'), properties: ['openDirectory', 'createDirectory'] });
         return result.canceled ? null : result.filePaths[0] ?? null;
       },
       confirm: async (folder, nested) => {
         if (firstLaunch && !folder.existing && !nested) return true;
         if (firstLaunch) {
-          const inside = nested ? 'The folder you chose has other files, so your book lives in its own "Open Net Worth" folder inside it.\n\n' : '';
+          const inside = nested ? `${t('The folder you chose has other files, so your book lives in its own "Open Net Worth" folder inside it.')}\n\n` : '';
           const choice = folder.existing
-            ? await dialog.showMessageBox(main!.window, { type: 'question', title: 'Open Net Worth', message: 'Open this book?', detail: `${folder.root}\n\n${inside}This folder already holds an Open Net Worth book. It opens as it is; nothing in it is replaced.`, buttons: ['Open book', 'Cancel'], defaultId: 0, cancelId: 1 })
-            : await dialog.showMessageBox(main!.window, { type: 'question', title: 'Open Net Worth', message: 'Create your book in a new folder?', detail: `${folder.root}\n\n${inside.trim()}`, buttons: ['Create book', 'Cancel'], defaultId: 0, cancelId: 1 });
+            ? await dialog.showMessageBox(main!.window, { type: 'question', title: 'Open Net Worth', message: t('Open this book?'), detail: `${folder.root}\n\n${inside}${t('This folder already holds an Open Net Worth book. It opens as it is; nothing in it is replaced.')}`, buttons: [t('Open book'), t('Cancel')], defaultId: 0, cancelId: 1 })
+            : await dialog.showMessageBox(main!.window, { type: 'question', title: 'Open Net Worth', message: t('Create your book in a new folder?'), detail: `${folder.root}\n\n${inside.trim()}`, buttons: [t('Create book'), t('Cancel')], defaultId: 0, cancelId: 1 });
           return choice.response === 0;
         }
-        const inside = nested ? 'The folder you chose has other files, so your book lives in its own "Open Net Worth" folder inside it.\n\n' : '';
-        const detail = `${folder.root}\n\n${inside}${folder.existing || nested ? '' : 'A new book will be created in this empty folder.\n\n'}${firstLaunch ? 'This will be your book folder. Your other books stay where they are.' : 'The app will reload using this folder. Your current book stays where it is. Unsaved changes and unfinished reviews will close.'}`;
-        const result = await dialog.showMessageBox(main!.window, { type: 'question', title: 'Open Net Worth', message: folder.existing ? 'Open this book?' : 'Create a book here?', detail, buttons: [folder.existing ? 'Open book' : 'Create book', 'Cancel'], defaultId: 0, cancelId: 1 });
+        const inside = nested ? `${t('The folder you chose has other files, so your book lives in its own "Open Net Worth" folder inside it.')}\n\n` : '';
+        const detail = `${folder.root}\n\n${inside}${folder.existing || nested ? '' : `${t('A new book will be created in this empty folder.')}\n\n`}${firstLaunch ? t('This will be your book folder. Your other books stay where they are.') : t('The app will reload using this folder. Your current book stays where it is. Unsaved changes and unfinished reviews will close.')}`;
+        const result = await dialog.showMessageBox(main!.window, { type: 'question', title: 'Open Net Worth', message: folder.existing ? t('Open this book?') : t('Create a book here?'), detail, buttons: [folder.existing ? t('Open book') : t('Create book'), t('Cancel')], defaultId: 0, cancelId: 1 });
         return result.response === 0;
       },
     }, folder => firstLaunch ? initialChoice!.select(folder, restore) : openConfirmedBook(folder), qaMode ? process.env.ONW_DESKTOP_ROOT : undefined);
@@ -494,11 +516,11 @@ async function openBookFolder(restore = false): Promise<{ cancelled: boolean; op
 }
 
 async function returnToBookChoice(): Promise<void> {
-  if (starting || choosingBook || quitting) throw new Error('Wait for the current book operation to finish.');
+  if (starting || choosingBook || quitting) throw new Error(t("Wait for the current book operation to finish."));
   starting = true;
   try {
     const status = await backend!.json<{ is_fresh: boolean }>('/api/setup-status');
-    if (status.is_fresh !== true) throw new Error('Book selection is unavailable after setup.');
+    if (status.is_fresh !== true) throw new Error(t("Book selection is unavailable after setup."));
     pendingFiles.length = 0;
     await main!.prepareBookSwitch('choosing');
     await drainWorkers();
@@ -518,11 +540,11 @@ async function forwardFiles(): Promise<void> {
   const selected = pendingFiles.splice(0, 8);
   const owner = backend?.credential;
   try { const files = await readSelectedFiles(selected); if (backend?.credential === owner) command({ type: 'import-files', files }); }
-  catch { await showError('One of the selected files could not be opened. Choose a regular file smaller than 25 MB.'); }
+  catch { await showError(t('One of the selected files could not be opened. Choose a regular file smaller than 25 MB.')); }
 }
 
 async function currentSettings(): Promise<DesktopSettings> {
-  if (!preferences || !folders) throw new Error('The desktop is unavailable.');
+  if (!preferences || !folders) throw new Error(t("The desktop is unavailable."));
   const { background, launchAtLogin, notifications, keepAwake } = preferences.current;
   const browserUrl = !starting && !quitting && backend?.origin ? `${backend.origin}/` : null;
   return { bookFolder: backend!.bookRoot, browserUrl, background, launchAtLogin, notifications, keepAwake, watchedFolders: await folders.list() };
@@ -530,7 +552,7 @@ async function currentSettings(): Promise<DesktopSettings> {
 
 async function openBrowser(): Promise<void> {
   const origin = main?.serverOrigin ?? backend?.origin;
-  if (starting || quitting || !origin) throw new Error('Wait for the connection to finish opening.');
+  if (starting || quitting || !origin) throw new Error(t("Wait for the connection to finish opening."));
   await shell.openExternal(`${origin}/`);
 }
 
@@ -539,7 +561,7 @@ function currentConnection(): DesktopConnection {
 }
 
 async function changeConnection(serverForm = false): Promise<void> {
-  if (starting || quitting || choosingBook || initialActionPending || initialServer.busy || activity?.isOpen || qaMode && process.env.ONW_DESKTOP_ROOT) throw new Error('Wait for the current connection operation to finish.');
+  if (starting || quitting || choosingBook || initialActionPending || initialServer.busy || activity?.isOpen || qaMode && process.env.ONW_DESKTOP_ROOT) throw new Error(t('Wait for the current connection operation to finish.'));
   await connectionDialog!.show(serverForm);
 }
 
@@ -555,7 +577,7 @@ async function hostedGate(origin: string, afterFailure: boolean): Promise<string
 // while the window stays on the Private Cloud. Nothing else touches the book while it runs.
 function withLocalBackend<T>(root: string, work: (local: MoveEndpoint) => Promise<T>): Promise<T> {
   return books!.exclusive(async () => {
-    if (backend!.origin) throw new Error('Open your Private Cloud first.');
+    if (backend!.origin) throw new Error(t('Open your Private Cloud first.'));
     starting = true;
     try {
       await verifyRememberedBookRoot(root);
@@ -567,14 +589,14 @@ function withLocalBackend<T>(root: string, work: (local: MoveEndpoint) => Promis
 }
 
 function registerIpc(): void {
-  ipcMain.handle('desktop-client:activity-settings', event => { main!.authorizeClient(event); if (!activity || connectionDialog?.isOpen || starting || quitting) throw new Error('Wait for the current operation to finish.'); return activity.show(); });
+  ipcMain.handle('desktop-client:activity-settings', event => { main!.authorizeClient(event); if (!activity || connectionDialog?.isOpen || starting || quitting) throw new Error(t("Wait for the current operation to finish.")); return activity.show(); });
   ipcMain.handle('desktop-report:open', (event, error: unknown) => { main!.authorizeClient(event, true); return openReport(typeof error === 'string' ? error.slice(0, 4000) : undefined); });
   ipcMain.handle('desktop-client:get-connection', event => { main!.authorizeClient(event, true); return currentConnection(); });
   ipcMain.handle('desktop-client:change-connection', (event, serverForm: unknown) => { main!.authorizeClient(event, true); return changeConnection(serverForm === true); });
   ipcMain.handle('desktop-client:fresh-sign-in', (event, returnPath: unknown) => {
     assertPrivateCloudEnabled();
     main!.authorizeClient(event);
-    if (!main!.hosted || starting || quitting) throw new Error('Wait for the current operation to finish.');
+    if (!main!.hosted || starting || quitting) throw new Error(t("Wait for the current operation to finish."));
     return hosted!.signInFresh(safeReturnPath(returnPath));
   });
   // The page's mic: the system's own dictation, typing into the focused field — the Edit menu's
@@ -582,7 +604,7 @@ function registerIpc(): void {
   ipcMain.handle('desktop-client:start-dictation', event => {
     main!.authorizeClient(event);
     const win = BrowserWindow.fromWebContents(event.sender);
-    if (!win || process.platform !== 'darwin') throw new Error('Dictation is a macOS feature.');
+    if (!win || process.platform !== 'darwin') throw new Error(t("Dictation is a macOS feature."));
     startDictation(win);
   });
   ipcMain.handle('desktop-client:stop-dictation', async event => {
@@ -593,7 +615,7 @@ function registerIpc(): void {
   // macOS asks for the microphone once and remembers a refusal; this page is the only way back.
   ipcMain.handle('desktop-client:microphone-settings', event => {
     main!.authorizeClient(event);
-    if (process.platform !== 'darwin') throw new Error('This is a macOS setting.');
+    if (process.platform !== 'darwin') throw new Error(t("This is a macOS setting."));
     return shell.openExternal(microphoneSettingsUrl(release()));
   });
   ipcMain.handle('desktop-client:open-browser', event => { main!.authorizeClient(event); return books!.exclusive(async () => { main!.authorizeClient(event); await openBrowser(); }); });
@@ -601,13 +623,13 @@ function registerIpc(): void {
   ipcMain.handle('desktop-hosted:sign-in', event => {
     assertPrivateCloudEnabled();
     main!.authorizeClient(event, true);
-    if (!event.senderFrame?.url.startsWith('data:') || starting || quitting) throw new Error('Wait for the current operation to finish.');
+    if (!event.senderFrame?.url.startsWith('data:') || starting || quitting) throw new Error(t("Wait for the current operation to finish."));
     return hosted!.signIn();
   });
   const hostedPage = (event: Electron.IpcMainInvokeEvent) => {
     assertPrivateCloudEnabled();
     main!.authorizeClient(event, true);
-    if (!event.senderFrame?.url.startsWith('data:') || starting || quitting) throw new Error('Wait for the current operation to finish.');
+    if (!event.senderFrame?.url.startsWith('data:') || starting || quitting) throw new Error(t("Wait for the current operation to finish."));
   };
   ipcMain.handle('desktop-hosted:open-portal', event => { hostedPage(event); return hosted!.openPortal(); });
   ipcMain.handle('desktop-hosted:open-update', event => { hostedPage(event); return hosted!.openUpdate(); });
@@ -615,11 +637,48 @@ function registerIpc(): void {
     assertPrivateCloudEnabled();
     main!.authorize(event);
     const to = preferences!.current.moved?.to;
-    if (!to) throw new Error('This book has not moved.');
+    if (!to) throw new Error(t("This book has not moved."));
     await books!.exclusive(() => connections!.open({ mode: 'server', serverUrl: to, hosted: { entryUrl: null } }));
   });
   // Replies from a Private Cloud page (a signed-in window or the hidden one a move runs through); each goes only to its own client.
   ipcMain.on(PAGE_RESPONSE_CHANNEL, (event, message: unknown) => routePageResponse(event.sender, event.senderFrame, message));
+  ipcMain.on('desktop-client:locale', (event, locale: unknown) => {
+    if (!main) return;
+    try { main.authorizeClient(event); } catch { return; }
+    if (locale !== 'en' && locale !== 'zh-CN') return;
+    if (locale === getDesktopLocale()) return;
+    setDesktopLocale(locale);
+    installMenu();
+    installTray();
+    moves?.refreshMovedBanner();
+  });
+  ipcMain.on('desktop-client:date-format', (event, format: unknown) => {
+    if (!main) return;
+    try { main.authorizeClient(event); } catch { return; }
+    if (format !== null && format !== 'dmy' && format !== 'mdy' && format !== 'iso') return;
+    setDesktopDateFormat(format);
+    moves?.refreshMovedBanner();
+  });
+  ipcMain.on('desktop-client:profile-display', (event, locale: unknown, format: unknown) => {
+    if (!main || !displayGate?.acceptsProfile) return;
+    try { main.authorizeClient(event); } catch { return; }
+    if (locale !== 'en' && locale !== 'zh-CN') return;
+    if (format !== null && format !== 'dmy' && format !== 'mdy' && format !== 'iso') return;
+    setDesktopLocale(locale);
+    setDesktopDateFormat(format);
+    installMenu();
+    installTray();
+    moves?.refreshMovedBanner();
+    displayGate?.markReady();
+  });
+  ipcMain.on('desktop-client:browser-languages', (event, languages: unknown) => {
+    if (!main || !displayGate?.acceptsProfile) return;
+    try { main.authorizeClient(event); } catch { return; }
+    if (!Array.isArray(languages) || languages.length > 20) return;
+    const values: unknown[] = Array.from(languages);
+    if (!values.every((value): value is string => typeof value === 'string' && value.length <= 100)) return;
+    browserFallbackLocale = desktopBrowserLocale(values);
+  });
   ipcMain.on('desktop-client:history', (event, state: unknown) => {
     const { canGoBack, canGoForward } = (state ?? {}) as Record<string, unknown>;
     if (typeof canGoBack !== 'boolean' || typeof canGoForward !== 'boolean') return;
@@ -652,7 +711,7 @@ function registerIpc(): void {
   });
   ipcMain.handle('desktop:initial-book', (event, value: unknown) => {
     main!.authorizeInitial(event);
-    if (initialActionPending) throw new Error('Wait for the current book operation to finish.');
+    if (initialActionPending) throw new Error(t("Wait for the current book operation to finish."));
     initialActionPending = true;
     return initialBookAction(value).finally(() => { initialActionPending = false; });
   });
@@ -663,10 +722,10 @@ function registerIpc(): void {
   const handle = (channel: string, callback: (...args: unknown[]) => unknown, recovery = false, serialized = true) => {
     ipcMain.handle(channel, (event, ...args: unknown[]) => {
       main?.authorize(event, recovery);
-      if (starting && channel !== 'desktop:get-settings' || quitting) throw new Error('Wait for the current book operation to finish.');
+      if (starting && channel !== 'desktop:get-settings' || quitting) throw new Error(t("Wait for the current book operation to finish."));
       const owner = backend?.credential;
       return serialized ? books!.exclusive(async () => {
-        if (backend?.credential !== owner) throw new Error('The book changed. Try the operation again.');
+        if (backend?.credential !== owner) throw new Error(t("The book changed. Try the operation again."));
         main?.authorize(event, recovery);
         return callback(...args);
       }) : callback(...args);
@@ -683,19 +742,19 @@ function registerIpc(): void {
     return currentSettings();
   });
   handle('desktop:choose-folder', async () => {
-    const selected = await dialog.showOpenDialog(main!.window, { title: 'Choose a folder to watch', properties: ['openDirectory'] });
+    const selected = await dialog.showOpenDialog(main!.window, { title: t('Choose a folder to watch'), properties: ['openDirectory'] });
     if (!selected.canceled && selected.filePaths[0]) await folders!.add(selected.filePaths[0]);
     return currentSettings();
   });
   handle('desktop:revoke-folder', async (id) => {
-    if (typeof id !== 'string' || id.length > 100) throw new Error('Invalid folder.');
+    if (typeof id !== 'string' || id.length > 100) throw new Error(t("Invalid folder."));
     await folders!.revoke(id);
     return currentSettings();
   });
   handle('desktop:open-external', async (value) => {
-    if (typeof value !== 'string' || value.length > 8192) throw new Error('Invalid external URL.');
+    if (typeof value !== 'string' || value.length > 8192) throw new Error(t("Invalid external URL."));
     const safe = externalUrl(value);
-    if (!safe) throw new Error('This external URL is not supported.');
+    if (!safe) throw new Error(t("This external URL is not supported."));
     await shell.openExternal(safe);
   });
   handle('desktop:retry-startup', startBackend, true, false);
@@ -708,7 +767,7 @@ function showMain(): void { loginLaunch = false; main?.show(); void activity?.of
 
 async function saveDesktopSettings(patch: SettingsPatch): Promise<void> {
   const updateLogin = patch.launchAtLogin !== undefined && patch.launchAtLogin !== preferences!.current.launchAtLogin;
-  if (updateLogin && qaMode) throw new Error('Launch at login is unavailable in QA.');
+  if (updateLogin && qaMode) throw new Error(t("Launch at login is unavailable in QA."));
   const options = loginItemOptions(process.platform, process.execPath, existsSync);
   const linuxLogin = process.platform === 'linux' ? new LinuxAutostart(autostartPath(process.env, app.getPath('home')), process.env.APPIMAGE ?? process.execPath, ['--onw-login']) : null;
   const loginEnabled = () => linuxLogin ? linuxLogin.enabled() : app.getLoginItemSettings(options).openAtLogin;
@@ -717,7 +776,7 @@ async function saveDesktopSettings(patch: SettingsPatch): Promise<void> {
   try {
     if (updateLogin) {
       await setLogin(patch.launchAtLogin!);
-      if (loginEnabled() !== patch.launchAtLogin) throw new Error(linuxLogin ? 'Start at login could not be updated. Check that your autostart folder is writable.' : `Start at login could not be updated. Check ${process.platform === 'win32' ? 'Settings → Apps → Startup' : 'System Settings → General → Login Items'}.`);
+      if (loginEnabled() !== patch.launchAtLogin) throw new LoginSettingError(linuxLogin ? t('Start at login could not be updated. Check that your autostart folder is writable.') : t('Start at login could not be updated. Check {settings}.', getDesktopLocale(), { settings: process.platform === 'win32' ? t('Settings → Apps → Startup') : t('System Settings → General → Login Items') }));
     }
     await preferences!.save(patch);
   } catch (error) {
@@ -733,13 +792,13 @@ async function showError(message: string): Promise<void> {
 }
 
 function nativeAction(action: () => Promise<unknown>): void {
-  void action().catch((error: unknown) => { if (!(error instanceof PresentedError)) return showError('The operation could not finish. Your book has been kept. Please try again.'); });
+  void action().catch((error: unknown) => { if (!(error instanceof PresentedError)) return showError(t('The operation could not finish. Your book has been kept. Please try again.')); });
 }
 
 // Hosted failures carry a plain sentence meant for the user (never the sign-in link or code).
 function hostedAction(action: () => Promise<unknown>): void {
   if (starting || quitting) return;
-  void action().catch((error: unknown) => showError(error instanceof Error ? error.message : 'The operation could not finish.'));
+  void action().catch((error: unknown) => showError(error instanceof Error ? error.message : t('The operation could not finish.')));
 }
 
 // A report opened from the menu knows where the user is (and, on a recovery page, the failure it shows);
@@ -795,7 +854,9 @@ function installMenu(): void {
     windowMenu(process.platform, showMain),
     helpMenu(process.platform, { send: command, checkForUpdates, serverMode, openLogs: () => nativeAction(openLogsFolder), revealBook: () => { if (backend) shell.showItemInFolder(backend.bookRoot); }, restartServer: () => nativeAction(restartLocalBackend), reportProblem }),
   ];
-  Menu.setApplicationMenu(Menu.buildFromTemplate(stepAside(template, reportProblem)));
+  const menu = Menu.buildFromTemplate(localizeMenu(stepAside(template, reportProblem), getDesktopLocale()));
+  localizeNativeRoles(menu, getDesktopLocale(), app.name);
+  Menu.setApplicationMenu(menu);
 }
 
 // Any other menu command closes an open report first, as a click outside it would; Report a Problem
@@ -819,7 +880,7 @@ async function openLogsFolder(): Promise<void> {
 
 async function restartLocalBackend(): Promise<void> {
   if (!main || main.serverOrigin || starting || quitting || choosingBook || initialActionPending || firstLaunch) return;
-  const answer = await dialog.showMessageBox(main.window, { type: 'question', title: 'Open Net Worth', message: 'Restart the local server?', detail: 'The app will reload. Unsaved changes and unfinished reviews will close.', buttons: ['Restart', 'Cancel'], defaultId: 0, cancelId: 1 });
+  const answer = await dialog.showMessageBox(main.window, { type: 'question', title: 'Open Net Worth', message: t('Restart the local server?'), detail: t('The app will reload. Unsaved changes and unfinished reviews will close.'), buttons: [t('Restart'), t('Cancel')], defaultId: 0, cancelId: 1 });
   if (answer.response === 0) await startBackend();
 }
 
@@ -844,5 +905,5 @@ function installTray(): void {
   }
   // Native import and the local intake review only exist for a local book; a server connection
   // hides them, as the File menu already disables them.
-  tray.setContextMenu(Menu.buildFromTemplate([{ label: 'Open Open Net Worth', click: showMain }, { label: 'Open in browser', click: () => nativeAction(() => books!.exclusive(openBrowser)) }, ...(main?.serverOrigin ? [] : [{ label: 'Import statement or receipt…', click: importAction }, { label: 'Review documents', click: () => command({ type: 'open-inbox' }) }]), ...(updates?.pending ? [{ type: 'separator' as const }, { label: updates.menuLabel, click: () => nativeAction(() => updates!.checkNow()) }] : []), { type: 'separator' }, { label: 'Quit Open Net Worth', click: () => app.quit() }]));
+  tray.setContextMenu(Menu.buildFromTemplate(localizeMenu([{ label: 'Open Open Net Worth', click: showMain }, { label: 'Open in browser', click: () => nativeAction(() => books!.exclusive(openBrowser)) }, ...(main?.serverOrigin ? [] : [{ label: 'Import statement or receipt…', click: importAction }, { label: 'Review documents', click: () => command({ type: 'open-inbox' }) }]), ...(updates?.pending ? [{ type: 'separator' as const }, { label: updates.menuLabel, click: () => nativeAction(() => updates!.checkNow()) }] : []), { type: 'separator' }, { label: 'Quit Open Net Worth', click: () => app.quit() }], getDesktopLocale())));
 }

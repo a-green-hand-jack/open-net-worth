@@ -1,3 +1,4 @@
+import { useAppIntl } from '../../../i18n/useAppIntl'
 // Browse & add — the modal host (spec §6 and §7).
 //
 // ONE modal hosts three views: the directory grid, an entry's preview page, and the
@@ -64,6 +65,7 @@ export function DirectoryModal({
   autoConnect = false,
   toast,
 }: DirectoryModalProps): JSX.Element | null {
+  const { formatMessage } = useAppIntl()
   const entries = resolveDirectory(connectors)
 
   const [directoryFamily, setDirectoryFamily] = useState<DirectoryFamilyFilter>(family)
@@ -91,8 +93,8 @@ export function DirectoryModal({
     onSaved: (name, toolCount, opts) => {
       toast?.(
         opts?.dormant
-          ? `${name} saved, switched off — turn it on from its settings to test it`
-          : `${name} added — ${toolCount} tool${toolCount === 1 ? '' : 's'} ready for Lucius`,
+          ? formatMessage({ id: 'connectors.directory.savedOff', defaultMessage: '{name} saved, switched off — turn it on from its settings to test it' }, { name })
+          : formatMessage({ id: 'connectors.directory.added', defaultMessage: '{name} added — {count} {count, plural, one {tool} other {tools}} ready for Lucius' }, { name, count: toolCount }),
       )
       onAdded?.()
       close()
@@ -188,13 +190,13 @@ export function DirectoryModal({
 
   const title = mcpOpen ? (
     <BackTitle
-      label={flow.step === 'form' ? 'Back to directory' : 'Back'}
+      label={flow.step === 'form' ? formatMessage({ id: 'connectors.directory.back', defaultMessage: 'Back to directory' }) : formatMessage({ id: 'connectors.mcp.back', defaultMessage: 'Back' })}
       onClick={handleFlowBack}
     />
   ) : preview ? (
-    <BackTitle label="Back" onClick={() => setPreview(null)} />
+    <BackTitle label={formatMessage({ id: 'connectors.mcp.back', defaultMessage: 'Back' })} onClick={() => setPreview(null)} />
   ) : (
-    'Browse & add'
+    formatMessage({ id: 'connectors.browse', defaultMessage: 'Browse & add' })
   )
 
   const footer = mcpOpen ? (
@@ -204,16 +206,16 @@ export function DirectoryModal({
     // the action instead: always in view, in thumb reach, and steady while the body scrolls.
     <PreviewAction d={preview} onAdd={add} onConfigure={configure} className="cn-foot-action" />
   ) : preview ? (
-    <Btn onClick={() => setPreview(null)}>Back</Btn>
+    <Btn onClick={() => setPreview(null)}>{formatMessage({ id: 'connectors.mcp.back', defaultMessage: 'Back' })}</Btn>
   ) : (
     <>
       {/* Always in reach, whatever the list is scrolled to (owner, 2026-10-31). */}
       {customEntry ? (
         <Btn variant="primary" onClick={() => add(customEntry)}>
-          <Icons.plus /> Add custom server
+          <Icons.plus /> {formatMessage({ id: 'connectors.directory.customAction', defaultMessage: 'Add custom server' })}
         </Btn>
       ) : null}
-      <Btn onClick={close}>Close</Btn>
+      <Btn onClick={close}>{formatMessage({ id: 'connectors.close', defaultMessage: 'Close' })}</Btn>
     </>
   )
 

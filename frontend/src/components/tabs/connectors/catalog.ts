@@ -106,6 +106,7 @@ export interface CatalogEntry extends Omit<
 
 /** The provenance half of a catalog entry, on its own — what an installed server can inherit. */
 export interface CatalogProvenance {
+  id: string
   publisher: string | null
   verification: VerificationState
   repoUrl?: string
@@ -1432,6 +1433,7 @@ export function catalogProvenanceFor(endpoint: string | undefined): CatalogProve
         : [preset.command, preset.args].filter(Boolean).join(' ')
     if (known && endpointKey(known) === needle) {
       return {
+        id: entry.id,
         publisher: entry.publisher,
         verification: entry.verification,
         repoUrl: entry.repoUrl,

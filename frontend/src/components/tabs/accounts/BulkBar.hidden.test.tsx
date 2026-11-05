@@ -1,6 +1,8 @@
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { IntlProvider } from 'react-intl'
+import messages from './zh-CN.messages.json'
 import { BulkBar } from './BulkBar'
 
 afterEach(() => cleanup())
@@ -51,4 +53,22 @@ describe('BulkBar — Hide from Register / Unhide', () => {
     )
     expect(screen.getByRole('button', { name: /^unhide$/i })).toHaveProperty('disabled', false)
   })
+})
+
+it('shows Chinese bulk actions without changing their behavior', () => {
+  const onHide = vi.fn()
+  render(
+    <IntlProvider locale="zh-CN" messages={messages}>
+      <BulkBar count={2} total={{ amount: -30, currency: null, approx: false }}
+        accounts={[]} categories={[]} railCollapsed={false} railWidth={240}
+        onClear={vi.fn()} onCategory={vi.fn()} onAskLucius={vi.fn()}
+        onMarkCleared={vi.fn()} onMarkUncleared={vi.fn()} onMarkReviewed={vi.fn()}
+        onHide={onHide} onUnhide={vi.fn()} onDuplicate={vi.fn()} onMemo={vi.fn()}
+        onMove={vi.fn()} onExport={vi.fn()} onDelete={vi.fn()} />
+    </IntlProvider>,
+  )
+  expect(screen.getByText('2 笔交易')).toBeTruthy()
+  fireEvent.click(screen.getByRole('button', { name: '更多' }))
+  fireEvent.click(screen.getByRole('button', { name: '从账簿中隐藏' }))
+  expect(onHide).toHaveBeenCalledTimes(1)
 })

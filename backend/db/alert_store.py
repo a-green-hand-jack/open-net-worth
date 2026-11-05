@@ -63,7 +63,9 @@ _MAX_MOVE_PCT = 100.0
 def norm_ticker(ticker: str) -> str:
     t = (ticker or "").strip().upper()
     if not t:
-        raise ValidationError("alert ticker must be non-empty")
+        raise ValidationError(
+            "alert ticker must be non-empty", message_id="alert.error.tickerRequired"
+        )
     return t
 
 
@@ -71,27 +73,36 @@ def norm_value(value: object) -> float:
     try:
         v = float(value)  # type: ignore[arg-type]
     except (TypeError, ValueError) as exc:
-        raise ValidationError(f"alert value must be a number, got {value!r}") from exc
+        raise ValidationError(
+            f"alert value must be a number, got {value!r}", message_id="alert.error.valueNumber"
+        ) from exc
     if v != v or v in (float("inf"), float("-inf")):  # NaN / inf
-        raise ValidationError("alert value must be finite")
+        raise ValidationError("alert value must be finite", message_id="alert.error.valueFinite")
     return v
 
 
 def norm_op(op: str) -> str:
     if op not in ALERT_OPS:
-        raise ValidationError(f"alert op must be one of {ALERT_OPS}, got {op!r}")
+        raise ValidationError(
+            f"alert op must be one of {ALERT_OPS}, got {op!r}", message_id="alert.error.operator"
+        )
     return op
 
 
 def norm_kind(kind: str) -> str:
     if kind not in ALERT_KINDS:
-        raise ValidationError(f"alert kind must be one of {ALERT_KINDS}, got {kind!r}")
+        raise ValidationError(
+            f"alert kind must be one of {ALERT_KINDS}, got {kind!r}", message_id="alert.error.kind"
+        )
     return kind
 
 
 def norm_channels(channels: object) -> list[str]:
     if not isinstance(channels, list) or not all(isinstance(c, str) for c in channels):
-        raise ValidationError(f"alert channels must be a list of channel ids, got {channels!r}")
+        raise ValidationError(
+            f"alert channels must be a list of channel ids, got {channels!r}",
+            message_id="alert.error.channels",
+        )
     out: list[str] = []
     for c in (c.strip() for c in channels):
         if c and c != "in_app" and c not in out:
@@ -102,7 +113,11 @@ def norm_channels(channels: object) -> list[str]:
 def norm_name(name: object) -> str:
     n = str(name or "").strip()
     if len(n) > _NAME_MAX_LEN:
-        raise ValidationError(f"alert name must be at most {_NAME_MAX_LEN} characters, got {n!r}")
+        raise ValidationError(
+            f"alert name must be at most {_NAME_MAX_LEN} characters, got {n!r}",
+            message_id="alert.error.nameLength",
+            message_params={"limit": _NAME_MAX_LEN},
+        )
     return n
 
 
@@ -111,7 +126,11 @@ def _norm_value_for_kind(value: object, kind: str) -> float:
     close must be > 0 and <= 100. A ``"price"`` alert keeps the unbounded semantics."""
     v = norm_value(value)
     if kind == "move" and not (0 < v <= _MAX_MOVE_PCT):
-        raise ValidationError(f"move alert value must be > 0 and <= {_MAX_MOVE_PCT}, got {v!r}")
+        raise ValidationError(
+            f"move alert value must be > 0 and <= {_MAX_MOVE_PCT}, got {v!r}",
+            message_id="alert.error.moveRange",
+            message_params={"max": _MAX_MOVE_PCT},
+        )
     return v
 
 
@@ -149,7 +168,8 @@ def _resolve_instrument_id_by_ticker(ticker: str) -> str:
 def norm_on_trigger(on_trigger: str) -> str:
     if on_trigger not in ALERT_ON_TRIGGER:
         raise ValidationError(
-            f"alert on_trigger must be one of {ALERT_ON_TRIGGER}, got {on_trigger!r}"
+            f"alert on_trigger must be one of {ALERT_ON_TRIGGER}, got {on_trigger!r}",
+            message_id="alert.error.onTrigger",
         )
     return on_trigger
 
@@ -158,10 +178,15 @@ def norm_cooldown_minutes(value: object) -> int:
     """Reject bool explicitly — bool is an int subclass in Python and would otherwise pass a
     bare ``isinstance(value, int)`` check while meaning nothing here."""
     if isinstance(value, bool) or not isinstance(value, int):
-        raise ValidationError(f"alert cooldown_minutes must be a whole number, got {value!r}")
+        raise ValidationError(
+            f"alert cooldown_minutes must be a whole number, got {value!r}",
+            message_id="alert.error.cooldownInteger",
+        )
     if not (0 <= value <= _MAX_COOLDOWN_MINUTES):
         raise ValidationError(
-            f"alert cooldown_minutes must be between 0 and {_MAX_COOLDOWN_MINUTES}, got {value!r}"
+            f"alert cooldown_minutes must be between 0 and {_MAX_COOLDOWN_MINUTES}, got {value!r}",
+            message_id="alert.error.cooldownRange",
+            message_params={"max": _MAX_COOLDOWN_MINUTES},
         )
     return value
 

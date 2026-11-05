@@ -1,4 +1,7 @@
+import { useAppIntl } from '../../../i18n/useAppIntl'
+
 export function FileDropMask({ className = '' }: { className?: string }) {
+  const intl = useAppIntl()
   return (
     <div className={'lx-dropmask' + (className ? ' ' + className : '')}>
       <svg
@@ -11,7 +14,7 @@ export function FileDropMask({ className = '' }: { className?: string }) {
       >
         <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M12 3v13M7 8l5-5 5 5" />
       </svg>
-      Drop files to attach
+      {intl.formatMessage({ id: 'scan2.dropFiles', defaultMessage: 'Drop files to attach' })}
     </div>
   )
 }

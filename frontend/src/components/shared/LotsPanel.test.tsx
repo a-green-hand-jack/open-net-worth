@@ -1,9 +1,15 @@
 // @vitest-environment jsdom
 
 import { describe, it, expect, afterEach, beforeEach, vi } from 'vitest'
-import { render, cleanup, waitFor, fireEvent } from '@testing-library/react'
-import { fDate } from '../../utils/format'
+import { Profiler, useEffect } from 'react'
+import { LocaleProvider } from '../../i18n/LocaleProvider'
+import { useSetLocalePreference } from '../../i18n/localeContext'
+import { act, render, cleanup, waitFor, fireEvent } from '@testing-library/react'
+import { fDate, setDisplayFormats, setInterfaceLocale } from '../../utils/format'
 import { LotsPanel } from './LotsPanel'
+import { IntlProvider } from 'react-intl'
+import messages from './zh-CN.messages.json'
+import baseMessages from '../../i18n/zh-CN.json'
 import type { Lot, RealizedEvent, IncomeEvent } from '../../types/portfolio'
 
 const mockAuthFetch = vi.fn()
@@ -44,7 +50,70 @@ beforeEach(() => {
 })
 afterEach(cleanup)
 
+it('refreshes actual lot dates and quantities when profile display preferences change', async () => {
+  setInterfaceLocale('en')
+  setDisplayFormats({})
+  mockAuthFetch.mockImplementation((url: string) => {
+    if (url.includes('/lots')) return Promise.resolve({ ok: true, json: async () => ({ lots: [{ ...LOT, original_qty: 1234.5, remaining_qty: 1234.5 }] }) })
+    return Promise.resolve({ ok: true, json: async () => ({ events: [] }) })
+  })
+  const { container } = render(<IntlProvider locale="zh-CN" messages={{ ...baseMessages, ...messages }}><LotsPanel positionId="pos-1" symbol="AAPL" costCcy="USD" base={20000} costBase={18520} /></IntlProvider>)
+  const row = await waitFor(() => {
+    const el = container.querySelector('[data-entity-id="lot:lot-1"]')
+    if (!el) throw new Error('lot not loaded')
+    return el
+  })
+  act(() => { setInterfaceLocale('zh-CN'); setDisplayFormats({ date_format: 'dmy', number_format: 'dot' }) })
+  expect(row.textContent).toContain('15日1月2024年')
+  expect(row.textContent).toContain('1.234,5')
+  act(() => { setDisplayFormats({}); setInterfaceLocale(undefined) })
+})
+
+function LocaleControls({ profile }: { profile?: string }) {
+  const select = useSetLocalePreference()
+  useEffect(() => { if (profile) select(profile) }, [profile, select])
+  return <button onClick={() => select('zh-CN')}>Choose Chinese</button>
+}
+
+it('updates a mounted lot after changing language without remounting or looping', async () => {
+  setInterfaceLocale(undefined)
+  setDisplayFormats({})
+  let renders = 0
+  const { container, getByText } = render(<LocaleProvider><LocaleControls /><Profiler id="lots" onRender={() => { renders += 1 }}><LotsPanel positionId="pos-1" symbol="AAPL" costCcy="USD" base={20000} costBase={18520} /></Profiler></LocaleProvider>)
+  const row = await waitFor(() => {
+    const el = container.querySelector('[data-entity-id="lot:lot-1"]')
+    if (!el) throw new Error('lot not loaded')
+    return el
+  })
+  expect(row.textContent).toContain('Jan 15, 2024')
+  fireEvent.click(getByText('Choose Chinese'))
+  await waitFor(() => expect(row.textContent).toContain('2024年1月15日'))
+  expect(container.querySelector('[data-entity-id="lot:lot-1"]')).toBe(row)
+  expect(renders).toBeLessThan(20)
+})
+
+it('uses a loaded Chinese profile for the first settled lot display over an English browser', async () => {
+  setInterfaceLocale(undefined)
+  setDisplayFormats({})
+  const { container } = render(<LocaleProvider><LocaleControls profile="zh-CN" /><LotsPanel positionId="pos-1" symbol="AAPL" costCcy="USD" base={20000} costBase={18520} /></LocaleProvider>)
+  await waitFor(() => expect(container.querySelector('[data-entity-id="lot:lot-1"]')?.textContent).toContain('2024年1月15日'))
+})
+
 describe('LotsPanel — Lucius entity wiring', () => {
+  it('localizes lot terms while retaining the numeric values and semantic CSS class', async () => {
+    const { container, findByText } = render(
+      <IntlProvider locale="zh-CN" messages={{ ...baseMessages, ...messages }}>
+        <LotsPanel positionId="pos-1" symbol="AAPL" costCcy="USD" base={20000} costBase={18520} />
+      </IntlProvider>,
+    )
+    expect(await findByText('长期')).toBeTruthy()
+    const badge = container.querySelector('.term-badge')
+    expect(badge?.classList.contains('term-long')).toBe(true)
+    const row = container.querySelector('[data-entity-id="lot:lot-1"]')
+    expect(row?.textContent).toContain('100')
+    expect(row?.getAttribute('data-entity-label')).toBe('AAPL')
+  })
+
   it('renders each open lot row as a draggable lot mention entity', async () => {
     const { container } = render(
       <LotsPanel positionId="pos-1" symbol="AAPL" costCcy="USD" base={20000} costBase={18520} />,

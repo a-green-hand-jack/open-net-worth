@@ -1,5 +1,10 @@
+import { getNumberLocale } from '../../../utils/format'
+import { useAppIntl } from '../../../i18n/useAppIntl'
+import type { IntlShape } from 'react-intl'
+import { FormattedMessage } from './FormattedMessage'
 import { Badge, Button, Cluster, Grid, Stack, Text } from '../../ui'
 import type { ReviewItem as Item, Version } from './sync'
+import { ynabMessage } from '../automations/datasync/ynabMessages'
 
 // One thing the sync would not apply on its own: both versions side by side, and the choice of
 // which one wins on BOTH sides.
@@ -7,7 +12,7 @@ import type { ReviewItem as Item, Version } from './sync'
 const money = (v: number | null | undefined) =>
   v == null
     ? ''
-    : v.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+    : v.toLocaleString(getNumberLocale(), { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 
 const FIELDS: { key: keyof Version; label: string }[] = [
   { key: 'amount', label: 'Amount' },
@@ -19,12 +24,12 @@ const FIELDS: { key: keyof Version; label: string }[] = [
   { key: 'cleared', label: 'Cleared' },
 ]
 
-function shown(key: keyof Version, v: Version | null): string {
-  if (v === null) return 'Deleted'
+function shown(key: keyof Version, v: Version | null, intl: IntlShape): string {
+  if (v === null) return intl.formatMessage({ id: 'imports.reviewItem.deleted', defaultMessage: 'Deleted' })
   const value = v[key]
   if (value == null || value === '') return '—'
   if (key === 'amount') return money(value as number)
-  if (key === 'cleared') return value ? 'Cleared' : 'Uncleared'
+  if (key === 'cleared') return intl.formatMessage({ id: 'imports.reviewItem.cleared', defaultMessage: '{cleared, select, yes {Cleared} other {Uncleared}}' }, { cleared: value ? 'yes' : 'no' })
   return String(value)
 }
 
@@ -44,6 +49,7 @@ function context(v: Version | null): string {
 }
 
 function Differences({ onw, ynab }: { onw: Version | null; ynab: Version | null }) {
+  const intl = useAppIntl()
   const rows = differences(onw, ynab)
   if (rows.length === 0) return null
   const gone = onw === null || ynab === null
@@ -52,20 +58,20 @@ function Differences({ onw, ynab }: { onw: Version | null; ynab: Version | null 
       {rows.map(({ key, label }) => (
         <div key={label}>
           <Text size="xs" weight={600}>
-            {label}
+            {intl.formatMessage({ id: 'imports.reviewItem.field', defaultMessage: '{field, select, amount {Amount} date {Date} account {Account} payee {Payee} category {Category} memo {Memo} cleared {Cleared} other {Transaction}}' }, { field: gone ? 'transaction' : key })}
           </Text>
           <Grid min={200} gap="--space-3">
             <Text size="sm">
               <Text size="xs" tone="faint">
                 Open Net Worth:{' '}
               </Text>
-              {gone ? (onw === null ? 'Deleted' : context(onw)) : shown(key, onw)}
+              {gone ? (onw === null ? intl.formatMessage({ id: 'imports.reviewItem.deleted', defaultMessage: 'Deleted' }) : context(onw)) : shown(key, onw, intl)}
             </Text>
             <Text size="sm">
               <Text size="xs" tone="faint">
                 YNAB:{' '}
               </Text>
-              {gone ? (ynab === null ? 'Deleted' : context(ynab)) : shown(key, ynab)}
+              {gone ? (ynab === null ? intl.formatMessage({ id: 'imports.reviewItem.deleted', defaultMessage: 'Deleted' }) : context(ynab)) : shown(key, ynab, intl)}
             </Text>
           </Grid>
         </div>
@@ -74,15 +80,13 @@ function Differences({ onw, ynab }: { onw: Version | null; ynab: Version | null 
   )
 }
 
-const badgeOf = (item: Item) =>
-  item.kind === 'conflict' && item.fresh ? 'Differs' : KIND_LABEL[item.kind]
+const badgeOf = (item: Item, intl: IntlShape) =>
+  !['conflict', 'unsupported', 'failed', 'before_start', 'choose'].includes(item.kind) ? item.kind : intl.formatMessage({ id: 'imports.reviewItem.badge', defaultMessage: "{kind, select, differs {Differs} conflict {Changed in both} unsupported {YNAB can't take it} failed {Refused} before_start {Before the Starting Balance} other {Needs your choice}}" }, { kind: item.kind === 'conflict' && item.fresh ? 'differs' : item.kind })
 
-const KIND_LABEL: Record<Item['kind'], string> = {
-  conflict: 'Changed in both',
-  unsupported: "YNAB can't take it",
-  failed: 'Refused',
-  before_start: 'Before the Starting Balance',
-  choose: 'Needs your choice',
+function reviewFieldLabel(id: string | undefined, fallback: string, intl: IntlShape): string {
+  return id && ['name', 'hidden', 'group'].includes(id)
+    ? intl.formatMessage({ id: 'imports.reviewItem.categoryField', defaultMessage: '{field, select, name {Name} hidden {Visibility} other {Group}}' }, { field: id })
+    : fallback
 }
 
 type Keep = (keep: 'onw' | 'ynab', choice?: string) => void
@@ -90,6 +94,7 @@ type Keep = (keep: 'onw' | 'ynab', choice?: string) => void
 // A category or a group: what differs is a few words, and a category YNAB has that could go
 // with several things here asks which. Each button says what it does.
 function NameCard(props: { item: Item; busy: boolean; onKeep: Keep }) {
+  const intl = useAppIntl()
   const { item, busy, onKeep } = props
   const asking = item.kind === 'choose' && item.entity === 'new_category'
   const ours = item.category !== undefined // a category here YNAB would not take
@@ -97,26 +102,26 @@ function NameCard(props: { item: Item; busy: boolean; onKeep: Keep }) {
     <Stack gap="--space-2">
       <Cluster gap="--space-2" align="center">
         <Text size="sm" weight={600}>
-          {item.title}
+          {ynabMessage(intl, item.title_message, item.title)}
         </Text>
-        <Badge tone={item.kind === 'failed' ? 'neg' : 'warn'}>{badgeOf(item)}</Badge>
+        <Badge tone={item.kind === 'failed' ? 'neg' : 'warn'}>{badgeOf(item, intl)}</Badge>
       </Cluster>
       <Text size="sm" tone={item.kind === 'failed' ? 'bad' : 'faint'}>
-        {item.reason}
+        {ynabMessage(intl, item.reason_message, item.reason)}
       </Text>
       {(item.fields ?? []).map((f) => (
         <Grid key={f.label} min={200} gap="--space-3">
           <Text size="sm">
             <Text size="xs" tone="faint">
-              Open Net Worth {f.label.toLowerCase()}:{' '}
+              {intl.formatMessage({ id: 'imports.reviewItem.fieldFor', defaultMessage: 'Open Net Worth {field}:' }, { field: reviewFieldLabel(f.field_id, f.label, intl).toLowerCase() })}{' '}
             </Text>
-            {f.onw}
+            {ynabMessage(intl, f.onw_message, f.onw)}
           </Text>
           <Text size="sm">
             <Text size="xs" tone="faint">
-              YNAB {f.label.toLowerCase()}:{' '}
+              {intl.formatMessage({ id: 'imports.reviewItem.fieldForYnab', defaultMessage: 'YNAB {field}:' }, { field: reviewFieldLabel(f.field_id, f.label, intl).toLowerCase() })}{' '}
             </Text>
-            {f.ynab}
+            {ynabMessage(intl, f.ynab_message, f.ynab)}
           </Text>
         </Grid>
       ))}
@@ -125,38 +130,38 @@ function NameCard(props: { item: Item; busy: boolean; onKeep: Keep }) {
           <>
             {(item.options ?? []).map((o) => (
               <Button key={o.ref} size="sm" disabled={busy} onClick={() => onKeep('onw', o.ref)}>
-                {o.ref.startsWith('env:') ? `Add it to ${o.name}` : `Use ${o.name}`}
+                {intl.formatMessage({ id: 'imports.reviewItem.choice', defaultMessage: '{kind, select, envelope {Add it to {name}} other {Use {name}}}' }, { kind: o.ref.startsWith('env:') ? 'envelope' : 'category', name: o.name })}
               </Button>
             ))}
             <Button size="sm" disabled={busy} onClick={() => onKeep('ynab')}>
-              Add as a new category
+              {<FormattedMessage id="imports.static.a91ae05a" defaultMessage={"Add as a new category"} />}
             </Button>
           </>
         ) : item.entity === 'budget' ? (
           <>
             <Button size="sm" disabled={busy} onClick={() => onKeep('ynab')}>
-              Give it an envelope
+              {<FormattedMessage id="imports.static.b96e8cdf" defaultMessage={"Give it an envelope"} />}
             </Button>
             <Button size="sm" disabled={busy} onClick={() => onKeep('onw')}>
-              Leave it without one
+              {<FormattedMessage id="imports.static.a7d89201" defaultMessage={"Leave it without one"} />}
             </Button>
           </>
         ) : item.entity === 'new_category' ? (
           <>
             <Button size="sm" disabled={busy} onClick={() => onKeep(ours ? 'onw' : 'ynab')}>
-              Try again
+              {<FormattedMessage id="imports.static.0c1dae16" defaultMessage={"Try again"} />}
             </Button>
             <Button size="sm" disabled={busy} onClick={() => onKeep(ours ? 'ynab' : 'onw')}>
-              {ours ? 'Leave it out of YNAB' : 'Leave it out'}
+              {intl.formatMessage({ id: 'imports.reviewItem.leaveOut', defaultMessage: '{ours, select, yes {Leave it out of YNAB} other {Leave it out}}' }, { ours: ours ? 'yes' : 'no' })}
             </Button>
           </>
         ) : (
           <>
             <Button size="sm" disabled={busy} onClick={() => onKeep('onw')}>
-              Keep Open Net Worth&apos;s
+              {<FormattedMessage id="imports.static.d583de1c" defaultMessage={"Keep Open Net Worth's"} />}
             </Button>
             <Button size="sm" disabled={busy} onClick={() => onKeep('ynab')}>
-              Keep YNAB&apos;s
+              {<FormattedMessage id="imports.static.5304c796" defaultMessage={"Keep YNAB's"} />}
             </Button>
           </>
         )}
@@ -168,29 +173,30 @@ function NameCard(props: { item: Item; busy: boolean; onKeep: Keep }) {
 // Moving a Starting Balance is never automatic: the card states both outcomes and the button
 // names the move it makes.
 function StartCard(props: { item: Item; busy: boolean; onKeep: Keep }) {
+  const intl = useAppIntl()
   const { item } = props
   const cur = item.currency ? ` ${item.currency}` : ''
   return (
     <Stack gap="--space-2">
       <Cluster gap="--space-2" align="center">
         <Text size="sm" weight={600}>
-          {item.title}
+          {ynabMessage(intl, item.title_message, item.title)}
         </Text>
-        <Badge tone="warn">{KIND_LABEL.before_start}</Badge>
+        <Badge tone="warn">{badgeOf(item, intl)}</Badge>
       </Cluster>
       <Text size="sm" tone="faint">
-        {item.reason}
+        {ynabMessage(intl, item.reason_message, item.reason)}
       </Text>
       <Grid min={200} gap="--space-3">
         <Text size="sm">
           <Text size="xs" tone="faint">
-            Starting Balance date:{' '}
+            {intl.formatMessage({ id: 'imports.reviewItem.startDate', defaultMessage: 'Starting Balance date:' })}{' '}
           </Text>
           {item.start} → {item.earliest}
         </Text>
         <Text size="sm">
           <Text size="xs" tone="faint">
-            Balance:{' '}
+            {intl.formatMessage({ id: 'imports.reviewItem.balance', defaultMessage: 'Balance:' })}{' '}
           </Text>
           {money(item.balance_now)}
           {cur} → {money(item.balance_counted)}
@@ -199,10 +205,10 @@ function StartCard(props: { item: Item; busy: boolean; onKeep: Keep }) {
       </Grid>
       <Cluster gap="--space-2">
         <Button size="sm" disabled={props.busy} onClick={() => props.onKeep('ynab')}>
-          Move the Starting Balance to {item.earliest}
+          {intl.formatMessage({ id: 'imports.reviewItem.moveStart', defaultMessage: 'Move the Starting Balance to {date}' }, { date: item.earliest ?? '' })}
         </Button>
         <Button size="sm" disabled={props.busy} onClick={() => props.onKeep('onw')}>
-          Keep as history
+          {<FormattedMessage id="imports.static.ce030573" defaultMessage={"Keep as history"} />}
         </Button>
       </Cluster>
     </Stack>
@@ -210,6 +216,7 @@ function StartCard(props: { item: Item; busy: boolean; onKeep: Keep }) {
 }
 
 export function ReviewCard(props: { item: Item; busy: boolean; onKeep: Keep }) {
+  const intl = useAppIntl()
   const { item } = props
   if (item.entity === 'start') return <StartCard {...props} />
   if (['category', 'group', 'new_category', 'budget'].includes(item.entity ?? ''))
@@ -218,16 +225,16 @@ export function ReviewCard(props: { item: Item; busy: boolean; onKeep: Keep }) {
     <Stack gap="--space-2">
       <Cluster gap="--space-2" align="center">
         <Text size="sm" weight={600}>
-          {item.title}
+          {ynabMessage(intl, item.title_message, item.title)}
         </Text>
-        <Badge tone={item.kind === 'conflict' ? 'warn' : 'neg'}>{badgeOf(item)}</Badge>
+        <Badge tone={item.kind === 'conflict' ? 'warn' : 'neg'}>{badgeOf(item, intl)}</Badge>
       </Cluster>
       <Text
         size="sm"
         weight={item.kind === 'conflict' ? undefined : 600}
         tone={item.kind === 'conflict' ? 'faint' : item.kind === 'failed' ? 'bad' : 'warn'}
       >
-        {item.reason}
+        {ynabMessage(intl, item.reason_message, item.reason)}
       </Text>
       <Differences onw={item.onw} ynab={item.ynab} />
       <Text size="xs" tone="faint">
@@ -236,11 +243,11 @@ export function ReviewCard(props: { item: Item; busy: boolean; onKeep: Keep }) {
       <Cluster gap="--space-2">
         {(item.kind !== 'unsupported' || item.ynab === null) && (
           <Button size="sm" disabled={props.busy} onClick={() => props.onKeep('onw')}>
-            Keep Open Net Worth&apos;s
+            {<FormattedMessage id="imports.static.d583de1c" defaultMessage={"Keep Open Net Worth's"} />}
           </Button>
         )}
         <Button size="sm" disabled={props.busy} onClick={() => props.onKeep('ynab')}>
-          Keep YNAB&apos;s
+          {<FormattedMessage id="imports.static.5304c796" defaultMessage={"Keep YNAB's"} />}
         </Button>
       </Cluster>
     </Stack>

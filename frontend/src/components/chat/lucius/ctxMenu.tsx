@@ -1,3 +1,4 @@
+import { useAppIntl } from '../../../i18n/useAppIntl'
 // ctxMenu.tsx — the "Ask Lucius about this" context menu, portaled to document.body.
 //
 // Opened by dragRightClick.tsx from a right-click (contextmenu) or a touch long-press on a
@@ -92,6 +93,7 @@ export function CtxMenu({
   onAsk: (ref: MentionRef) => void
   onClose: () => void
 }) {
+  const intl = useAppIntl()
   const menuRef = useRef<HTMLDivElement>(null)
   const [pos, setPos] = useState({ x: state.x, y: state.y })
 
@@ -145,7 +147,7 @@ export function CtxMenu({
         }}
       >
         <span className="lx-ctxmenu-ic">✦</span>
-        Ask Lucius about this
+        {intl.formatMessage({ id: 'chat.askAboutThis', defaultMessage: 'Ask Lucius about this' })}
       </button>
     </div>,
     document.body,

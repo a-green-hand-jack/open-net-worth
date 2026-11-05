@@ -1,3 +1,4 @@
+import { useAppIntl } from '../../i18n/useAppIntl'
 // Mounted once by the shell: shows the current screen's first-visit intro while that screen
 // is still empty, once per user (remembered on the server). Each screen's "empty" reads data
 // the app already caches, so an intro that will never show costs no extra request.
@@ -16,7 +17,7 @@ import { useLuciusChatOptional } from '../../state/luciusChat'
 import { FeatureIntro } from './FeatureIntro'
 import { PageTour } from './PageTour'
 import { findTarget } from './tourTarget'
-import { HIDDEN_INTROS, SCREEN_INTROS } from './screenIntros'
+import { HIDDEN_INTROS, screenIntros } from './screenIntros'
 import type { IntroScreen, ScreenIntroConfig } from './screenIntros'
 import { useScreenFill } from './screenState'
 import { useSeenIntro } from './useSeenIntro'
@@ -123,6 +124,8 @@ export function ScreenIntro({
 }) {
   // Wait while he is mid-reply beside you rather than cover what he is saying; an idle panel
   // beside the screen is no reason to skip the intro (after first run it is nearly always open).
+  const intl = useAppIntl()
+  const intros = screenIntros(intl)
   const replying = !!useLuciusChatOptional()?.streaming
   const sub = useSettled(
     useRouterState({ select: (s) => (s.location.search as { sub?: string }).sub }),
@@ -139,7 +142,7 @@ export function ScreenIntro({
             ? 'plan'
             : null
       : screen
-  if (!name || !(name in SCREEN_INTROS)) return null
+  if (!name || !(name in intros)) return null
   const key = name as IntroScreen
   if (HIDDEN_INTROS.has(key)) return null
   const Gate = GATES[key]
@@ -148,7 +151,7 @@ export function ScreenIntro({
       {(mode) => (
         <Intro
           screen={key}
-          config={SCREEN_INTROS[key]}
+          config={intros[key]}
           mode={suppressed ? null : mode}
           onAskLucius={onAskLucius}
         />
@@ -168,6 +171,7 @@ function Intro({
   mode: Mode | null
   onAskLucius: (text: string) => void
 }) {
+  const { formatMessage } = useAppIntl()
   const { unseen, markSeen } = useSeenIntro(screen)
   const [dismissed, setDismissed] = useState(false)
   const [pointing, setPointing] = useState(false)
@@ -194,21 +198,37 @@ function Intro({
       open={open}
       steps={config.steps}
       lucius={{
-        label: filled ? 'Walk me through it' : (config.luciusLabel ?? 'Set up with Lucius'),
+        label: filled
+          ? formatMessage({ id: 'firstrun.intro.walk', defaultMessage: 'Walk me through it' })
+          : (config.luciusLabel ??
+            formatMessage({
+              id: 'firstrun.intro.withLucius',
+              defaultMessage: 'Set up with Lucius',
+            })),
         onClick: () => {
           close()
           onAskLucius(
             filled
-              ? `Walk me through my ${config.name} screen: what am I looking at, and what is ` +
-                  'worth doing next? Keep it short.'
+              ? formatMessage(
+                  {
+                    id: 'firstrun.intro.walkPrompt',
+                    defaultMessage:
+                      'Walk me through my {name} screen: what am I looking at, and what is worth doing next? Keep it short.',
+                  },
+                  { name: config.name },
+                )
               : config.lucius,
           )
         },
       }}
       secondary={{
         label: filled
-          ? (config.filled?.label ?? 'Got it')
-          : (config.secondaryLabel ?? (start ? 'Set up myself' : 'Got it')),
+          ? (config.filled?.label ??
+            formatMessage({ id: 'firstrun.intro.gotIt', defaultMessage: 'Got it' }))
+          : (config.secondaryLabel ??
+            (start
+              ? formatMessage({ id: 'firstrun.intro.myself', defaultMessage: 'Set up myself' })
+              : formatMessage({ id: 'firstrun.intro.gotIt', defaultMessage: 'Got it' }))),
         onClick: startHere,
       }}
       onClose={close}

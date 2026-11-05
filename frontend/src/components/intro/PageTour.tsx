@@ -1,3 +1,4 @@
+import { useAppIntl } from '../../i18n/useAppIntl'
 // A short spotlight tour of a page: one element lit at a time, a card beside it saying what it
 // is. Targets are `data-tour="<id>"` attributes, so a page opts elements in without refs.
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
@@ -42,6 +43,7 @@ function cardPosition(rect: DOMRect | null): { style: CSSProperties; placement: 
 }
 
 export function PageTour({ steps, onClose }: { steps: TourStep[]; onClose: () => void }) {
+  const { formatMessage } = useAppIntl()
   const [i, setI] = useState(0)
   const [measured, setMeasured] = useState<{ target: string; rect: DOMRect | null } | null>(null)
   const cardRef = useRef<HTMLDivElement>(null)
@@ -172,7 +174,10 @@ export function PageTour({ steps, onClose }: { steps: TourStep[]; onClose: () =>
           <div className="pt-foot">
             <span className="pt-dots">
               <span className="ui-visually-hidden">
-                Step {i + 1} of {steps.length}
+                {formatMessage(
+                  { id: 'firstrun.intro.progress', defaultMessage: 'Step {step} of {total}' },
+                  { step: i + 1, total: steps.length },
+                )}
               </span>
               {steps.map((s, n) => (
                 <span
@@ -185,16 +190,18 @@ export function PageTour({ steps, onClose }: { steps: TourStep[]; onClose: () =>
             <span className="pt-actions">
               {!last && (
                 <button type="button" className="pt-skip" onClick={onClose}>
-                  Skip
+                  {formatMessage({ id: 'firstrun.intro.skip', defaultMessage: 'Skip' })}
                 </button>
               )}
               {i > 0 && (
                 <Button size="sm" variant="secondary" onClick={back}>
-                  Back
+                  {formatMessage({ id: 'firstrun.intro.back', defaultMessage: 'Back' })}
                 </Button>
               )}
               <Button data-tour-next size="sm" variant="primary" onClick={next}>
-                {last ? 'Done' : 'Next'}
+                {last
+                  ? formatMessage({ id: 'firstrun.intro.done', defaultMessage: 'Done' })
+                  : formatMessage({ id: 'firstrun.intro.next', defaultMessage: 'Next' })}
               </Button>
             </span>
           </div>

@@ -1,7 +1,10 @@
+import { getNumberLocale } from '../../../utils/format'
 // WatchBoard — the Watchlist sub-tab's two densities: broker-style cards (fixed columns: Last,
 // Change, Change %, Volume) and a table whose columns the owner picks in Manage Columns.
 // A name you also hold carries a Pos · P&L · Unrlz line under its symbol, as a broker shows it.
 
+import { useAppIntl } from '../../../i18n/useAppIntl'
+import { watchColumnLabel } from './watchColumnMessages'
 import type { WatchQuoteRow } from '../../../types/watchlistQuotes'
 import { Sparkline } from '../../ui/Sparkline'
 import { IntelStoryDot } from '../../shared/IntelStoryDot'
@@ -39,12 +42,16 @@ function SortHead({
   sort: WatchSort
   onSort: (key: WatchSortKey) => void
 }) {
+  const { formatMessage } = useAppIntl()
   return (
     <span
       className="mk-ch-sort"
       role="button"
       tabIndex={0}
-      aria-label={`Sort by ${label}`}
+      aria-label={formatMessage(
+        { id: 'watchColumns.sortBy', defaultMessage: 'Sort by {label}' },
+        { label },
+      )}
       onClick={() => onSort(k)}
       onKeyDown={(e) => {
         if (e.key === 'Enter' || e.key === ' ') {
@@ -59,6 +66,7 @@ function SortHead({
 }
 
 function Identity({ r, ...story }: { r: WatchQuoteRow } & StoryProps) {
+  const { formatMessage } = useAppIntl()
   const p = r.position
   return (
     <div className="mk-wid">
@@ -69,13 +77,16 @@ function Identity({ r, ...story }: { r: WatchQuoteRow } & StoryProps) {
       {p ? (
         <div className="mk-wpos mask">
           <span>
-            Pos <b>{p.quantity.toLocaleString()}</b>
+            {formatMessage({ id: 'watchCards.position', defaultMessage: 'Pos' })}{' '}
+            <b>{p.quantity.toLocaleString(getNumberLocale())}</b>
           </span>
           <span>
-            P&amp;L <b style={{ color: tone(p.day_pl) }}>{fSignedBase(p.day_pl)}</b>
+            {formatMessage({ id: 'watchCards.pnl', defaultMessage: 'P&L' })}{' '}
+            <b style={{ color: tone(p.day_pl) }}>{fSignedBase(p.day_pl)}</b>
           </span>
           <span>
-            Unrlz <b style={{ color: tone(p.unrealized) }}>{fSignedBase(p.unrealized)}</b>
+            {formatMessage({ id: 'watchCards.unrealized', defaultMessage: 'Unrlz' })}{' '}
+            <b style={{ color: tone(p.unrealized) }}>{fSignedBase(p.unrealized)}</b>
           </span>
         </div>
       ) : (
@@ -114,16 +125,47 @@ export function WatchCards({
   storyIndex,
   onOpenStory,
 }: CommonProps) {
+  const intl = useAppIntl()
+  const { formatMessage } = intl
   const cls = `mk-wcard${showSpark ? ' mk-wcard--spark' : ''}`
   return (
     <section className="intel-sec">
       <div className={`${cls} mk-wcardhead`}>
-        <SortHead k="sym" label="Instrument" sort={sort} onSort={onSort} />
-        {showSpark && <span className="mk-wc-spark">30D</span>}
-        <SortHead k="price" label="Last" sort={sort} onSort={onSort} />
-        <SortHead k="change" label="Change" sort={sort} onSort={onSort} />
-        <SortHead k="change_pct" label="Change %" sort={sort} onSort={onSort} />
-        <SortHead k="volume" label="Volume" sort={sort} onSort={onSort} />
+        <SortHead
+          k="sym"
+          label={formatMessage({ id: 'watchColumns.instrument', defaultMessage: 'Instrument' })}
+          sort={sort}
+          onSort={onSort}
+        />
+        {showSpark && (
+          <span className="mk-wc-spark">
+            {formatMessage({ id: 'watchCards.days30', defaultMessage: '30D' })}
+          </span>
+        )}
+        <SortHead
+          k="price"
+          label={watchColumnLabel('last', 'Last', intl)}
+          sort={sort}
+          onSort={onSort}
+        />
+        <SortHead
+          k="change"
+          label={watchColumnLabel('change', 'Change', intl)}
+          sort={sort}
+          onSort={onSort}
+        />
+        <SortHead
+          k="change_pct"
+          label={watchColumnLabel('change_pct', 'Change %', intl)}
+          sort={sort}
+          onSort={onSort}
+        />
+        <SortHead
+          k="volume"
+          label={watchColumnLabel('volume', 'Volume', intl)}
+          sort={sort}
+          onSort={onSort}
+        />
       </div>
       {rows.map((r) => {
         const dir = (r.change_pct ?? 0) > 0 ? 'up' : (r.change_pct ?? 0) < 0 ? 'down' : 'flat'
@@ -133,7 +175,10 @@ export function WatchCards({
             className="mk-hold clickable"
             role="button"
             tabIndex={0}
-            aria-label={`Open ${r.ticker}`}
+            aria-label={formatMessage(
+              { id: 'watchCards.open', defaultMessage: 'Open {ticker}' },
+              { ticker: r.ticker },
+            )}
             onClick={() => onOpen(r)}
             onKeyDown={(e) => {
               if (e.key === 'Enter') onOpen(r)
@@ -157,12 +202,15 @@ export function WatchCards({
                 <span className={`mk-day ${dir}`}>{fPct(r.change_pct, { sign: true })}</span>
               </span>
               <span className="mk-wc-num mk-wc-vol">
-                <span className="mk-wc-vlab">Vol </span>
+                <span className="mk-wc-vlab">
+                  {formatMessage({ id: 'watchCards.volume', defaultMessage: 'Vol' })}{' '}
+                </span>
                 {r.volume == null ? '—' : fCompact(r.volume)}
               </span>
               {r.position && (
                 <span className="mk-wc-pos mask">
-                  Pos {r.position.quantity.toLocaleString()} ·{' '}
+                  {formatMessage({ id: 'watchCards.position', defaultMessage: 'Pos' })}{' '}
+                  {r.position.quantity.toLocaleString(getNumberLocale())} ·{' '}
                   <span style={{ color: tone(r.position.day_pl) }}>
                     {fSignedBase(r.position.day_pl)}
                   </span>
@@ -186,14 +234,20 @@ export function WatchTable({
   storyIndex,
   onOpenStory,
 }: CommonProps & { columns: WatchColumn[] }) {
+  const intl = useAppIntl()
+  const { formatMessage } = intl
   const minWidth = 240 + (showSpark ? 110 : 0) + columns.reduce((s, c) => s + c.width, 0)
-  const th = (k: WatchSortKey | undefined, label: string) =>
+  const th = (k: WatchSortKey | undefined, label: string, key = label) =>
     k ? (
-      <th key={label} onClick={() => onSort(k)} title="Sort by this column">
+      <th
+        key={key}
+        onClick={() => onSort(k)}
+        title={formatMessage({ id: 'watchColumns.sort', defaultMessage: 'Sort by this column' })}
+      >
         {label} <span className="ar">{sort.key === k ? (sort.dir > 0 ? '▲' : '▼') : ''}</span>
       </th>
     ) : (
-      <th key={label} className="nostick">
+      <th key={key} className="nostick">
         {label}
       </th>
     )
@@ -210,9 +264,13 @@ export function WatchTable({
           </colgroup>
           <thead>
             <tr>
-              {th('sym', 'Instrument')}
-              {showSpark && th(undefined, '30D')}
-              {columns.map((c) => th(c.sortKey, c.label))}
+              {th(
+                'sym',
+                formatMessage({ id: 'watchColumns.instrument', defaultMessage: 'Instrument' }),
+              )}
+              {showSpark &&
+                th(undefined, formatMessage({ id: 'watchCards.days30', defaultMessage: '30D' }))}
+              {columns.map((c) => th(c.sortKey, watchColumnLabel(c.key, c.label, intl), c.key))}
             </tr>
           </thead>
           <tbody>

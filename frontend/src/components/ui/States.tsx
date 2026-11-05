@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react'
 import { Button } from './Button'
+import { useAppIntl } from '../../i18n/useAppIntl'
 
 export interface EmptyStateProps {
   title: ReactNode
@@ -28,11 +29,14 @@ export interface LoadingProps {
 }
 
 /** Loading — centered spinner + optional label. */
-export function Loading({ label = 'Loading…' }: LoadingProps) {
+export function Loading({ label }: LoadingProps) {
+  const intl = useAppIntl()
+  const visibleLabel =
+    label ?? intl.formatMessage({ id: 'common.loading', defaultMessage: 'Loading…' })
   return (
     <div className="ui-state" role="status" aria-live="polite">
       <div className="ui-state__spinner" aria-hidden="true" />
-      {label && <div className="ui-state__body">{label}</div>}
+      {visibleLabel && <div className="ui-state__body">{visibleLabel}</div>}
     </div>
   )
 }
@@ -45,13 +49,17 @@ export interface ErrorStateProps {
 
 /** ErrorState — error message with an optional Retry. */
 export function ErrorState({ message, title, onRetry }: ErrorStateProps) {
+  const intl = useAppIntl()
   return (
     <div className="ui-state" role="alert">
-      <div className="ui-state__title ui-state__error-title">{title ?? 'Something went wrong'}</div>
+      <div className="ui-state__title ui-state__error-title">
+        {title ??
+          intl.formatMessage({ id: 'common.errorTitle', defaultMessage: 'Something went wrong' })}
+      </div>
       <div className="ui-state__body">{message}</div>
       {onRetry && (
         <Button variant="secondary" size="sm" onClick={onRetry}>
-          Retry
+          {intl.formatMessage({ id: 'boot.retry', defaultMessage: 'Retry' })}
         </Button>
       )}
     </div>

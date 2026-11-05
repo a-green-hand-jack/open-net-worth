@@ -16,15 +16,38 @@ on create → the user's price-alert default from Settings › Notifications.
 
 from __future__ import annotations
 
+import json
+from pathlib import Path
 from typing import Literal, Optional
 
 from fastapi import APIRouter, HTTPException, Query
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 
-from backend.core.errors import NotFoundError, ValidationError
+from backend.core.errors import NotFoundError, OpenNetWorthError, ValidationError
 from backend.services import alerts as alerts_service
 
 router = APIRouter()
+_ALERT_MESSAGE_PARAMS = json.loads(
+    (Path(__file__).resolve().parents[1] / "core/alert_message_contract.json").read_text()
+)
+
+
+def _alert_error(exc: OpenNetWorthError, status_code: int):
+    message_id = exc.context.get("message_id")
+    params = exc.context.get("message_params", {})
+    if (
+        isinstance(message_id, str)
+        and message_id in _ALERT_MESSAGE_PARAMS
+        and isinstance(params, dict)
+        and set(params) == set(_ALERT_MESSAGE_PARAMS[message_id])
+    ):
+        return JSONResponse(
+            status_code=status_code,
+            content={"detail": str(exc), "message_id": message_id, "message_params": params},
+        )
+    raise HTTPException(status_code=status_code, detail=str(exc)) from exc
+
 
 # Bound free-text fields: `note` is injected verbatim into the fired-alert LLM prompt
 # ("instructions for Lucius"), so cap it (defense-in-depth — single-user, but cheap).
@@ -74,7 +97,7 @@ def create_alert(body: AlertCreate):
     try:
         return alerts_service.apply_alert_change({"type": "create", **body.model_dump()})
     except ValidationError as exc:
-        raise HTTPException(status_code=422, detail=str(exc)) from exc
+        return _alert_error(exc, 422)
 
 
 @router.patch("/api/alerts/{alert_id}")
@@ -83,9 +106,9 @@ def update_alert(alert_id: str, body: AlertPatch):
     try:
         return alerts_service.apply_alert_change({"type": "update", "id": alert_id, **changes})
     except NotFoundError as exc:
-        raise HTTPException(status_code=404, detail=str(exc)) from exc
+        return _alert_error(exc, 404)
     except ValidationError as exc:
-        raise HTTPException(status_code=422, detail=str(exc)) from exc
+        return _alert_error(exc, 422)
 
 
 @router.delete("/api/alerts/{alert_id}")
@@ -93,4 +116,4 @@ def delete_alert(alert_id: str):
     try:
         return alerts_service.apply_alert_change({"type": "delete", "id": alert_id})
     except NotFoundError as exc:
-        raise HTTPException(status_code=404, detail=str(exc)) from exc
+        return _alert_error(exc, 404)

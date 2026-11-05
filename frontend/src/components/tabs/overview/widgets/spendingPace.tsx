@@ -6,10 +6,12 @@ import { WidgetShell } from '../WidgetShell'
 import type { WidgetContentProps } from '../types'
 import { usePlanningSummary } from '../../../../hooks/serverState'
 import type { EnvelopeRow, PlanningSummary } from '../../../../types/aggregates'
+import { useAppIntl } from '../../../../i18n/useAppIntl'
 
 const TOP_SPENDERS = 3
 
 export const SpendingPaceWidget: ComponentType<WidgetContentProps> = ({ instance, def }) => {
+  const { formatMessage, locale } = useAppIntl()
   const { data: summary } = usePlanningSummary()
 
   // Which envelopes to show: the ones the user picked; with no pick (the default), or when
@@ -40,27 +42,47 @@ export const SpendingPaceWidget: ComponentType<WidgetContentProps> = ({ instance
   const CURRENT_DAY = summary.day_of_month
   const PERCENT_ELAPSED = summary.pace_pct
 
-  const monthStr = new Date().toLocaleString('en-US', { month: 'short' }).toUpperCase()
+  const monthStr = new Intl.DateTimeFormat(locale, { month: 'short', timeZone: 'UTC' })
+    .format(new Date(`${summary.month}-01T00:00:00Z`))
+    .toLocaleUpperCase(locale)
 
   return (
     <WidgetShell
       title={instance.title}
       base={def.title}
-      meta={`${monthStr} ${CURRENT_DAY} · DAY ${CURRENT_DAY}/${DAYS_IN_MONTH}`}
+      meta={formatMessage(
+        { id: 'overview.pace.meta', defaultMessage: '{month} {day} · DAY {day}/{total}' },
+        { month: monthStr, day: CURRENT_DAY, total: DAYS_IN_MONTH },
+      )}
     >
       <div className="spending-pace-widget">
         <div className="time" data-od-id="time-elapsed">
-          <i></i> {Math.round(PERCENT_ELAPSED)}% of month elapsed
+          <i></i>{' '}
+          {formatMessage(
+            { id: 'overview.pace.elapsed', defaultMessage: '{percent}% of month elapsed' },
+            { percent: Math.round(PERCENT_ELAPSED) },
+          )}
         </div>
 
         {unmatched.length > 0 && (
           <div className="ov-t-meta" role="note">
-            No budgeted envelope named {unmatched.join(', ')} — showing this month's top spending
-            instead. Pick categories in the widget settings.
+            {formatMessage(
+              {
+                id: 'overview.pace.unmatched',
+                defaultMessage:
+                  "No budgeted envelope named {names} — showing this month's top spending instead. Pick categories in the widget settings.",
+              },
+              { names: unmatched.join(', ') },
+            )}
           </div>
         )}
         {categories.length === 0 && (
-          <div className="ov-t-meta">No budgeted envelopes have spending this month.</div>
+          <div className="ov-t-meta">
+            {formatMessage({
+              id: 'overview.pace.empty',
+              defaultMessage: 'No budgeted envelopes have spending this month.',
+            })}
+          </div>
         )}
         {categories.map((cat) => (
           <PaceRow key={cat.key} cat={cat} summary={summary} />
@@ -71,6 +93,7 @@ export const SpendingPaceWidget: ComponentType<WidgetContentProps> = ({ instance
 }
 
 function PaceRow({ cat, summary }: { cat: EnvelopeRow; summary: PlanningSummary }) {
+  const { formatMessage } = useAppIntl()
   const PERCENT_ELAPSED = summary.pace_pct
 
   const spent = cat.spent
@@ -109,7 +132,13 @@ function PaceRow({ cat, summary }: { cat: EnvelopeRow; summary: PlanningSummary 
 
       <div
         className="bar"
-        aria-label={`${cat.label}: ${Math.round(spentPct)} percent of budget spent`}
+        aria-label={formatMessage(
+          {
+            id: 'overview.pace.spentAria',
+            defaultMessage: '{name}: {percent} percent of budget spent',
+          },
+          { name: cat.label, percent: Math.round(spentPct) },
+        )}
       >
         <i className="fill"></i>
         <i
@@ -121,19 +150,28 @@ function PaceRow({ cat, summary }: { cat: EnvelopeRow; summary: PlanningSummary 
 
       <div className="stats">
         <span>
-          Avg{' '}
+          {formatMessage({ id: 'overview.pace.average', defaultMessage: 'Avg' })}{' '}
           <b>
-            <Money>{fBase(cat.avg_per_day)}</Money>/day
+            {formatMessage(
+              { id: 'overview.pace.perDay', defaultMessage: '{amount}/day' },
+              { amount: <Money>{fBase(cat.avg_per_day)}</Money> },
+            )}
           </b>
         </span>
         <span>
           <b>
-            <Money>{fBase(cat.left_per_day)}</Money>/day
+            {formatMessage(
+              { id: 'overview.pace.perDay', defaultMessage: '{amount}/day' },
+              { amount: <Money>{fBase(cat.left_per_day)}</Money> },
+            )}
           </b>{' '}
-          left
+          {formatMessage({ id: 'overview.pace.left', defaultMessage: 'left' })}
         </span>
         <span className="remaining">
-          <Money>{fBase(cat.remaining)}</Money> left
+          {formatMessage(
+            { id: 'overview.pace.amountLeft', defaultMessage: '{amount} left' },
+            { amount: <Money>{fBase(cat.remaining)}</Money> },
+          )}
         </span>
       </div>
     </article>

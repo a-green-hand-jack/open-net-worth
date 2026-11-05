@@ -3,6 +3,7 @@
 // Every prop, SVG path, marker, label, and interaction is reproduced exactly.
 
 import { useState, useRef, useLayoutEffect } from 'react'
+import { useAppIntl } from '../../../i18n/useAppIntl'
 import { fBase, fBaseCompact } from '../../../utils/format'
 import type { BandRow } from './planData'
 
@@ -108,6 +109,7 @@ export function FanChart({
   incomeStreams = null,
   focusLayer = null,
 }: FanChartProps) {
+  const { formatMessage } = useAppIntl()
   const W = VW,
     H = height,
     padL = 8,
@@ -653,17 +655,22 @@ export function FanChart({
             transform: `translateX(${hxPct > 60 ? '-100%' : '0'})`,
           }}
         >
-          <div className="d">Age {Math.round(hb.age)}</div>
+          <div className="d">
+            {formatMessage(
+              { id: 'plan.chartAge', defaultMessage: 'Age {age}' },
+              { age: Math.round(hb.age) },
+            )}
+          </div>
           <div className="r">
             <i style={{ background: color }} />
-            Typical{' '}
+            {formatMessage({ id: 'plan.typical', defaultMessage: 'Typical' })}{' '}
             <b className="mask" title={fBase(hb.p50)}>
               {fBaseCompact(hb.p50)}
             </b>
           </div>
           <div className="r">
             <i style={{ background: `color-mix(in srgb, ${color} 45%, transparent)` }} />
-            Range{' '}
+            {formatMessage({ id: 'plan.range', defaultMessage: 'Range' })}{' '}
             <b className="mask" title={`${fBase(hb.p10)}–${fBase(hb.p90)}`}>
               {fBaseCompact(hb.p10)}–{fBaseCompact(hb.p90)}
             </b>
@@ -671,7 +678,7 @@ export function FanChart({
           {overlay && overlay[hi!] && (
             <div className="r">
               <i style={{ background: 'var(--muted)', opacity: 0.55 }} />
-              Your plan{' '}
+              {formatMessage({ id: 'plan.yourPlan', defaultMessage: 'Your plan' })}{' '}
               <b className="mask" title={fBase(overlay[hi!]!.p50)}>
                 {fBaseCompact(overlay[hi!]!.p50)}
               </b>
@@ -730,7 +737,7 @@ export function FanChart({
                   e.stopPropagation()
                   onEventRemove(ev.id)
                 }}
-                aria-label="Remove"
+                aria-label={formatMessage({ id: 'plan.remove', defaultMessage: 'Remove' })}
               >
                 <svg
                   width="10"
@@ -781,7 +788,7 @@ export function FanChart({
         >
           <span className="cf-tri" />
           <span className="cf-lbl">
-            {s.label} • <span className="mask">{fBaseCompact(s.amount)}/mo</span> •{' '}
+            {s.label} • <span className="mask">{formatMessage({ id: 'planScan.perMonth', defaultMessage: '{amount}/mo' }, { amount: fBaseCompact(s.amount) })}</span> •{' '}
             {Math.round(s.age)}
             {s.endAge != null ? `–${Math.round(s.endAge)}` : ''}
           </span>
@@ -808,7 +815,7 @@ export function FanChart({
             boxShadow: '0 1px 3px rgba(0,0,0,.3)',
           }}
         >
-          ⠿ Retire • {retireAge}
+          ⠿ {formatMessage({ id: 'planScan.retireAge', defaultMessage: 'Retire • {age}' }, { age: retireAge })}
         </button>
       )}
       {retX != null && !draggable && !hb && (
@@ -828,7 +835,10 @@ export function FanChart({
             whiteSpace: 'nowrap',
           }}
         >
-          Retire • age {retireAge}
+          {formatMessage(
+            { id: 'plan.chartRetire', defaultMessage: 'Retire • age {age}' },
+            { age: retireAge },
+          )}
         </div>
       )}
       {dist != null && retX != null && !hb && (
@@ -848,7 +858,10 @@ export function FanChart({
             whiteSpace: 'nowrap',
           }}
         >
-          pot {fBaseCompact(dist.p10)}–{fBaseCompact(dist.p90)}
+          {formatMessage(
+            { id: 'plan.chartPotRange', defaultMessage: 'pot {low}–{high}' },
+            { low: fBaseCompact(dist.p10), high: fBaseCompact(dist.p90) },
+          )}
         </div>
       )}
       {fireY != null && !hb && (
@@ -868,7 +881,10 @@ export function FanChart({
             whiteSpace: 'nowrap',
           }}
         >
-          FIRE target {fBaseCompact(fireNumber!)}
+          {formatMessage(
+            { id: 'plan.chartFireTarget', defaultMessage: 'FIRE target {amount}' },
+            { amount: fBaseCompact(fireNumber!) },
+          )}
         </div>
       )}
       {fireCrossX != null && fireY != null && (
@@ -892,7 +908,10 @@ export function FanChart({
             border: '1px solid color-mix(in srgb, var(--warn) 30%, transparent)',
           }}
         >
-          ◆ FIRE number reached • ~{Math.round(fireCrossAge!)}
+          {formatMessage(
+            { id: 'plan.chartFireReached', defaultMessage: '◆ FIRE number reached • ~{age}' },
+            { age: Math.round(fireCrossAge!) },
+          )}
         </div>
       )}
       {dryX != null && <MarkerDot leftPct={(dryX / W) * 100} top={yAt(0)} color="var(--bad)" />}
@@ -916,7 +935,10 @@ export function FanChart({
             zIndex: 7,
           }}
         >
-          ✕ Typical runs dry • ~{Math.round(dryAge ?? 0)}
+          {formatMessage(
+            { id: 'plan.chartRunsDry', defaultMessage: '✕ Typical runs dry • ~{age}' },
+            { age: Math.round(dryAge ?? 0) },
+          )}
         </div>
       )}
       {safeX != null && !hb && (
@@ -938,7 +960,10 @@ export function FanChart({
             zIndex: 7,
           }}
         >
-          ◇ Safe to retire • ~{Math.round(safeStopAge!)}
+          {formatMessage(
+            { id: 'plan.chartSafeRetire', defaultMessage: '◇ Safe to retire • ~{age}' },
+            { age: Math.round(safeStopAge!) },
+          )}
         </div>
       )}
       <div
@@ -951,9 +976,24 @@ export function FanChart({
           fontVariantNumeric: 'tabular-nums',
         }}
       >
-        <span>Age {Math.round(minAge)}</span>
-        <span>Age {Math.round((minAge + maxAge) / 2)}</span>
-        <span>Age {Math.round(maxAge)}</span>
+        <span>
+          {formatMessage(
+            { id: 'plan.chartAge', defaultMessage: 'Age {age}' },
+            { age: Math.round(minAge) },
+          )}
+        </span>
+        <span>
+          {formatMessage(
+            { id: 'plan.chartAge', defaultMessage: 'Age {age}' },
+            { age: Math.round((minAge + maxAge) / 2) },
+          )}
+        </span>
+        <span>
+          {formatMessage(
+            { id: 'plan.chartAge', defaultMessage: 'Age {age}' },
+            { age: Math.round(maxAge) },
+          )}
+        </span>
       </div>
       {!hb && (
         <div
@@ -1039,6 +1079,7 @@ export function RbdChart({
   height?: number
   conditional?: boolean
 }) {
+  const { formatMessage } = useAppIntl()
   const W = VW,
     H = height,
     padL = 8,
@@ -1125,20 +1166,43 @@ export function RbdChart({
           className="pl-chart-tip"
           style={{ left: hxPct + '%', transform: `translateX(${hxPct > 60 ? '-100%' : '0'})` }}
         >
-          <div className="d">Age {Math.round(hd.age)}</div>
+          <div className="d">
+            {formatMessage(
+              { id: 'plan.chartAge', defaultMessage: 'Age {age}' },
+              { age: Math.round(hd.age) },
+            )}
+          </div>
           {!conditional && (
             <div className="r">
               <i style={{ background: '#5b626e' }} />
-              No longer living <b>{pct(hd.dead)}%</b>
+              {formatMessage(
+                {
+                  id: 'plan.chartNoLongerLiving',
+                  defaultMessage: 'No longer living <b>{percent}%</b>',
+                },
+                { percent: pct(hd.dead), b: (chunks) => <b>{chunks}</b> },
+              )}
             </div>
           )}
           <div className="r">
             <i style={{ background: 'var(--bad)' }} />
-            Money ran out <b>{pct(conditional ? hd.cond.broke : hd.broke)}%</b>
+            {formatMessage(
+              { id: 'plan.chartMoneyRanOut', defaultMessage: 'Money ran out <b>{percent}%</b>' },
+              {
+                percent: pct(conditional ? hd.cond.broke : hd.broke),
+                b: (chunks) => <b>{chunks}</b>,
+              },
+            )}
           </div>
           <div className="r">
             <i style={{ background: '#46c08d' }} />
-            Still have money <b>{pct(haveMoney(hd))}%</b>
+            {formatMessage(
+              {
+                id: 'plan.chartMoneyRemains',
+                defaultMessage: 'Still have money <b>{percent}%</b>',
+              },
+              { percent: pct(haveMoney(hd)), b: (chunks) => <b>{chunks}</b> },
+            )}
           </div>
         </div>
       )}
@@ -1152,9 +1216,24 @@ export function RbdChart({
           fontVariantNumeric: 'tabular-nums',
         }}
       >
-        <span>Age {Math.round(minAge)}</span>
-        <span>Age {Math.round((minAge + maxAge) / 2)}</span>
-        <span>Age {Math.round(maxAge)}</span>
+        <span>
+          {formatMessage(
+            { id: 'plan.chartAge', defaultMessage: 'Age {age}' },
+            { age: Math.round(minAge) },
+          )}
+        </span>
+        <span>
+          {formatMessage(
+            { id: 'plan.chartAge', defaultMessage: 'Age {age}' },
+            { age: Math.round((minAge + maxAge) / 2) },
+          )}
+        </span>
+        <span>
+          {formatMessage(
+            { id: 'plan.chartAge', defaultMessage: 'Age {age}' },
+            { age: Math.round(maxAge) },
+          )}
+        </span>
       </div>
     </div>
   )

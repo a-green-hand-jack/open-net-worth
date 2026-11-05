@@ -17,6 +17,7 @@ import { WidgetPlaceholder, WidgetSkeleton } from '../WidgetPlaceholder'
 import { useAnalytics } from '../useWidgetData'
 import { usePlanningSummary } from '../../../../hooks/serverState'
 import { ArrowRight } from '../../../../ui/icons'
+import { useAppIntl } from '../../../../i18n/useAppIntl'
 
 // ── debt / liabilities — real balances, no payoff curve ──────────────────
 //
@@ -25,6 +26,7 @@ import { ArrowRight } from '../../../../ui/icons'
 // real current balances instead of a fabricated curve, per the task's own
 // documented acceptable simplification.
 const DebtPayoff: ComponentType<WidgetContentProps> = ({ instance, def, onNavigate }) => {
+  const { formatMessage } = useAppIntl()
   // Liability rows and their total come from the server aggregate — the same `debts` figure
   // the "Liabilities" KPI reads, so the two can't disagree.
   const { analytics: portfolio, loading } = useAnalytics()
@@ -43,7 +45,12 @@ const DebtPayoff: ComponentType<WidgetContentProps> = ({ instance, def, onNaviga
   if (!debts.length) {
     return (
       <WidgetShell title={instance.title} base={def.title}>
-        <WidgetPlaceholder detail={<>No liabilities on the books — nothing to pay down.</>} />
+        <WidgetPlaceholder
+          detail={formatMessage({
+            id: 'overview.debt.empty',
+            defaultMessage: 'No liabilities on the books — nothing to pay down.',
+          })}
+        />
       </WidgetShell>
     )
   }
@@ -60,14 +67,20 @@ const DebtPayoff: ComponentType<WidgetContentProps> = ({ instance, def, onNaviga
             variant="ghost"
             onClick={() => onNavigate(def.source?.tab || 'accounts')}
           >
-            {def.source?.label ? `View in ${def.source.label}` : 'View accounts'}
+            {formatMessage({
+              id: 'overview.debt.viewAccounts',
+              defaultMessage: 'View in Accounts',
+            })}
             <ArrowRight size={14} aria-hidden="true" />
           </Button>
         )
       }
     >
       <Text as="p" size="xs" tone="faint" className="ov-ins-gapnote">
-        What you owe on each account today.
+        {formatMessage({
+          id: 'overview.debt.help',
+          defaultMessage: 'What you owe on each account today.',
+        })}
       </Text>
       <div className="ov-ins-rows">
         {visible.map((d) => (
@@ -85,7 +98,12 @@ const DebtPayoff: ComponentType<WidgetContentProps> = ({ instance, def, onNaviga
           </div>
         ))}
         {debts.length > visible.length && (
-          <div className="ov-more">+{debts.length - visible.length} more</div>
+          <div className="ov-more">
+            {formatMessage(
+              { id: 'overview.more', defaultMessage: '+{count} more' },
+              { count: debts.length - visible.length },
+            )}
+          </div>
         )}
       </div>
     </WidgetShell>
@@ -99,6 +117,7 @@ const DebtPayoff: ComponentType<WidgetContentProps> = ({ instance, def, onNaviga
 // ── budget vs actual — real envelope assigned/activity progress bars ────
 
 const BudgetVsActual: ComponentType<WidgetContentProps> = ({ instance, def, onNavigate }) => {
+  const { formatMessage } = useAppIntl()
   const { data, initialLoading: loading, error } = usePlanningSummary()
   const rows = data?.envelopes.budgeted_rows ?? []
   const cap = rowCap(instance, def) ?? undefined
@@ -117,14 +136,24 @@ const BudgetVsActual: ComponentType<WidgetContentProps> = ({ instance, def, onNa
   if (error) {
     return (
       <WidgetShell title={instance.title} base={def.title}>
-        <WidgetPlaceholder detail="Couldn't load your budget — try again shortly." />
+        <WidgetPlaceholder
+          detail={formatMessage({
+            id: 'overview.budget.error',
+            defaultMessage: "Couldn't load your budget — try again shortly.",
+          })}
+        />
       </WidgetShell>
     )
   }
   if (!rows.length) {
     return (
       <WidgetShell title={instance.title} base={def.title}>
-        <WidgetPlaceholder detail={<>Assign money to envelopes in Plan to see progress here.</>} />
+        <WidgetPlaceholder
+          detail={formatMessage({
+            id: 'overview.budget.empty',
+            defaultMessage: 'Assign money to envelopes in Plan to see progress here.',
+          })}
+        />
       </WidgetShell>
     )
   }
@@ -133,7 +162,13 @@ const BudgetVsActual: ComponentType<WidgetContentProps> = ({ instance, def, onNa
     <WidgetShell
       title={instance.title}
       base={def.title}
-      subtitle={`${daysLeft} day${daysLeft === 1 ? '' : 's'} left this month`}
+      subtitle={formatMessage(
+        {
+          id: 'overview.budget.daysLeft',
+          defaultMessage: '{count, plural, one {# day} other {# days}} left this month',
+        },
+        { count: daysLeft },
+      )}
       meta={
         <>
           <Money as="span">{fBaseCompact(totalSpent)}</Money> <span className="ov-t-meta">/</span>{' '}
@@ -143,7 +178,7 @@ const BudgetVsActual: ComponentType<WidgetContentProps> = ({ instance, def, onNa
       footer={
         onNavigate && (
           <Button size="sm" variant="ghost" onClick={() => onNavigate(def.source?.tab || 'plan')}>
-            Edit budgets
+            {formatMessage({ id: 'overview.budget.edit', defaultMessage: 'Edit budgets' })}
             <ArrowRight size={14} aria-hidden="true" />
           </Button>
         )
@@ -154,7 +189,10 @@ const BudgetVsActual: ComponentType<WidgetContentProps> = ({ instance, def, onNa
           <div
             key={c.key}
             className="ov-bva-row"
-            data-tip={`${c.label}\n${fBase(c.spent)} of ${fBase(c.assigned)}`}
+            data-tip={formatMessage(
+              { id: 'overview.budget.tip', defaultMessage: '{name}\n{spent} of {assigned}' },
+              { name: c.label, spent: fBase(c.spent), assigned: fBase(c.assigned) },
+            )}
             data-tip-color={c.over ? 'var(--bad)' : c.color || 'var(--accent)'}
           >
             <div className="ov-bva-top">
@@ -168,8 +206,17 @@ const BudgetVsActual: ComponentType<WidgetContentProps> = ({ instance, def, onNa
               size="sm"
               value={c.fill_pct}
               color={c.over ? 'var(--bad)' : c.color || 'var(--accent)'}
-              ariaLabel={`${c.label}: ${fBase(c.spent)} of ${fBase(c.assigned)} spent`}
-              valueText={`${fBase(c.spent)} of ${fBase(c.assigned)}`}
+              ariaLabel={formatMessage(
+                {
+                  id: 'overview.budget.spentAria',
+                  defaultMessage: '{name}: {spent} of {assigned} spent',
+                },
+                { name: c.label, spent: fBase(c.spent), assigned: fBase(c.assigned) },
+              )}
+              valueText={formatMessage(
+                { id: 'overview.budget.value', defaultMessage: '{spent} of {assigned}' },
+                { spent: fBase(c.spent), assigned: fBase(c.assigned) },
+              )}
             />
           </div>
         ))}

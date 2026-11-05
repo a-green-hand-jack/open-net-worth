@@ -1,3 +1,4 @@
+import { useTradingErrorText } from './useTradingErrorText'
 import { useState } from 'react'
 import { useQueryCache } from '../../../state/queryCache'
 import { tradingApi, tradingRoot } from '../../../api/trading'
@@ -14,7 +15,9 @@ import {
   Modal,
 } from '../../ui'
 import type { TradingEvent } from '../../../types/trading'
-import { errorText, readable, tradingTime } from './presentation'
+import { tradingTime } from './presentation'
+import { useAppIntl } from '../../../i18n/useAppIntl'
+import { useTradingLabel } from './useTradingLabel'
 
 export function TradingActivity({
   runId,
@@ -23,6 +26,9 @@ export function TradingActivity({
   runId: string
   artifactsOnly?: boolean
 }) {
+  const { formatMessage } = useAppIntl()
+  const errorText = useTradingErrorText()
+  const label = useTradingLabel()
   const [offset, setOffset] = useState(0)
   const [selected, setSelected] = useState<TradingEvent | null>(null)
   const query = useQueryCache(`${tradingRoot}/runs/${runId}/events?offset=${offset}&limit=50`, () =>
@@ -35,22 +41,56 @@ export function TradingActivity({
       (Array.isArray(event.payload.artifacts) && event.payload.artifacts.length > 0),
   )
   return (
-    <Panel title={artifactsOnly ? 'Artifacts' : 'Activity'}>
+    <Panel
+      title={
+        artifactsOnly
+          ? formatMessage({ id: 'trading.artifacts', defaultMessage: 'Artifacts' })
+          : formatMessage({ id: 'trading.activity', defaultMessage: 'Activity' })
+      }
+    >
       <Stack gap="--space-4">
-        {query.initialLoading && <Loading label="Loading activity…" />}
+        {query.initialLoading && (
+          <Loading
+            label={formatMessage({
+              id: 'trading.loadingActivity',
+              defaultMessage: 'Loading activity…',
+            })}
+          />
+        )}
         {!!query.error && (
           <ErrorState
-            message={`Updates interrupted. ${errorText(query.error)}`}
+            message={formatMessage(
+              { id: 'trading.updatesInterrupted', defaultMessage: 'Updates interrupted. {error}' },
+              { error: errorText(query.error) },
+            )}
             onRetry={() => void query.refresh()}
           />
         )}
         {!query.initialLoading && !query.error && !events.length && (
           <EmptyState
-            title={artifactsOnly ? 'No artifacts on this page' : 'No agent activity yet'}
+            title={
+              artifactsOnly
+                ? formatMessage({
+                    id: 'trading.noArtifacts',
+                    defaultMessage: 'No artifacts on this page',
+                  })
+                : formatMessage({
+                    id: 'trading.noAgentActivity',
+                    defaultMessage: 'No agent activity yet',
+                  })
+            }
             body={
               artifactsOnly
-                ? 'Script source, execution results and decision artifacts are retained with their activity.'
-                : 'Decisions, orders, failures and lifecycle changes will appear here.'
+                ? formatMessage({
+                    id: 'trading.noArtifactsBody',
+                    defaultMessage:
+                      'Script source, execution results and decision artifacts are retained with their activity.',
+                  })
+                : formatMessage({
+                    id: 'trading.noAgentActivityBody',
+                    defaultMessage:
+                      'Decisions, orders, failures and lifecycle changes will appear here.',
+                  })
             }
           />
         )}
@@ -62,17 +102,31 @@ export function TradingActivity({
                   event.kind.includes('error') || event.kind.includes('failed') ? 'neg' : 'neutral'
                 }
               >
-                {readable(event.kind)}
+                {label(event.kind)}
               </Badge>
               <Text size="xs" tone="muted">
-                {tradingTime(event.environment_time)} · received {tradingTime(event.created_at)}
+                {formatMessage(
+                  {
+                    id: 'trading.activityTimes',
+                    defaultMessage: '{environment} · received {received}',
+                  },
+                  {
+                    environment: tradingTime(event.environment_time),
+                    received: tradingTime(event.created_at),
+                  },
+                )}
               </Text>
             </Cluster>
             {typeof event.payload.summary === 'string' && (
               <Text as="p">{event.payload.summary}</Text>
             )}
             <Button variant="ghost" size="sm" onClick={() => setSelected(event)}>
-              View {artifactsOnly ? 'artifact' : 'event'} details
+              {artifactsOnly
+                ? formatMessage({
+                    id: 'trading.viewArtifact',
+                    defaultMessage: 'View artifact details',
+                  })
+                : formatMessage({ id: 'trading.viewEvent', defaultMessage: 'View event details' })}
             </Button>
           </div>
         ))}
@@ -81,20 +135,26 @@ export function TradingActivity({
             disabled={offset === 0}
             onClick={() => setOffset((value) => Math.max(0, value - 50))}
           >
-            Previous events
+            {formatMessage({ id: 'trading.previousEvents', defaultMessage: 'Previous events' })}
           </Button>
           <Text size="xs" tone="muted">
-            {query.data?.total ?? 0} events
+            {formatMessage(
+              {
+                id: 'trading.eventCount',
+                defaultMessage: '{count, plural, one {# event} other {# events}}',
+              },
+              { count: query.data?.total ?? 0 },
+            )}
           </Text>
           <Button
             disabled={offset + 50 >= (query.data?.total ?? 0)}
             onClick={() => setOffset((value) => value + 50)}
           >
-            Next events
+            {formatMessage({ id: 'trading.nextEvents', defaultMessage: 'Next events' })}
           </Button>
         </Cluster>
         {selected && (
-          <Modal open onClose={() => setSelected(null)} title={readable(selected.kind)} size="lg">
+          <Modal open onClose={() => setSelected(null)} title={label(selected.kind)} size="lg">
             <pre className="trading-code">{JSON.stringify(selected.payload, null, 2)}</pre>
           </Modal>
         )}

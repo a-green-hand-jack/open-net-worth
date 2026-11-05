@@ -13,7 +13,8 @@
     "start": "npm run build && electron-forge start",
     "package": "npm run build && electron-forge package",
     "make": "npm run build && electron-forge make",
-    "pretest": "node resources/build-onboarding.mjs",
+    "check:native-i18n": "node scripts/check-native-i18n.mjs",
+    "pretest": "npm run check:native-i18n && node resources/build-onboarding.mjs",
     "test": "tsx --test tests/*.test.ts",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "e2e": "node qa/e2e.mjs"
@@ -38,6 +39,7 @@
     "typescript": "~6.0.2"
   },
   "dependencies": {
-    "electron-squirrel-startup": "^1.0.1"
+    "electron-squirrel-startup": "^1.0.1",
+    "intl-messageformat": "^12.1.4"
   }
 }

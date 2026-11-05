@@ -3,6 +3,7 @@
 import { useRef, useState, type DragEvent } from 'react'
 import type { OwnedAsset } from '../../../types/assets'
 import * as api from './api'
+import { useAppIntl } from '../../../i18n/useAppIntl'
 
 export interface DocUpload {
   saving: boolean
@@ -13,6 +14,7 @@ export interface DocUpload {
 
 /** Several files go up one by one; a refused one never stops the rest. */
 export function useDocUpload(a: OwnedAsset, onToast: (message: string) => void): DocUpload {
+  const { formatMessage } = useAppIntl()
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const running = useRef(false)
@@ -29,14 +31,40 @@ export function useDocUpload(a: OwnedAsset, onToast: (message: string) => void):
         await api.uploadDoc(a.id, file)
         added += 1
       } catch (e) {
-        refused.push(`${file.name} wasn't added — ${e instanceof Error ? e.message : 'try again.'}`)
+        refused.push(
+          formatMessage(
+            { id: 'assets.upload.refused', defaultMessage: "{name} wasn't added — {reason}" },
+            {
+              name: file.name,
+              reason:
+                e instanceof Error
+                  ? e.message
+                  : formatMessage({ id: 'assets.upload.retry', defaultMessage: 'try again.' }),
+            },
+          ),
+        )
       }
     }
     running.current = false
     setSaving(false)
-    if (refused.length > 1) setError(`${refused[0]} (and ${refused.length - 1} more)`)
+    if (refused.length > 1)
+      setError(
+        formatMessage(
+          { id: 'assets.upload.more', defaultMessage: '{first} (and {count} more)' },
+          { first: refused[0], count: refused.length - 1 },
+        ),
+      )
     else if (refused.length === 1) setError(refused[0]!)
-    if (added) onToast(added === 1 ? 'File added.' : `${added} files added.`)
+    if (added)
+      onToast(
+        formatMessage(
+          {
+            id: 'assets.upload.added',
+            defaultMessage: '{count, plural, one {File added.} other {# files added.}}',
+          },
+          { count: added },
+        ),
+      )
   }
 
   return { saving, error, addFiles }

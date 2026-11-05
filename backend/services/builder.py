@@ -163,7 +163,7 @@ def engine_statuses() -> list[dict[str, Any]]:
             "guidance": "Install Claude Code, run `claude login`, then restart Open Net Worth.",
         },
     }
-    refusal = _execution_refusal()
+    refusal, refusal_id = _execution_refusal_info()
     for engine in ENGINE_IDS:
         configured = engine if refusal else resolve_engine_command(engine)
         resolved = None if refusal else shutil.which(configured)
@@ -177,6 +177,10 @@ def engine_statuses() -> list[dict[str, Any]]:
                 "command": resolved or configured,
                 "build_is_sandboxed": meta["build_is_sandboxed"],
                 "guidance": refusal or meta["guidance"],
+                "guidance_message": {
+                    "id": refusal_id or f"builder.guidance.{engine}",
+                    "params": {},
+                },
             }
         )
     return rows
@@ -360,6 +364,11 @@ def workspace_changes(root: Path | None = None) -> list[str]:
 class BuilderError(RuntimeError):
     """Base class for expected Builder failures."""
 
+    def __init__(self, message: str, message_id: str | None = None, **params: Any):
+        super().__init__(message)
+        self.message_id = message_id
+        self.message_params = params
+
 
 class BuilderValidationError(BuilderError):
     """The requested run or configured workspace is invalid."""
@@ -377,23 +386,27 @@ class RunNotFoundError(BuilderError):
     """A process-local run id no longer exists."""
 
 
-def _execution_refusal() -> str:
+def _execution_refusal_info() -> tuple[str, str | None]:
     """Why no coding engine may run here, or "" when one may.
 
     A demo's visitors are strangers, and an engine is an agent with a shell on the host: the
     refusal lives in the service, not only in the route lockdown, so no caller can start one."""
     settings = get_settings()
     if settings.desktop_mode:
-        return DESKTOP_EXECUTION_REFUSAL
+        return DESKTOP_EXECUTION_REFUSAL, "builder.error.desktop"
     if settings.demo_mode:
-        return DEMO_EXECUTION_REFUSAL
-    return ""
+        return DEMO_EXECUTION_REFUSAL, "builder.error.demo"
+    return "", None
+
+
+def _execution_refusal() -> str:
+    return _execution_refusal_info()[0]
 
 
 def _require_external_execution() -> None:
-    refusal = _execution_refusal()
+    refusal, message_id = _execution_refusal_info()
     if refusal:
-        raise EngineUnavailableError(refusal)
+        raise EngineUnavailableError(refusal, message_id)
 
 
 def _now() -> str:
@@ -411,11 +424,12 @@ class _Run:
     started_at: str | None = None
     finished_at: str | None = None
     error: str = ""
+    error_message: dict[str, Any] | None = None
     workspace_changes: list[str] = field(default_factory=list)
 
 
 Executor = Callable[
-    [str, EngineId, BuilderMode, str, Callable[[str, str], None]],
+    [str, EngineId, BuilderMode, str, Callable[..., None]],
     Awaitable[tuple[int, str]],
 ]
 
@@ -437,12 +451,15 @@ class BuilderManager:
         self._tasks: dict[str, asyncio.Task[None]] = {}
         self._processes: dict[str, asyncio.subprocess.Process] = {}
 
-    def _emit(self, run: _Run, kind: str, text: str) -> None:
+    def _emit(self, run: _Run, kind: str, text: str, message: dict | None = None) -> None:
         bounded = _bounded_text(text)
         if not bounded:
             return
         next_seq = run.events[-1]["seq"] + 1 if run.events else 1
-        run.events.append({"seq": next_seq, "kind": kind, "text": bounded, "created_at": _now()})
+        event = {"seq": next_seq, "kind": kind, "text": bounded, "created_at": _now()}
+        if message is not None:
+            event["text_message"] = message
+        run.events.append(event)
         if len(run.events) > MAX_EVENTS:
             run.events[:] = run.events[-MAX_EVENTS:]
 
@@ -457,6 +474,7 @@ class BuilderManager:
             "started_at": run.started_at,
             "finished_at": run.finished_at,
             "error": run.error,
+            "error_message": run.error_message,
             "workspace_changes": list(run.workspace_changes),
         }
 
@@ -468,6 +486,7 @@ class BuilderManager:
 
     def status(self) -> dict[str, Any]:
         error = ""
+        error_message = None
         try:
             valid_workspace = validate_workspace(self._workspace)
             workspace_valid = True
@@ -475,15 +494,18 @@ class BuilderManager:
             valid_workspace = self._workspace
             workspace_valid = False
             error = str(exc)
-        refusal = _execution_refusal()
+            error_message = {"id": "builder.error.workspace", "params": {}}
+        refusal, refusal_id = _execution_refusal_info()
         if refusal:
             workspace_valid = False
             error = refusal
+            error_message = {"id": refusal_id, "params": {}}
         return {
             "workspace": str(valid_workspace),
             "workspace_name": valid_workspace.name,
             "workspace_valid": workspace_valid,
             "error": error,
+            "error_message": error_message,
             "engines": self._engine_probe(),
             "active_run_id": self._active_run_id(),
         }
@@ -493,35 +515,48 @@ class BuilderManager:
         try:
             validate_workspace(self._workspace)
         except ValueError as exc:
-            raise BuilderValidationError(str(exc)) from exc
+            raise BuilderValidationError(str(exc), "builder.error.workspace") from exc
         if engine not in ENGINE_IDS:
-            raise BuilderValidationError(f"Unknown coding engine {engine!r}.")
+            raise BuilderValidationError(
+                f"Unknown coding engine {engine!r}.", "builder.error.unknownEngine", engine=engine
+            )
         if mode not in MODES:
-            raise BuilderValidationError(f"Unknown Builder mode {mode!r}.")
+            raise BuilderValidationError(
+                f"Unknown Builder mode {mode!r}.", "builder.error.unknownMode", mode=mode
+            )
         cleaned_prompt = (prompt or "").strip()
         if not cleaned_prompt:
-            raise BuilderValidationError("Describe the change you want Open Net Worth to make.")
+            raise BuilderValidationError(
+                "Describe the change you want Open Net Worth to make.",
+                "builder.error.promptRequired",
+            )
         if len(cleaned_prompt) > MAX_PROMPT_LENGTH:
             raise BuilderValidationError(
-                f"Keep the request under {MAX_PROMPT_LENGTH:,} characters and attach detail in files."
+                f"Keep the request under {MAX_PROMPT_LENGTH:,} characters and attach detail in files.",
+                "builder.error.promptLong",
+                count=MAX_PROMPT_LENGTH,
             )
         active = self._active_run_id()
         if active:
             raise ActiveRunError(
-                f"Builder run {active} is still active. Stop it before starting another."
+                f"Builder run {active} is still active. Stop it before starting another.",
+                "builder.error.active",
+                run_id=active,
             )
 
         statuses = {row.get("id"): row for row in self._engine_probe()}
         selected = statuses.get(engine)
         if not selected or not selected.get("installed"):
             raise EngineUnavailableError(
-                f"{('Codex' if engine == 'codex' else 'Claude Code')} is not installed or not on the configured PATH."
+                f"{('Codex' if engine == 'codex' else 'Claude Code')} is not installed or not on the configured PATH.",
+                "builder.error.notInstalled",
+                engine=engine,
             )
 
         run = _Run(
             id=f"build_{uuid.uuid4().hex[:12]}", engine=engine, mode=mode, prompt=cleaned_prompt
         )  # type: ignore[arg-type]
-        self._emit(run, "status", "Run queued.")
+        self._emit(run, "status", "Run queued.", {"id": "builder.event.queued", "params": {}})
         self._runs[run.id] = run
         self._prune_runs()
         self._tasks[run.id] = asyncio.create_task(self._execute(run))
@@ -541,7 +576,10 @@ class BuilderManager:
         run.status = "running"
         run.started_at = _now()
         self._emit(
-            run, "status", f"{('Codex' if run.engine == 'codex' else 'Claude Code')} started."
+            run,
+            "status",
+            f"{('Codex' if run.engine == 'codex' else 'Claude Code')} started.",
+            {"id": "builder.event.started", "params": {"engine": run.engine}},
         )
         executor = self._executor or self._execute_subprocess
         try:
@@ -550,29 +588,42 @@ class BuilderManager:
                 run.engine,
                 run.mode,
                 run.prompt,
-                lambda kind, text: self._emit(run, kind, text),
+                lambda kind, text, message=None: self._emit(run, kind, text, message),
             )
             if run.status == "cancelled":
                 return
             if return_code == 0:
                 run.status = "succeeded"
-                self._emit(run, "status", "Run finished.")
+                self._emit(
+                    run, "status", "Run finished.", {"id": "builder.event.finished", "params": {}}
+                )
             else:
                 run.status = "failed"
                 run.error = (
                     _bounded_text(stderr) or f"Coding engine exited with status {return_code}."
                 )
-                self._emit(run, "error", run.error)
+                if not _bounded_text(stderr):
+                    run.error_message = {
+                        "id": "builder.error.exitStatus",
+                        "params": {"status": return_code},
+                    }
+                self._emit(run, "error", run.error, run.error_message)
         except asyncio.CancelledError:
             if run.status != "cancelled":
                 run.status = "cancelled"
-                self._emit(run, "status", "Run stopped.")
+                self._emit(
+                    run, "status", "Run stopped.", {"id": "builder.event.stopped", "params": {}}
+                )
             raise
         except Exception as exc:
             if run.status != "cancelled":
                 run.status = "failed"
                 run.error = _bounded_text(exc) or "Coding engine failed."
-                self._emit(run, "error", run.error)
+                if isinstance(exc, BuilderError) and exc.message_id:
+                    run.error_message = {"id": exc.message_id, "params": exc.message_params}
+                elif not _bounded_text(exc):
+                    run.error_message = {"id": "builder.error.engineFailed", "params": {}}
+                self._emit(run, "error", run.error, run.error_message)
         finally:
             if run.status not in RUNNING_STATUSES:
                 run.finished_at = run.finished_at or _now()
@@ -585,13 +636,17 @@ class BuilderManager:
         engine: EngineId,
         mode: BuilderMode,
         request: str,
-        emit: Callable[[str, str], None],
+        emit: Callable[..., None],
     ) -> tuple[int, str]:
         _require_external_execution()
         command = resolve_engine_command(engine)
         executable = shutil.which(command)
         if not executable:
-            return 127, f"Coding engine executable {command!r} is no longer available."
+            raise EngineUnavailableError(
+                f"Coding engine executable {command!r} is no longer available.",
+                "builder.error.executableMissing",
+                command=command,
+            )
         argv = build_argv(engine, mode, executable=executable)
         process = await asyncio.create_subprocess_exec(
             *argv,
@@ -621,6 +676,29 @@ class BuilderManager:
                     payload = json.loads(decoded)
                 except ValueError:
                     emit("output", decoded)
+                    continue
+                event_type = payload.get("type") or payload.get("event") or ""
+                if (
+                    engine == "codex"
+                    and event_type in {"error", "turn.failed"}
+                    and not (payload.get("message") or payload.get("error"))
+                ):
+                    emit(
+                        "error",
+                        "Codex run failed.",
+                        {"id": "builder.event.codexFailed", "params": {}},
+                    )
+                    continue
+                item = payload.get("item") if isinstance(payload.get("item"), dict) else {}
+                if (
+                    engine == "codex"
+                    and event_type in {"item.started", "item.completed", "item.updated"}
+                    and item.get("type") in {"file_change", "file_edit"}
+                    and not (item.get("path") or item.get("file_path"))
+                ):
+                    emit(
+                        "tool", "Files changed", {"id": "builder.event.filesChanged", "params": {}}
+                    )
                     continue
                 for kind, text in normalize_event(engine, payload):
                     emit(kind, text)
@@ -677,7 +755,7 @@ class BuilderManager:
             return self._snapshot(run)
         run.status = "cancelled"
         run.finished_at = _now()
-        self._emit(run, "status", "Run stopped.")
+        self._emit(run, "status", "Run stopped.", {"id": "builder.event.stopped", "params": {}})
         await self._terminate_process(run_id)
         task = self._tasks.get(run_id)
         if task and not task.done():

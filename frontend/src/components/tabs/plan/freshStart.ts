@@ -11,7 +11,6 @@
 // "Resume earlier history" is the OTHER, smaller write: the floor only, via PUT budget-config.
 // Assignments a fresh start cleared do NOT come back that way — the copy says so.
 import { authFetch } from '../../../api/client'
-import { monthLabel } from '../../../hooks/useBudget'
 import { buildRtaLines, type RtaLine } from './rtaLines'
 
 export const BUDGET_CONFIG_URL = '/api/planning/budget-config'
@@ -69,16 +68,24 @@ export interface FreshStartHandle {
   month: string
 }
 
+export class FreshStartRequestError extends Error {
+  readonly status: number
+  constructor(status: number) {
+    super(`Request failed (${status})`)
+    this.status = status
+  }
+}
+
 async function readJson<T>(response: Response): Promise<T> {
   if (response.ok) return (await response.json()) as T
-  let detail = `Request failed (${response.status})`
+  let detail: string | undefined
   try {
     const body = await response.json()
     if (body?.detail) detail = String(body.detail)
   } catch {
     /* non-JSON error body */
   }
-  throw new Error(detail)
+  throw detail ? new Error(detail) : new FreshStartRequestError(response.status)
 }
 
 export async function fetchBudgetConfig(): Promise<BudgetConfig> {
@@ -129,38 +136,6 @@ export async function postFreshStartUndo(token: string): Promise<void> {
   await readJson(res) // throws with the server's own detail
 }
 
-// ── Copy (pure — the labels the menu, dialog, toast and state line share) ───────────────
-
-/** "September 2026" → "Sep 2026" (the compact form the state line uses). */
-export function shortMonthLabel(ym: string): string {
-  const [name, year] = monthLabel(ym).split(' ')
-  return year ? `${(name ?? '').slice(0, 3)} ${year}` : monthLabel(ym)
-}
-
-/** "September" — the month name on its own, for the dialog's copy. */
-export function monthName(ym: string): string {
-  return monthLabel(ym).split(' ')[0] ?? ym
-}
-
-/** The closing paragraph — every consequence of confirming, in one breath. */
-export function freshStartConsequencesLabel(ym: string): string {
-  return (
-    `Envelopes start over from ${monthName(ym)} — this month's assignments are cleared. ` +
-    "This month's spending still shows in its envelopes. Earlier months hide until you " +
-    'resume history. No transactions change — undo any time.'
-  )
-}
-
-/** The inverse action's body. It restores the floor and NOTHING else, which the user has to be
- *  told: Undo (7s, right after confirming) is what brings cleared assignments back. */
-export function resumeHistoryLabel(ym: string): string {
-  return (
-    `Envelopes carry their balances from before ${monthLabel(ym)} again and Ready to Assign ` +
-    'is recomputed — no transactions change. Assignments cleared by the fresh start are not ' +
-    'restored.'
-  )
-}
-
 /** The promised Ready to Assign showing its own arithmetic, through the SAME builder the RTA
  *  popover uses (`rtaLines.buildRtaLines`) — one order, one set of labels, one hideability rule,
  *  so a term can never read differently depending on which surface you opened. The rows sum to
@@ -189,20 +164,4 @@ export function freshStartLedger(p: FreshStartPreview): RtaLine[] {
     assignedInFuture: p.assigned_in_future ?? 0,
     rta: p.ready_to_assign_after,
   })
-}
-
-/** The kebab item. Already started fresh from THIS month → past tense, no ellipsis (the
- *  dialog behind it offers the inverse, "Resume earlier history"). */
-export function freshStartMenuLabel(ym: string, rolloverStart: string | null): string {
-  return rolloverStart === ym
-    ? `Started fresh from ${monthLabel(ym)}`
-    : `Start fresh from ${monthLabel(ym)}…`
-}
-
-/** The undo pill's message — the full sentence in both directions (owner decision: the pill
- *  widens on a phone rather than the copy shrinking; see `.pl-undo` in plan.css). */
-export function freshStartToastLabel(ym: string, rolloverStart: string | null): string {
-  return rolloverStart === null
-    ? 'Carrying earlier history again'
-    : `Budget starts fresh from ${monthLabel(ym)}`
 }

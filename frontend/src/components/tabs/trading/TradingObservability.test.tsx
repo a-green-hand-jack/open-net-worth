@@ -154,7 +154,7 @@ describe('actual trading observability', () => {
       low: 74,
       close: 77,
     })
-    expect(screen.getByText(/1 quote updates are retained/)).toBeTruthy()
+    expect(screen.getByText(/1 quote update is retained/)).toBeTruthy()
     expect(fixture.volume.mock.calls[0]?.[0]).toHaveLength(2)
   })
 

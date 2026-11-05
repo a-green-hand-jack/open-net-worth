@@ -4,6 +4,7 @@ import { ServerSubmission } from './server-submission';
 import { connectionPage } from './connection-page';
 import { assertPrivateCloudEnabled } from './feature-flags';
 import { openLocalConnection } from './local-connection-action';
+import { message as t } from './native-messages';
 
 interface ConnectionActions { parent(): BrowserWindow; currentServer(): string | null; currentFolder(): string | null; currentHosted(): boolean; localRunning(): boolean; connectServer(origin: string): Promise<void>; connectLocal(alternate?: boolean): Promise<boolean>; signInHosted(): Promise<void>; moveBook(): Promise<void>; moveBack(): Promise<void>; currentEmail(): string | null }
 
@@ -16,11 +17,11 @@ export class ConnectionDialog {
     ipcMain.handle('desktop-connection:submit', (event, value: unknown) => { this.authorize(event); return this.submit(value); });
     ipcMain.handle('desktop-connection:local', async event => {
       this.authorize(event);
-      if (this.applying || this.submission.busy) throw new Error('Wait for the current connection operation to finish.');
+      if (this.applying || this.submission.busy) throw new Error(t("Wait for the current connection operation to finish."));
       this.applying = true;
       try {
         const opened = await openLocalConnection({ select: alternate => this.actions.connectLocal(alternate), showFailure: async (message, offerAlternate) => {
-          const choice = await dialog.showMessageBox(this.window ?? this.actions.parent(), { type: 'error', title: 'Local book could not open', message, detail: 'Your current connection has been kept. Choose another local folder to use a different book.', buttons: offerAlternate ? ['Choose another local folder…', 'Keep current connection'] : ['Keep current connection'], defaultId: offerAlternate ? 1 : 0, cancelId: offerAlternate ? 1 : 0 });
+          const choice = await dialog.showMessageBox(this.window ?? this.actions.parent(), { type: 'error', title: t('Local book could not open'), message, detail: t('Your current connection has been kept. Choose another local folder to use a different book.'), buttons: offerAlternate ? [t('Choose another local folder…'), t('Keep current connection')] : [t('Keep current connection')], defaultId: offerAlternate ? 1 : 0, cancelId: offerAlternate ? 1 : 0 });
           return offerAlternate && choice.response === 0;
         } });
         if (opened) this.window?.destroy();
@@ -30,7 +31,7 @@ export class ConnectionDialog {
     ipcMain.handle('desktop-connection:move', async event => {
       assertPrivateCloudEnabled();
       this.authorize(event);
-      if (this.applying || this.submission.busy) throw new Error('Wait for the current connection operation to finish.');
+      if (this.applying || this.submission.busy) throw new Error(t("Wait for the current connection operation to finish."));
       this.applying = true;
       try { await this.actions.moveBook(); } finally { this.applying = false; }
       this.window?.destroy();
@@ -38,7 +39,7 @@ export class ConnectionDialog {
     ipcMain.handle('desktop-connection:move-back', async event => {
       assertPrivateCloudEnabled();
       this.authorize(event);
-      if (this.applying || this.submission.busy) throw new Error('Wait for the current connection operation to finish.');
+      if (this.applying || this.submission.busy) throw new Error(t("Wait for the current connection operation to finish."));
       this.applying = true;
       try {
         // The move shows its own progress screen, so this dialog gets out of its way first.
@@ -66,7 +67,7 @@ export class ConnectionDialog {
     isolated.setPermissionRequestHandler((_contents, _permission, callback) => callback(false));
     isolated.setPermissionCheckHandler(() => false);
     const parent = this.actions.parent();
-    this.window = new BrowserWindow({ width: 760, height: 600, minWidth: 560, show: false, parent, modal: true, title: 'Connection — Open Net Worth', backgroundColor: nativeTheme.shouldUseDarkColors ? '#0e1014' : '#ffffff', webPreferences: { preload: join(__dirname, '..', 'client-preload.js'), session: isolated, nodeIntegration: false, contextIsolation: true, sandbox: true, webSecurity: true, devTools: false } });
+    this.window = new BrowserWindow({ width: 760, height: 600, minWidth: 560, show: false, parent, modal: true, title: `${t('Connection')} — Open Net Worth`, backgroundColor: nativeTheme.shouldUseDarkColors ? '#0e1014' : '#ffffff', webPreferences: { preload: join(__dirname, '..', 'client-preload.js'), session: isolated, nodeIntegration: false, contextIsolation: true, sandbox: true, webSecurity: true, devTools: false } });
     const owned = this.window;
     owned.once('ready-to-show', () => setTimeout(() => { if (!owned.isDestroyed() && !owned.isVisible()) owned.show(); }, 300));
     owned.webContents.on('will-navigate', event => event.preventDefault());
@@ -88,17 +89,17 @@ export class ConnectionDialog {
   get dialogParent(): BrowserWindow { return this.window && !this.window.isDestroyed() ? this.window : this.actions.parent(); }
   private abort(): void { this.submission.abort(); }
   private authorize(event: IpcMainInvokeEvent): void {
-    if (!this.window || event.sender !== this.window.webContents || event.senderFrame !== this.window.webContents.mainFrame || event.senderFrame.url !== this.url) throw new Error('Untrusted connection caller.');
+    if (!this.window || event.sender !== this.window.webContents || event.senderFrame !== this.window.webContents.mainFrame || event.senderFrame.url !== this.url) throw new Error(t("Untrusted connection caller."));
   }
 
   private async submit(value: unknown): Promise<void> {
-    if (this.applying) throw new Error('Wait for the current connection operation to finish.');
+    if (this.applying) throw new Error(t("Wait for the current connection operation to finish."));
     const connected = await this.submission.submit(value, {
       surface: () => this.window && !this.window.isDestroyed() ? this.window : null,
       localRunning: () => this.actions.localRunning(),
       ask: async (parent, options) => (await dialog.showMessageBox(parent, options)).response,
       connect: origin => this.actions.connectServer(origin),
-      lost: async error => { await dialog.showMessageBox(this.actions.parent(), { type: 'error', title: 'Open Net Worth', message: error instanceof Error ? error.message : 'Your previous connection has been kept.' }); },
+      lost: async error => { await dialog.showMessageBox(this.actions.parent(), { type: 'error', title: 'Open Net Worth', message: error instanceof Error ? error.message : t('Your previous connection has been kept.') }); },
     });
     if (connected) this.window?.destroy();
   }

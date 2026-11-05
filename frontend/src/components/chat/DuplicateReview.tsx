@@ -1,3 +1,5 @@
+import { getNumberLocale } from '../../utils/format'
+import { useAppIntl } from '../../i18n/useAppIntl'
 import { useEffect, useState } from 'react'
 import type { PotentialDuplicate } from '../../types/chat'
 import { authFetch } from '../../api/client'
@@ -12,6 +14,7 @@ interface Props {
 }
 
 export function DuplicateReview({ duplicates, onSendMessage }: Props) {
+  const intl = useAppIntl()
   const [checked, setChecked] = useState<Set<string>>(new Set())
   const [status, setStatus] = useState<'idle' | 'deleting' | 'done'>('idle')
   const [deletedIds, setDeletedIds] = useState<Set<string>>(new Set())
@@ -88,15 +91,15 @@ export function DuplicateReview({ duplicates, onSendMessage }: Props) {
   const visible = duplicates.filter((d) => !deletedIds.has(d.id))
 
   if (status === 'done' && visible.length === 0) {
-    return <div className="dup-review dup-review--done">✓ Duplicate review complete</div>
+    return <div className="dup-review dup-review--done">✓ {intl.formatMessage({ id: 'chat.duplicates.complete', defaultMessage: 'Duplicate review complete' })}</div>
   }
 
   return (
     <div className="dup-review">
       <div className="dup-review-header">
-        <span className="dup-review-title">⚠ Potential duplicates — {visible.length} flagged</span>
+        <span className="dup-review-title">⚠ {intl.formatMessage({ id: 'chat.duplicates.flagged', defaultMessage: 'Potential duplicates — {count} flagged' }, { count: visible.length })}</span>
         <span className="dup-review-hint">
-          These were inserted but match existing transactions. Select any to delete.
+          {intl.formatMessage({ id: 'chat.duplicates.hint', defaultMessage: 'These were inserted but match existing transactions. Select any to delete.' })}
         </span>
       </div>
 
@@ -111,13 +114,13 @@ export function DuplicateReview({ duplicates, onSendMessage }: Props) {
                   onChange={toggleAll}
                 />
               </th>
-              <th>Date</th>
-              <th>Description</th>
-              <th>Amount</th>
-              <th>From</th>
-              <th>To</th>
-              <th>ID</th>
-              <th>Copies</th>
+              <th>{intl.formatMessage({ id: 'chat.duplicates.date', defaultMessage: 'Date' })}</th>
+              <th>{intl.formatMessage({ id: 'chat.duplicates.description', defaultMessage: 'Description' })}</th>
+              <th>{intl.formatMessage({ id: 'chat.duplicates.amount', defaultMessage: 'Amount' })}</th>
+              <th>{intl.formatMessage({ id: 'chat.duplicates.from', defaultMessage: 'From' })}</th>
+              <th>{intl.formatMessage({ id: 'chat.duplicates.to', defaultMessage: 'To' })}</th>
+              <th>{intl.formatMessage({ id: 'chat.duplicates.id', defaultMessage: 'ID' })}</th>
+              <th>{intl.formatMessage({ id: 'chat.duplicates.copies', defaultMessage: 'Copies' })}</th>
             </tr>
           </thead>
           <tbody>
@@ -135,7 +138,7 @@ export function DuplicateReview({ duplicates, onSendMessage }: Props) {
                   </td>
                   <td className="dup-cell-date">{fDate(d.date, 'numeric')}</td>
                   <td className="dup-cell-desc">{d.description || '—'}</td>
-                  <td className="dup-cell-amount">{d.amount?.toLocaleString()}</td>
+                  <td className="dup-cell-amount">{d.amount?.toLocaleString(getNumberLocale())}</td>
                   <td className="dup-cell-acct">
                     {from ?? <span className="dup-cell-null">—</span>}
                   </td>
@@ -152,7 +155,7 @@ export function DuplicateReview({ duplicates, onSendMessage }: Props) {
       </div>
 
       {status === 'done' && visible.length > 0 && (
-        <div className="dup-review-partial">✓ Some deleted — remaining entries kept.</div>
+        <div className="dup-review-partial">✓ {intl.formatMessage({ id: 'chat.duplicates.partial', defaultMessage: 'Some deleted — remaining entries kept.' })}</div>
       )}
 
       <div className="dup-review-actions">
@@ -161,10 +164,10 @@ export function DuplicateReview({ duplicates, onSendMessage }: Props) {
           onClick={deleteSelected}
           disabled={checked.size === 0 || status === 'deleting'}
         >
-          {status === 'deleting' ? 'Deleting…' : `Delete selected (${checked.size})`}
+          {status === 'deleting' ? intl.formatMessage({ id: 'chat.duplicates.deleting', defaultMessage: 'Deleting…' }) : intl.formatMessage({ id: 'chat.duplicates.deleteSelected', defaultMessage: 'Delete selected ({count})' }, { count: checked.size })}
         </button>
         <button className="dup-keep-btn" onClick={keepAll} disabled={status === 'deleting'}>
-          Keep all
+          {intl.formatMessage({ id: 'chat.duplicates.keepAll', defaultMessage: 'Keep all' })}
         </button>
       </div>
     </div>

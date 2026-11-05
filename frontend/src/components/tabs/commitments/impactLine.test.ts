@@ -1,4 +1,6 @@
 import { describe, expect, it } from 'vitest'
+import { createIntl } from 'react-intl'
+import zh from '../../../i18n/zh-CN.json'
 import { buildDidntHint, buildImpactLine } from './impactLine'
 import type { CommitmentAction } from '../../../types/commitments'
 
@@ -21,6 +23,14 @@ function action(overrides: Partial<CommitmentAction> = {}): CommitmentAction {
 }
 
 describe('buildImpactLine', () => {
+  it('localizes the generated consequence and preserves a user commitment name', () => {
+    const text = buildImpactLine({
+      commitmentName: 'Custom name', action: action({ due_date: '' }), fundingAmountBase: 15000,
+      intl: createIntl({ locale: 'zh-CN', messages: zh }),
+    })
+    expect(text).toContain('Custom name')
+    expect(text).toContain('不会到账')
+  })
   it('inflow with a resolved funding source names the pulled amount', () => {
     const text = buildImpactLine({
       commitmentName: 'Parkview Residences',

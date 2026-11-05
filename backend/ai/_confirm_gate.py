@@ -215,6 +215,12 @@ async def surface_unattended_write(
                 "type": "review",
                 "severity": "info",
                 "title": f"{who} wrote to your ledger",
+                "title_message": {
+                    "id": "inbox.server.agentWrote"
+                    if agent_id
+                    else "inbox.server.agentWroteUnknown",
+                    "params": {"agent": agent_id} if agent_id else {},
+                },
                 "summary": body,
                 "trigger": f"unattended:{tool_name}",
             }
@@ -244,7 +250,17 @@ async def surface_unattended_refusal(
                 "type": "review",
                 "severity": "warning",
                 "title": f"{who} attempted a write outside its envelope",
+                "title_message": {
+                    "id": "inbox.server.agentRefused"
+                    if agent_id
+                    else "inbox.server.agentRefusedUnknown",
+                    "params": {"agent": agent_id} if agent_id else {},
+                },
                 "summary": summary,
+                "summary_message": {
+                    "id": "inbox.server.refusedSummary",
+                    "params": {"attempted": attempted, "reason": reason},
+                },
                 "trigger": f"unattended_refused:{tool_name}",
             }
         )

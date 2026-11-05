@@ -1,3 +1,6 @@
+import { fFixed } from '../../../utils/format'
+import { useAppIntl } from '../../../i18n/useAppIntl'
+import type { IntlShape } from 'react-intl'
 // Funding tab — ported from detail3.jsx's `Funding`/`FundRow`/`TargetLink`/`AddSourceForm`/
 // `computeCoverage`. `computeCoverage` is also used by `detailOverview.tsx`'s condensed digest
 // so the two can never disagree (same rule as the design handoff).
@@ -84,6 +87,7 @@ export function computeCoverage(
 }
 
 function TargetLink({ t, onOpen }: { t: EnvelopeAccrualState; onOpen: () => void }) {
+  const { formatMessage } = useAppIntl()
   const under = t.target_this_month > 0 && t.per_period < t.target_this_month
   const pct =
     t.target_this_month > 0
@@ -93,14 +97,15 @@ function TargetLink({ t, onOpen }: { t: EnvelopeAccrualState; onOpen: () => void
     <div className="c2-target">
       <div className="c2-target-top">
         <span className="c2-synced">
-          <SyncIcon /> Synced target
+          <SyncIcon />{' '}
+          {formatMessage({ id: 'commitments.funding.synced', defaultMessage: 'Synced target' })}
         </span>
         <span className="c2-target-lbl">
-          Funds <b>{t.envelope}</b> • <span className="money">{fBase(t.accumulated)}</span> saved so
-          far
+          {formatMessage({ id: 'commitments.funding.funds', defaultMessage: 'Funds' })} <b>{t.envelope}</b> • <span className="money">{fBase(t.accumulated)}</span> {formatMessage({ id: 'commitments.funding.savedSoFar', defaultMessage: 'saved so far' })}
         </span>
         <button className="c2-link" onClick={onOpen}>
-          Manage in Budget <ArrowRight size={13} aria-hidden="true" />
+          {formatMessage({ id: 'commitments.funding.budget', defaultMessage: 'Manage in Budget' })}{' '}
+          <ArrowRight size={13} aria-hidden="true" />
         </button>
       </div>
       {t.target_this_month > 0 && (
@@ -115,7 +120,8 @@ function TargetLink({ t, onOpen }: { t: EnvelopeAccrualState; onOpen: () => void
               <b className="money">{fBase(t.per_period)}</b>
             )}
             {' / '}
-            <span className="money">{fBase(t.target_this_month)}</span> this month
+            <span className="money">{fBase(t.target_this_month)}</span>{' '}
+            {formatMessage({ id: 'commitments.funding.thisMonth', defaultMessage: 'this month' })}
           </span>
         </div>
       )}
@@ -128,12 +134,47 @@ export function fundingWhen(f: FundingSource, pos: PositionMeta | undefined): st
   if (f.type === 'asset_sale' && f.available_date) return `avail ${fmtDate(f.available_date)}`
   if (f.type === 'asset_sale' && f.ref_position_id) {
     return pos
-      ? `${f.sell_quantity ?? 0} × ${getCurrencySymbol(pos.priceCurrency)}${pos.price.toFixed(2)} live`
+      ? `${f.sell_quantity ?? 0} × ${getCurrencySymbol(pos.priceCurrency)}${fFixed(pos.price, 2)} live`
       : 'asset sale'
   }
   if (f.type === 'asset_sale')
     return f.sell_quantity != null ? `${f.sell_quantity} units` : 'asset sale'
   return f.available_date ? `avail ${fmtDate(f.available_date)}` : 'available now'
+}
+
+export function localizedFundingWhen(
+  f: FundingSource,
+  pos: PositionMeta | undefined,
+  intl: IntlShape,
+): string {
+  if (intl.locale.startsWith('en')) return fundingWhen(f, pos)
+  const { formatMessage } = intl
+  if (f.type === 'income')
+    return formatMessage(
+      { id: 'commitments.funding.perMonth', defaultMessage: '{amount} /mo' },
+      { amount: fBase(f.value_base ?? 0) },
+    )
+  if (f.available_date)
+    return formatMessage(
+      { id: 'commitments.funding.availableDate', defaultMessage: 'avail {date}' },
+      { date: fmtDate(f.available_date) },
+    )
+  if (f.type === 'asset_sale' && f.ref_position_id && pos)
+    return formatMessage(
+      { id: 'commitments.funding.liveValue', defaultMessage: '{quantity} × {price} live' },
+      {
+        quantity: f.sell_quantity ?? 0,
+        price: `${getCurrencySymbol(pos.priceCurrency)}${fFixed(pos.price, 2)}`,
+      },
+    )
+  if (f.type === 'asset_sale')
+    return f.sell_quantity != null && !f.ref_position_id
+      ? formatMessage(
+          { id: 'commitments.funding.units', defaultMessage: '{count} units' },
+          { count: f.sell_quantity },
+        )
+      : formatMessage({ id: 'commitments.funding.assetSale', defaultMessage: 'asset sale' })
+  return formatMessage({ id: 'commitments.funding.availableNow', defaultMessage: 'available now' })
 }
 
 interface FundRowProps {
@@ -144,6 +185,18 @@ interface FundRowProps {
 }
 
 function FundRow({ c, f, pos, m }: FundRowProps) {
+  const intl = useAppIntl()
+  const { formatMessage } = intl
+  const typeLabels: Record<string, string> = {
+    cash: formatMessage({ id: 'commitments.funding.cash', defaultMessage: 'Cash earmark' }),
+    income: formatMessage({
+      id: 'commitments.funding.income',
+      defaultMessage: 'Recurring savings',
+    }),
+    asset_sale: formatMessage({ id: 'commitments.funding.sale', defaultMessage: 'Asset sale' }),
+    loan: formatMessage({ id: 'commitments.funding.loan', defaultMessage: 'Loan' }),
+    windfall: formatMessage({ id: 'commitments.funding.windfall', defaultMessage: 'Windfall' }),
+  }
   const [draft, setDraft] = useState<EditDraft | null>(null)
   const isAssetSale = f.type === 'asset_sale'
 
@@ -156,7 +209,10 @@ function FundRow({ c, f, pos, m }: FundRowProps) {
             draft={draft}
             setDraft={setDraft}
             descKey="note"
-            descPlaceholder="Note (optional)"
+            descPlaceholder={formatMessage({
+              id: 'commitments.funding.noteOptional',
+              defaultMessage: 'Note (optional)',
+            })}
             onSave={() => {
               const amountField = isAssetSale
                 ? { sell_quantity: Number(draft.amount) || 0 }
@@ -203,7 +259,10 @@ function FundRow({ c, f, pos, m }: FundRowProps) {
           <span className="c2-fund-name-text">{f.label}</span>
           <button
             className="c2-iconbtn"
-            aria-label={'Edit ' + f.label}
+            aria-label={formatMessage(
+              { id: 'commitments.funding.edit', defaultMessage: 'Edit {name}' },
+              { name: f.label },
+            )}
             onClick={() =>
               setDraft({
                 label: f.label,
@@ -221,13 +280,20 @@ function FundRow({ c, f, pos, m }: FundRowProps) {
               className={'c3-fund-tag ' + (isEnvelopeSource(f) ? 'env' : f.type)}
               title={
                 isEnvelopeSource(f)
-                  ? 'A monthly set-aside that builds up in Budget — payments draw only what it has saved'
-                  : 'A specific, dated funding event you set up yourself — not auto-tracked by a synced Budget target'
+                  ? formatMessage({ id: 'commitments.funding.budgetSourceHint', defaultMessage: 'A monthly set-aside that builds up in Budget — payments draw only what it has saved' })
+                  : formatMessage({ id: 'commitments.funding.datedSourceHint', defaultMessage: 'A specific, dated funding event you set up yourself — not auto-tracked by a synced Budget target' })
               }
             >
-              {isEnvelopeSource(f) ? 'Budget target' : FUNDING_LABELS[f.type] || f.type}
+              {isEnvelopeSource(f)
+                ? formatMessage({
+                    id: 'commitments.funding.budgetTarget',
+                    defaultMessage: 'Budget target',
+                  })
+                : typeLabels[f.type] || FUNDING_LABELS[f.type] || f.type}
             </span>
-            <span className="c2-fund-when c2-fund-when-inline">{fundingWhen(f, pos)}</span>
+            <span className="c2-fund-when c2-fund-when-inline">
+              {localizedFundingWhen(f, pos, intl)}
+            </span>
           </div>
           {(f.note ||
             f.disabled ||
@@ -238,7 +304,12 @@ function FundRow({ c, f, pos, m }: FundRowProps) {
               {f.disabled && (
                 <>
                   {f.note ? ' • ' : ''}
-                  <b className="c3-fund-lost">removed — not happening</b>
+                  <b className="c3-fund-lost">
+                    {formatMessage({
+                      id: 'commitments.funding.removed',
+                      defaultMessage: 'removed — not happening',
+                    })}
+                  </b>
                 </>
               )}
               {isAssetSale && f.ref_position_id && pos?.instrumentId && (
@@ -250,7 +321,12 @@ function FundRow({ c, f, pos, m }: FundRowProps) {
                     ticker={pos.symbol}
                     className="c2-link"
                   >
-                    {pos.symbol || 'position'} <ArrowRight size={13} aria-hidden="true" />
+                    {pos.symbol ||
+                      formatMessage({
+                        id: 'commitments.funding.position',
+                        defaultMessage: 'position',
+                      })}{' '}
+                    <ArrowRight size={13} aria-hidden="true" />
                   </AssetLink>
                 </>
               )}
@@ -266,7 +342,11 @@ function FundRow({ c, f, pos, m }: FundRowProps) {
                       )
                     }
                   >
-                    set up repayment plan <ArrowRight size={13} aria-hidden="true" />
+                    {formatMessage({
+                      id: 'commitments.funding.setRepayment',
+                      defaultMessage: 'set up repayment plan',
+                    })}{' '}
+                    <ArrowRight size={13} aria-hidden="true" />
                   </button>
                 </>
               )}
@@ -278,7 +358,11 @@ function FundRow({ c, f, pos, m }: FundRowProps) {
                     className="c2-link"
                     onClick={() => m.onOpenCommitment(f.repayment_commitment_id as string)}
                   >
-                    repayment plan <ArrowRight size={13} aria-hidden="true" />
+                    {formatMessage({
+                      id: 'commitments.funding.repayment',
+                      defaultMessage: 'repayment plan',
+                    })}{' '}
+                    <ArrowRight size={13} aria-hidden="true" />
                   </button>
                 </>
               )}
@@ -286,7 +370,9 @@ function FundRow({ c, f, pos, m }: FundRowProps) {
           )}
         </div>
       </div>
-      <span className="c2-fund-when c2-fund-when-standalone">{fundingWhen(f, pos)}</span>
+      <span className="c2-fund-when c2-fund-when-standalone">
+        {localizedFundingWhen(f, pos, intl)}
+      </span>
       <span className={'c2-fund-amt money' + (f.disabled ? ' c3-fund-lost-amt' : '')}>
         {/* Was `f.type === 'income'`, which is TRUE for both the one live-synced envelope
             (isEnvelopeSource — genuinely no fixed number; it accrues dynamically in Planning,
@@ -296,7 +382,11 @@ function FundRow({ c, f, pos, m }: FundRowProps) {
             loan repayment starts eating into free cash flow). The broad condition was hiding
             that real, varying number behind the same vague word for every income-type row,
             the one place on this row where the reader could otherwise tell two months apart. */}
-        {isEnvelopeSource(f) ? 'recurring' : f.value_base != null ? fBase(f.value_base) : '—'}
+        {isEnvelopeSource(f)
+          ? formatMessage({ id: 'commitments.funding.recurring', defaultMessage: 'recurring' })
+          : f.value_base != null
+            ? fBase(f.value_base)
+            : '—'}
       </span>
     </EntityRow>
   )
@@ -311,6 +401,17 @@ interface FundingProps {
 }
 
 export function Funding({ commitment: c, fx, envelope, positions, m }: FundingProps) {
+  const { formatMessage } = useAppIntl()
+  const typeLabels: Record<string, string> = {
+    cash: formatMessage({ id: 'commitments.funding.cash', defaultMessage: 'Cash earmark' }),
+    income: formatMessage({
+      id: 'commitments.funding.income',
+      defaultMessage: 'Recurring savings',
+    }),
+    asset_sale: formatMessage({ id: 'commitments.funding.sale', defaultMessage: 'Asset sale' }),
+    loan: formatMessage({ id: 'commitments.funding.loan', defaultMessage: 'Loan' }),
+    windfall: formatMessage({ id: 'commitments.funding.windfall', defaultMessage: 'Windfall' }),
+  }
   const navigate = useNavigate()
   const narrow = useNarrow()
   const [typeFilter, setTypeFilter] = useState<FundingType | 'all'>('all')
@@ -329,21 +430,31 @@ export function Funding({ commitment: c, fx, envelope, positions, m }: FundingPr
   return (
     <div className="c2-exp-sec">
       <div className="c2-exp-sec-h">
-        <span className="c2-exp-sec-t">How it's funded</span>
+        <span className="c2-exp-sec-t">
+          {formatMessage({ id: 'commitments.funding.heading', defaultMessage: "How it's funded" })}
+        </span>
         {narrow ? (
           presentTypes.length > 1 && (
             <span className={'c2-fund-typefilter-btn' + (typeFilter !== 'all' ? ' active' : '')}>
               <FilterIcon />
               <select
                 className="c2-fund-typefilter-select"
-                aria-label="Filter by funding type"
+                aria-label={formatMessage({
+                  id: 'commitments.funding.filter',
+                  defaultMessage: 'Filter by funding type',
+                })}
                 value={typeFilter}
                 onChange={(e) => setTypeFilter(e.target.value as FundingType | 'all')}
               >
-                <option value="all">All ({c.funding_plan.length})</option>
+                <option value="all">
+                  {formatMessage(
+                    { id: 'commitments.funding.all', defaultMessage: 'All ({count})' },
+                    { count: c.funding_plan.length },
+                  )}
+                </option>
                 {presentTypes.map((t) => (
                   <option key={t} value={t}>
-                    {FUNDING_LABELS[t] || t} ({typeCounts[t]})
+                    {typeLabels[t] || FUNDING_LABELS[t] || t} ({typeCounts[t]})
                   </option>
                 ))}
               </select>
@@ -354,10 +465,21 @@ export function Funding({ commitment: c, fx, envelope, positions, m }: FundingPr
             {!tracker &&
               (gap > 0 ? (
                 <span className="c2-exp-sec-note bad">
-                  <span className="money">{fBase(gap)}</span> unfunded •{' '}
+                  <span className="money">{fBase(gap)}</span>{' '}
+                  {formatMessage({
+                    id: 'commitments.funding.unfunded',
+                    defaultMessage: 'unfunded',
+                  })}{' '}
+                  •{' '}
                 </span>
               ) : (
-                <span className="c2-exp-sec-note good">Fully funded • </span>
+                <span className="c2-exp-sec-note good">
+                  {formatMessage({
+                    id: 'commitments.funding.fullyFunded',
+                    defaultMessage: 'Fully funded',
+                  })}{' '}
+                  •{' '}
+                </span>
               ))}
             <button
               className="c2-link lucius"
@@ -365,7 +487,11 @@ export function Funding({ commitment: c, fx, envelope, positions, m }: FundingPr
                 m.onAskLucius(`Help me add a funding source to my "${c.name}" commitment's plan.`)
               }
             >
-              Manage with Lucius <ArrowRight size={13} aria-hidden="true" />
+              {formatMessage({
+                id: 'commitments.funding.manage',
+                defaultMessage: 'Manage with Lucius',
+              })}{' '}
+              <ArrowRight size={13} aria-hidden="true" />
             </button>
           </span>
         )}
@@ -394,13 +520,21 @@ export function Funding({ commitment: c, fx, envelope, positions, m }: FundingPr
             <div className="c2-target">
               <div className="c2-target-top">
                 <span className="c2-synced">
-                  <SyncIcon /> Synced target
+                  <SyncIcon />{' '}
+                  {formatMessage({
+                    id: 'commitments.funding.synced',
+                    defaultMessage: 'Synced target',
+                  })}
                 </span>
                 <button
                   className="c2-link"
                   onClick={() => void navigate({ to: '/plan', search: { sub: 'budget' } } as never)}
                 >
-                  Manage in Budget <ArrowRight size={13} aria-hidden="true" />
+                  {formatMessage({
+                    id: 'commitments.funding.budget',
+                    defaultMessage: 'Manage in Budget',
+                  })}{' '}
+                  <ArrowRight size={13} aria-hidden="true" />
                 </button>
               </div>
             </div>
@@ -411,7 +545,10 @@ export function Funding({ commitment: c, fx, envelope, positions, m }: FundingPr
                 className={'c2-mini-btn' + (typeFilter === 'all' ? ' pri' : '')}
                 onClick={() => setTypeFilter('all')}
               >
-                All ({c.funding_plan.length})
+                {formatMessage(
+                  { id: 'commitments.funding.all', defaultMessage: 'All ({count})' },
+                  { count: c.funding_plan.length },
+                )}
               </button>
               {presentTypes.map((t) => (
                 <button
@@ -419,7 +556,7 @@ export function Funding({ commitment: c, fx, envelope, positions, m }: FundingPr
                   className={'c2-mini-btn' + (typeFilter === t ? ' pri' : '')}
                   onClick={() => setTypeFilter(t)}
                 >
-                  {FUNDING_LABELS[t] || t} ({typeCounts[t]})
+                  {typeLabels[t] || FUNDING_LABELS[t] || t} ({typeCounts[t]})
                 </button>
               ))}
             </div>
@@ -438,8 +575,11 @@ export function Funding({ commitment: c, fx, envelope, positions, m }: FundingPr
         </>
       ) : (
         <div className="c2-fund-empty">
-          No funding sources yet — ask Lucius how you'll cover these installments (cash, an asset
-          sale, or a loan).
+          {formatMessage({
+            id: 'commitments.funding.noFunding',
+            defaultMessage:
+              "No funding sources yet — ask Lucius how you'll cover these installments (cash, an asset sale, or a loan).",
+          })}
         </div>
       )}
     </div>

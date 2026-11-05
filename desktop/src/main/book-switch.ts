@@ -1,3 +1,4 @@
+import { message as t } from './native-messages';
 import type { BookFolder } from './book-folder';
 import { verifyBookFolder, verifyRememberedBookRoot } from './book-folder';
 import { BookInUseError } from './runtime';
@@ -28,7 +29,7 @@ export class BookSwitcher {
     return this.exclusive(async () => {
       this.initialRetryFolder = null;
       await verifyBookFolder(chosen);
-      if (entry === 'restore' && chosen.existing) throw new Error('Choose an empty folder to restore a backup.');
+      if (entry === 'restore' && chosen.existing) throw new Error(t("Choose an empty folder to restore a backup."));
       await this.view.prepareBookSwitch(entry === 'restore' ? 'restore' : chosen.existing ? 'opening' : 'creating');
       await this.workers.drain();
       await this.backend.stop();
@@ -79,7 +80,7 @@ export class BookSwitcher {
         await this.view.loadApp('folder');
         this.workers.start();
       } catch { await this.backend.stop(); await this.view.showRecovery(false); }
-      throw new Error(`${reason}The selected book could not open. Your previous book has been kept.`);
+      throw new Error(`${reason}${t('The selected book could not open. Your previous book has been kept.')}`);
     }
   }
 }

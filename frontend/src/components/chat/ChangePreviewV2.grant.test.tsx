@@ -12,6 +12,8 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { createElement, useState } from 'react'
 import { render, screen, fireEvent, waitFor, cleanup, act } from '@testing-library/react'
 import { ChangePreviewV2 } from './ChangePreviewV2'
+import { IntlProvider } from 'react-intl'
+import messages from './zh-CN.messages.json'
 import type { ProposedChange } from '../../types/chat'
 
 const TOOL = 'add_transactions'
@@ -412,6 +414,22 @@ describe('the three card outcomes are distinct — live, stored and after a relo
     expect(answers[0]).toEqual([TOOL_USE_ID, 'approve', { always: false }])
     expect(screen.getByText('✓ Approved')).toBeTruthy()
     expect(screen.queryByText('✓ Always allowed')).toBeNull()
+  })
+
+  it('localizes a known refusal without granting standing permission', async () => {
+    fetchMock.mockImplementation(async () => new Response(JSON.stringify({
+      detail: 'This Automation no longer exists, so nothing was changed.',
+      message_id: 'permissions.error.automationMissing',
+      message_params: {},
+    }), { status: 409, headers: { 'Content-Type': 'application/json' } }))
+    answers = []
+    const { container } = render(<IntlProvider locale="zh-CN" messages={messages}><ChangePreviewV2 change={automationCard} onRespond={() => {}} onResolvePendingToolUse={(id, decision, options) => answers.push([id, decision, options])} /></IntlProvider>)
+    fireEvent.click(screen.getByRole('button', { name: '长期权限' }))
+    fireEvent.click(screen.getByRole('menuitem', { name: /始终允许/ }))
+    await waitFor(() => expect(answers.length).toBe(1))
+    expect(container.querySelector('.change-grant-error')?.textContent).toContain('该自动化已不存在')
+    expect(container.querySelector('.change-grant-error')?.textContent).toContain('本次调用已获一次性批准')
+    expect(answers[0]).toEqual([TOOL_USE_ID, 'approve', { always: false }])
   })
 
   it('any other failed Always allow keeps its own wording and is also recorded as Approved', async () => {

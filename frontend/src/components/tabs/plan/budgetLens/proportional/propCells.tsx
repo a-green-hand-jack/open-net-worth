@@ -3,6 +3,7 @@
 // Zero-Based's CategoryRow, which hands the SAME leaf controls to both of its layouts
 // (budgetCards.tsx) so a phone never loses what the desktop row shows (owner, 2026-09-25).
 import { useState } from 'react'
+import { useAppIntl } from '../../../../../i18n/useAppIntl'
 import type { DragEvent } from 'react'
 import { ActivityCell } from '../../budgetActivity'
 import type { RawTxn } from '../../budgetActivity'
@@ -68,6 +69,7 @@ function CapInput({
   label: string
   onChange: (v: number) => void
 }) {
+  const { formatMessage } = useAppIntl()
   const [edit, setEdit] = useState(false)
   const [draft, setDraft] = useState('')
   const commit = () => {
@@ -106,7 +108,7 @@ function CapInput({
     <button
       type="button"
       className={'pl-assign mask' + (value ? '' : ' zero')}
-      title="Click to set a cap"
+      title={formatMessage({ id: 'plan.clickSetCap', defaultMessage: 'Click to set a cap' })}
       aria-label={label}
       onClick={(e) => {
         e.stopPropagation()
@@ -121,11 +123,19 @@ function CapInput({
 
 /** Cap: read-only in a past month, else the click-to-edit cap. */
 export function CapCell({ e, h }: { e: PropEnvelope; h: RowHandlers }) {
+  const { formatMessage } = useAppIntl()
   const cap = e.cap ?? 0
   if (h.capsLocked && !cap) return <Dash />
   if (h.capsLocked) return <span className="pl-fig mask">{fFig(cap).text}</span>
   return (
-    <CapInput value={cap} label={e.label + ' monthly cap'} onChange={(v) => h.onCap(e.id, v)} />
+    <CapInput
+      value={cap}
+      label={formatMessage(
+        { id: 'plan.namedMonthlyCap', defaultMessage: '{name} monthly cap' },
+        { name: e.label },
+      )}
+      onChange={(v) => h.onCap(e.id, v)}
+    />
   )
 }
 
@@ -151,10 +161,17 @@ export function ActivityFor({ e, h }: { e: PropEnvelope; h: RowHandlers }) {
  *  can't be under or over. No cap but spending shows that spend in the warning tint: money going
  *  out with no limit on it (the tint Zero-Based uses for a target not met). */
 export function LeftCell({ e }: { e: PropEnvelope }) {
+  const { formatMessage } = useAppIntl()
   const cap = e.cap ?? 0
   if (!cap)
     return e.activity > 0.005 ? (
-      <span className="pl-avail mask under" title="No cap — spending with no limit on it">
+      <span
+        className="pl-avail mask under"
+        title={formatMessage({
+          id: 'plan.noCapHelp',
+          defaultMessage: 'No cap — spending with no limit on it',
+        })}
+      >
         {fFig(-e.activity).text}
       </span>
     ) : (
@@ -194,22 +211,49 @@ export function GroupKebab({
   onRename: () => void
   actions: GroupActions
 }) {
+  const { formatMessage } = useAppIntl()
   const { g } = f
   const items: KebabItem[] = [
-    ...(g.excluded ? [] : [{ label: 'Set shares of income…', onClick: actions.onSetShares }]),
+    ...(g.excluded
+      ? []
+      : [
+          {
+            label: formatMessage({
+              id: 'plan.sharesOfIncome',
+              defaultMessage: 'Set shares of income…',
+            }),
+            onClick: actions.onSetShares,
+          },
+        ]),
     {
-      label: g.excluded ? 'Count in the split' : 'Exclude from the split',
+      label: g.excluded
+        ? formatMessage({ id: 'plan.countSplit', defaultMessage: 'Count in the split' })
+        : formatMessage({ id: 'plan.excludeSplit', defaultMessage: 'Exclude from the split' }),
       onClick: () => actions.onToggleExcluded(g.id, !g.excluded),
     },
     ...(g.synced
       ? []
       : [
           { divider: true as const },
-          { label: 'Rename group', onClick: onRename },
-          { label: 'Add envelope', onClick: () => actions.onAddEnvelope(g.id, g.name) },
+          {
+            label: formatMessage({ id: 'plan.renameGroup', defaultMessage: 'Rename group' }),
+            onClick: onRename,
+          },
+          {
+            label: formatMessage({ id: 'plan.addEnvelope', defaultMessage: 'Add envelope' }),
+            onClick: () => actions.onAddEnvelope(g.id, g.name),
+          },
         ]),
   ]
-  return <Kebab label={g.name + ' group options'} items={items} />
+  return (
+    <Kebab
+      label={formatMessage(
+        { id: 'plan.groupOptions', defaultMessage: '{name} group options' },
+        { name: g.name },
+      )}
+      items={items}
+    />
+  )
 }
 
 /** Dragging a group by its grip, as on Zero-Based — one order for both methods. */
@@ -226,18 +270,42 @@ export interface GroupDnd {
  *  cap. Spent S$645.18 of S$650", at it "Fully Spent", past it "Over cap" — the overage is the
  *  Left cell's own red figure, as Zero-Based says just "Overspent". */
 export function CapStatus({ e }: { e: PropEnvelope }) {
+  const { formatMessage } = useAppIntl()
   const cap = e.cap ?? 0
   const spent = e.activity
-  if (!cap) return spent > 0.005 ? <span className="pl-cstatus">No cap</span> : null
-  if (spent > cap + 0.005) return <span className="pl-cstatus over">Over cap</span>
-  if (spent >= cap - 0.005) return <span className="pl-cstatus spent">Fully Spent</span>
+  if (!cap)
+    return spent > 0.005 ? (
+      <span className="pl-cstatus">
+        {formatMessage({ id: 'plan.noCap', defaultMessage: 'No cap' })}
+      </span>
+    ) : null
+  if (spent > cap + 0.005)
+    return (
+      <span className="pl-cstatus over">
+        {formatMessage({ id: 'plan.overCap', defaultMessage: 'Over cap' })}
+      </span>
+    )
+  if (spent >= cap - 0.005)
+    return (
+      <span className="pl-cstatus spent">
+        {formatMessage({ id: 'plan.fullySpent', defaultMessage: 'Fully Spent' })}
+      </span>
+    )
   return (
     <span className="pl-cstatus funded">
-      <span className="pl-cstatus-word">Within cap</span>
+      <span className="pl-cstatus-word">
+        {formatMessage({ id: 'plan.withinCap', defaultMessage: 'Within cap' })}
+      </span>
       {spent > 0.005 && (
         <span className="pl-cstatus-detail">
-          . Spent <span className="mask">{fSmart(spent)}</span> of{' '}
-          <span className="mask">{fSmart(cap)}</span>
+          {formatMessage(
+            { id: 'plan.capSpentDetail', defaultMessage: '. Spent <b>{spent}</b> of <b>{cap}</b>' },
+            {
+              spent: fSmart(spent),
+              cap: fSmart(cap),
+              b: (chunks) => <span className="mask">{chunks}</span>,
+            },
+          )}
         </span>
       )}
     </span>
@@ -247,10 +315,14 @@ export function CapStatus({ e }: { e: PropEnvelope }) {
 /** Zero-Based's bar, with the cap as its whole length: the share already spent hatched, what is
  *  left solid; past the cap, the cap's share green and the overage red. No cap, no bar. */
 export function CapBar({ e }: { e: PropEnvelope }) {
+  const { formatMessage } = useAppIntl()
   const cap = e.cap ?? 0
   if (!cap) return null
   const spent = Math.max(0, e.activity)
-  const title = `Spent ${fSmart(spent)} of a ${fSmart(cap)} cap`
+  const title = formatMessage(
+    { id: 'plan.capSpentTitle', defaultMessage: 'Spent {spent} of a {cap} cap' },
+    { spent: fSmart(spent), cap: fSmart(cap) },
+  )
   if (spent > cap + 0.005) {
     const inCap = (cap / spent) * 100
     return (
@@ -285,20 +357,34 @@ export interface GroupActions {
 /** "target 30% · S$5,222", "Excluded", "no target set" (held to 0% while other groups have one), or
  *  nothing while no group has a share. */
 export function GroupShare({ f, income }: { f: GroupFigures; income: number }) {
-  if (f.g.excluded) return <span className="t">Excluded</span>
+  const { formatMessage } = useAppIntl()
+  if (f.g.excluded)
+    return (
+      <span className="t">
+        {formatMessage({ id: 'plan.excluded', defaultMessage: 'Excluded' })}
+      </span>
+    )
   if (f.share === null) return null
   if (f.g.target === null)
     return (
       <span
         className="t"
-        title="No share of income is set for this group, so its spending reduces what you save"
+        title={formatMessage({
+          id: 'plan.noShareHelp',
+          defaultMessage:
+            'No share of income is set for this group, so its spending reduces what you save',
+        })}
       >
-        no target set
+        {formatMessage({ id: 'plan.noTarget', defaultMessage: 'no target set' })}
       </span>
     )
   return (
     <span className="t">
-      target {f.g.target}%{income > 0 && f.targetAmt !== null ? ' · ' + fmt(f.targetAmt) : ''}
+      {formatMessage(
+        { id: 'plan.targetPercent', defaultMessage: 'target {percent}%' },
+        { percent: f.g.target },
+      )}
+      {income > 0 && f.targetAmt !== null ? ' · ' + fmt(f.targetAmt) : ''}
     </span>
   )
 }

@@ -1,5 +1,6 @@
+import { createIntl, type IntlShape } from 'react-intl'
 import type { VaultItem, VaultKind } from '../../api/vault'
-import { fDate } from '../../utils/format'
+import { fDate, getNumberLocale } from '../../utils/format'
 
 export type VaultFilter = 'all' | VaultKind
 
@@ -37,7 +38,7 @@ export function formatSize(bytes: number | null | undefined): string {
   if (!bytes || bytes < 0) return ''
   if (bytes < 1024) return `${bytes} B`
   if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} KB`
-  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
+  return `${(bytes / (1024 * 1024)).toLocaleString(getNumberLocale(), { minimumFractionDigits: 1, maximumFractionDigits: 1 })} MB`
 }
 
 /** "12 Mar 2026" from a date or an ISO timestamp (read as the calendar day it names). */
@@ -46,12 +47,14 @@ export function formatDay(iso: string | null | undefined): string {
   return /^\d{4}-\d{2}-\d{2}$/.test(day) ? fDate(day, 'short', 'always') : ''
 }
 
-export function kindLabel(item: VaultItem): string {
-  if (item.kind === 'file') return 'Upload'
-  if (item.kind === 'statement') return 'Statement'
-  if (item.kind === 'receipt') return 'Receipt'
-  if (item.kind === 'asset') return item.asset_name || 'Asset file'
-  return 'Saved from chat'
+const english = createIntl({ locale: 'en' })
+
+export function kindLabel(item: VaultItem, intl: IntlShape = english): string {
+  if (item.kind === 'file') return intl.formatMessage({ id: "vault.format.865e89de78d9", defaultMessage: "Upload" })
+  if (item.kind === 'statement') return intl.formatMessage({ id: "vault.format.6171b2a46120", defaultMessage: "Statement" })
+  if (item.kind === 'receipt') return intl.formatMessage({ id: "vault.format.dad5a9692313", defaultMessage: "Receipt" })
+  if (item.kind === 'asset') return item.asset_name || intl.formatMessage({ id: "vault.format.1d787ea8d2a2", defaultMessage: "Asset file" })
+  return intl.formatMessage({ id: "vault.format.f3a88ebeec25", defaultMessage: "Saved from chat" })
 }
 
 /** The row's second line — what it is and the one date that matters for it. */
@@ -81,9 +84,9 @@ export function fileType(item: VaultItem): string | null {
  *  month is in its name and a receipt's purchase date on its page; the list no longer mixes
  *  those with sizes and years (owner: "why size for some, date for others? what date is it?").
  *  An upload's year, when you set one, stays with its type: "Tax 2025". */
-export function vaultSublabel(item: VaultItem): string {
+export function vaultSublabel(item: VaultItem, intl: IntlShape = english): string {
   const kind =
-    item.kind === 'file' && item.year ? `${kindLabel(item)} ${item.year}` : kindLabel(item)
+    item.kind === 'file' && item.year ? `${kindLabel(item, intl)} ${item.year}` : kindLabel(item, intl)
   return [kind, fileType(item), formatDay(item.added_at)].filter(Boolean).join(' · ')
 }
 
@@ -155,39 +158,39 @@ export interface RemovalAction {
 /** The ways this item can be removed here. A file kept from a chat offers both: out of
  *  Documents (it stays in its chat), or deleted for good. A statement, receipt or asset file
  *  is listed on its own, so removing one IS deleting it — exactly as its own screen does. */
-export function removalActions(item: VaultItem): RemovalAction[] {
+export function removalActions(item: VaultItem, intl: IntlShape = english): RemovalAction[] {
   if (item.kind === 'statement') {
     return [
       {
-        label: 'Delete statement',
-        body: 'The statement and its file are deleted. The transactions it imported stay in your accounts.',
+        label: intl.formatMessage({ id: "vault.format.862538c8ad2d", defaultMessage: "Delete statement" }),
+        body: intl.formatMessage({ id: "vault.format.8ce006090794", defaultMessage: "The statement and its file are deleted. The transactions it imported stay in your accounts." }),
       },
     ]
   }
   if (item.kind === 'receipt') {
     return [
       {
-        label: 'Delete receipt',
-        body: 'The receipt is deleted and taken off its transaction. The transaction stays.',
+        label: intl.formatMessage({ id: "vault.format.fe477527c3e5", defaultMessage: "Delete receipt" }),
+        body: intl.formatMessage({ id: "vault.format.1b9d32c3d4b8", defaultMessage: "The receipt is deleted and taken off its transaction. The transaction stays." }),
       },
     ]
   }
   if (item.kind === 'asset') {
-    const asset = item.asset_name || 'its asset'
-    return [{ label: 'Delete file', body: `The file is deleted and taken off ${asset}.` }]
+    const asset = item.asset_name || intl.formatMessage({ id: "vault.format.52894c5b0450", defaultMessage: "its asset" })
+    return [{ label: intl.formatMessage({ id: "vault.format.28e18dc9db38", defaultMessage: "Delete file" }), body: intl.formatMessage({ id: 'vault.format.deleteFromAsset', defaultMessage: 'The file is deleted and taken off {asset}.' }, { asset }) }]
   }
   if (item.kind === 'artifact') {
     return item.detached
       ? [
           {
-            label: 'Delete',
-            body: 'The conversation that made it is gone, so this deletes it for good.',
+            label: intl.formatMessage({ id: "vault.format.e2d0a54968ea", defaultMessage: "Delete" }),
+            body: intl.formatMessage({ id: "vault.format.88404452e76b", defaultMessage: "The conversation that made it is gone, so this deletes it for good." }),
           },
         ]
       : [
           {
-            label: 'Remove from Documents',
-            body: 'It stays in the conversation that made it.',
+            label: intl.formatMessage({ id: "vault.format.7d7d6cc31285", defaultMessage: "Remove from Documents" }),
+            body: intl.formatMessage({ id: "vault.format.f0517ee1da34", defaultMessage: "It stays in the conversation that made it." }),
             keeps: true,
           },
         ]
@@ -195,23 +198,23 @@ export function removalActions(item: VaultItem): RemovalAction[] {
   if (item.origin === 'chat') {
     return [
       {
-        label: 'Remove from Documents',
+        label: intl.formatMessage({ id: "vault.format.7d7d6cc31285", defaultMessage: "Remove from Documents" }),
         body: item.private
-          ? 'The file stays in the chat you sent it in — still Private.'
-          : 'The file stays in the chat you sent it in.',
+          ? intl.formatMessage({ id: "vault.format.564f260859ae", defaultMessage: "The file stays in the chat you sent it in — still Private." })
+          : intl.formatMessage({ id: "vault.format.9d67f3c9bdbd", defaultMessage: "The file stays in the chat you sent it in." }),
         keeps: true,
       },
       {
-        label: 'Delete file',
-        body: 'The file is deleted for good — the chat you sent it in can no longer open or read it.',
+        label: intl.formatMessage({ id: "vault.format.28e18dc9db38", defaultMessage: "Delete file" }),
+        body: intl.formatMessage({ id: "vault.format.68bb953ec537", defaultMessage: "The file is deleted for good — the chat you sent it in can no longer open or read it." }),
         deleteFile: true,
       },
     ]
   }
   return [
     {
-      label: 'Delete file',
-      body: 'The file is deleted for good — Documents is the only place it lives.',
+      label: intl.formatMessage({ id: "vault.format.28e18dc9db38", defaultMessage: "Delete file" }),
+      body: intl.formatMessage({ id: "vault.format.c63aff09367f", defaultMessage: "The file is deleted for good — Documents is the only place it lives." }),
       deleteFile: true,
     },
   ]

@@ -756,3 +756,17 @@ def test_portfolio_risk_beta_null_when_no_benchmark_series_at_all(monkeypatch):
     assert out["beta_vs_spy"] is None
     # beta_symbol still reports the canonical default (SPY) since no selection was made.
     assert out["beta_symbol"] == "SPY"
+
+
+def test_risk_summary_messages_preserve_english_and_numeric_values():
+    from backend.services.risk_metrics import risk_summary_parts
+
+    parts = risk_summary_parts(0.15, 1.3, 2.5, -0.1, short_window=True)
+    assert [part["id"] for part in parts] == [
+        "performance.risk.excellent",
+        "performance.risk.more",
+        "performance.risk.drawdown",
+    ]
+    assert parts[0]["params"] == {"short_window": True}
+    assert parts[1]["params"] == {"percent": 30}
+    assert " • ".join(part["text"] for part in parts) == risk_summary(0.15, 1.3, 2.5, -0.1, True)

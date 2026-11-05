@@ -56,11 +56,79 @@ def row(description, **match):
 
 
 def test_first_run_after_a_clean_migration_changes_nothing(world):
+    from backend.services import import_runs
+
     enable()
     run = sync()
     assert run["summary"] == "Nothing changed" and run["requests"] == 1
+    message = {
+        "message_id": "ynab.summary.complete",
+        "params": {
+            "sent": 0,
+            "pulled": 0,
+            "categories": 0,
+            "review": 0,
+            "deferred": 0,
+        },
+    }
+    assert run["summary_message"] == message
+    stored = import_runs.get(run["run_id"])
+    assert stored["outcome_message"] == message
+    assert stored["phase_message"] == {"message_id": "ynab.phase.done", "params": {}}
+    listed = next(item for item in import_runs.list_runs("ynab") if item["id"] == run["run_id"])
+    assert listed["outcome_message"] == message
+    assert listed["phase_message"] == stored["phase_message"]
     assert world.writes == []
     assert ynab_sync.status()["conflicts"] == []
+
+
+def test_sync_message_contract_matches_emitted_ids():
+    import ast
+    import json
+    from pathlib import Path
+
+    root = Path(__file__).resolve().parents[1]
+    contract = json.loads((root / "backend/core/ynab_sync_message_contract.json").read_text())
+    trees = [
+        ast.parse((root / f"backend/services/ynab_sync/{name}.py").read_text())
+        for name in (
+            "runner",
+            "category_pairs",
+            "category_new",
+            "category_base",
+            "txn_sync",
+            "starts",
+            "payloads",
+        )
+    ]
+    emitted = {
+        node.value
+        for tree in trees
+        for node in ast.walk(tree)
+        if isinstance(node, ast.Constant)
+        and isinstance(node.value, str)
+        and node.value.startswith(
+            (
+                "ynab.phase.",
+                "ynab.summary.",
+                "ynab.sync.value.",
+                "ynab.sync.title.",
+                "ynab.sync.reason.",
+                "ynab.sync.change.",
+                "ynab.sync.deferred.",
+                "ynab.sync.item.",
+                "ynab.sync.note.",
+            )
+        )
+    }
+    assert emitted == set(contract)
+    assert set(contract["ynab.summary.complete"]) == {
+        "sent",
+        "pulled",
+        "categories",
+        "review",
+        "deferred",
+    }
 
 
 def edit_onw(txn_id, **changes):
@@ -820,6 +888,8 @@ def test_a_ynab_row_dated_before_the_starting_balance_asks_before_moving_it(worl
     assert item["title"] == "Checking" and item["kind"] == "before_start"
     assert item["start"] == start and item["earliest"] == early
     assert item["balance_now"] == balance and item["balance_counted"] == balance + 400
+    assert item["reason_message"]["message_id"] == "ynab.sync.reason.beforeStart"
+    assert item["reason_message"]["params"]["account"] == "Checking"
     # Nothing moved on its own, and a second run does not file it again.
     assert ledger_service.opening_date(account("Checking")) == start
     assert checking_balance() == balance

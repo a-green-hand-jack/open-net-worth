@@ -1,3 +1,4 @@
+import { useAppIntl } from '../../../i18n/useAppIntl'
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { MoreVertical, Check } from 'lucide-react'
 
@@ -12,7 +13,7 @@ export interface AutomationMenuItem {
 
 export function AutomationMenu({
   items,
-  label = 'More actions',
+  label,
   trigger,
   triggerClassName = 'rd-kebab-btn',
   popoverClassName = '',
@@ -23,6 +24,9 @@ export function AutomationMenu({
   triggerClassName?: string
   popoverClassName?: string
 }) {
+  const { formatMessage } = useAppIntl()
+  const accessibleLabel =
+    label ?? formatMessage({ id: 'automations.moreActions', defaultMessage: 'More actions' })
   const [open, setOpen] = useState(false)
   const ref = useRef<HTMLSpanElement>(null)
 
@@ -40,7 +44,7 @@ export function AutomationMenu({
       <button
         type="button"
         className={triggerClassName}
-        aria-label={label}
+        aria-label={accessibleLabel}
         aria-haspopup="menu"
         aria-expanded={open}
         onClick={(event) => {
@@ -54,7 +58,7 @@ export function AutomationMenu({
         <span
           className={`rd-kebab-pop${popoverClassName ? ` ${popoverClassName}` : ''}`}
           role="menu"
-          aria-label={label}
+          aria-label={accessibleLabel}
         >
           {items.map((item) => (
             <button

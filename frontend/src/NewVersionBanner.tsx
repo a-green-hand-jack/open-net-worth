@@ -6,6 +6,7 @@
 // served no-store, so the fetch is always current. Never reloads on its own: a composer draft
 // or a half-filled form must not vanish.
 import { useEffect, useState } from 'react'
+import { useAppIntl } from './i18n/useAppIntl'
 
 const ENTRY = /\/assets\/index-[\w-]+\.js/
 const EVERY_MS = 5 * 60_000
@@ -24,6 +25,7 @@ async function servedEntry(): Promise<string | null> {
 }
 
 export function NewVersionBanner() {
+  const intl = useAppIntl()
   const [stale, setStale] = useState(false)
   // A reload takes a moment to show (longest on a phone); the button says it's happening.
   const [reloading, setReloading] = useState(false)
@@ -59,11 +61,20 @@ export function NewVersionBanner() {
     // data-portal-layer: tappable over an open modal (a Radix dialog makes everything outside
     // it inert, and would read the tap as "dismiss") — see ui/Modal.tsx's isOutsideExempt.
     <div className="app-update" role="status" data-portal-layer>
-      <span>A new version is ready</span>
+      <span>
+        {intl.formatMessage({
+          id: 'updates.newVersionReady',
+          defaultMessage: 'A new version is ready',
+        })}
+      </span>
       <button
         type="button"
         className="app-update-btn"
-        aria-label={reloading ? 'Reloading' : 'Reload'}
+        aria-label={
+          reloading
+            ? intl.formatMessage({ id: 'updates.reloading', defaultMessage: 'Reloading' })
+            : intl.formatMessage({ id: 'updates.reload', defaultMessage: 'Reload' })
+        }
         aria-busy={reloading || undefined}
         disabled={reloading}
         onClick={() => {
@@ -72,7 +83,11 @@ export function NewVersionBanner() {
           requestAnimationFrame(() => window.setTimeout(() => window.location.reload(), 0))
         }}
       >
-        {reloading ? <span className="ui-btn__spinner" aria-hidden="true" /> : 'Reload'}
+        {reloading ? (
+          <span className="ui-btn__spinner" aria-hidden="true" />
+        ) : (
+          intl.formatMessage({ id: 'updates.reload', defaultMessage: 'Reload' })
+        )}
       </button>
     </div>
   )

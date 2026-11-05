@@ -1,0 +1,14 @@
+{
+  "alert.error.tickerRequired": [],
+  "alert.error.valueNumber": [],
+  "alert.error.valueFinite": [],
+  "alert.error.operator": [],
+  "alert.error.kind": [],
+  "alert.error.channels": [],
+  "alert.error.nameLength": ["limit"],
+  "alert.error.moveRange": ["max"],
+  "alert.error.cooldownInteger": [],
+  "alert.error.cooldownRange": ["max"],
+  "alert.error.onTrigger": [],
+  "alert.error.notFound": ["id"]
+}

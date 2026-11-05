@@ -2,20 +2,29 @@
 
 from __future__ import annotations
 
+import json
+from pathlib import Path
 from typing import Any, Optional
 
 from fastapi import APIRouter, HTTPException, Query, Response, status
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 
-from backend.core.errors import OpenNetWorthError, to_http_status
+from backend.core.errors import OpenNetWorthError, ValidationError, to_http_status
 from backend.db.automation_run_store import AutomationRunStore
 from backend.db.automation_store import AutomationStore
 from backend.services.automations.activity import automation_activity
 from backend.services.automations.options import automation_options
 from backend.services.automations.runs import get_run, list_runs
+from backend.services.automations.schedules import TriggerValidationError
 from backend.services.automations.service import apply_automation_change, run_automation
 
 router = APIRouter()
+_ERROR_CONTRACT = json.loads(
+    (Path(__file__).resolve().parents[1] / "core/automation_error_contract.json").read_text(
+        encoding="utf-8"
+    )
+)
 
 
 class AutomationCreate(BaseModel):
@@ -30,6 +39,7 @@ class AutomationCreate(BaseModel):
     effort: str = "medium"
     status: str = "active"
     max_runs: Optional[int] = None
+    template_source: Optional[dict[str, str]] = None
 
 
 class AutomationPatch(BaseModel):
@@ -64,6 +74,7 @@ class ScheduledActivityItem(BaseModel):
 
 class FailedActivityItem(ActiveActivityItem):
     error: Optional[str] = None
+    error_message: Optional[dict[str, Any]] = None
 
 
 class AutomationActivity(BaseModel):
@@ -72,8 +83,27 @@ class AutomationActivity(BaseModel):
     failed: list[FailedActivityItem] = []
 
 
-def _raise_http(exc: Exception) -> None:
+def _raise_http(exc: Exception) -> Any:
+    if isinstance(exc, TriggerValidationError):
+        exc = ValidationError(str(exc), message_id=exc.message_id, message_params=exc.params)
     if isinstance(exc, OpenNetWorthError):
+        message_id = exc.context.get("message_id")
+        params = exc.context.get("message_params", {})
+        if (
+            isinstance(message_id, str)
+            and message_id in _ERROR_CONTRACT
+            and isinstance(params, dict)
+            and set(params) == set(_ERROR_CONTRACT[message_id])
+            and all(isinstance(value, str) for value in params.values())
+        ):
+            return JSONResponse(
+                status_code=to_http_status(exc),
+                content={
+                    "detail": exc.message or str(exc),
+                    "message_id": message_id,
+                    "message_params": params,
+                },
+            )
         raise HTTPException(to_http_status(exc), exc.message or str(exc)) from exc
     if isinstance(exc, ValueError):
         raise HTTPException(400, str(exc)) from exc
@@ -114,7 +144,7 @@ def create_automation(body: AutomationCreate):
         automation["execution"] = {"kind": "lucius"}
         return apply_automation_change({"op": "create", "automation": automation})
     except Exception as exc:
-        _raise_http(exc)
+        return _raise_http(exc)
 
 
 @router.patch("/api/automations/{automation_id}")
@@ -128,7 +158,7 @@ def update_automation(automation_id: str, body: AutomationPatch):
             }
         )
     except Exception as exc:
-        _raise_http(exc)
+        return _raise_http(exc)
 
 
 @router.delete("/api/automations/{automation_id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -136,7 +166,7 @@ def delete_automation(automation_id: str):
     try:
         apply_automation_change({"op": "delete", "id": automation_id})
     except Exception as exc:
-        _raise_http(exc)
+        return _raise_http(exc)
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
@@ -148,7 +178,7 @@ async def run_automation_now(automation_id: str):
     try:
         return {"run": await run_automation(automation_id, trigger="manual")}
     except Exception as exc:
-        _raise_http(exc)
+        return _raise_http(exc)
 
 
 @router.post("/api/automations/{automation_id}/stop")

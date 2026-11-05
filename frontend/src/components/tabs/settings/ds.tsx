@@ -10,6 +10,7 @@
 // Not ported (the prototype's standalone-shell scaffolding): AppNav, Shell, Kebab, Tabs, Dot.
 import { createContext, useContext, useEffect, useRef, useState } from 'react'
 import type { ButtonHTMLAttributes, CSSProperties, ReactNode, SelectHTMLAttributes } from 'react'
+import { useAppIntl } from '../../../i18n/useAppIntl'
 import { ChevronDown, X } from '../../../ui/icons'
 
 // ── primitives ───────────────────────────────────────────────────────────────
@@ -119,13 +120,14 @@ export function Toggle({
   disabled?: boolean
   label?: string
 }) {
+  const intl = useAppIntl()
   return (
     <button
       type="button"
       className={'rd-toggle' + (on ? ' on' : '')}
       role="switch"
       aria-checked={on}
-      aria-label={label || 'Toggle'}
+      aria-label={label || intl.formatMessage({ id: 'settings.toggle', defaultMessage: 'Toggle' })}
       disabled={disabled}
       onClick={() => onChange?.(!on)}
     />
@@ -221,6 +223,7 @@ export function Modal({
   /** A dialog-specific hook on `.rd-modal` (e.g. a fixed height). */
   className?: string
 }) {
+  const { formatMessage } = useAppIntl()
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
@@ -247,7 +250,15 @@ export function Modal({
       >
         <div className="rd-modal-head">
           <div className="rd-modal-title">{title}</div>
-          <button type="button" className="rd-modal-x" onClick={onClose} aria-label="Close">
+          <button
+            type="button"
+            className="rd-modal-x"
+            onClick={onClose}
+            aria-label={formatMessage({
+              id: 'settings.remaining.closeModal',
+              defaultMessage: 'Close',
+            })}
+          >
             <X size={18} strokeWidth={1.6} aria-hidden="true" />
           </button>
         </div>

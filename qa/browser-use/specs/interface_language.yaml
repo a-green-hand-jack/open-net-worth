@@ -1,0 +1,26 @@
+id: LANG-64
+acceptance_ids: [LANG-PROFILE, LANG-SAVE, LANG-BROWSER, LANG-SAVE-FAIL, LANG-LOAD-FAIL, LANG-MOBILE, LANG-REAL-PERSIST, LANG-CORE-PAGES, LANG-MARKET]
+title: "Interface language — preference, fallback, errors and mobile"
+description: >
+  Deterministic real-browser acceptance of profile language selection, browser fallback,
+  reload, failed reads and writes, and the 390px layout.
+setup_script: verify_interface_language.py
+fixture_only: true
+timeout_seconds: 180
+fixture:
+  type: "Playwright with synthetic API responses"
+  source: "frontend/qa/interface-language.test.mjs"
+  isolation: "Failure cases and report aggregates use synthetic API responses; persistence, accounts, transactions and positions use an explicitly marked synthetic QA book only."
+acceptance_criteria:
+  - Profile language overrides browser and selections survive a simulated server reload.
+  - Missing profile language follows the browser at a mobile viewport without horizontal overflow.
+  - Save failure restores the prior choice; load failure disables selection and retry recovers.
+  - A real profile write persists across reload on the attested synthetic QA book.
+  - Dashboard, Accounts, Plan and Investments render in Chinese and are captured for review.
+  - Marked commodity names use Chinese, unmarked names remain unchanged, and quotes follow the number preference.
+browser_use_task: |
+  This spec runs the deterministic Playwright fixture. It requires an attested empty synthetic
+  QA book seeded offline with the demo fixture at 2026-11-05 and ONW_SYNTHETIC_PROFILE_QA=1; never point it at a user's preview or real data.
+expected:
+  pass_condition: "deterministic fixture passes"
+  note: "Native menus are outside this browser fixture. Screenshots are saved under qa/browser-use/artifacts/interface-language."

@@ -40,7 +40,9 @@ _PATCH_FIELDS = frozenset(
         "model",
         "effort",
         "summary",
+        "summary_message",
         "error",
+        "error_message",
         "finished_at",
         "steps",
         "plan",
@@ -77,6 +79,14 @@ def _copy(value: object, default: object) -> object:
     if isinstance(default, list):
         return list(value) if isinstance(value, list) else []
     return value if value is not None else default
+
+
+def _safe_patch(patch: dict) -> dict:
+    updates = {k: v for k, v in patch.items() if k in _PATCH_FIELDS}
+    for field in ("summary", "error"):
+        if field in updates and f"{field}_message" not in updates:
+            updates[f"{field}_message"] = None
+    return updates
 
 
 def _make_run(data: dict) -> dict:
@@ -122,7 +132,7 @@ class AutomationRunStore(PayloadTableStore):
             existing = self._row(conn, run_id)
             if existing is None or existing["payload"].get("status") not in expected:
                 raise TransitionConflict(run_id)
-            updates = {k: v for k, v in patch.items() if k in _PATCH_FIELDS}
+            updates = _safe_patch(patch)
             merged = {**existing["payload"], **updates}
             self._fire_hook(conn, [(run_id, existing)])
             conn.execute(
@@ -146,7 +156,7 @@ class AutomationRunStore(PayloadTableStore):
                 or status not in VALID_TRANSITIONS[old_status]
             ):
                 raise TransitionConflict(run_id)
-            updates = {k: v for k, v in patch.items() if k in _PATCH_FIELDS}
+            updates = _safe_patch(patch)
             updated = {**current, **updates, "status": status}
             if status in _TERMINAL_STATUSES and not updated.get("finished_at"):
                 updated["finished_at"] = _now()
@@ -191,6 +201,7 @@ class AutomationRunStore(PayloadTableStore):
         payload = self._table.c.payload
         fields = ("id", "automation_id", "session_id", "status", "started_at", "finished_at")
         columns = [payload[f].as_string().label(f) for f in (*fields, "error")]
+        columns.append(payload["error_message"].label("error_message"))
         with self._eng().connect() as conn:
             rows = conn.execute(select(*columns).order_by(self._table.c.seq)).mappings().all()
         return [dict(row) for row in rows]

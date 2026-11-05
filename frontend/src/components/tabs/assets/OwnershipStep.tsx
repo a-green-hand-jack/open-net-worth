@@ -1,6 +1,8 @@
 // "Is it all yours?" — the create wizard's step 3, reused verbatim by the asset page's
 // Ownership editor. Controlled: the caller owns the value, the errors and the save.
 import { useId, useState } from 'react'
+import type { IntlShape } from 'react-intl'
+import { useAppIntl } from '../../../i18n/useAppIntl'
 import type { AssetLoan } from '../../../types/assets'
 import {
   Button,
@@ -49,8 +51,18 @@ export interface OwnershipStepProps {
 
 type Owner = 'mine' | 'shared'
 
-function loanOptions(loans: AssetLoan[], assetId: string | null, value: OwnershipValue) {
-  const options: SelectOption[] = [{ value: '', label: 'No loan' }]
+function loanOptions(
+  loans: AssetLoan[],
+  assetId: string | null,
+  value: OwnershipValue,
+  intl: IntlShape,
+) {
+  const options: SelectOption[] = [
+    {
+      value: '',
+      label: intl.formatMessage({ id: 'assets.owner.noLoan', defaultMessage: 'No loan' }),
+    },
+  ]
   for (const loan of loans) {
     const state = loanOptionState(loan, assetId)
     const label = `${loan.name} · ${fmt(loan.balance)}`
@@ -58,21 +70,42 @@ function loanOptions(loans: AssetLoan[], assetId: string | null, value: Ownershi
     // A legacy double link (RFC Q7): the loan this asset already has stays its own, even when
     // an older asset holds it too — only a loan held by ANOTHER asset is refused.
     else if (loan.id === value.loanId)
-      options.push({ value: loan.id, label: `${label} (also secures ${state.heldBy.name})` })
+      options.push({
+        value: loan.id,
+        label: intl.formatMessage(
+          { id: 'assets.owner.alsoSecures', defaultMessage: '{loan} (also secures {name})' },
+          { loan: label, name: state.heldBy.name },
+        ),
+      })
     else
       options.push({
         value: loan.id,
-        label: `${label} (secures ${state.heldBy.name})`,
+        label: intl.formatMessage(
+          { id: 'assets.owner.secures', defaultMessage: '{loan} (secures {name})' },
+          { loan: label, name: state.heldBy.name },
+        ),
         disabled: true,
       })
   }
   // The linked loan is no longer an active account (archived) — show it, never "No loan".
   const current = value.loanId
   if (current && current !== NEW_LOAN && !loans.some((l) => l.id === current))
-    options.push({ value: current, label: 'Linked loan (no longer active)' })
+    options.push({
+      value: current,
+      label: intl.formatMessage({
+        id: 'assets.owner.inactiveLoan',
+        defaultMessage: 'Linked loan (no longer active)',
+      }),
+    })
   if (value.newLoan) {
     const { name, owed } = value.newLoan
-    options.push({ value: NEW_LOAN, label: `${name} · ${fmt(owed)} (new)` })
+    options.push({
+      value: NEW_LOAN,
+      label: intl.formatMessage(
+        { id: 'assets.owner.newLoan', defaultMessage: '{name} · {amount} (new)' },
+        { name, amount: fmt(owed) },
+      ),
+    })
   }
   return options
 }
@@ -87,12 +120,16 @@ interface SharePanelProps {
 }
 
 function SharePanel({ id, value, onChange, error, onUnreadable }: SharePanelProps) {
+  const { formatMessage } = useAppIntl()
   return (
     <div className="as-form">
       <FormField
-        label="Your share"
+        label={formatMessage({ id: 'assets.sections.share', defaultMessage: 'Your share' })}
         htmlFor={`${id}-share`}
-        help="Net worth counts only your share."
+        help={formatMessage({
+          id: 'assets.owner.shareHelp',
+          defaultMessage: 'Net worth counts only your share.',
+        })}
         error={error}
       >
         <MoneyField
@@ -105,12 +142,21 @@ function SharePanel({ id, value, onChange, error, onUnreadable }: SharePanelProp
           onInvalidChange={(bad) => onUnreadable?.('share_pct', bad)}
         />
       </FormField>
-      <FormField label="Shared with (optional)" htmlFor={`${id}-with`}>
+      <FormField
+        label={formatMessage({
+          id: 'assets.owner.sharedWith',
+          defaultMessage: 'Shared with (optional)',
+        })}
+        htmlFor={`${id}-with`}
+      >
         <TextField
           id={`${id}-with`}
           value={value.shareNote}
           maxLength={TEXT_CAPS.shareNote}
-          placeholder="e.g. joint with Alex"
+          placeholder={formatMessage({
+            id: 'assets.owner.sharedPlaceholder',
+            defaultMessage: 'e.g. joint with Alex',
+          })}
           onChange={(e) => onChange({ shareNote: e.target.value })}
         />
       </FormField>
@@ -122,6 +168,8 @@ type LoanPickerProps = Omit<OwnershipStepProps, 'category'> & { id: string }
 
 /** "Any loan against it?" — the loan select (or the no-loans note) and "+ Add a loan". */
 function LoanPicker(props: LoanPickerProps) {
+  const intl = useAppIntl()
+  const { formatMessage } = intl
   const { id, value, onChange, loans, assetId, currency, errors, onUnreadable } = props
   const loanRefusal = errors.loan_name ?? errors.loan_owed ?? null
   const [adding, setAdding] = useState(loanRefusal != null)
@@ -131,17 +179,27 @@ function LoanPicker(props: LoanPickerProps) {
     setSeenRefusal(loanRefusal)
     if (loanRefusal != null) setAdding(true)
   }
-  const options = loanOptions(loans, assetId, value)
+  const options = loanOptions(loans, assetId, value, intl)
 
   return (
     <Stack gap="--space-3">
       {options.length > 1 ? (
         <FormField
-          label="Any loan against it?"
+          label={formatMessage({
+            id: 'assets.owner.anyLoan',
+            defaultMessage: 'Any loan against it?',
+          })}
           htmlFor={`${id}-loan`}
           span="full"
           error={errors.loan_account_id}
-          help={value.loanId === NEW_LOAN ? 'Added to Accounts when you save.' : undefined}
+          help={
+            value.loanId === NEW_LOAN
+              ? formatMessage({
+                  id: 'assets.owner.addedWhenSaved',
+                  defaultMessage: 'Added to Accounts when you save.',
+                })
+              : undefined
+          }
         >
           <Select
             id={`${id}-loan`}
@@ -152,9 +210,16 @@ function LoanPicker(props: LoanPickerProps) {
           />
         </FormField>
       ) : (
-        <FormField label="Any loan against it?" span="full" error={errors.loan_account_id}>
+        <FormField
+          label={formatMessage({
+            id: 'assets.owner.anyLoan',
+            defaultMessage: 'Any loan against it?',
+          })}
+          span="full"
+          error={errors.loan_account_id}
+        >
           <Text size="sm" tone="muted">
-            No loan accounts yet.
+            {formatMessage({ id: 'assets.owner.noLoans', defaultMessage: 'No loan accounts yet.' })}
           </Text>
         </FormField>
       )}
@@ -180,7 +245,9 @@ function LoanPicker(props: LoanPickerProps) {
             iconLeft={Icons.plus!({ width: 13, height: 13 })}
             onClick={() => setAdding(true)}
           >
-            {value.newLoan ? 'Edit new loan' : 'Add a loan'}
+            {value.newLoan
+              ? formatMessage({ id: 'assets.owner.editNew', defaultMessage: 'Edit new loan' })
+              : formatMessage({ id: 'assets.owner.addLoan', defaultMessage: 'Add a loan' })}
           </Button>
         </div>
       )}
@@ -189,6 +256,7 @@ function LoanPicker(props: LoanPickerProps) {
 }
 
 export function OwnershipStep(props: OwnershipStepProps) {
+  const { formatMessage } = useAppIntl()
   const { category, value, onChange, errors } = props
   const id = useId()
   // Only the choice itself — the owner's `withOwnership` starts a new share at 50.
@@ -199,11 +267,20 @@ export function OwnershipStep(props: OwnershipStepProps) {
   return (
     <Stack gap="--space-6">
       <SegmentedControl<Owner>
-        ariaLabel="Is it all yours?"
+        ariaLabel={formatMessage({
+          id: 'assets.owner.question',
+          defaultMessage: 'Is it all yours?',
+        })}
         autoFocus
         options={[
-          { value: 'mine', label: 'All mine' },
-          { value: 'shared', label: 'Shared' },
+          {
+            value: 'mine',
+            label: formatMessage({ id: 'assets.owner.mine', defaultMessage: 'All mine' }),
+          },
+          {
+            value: 'shared',
+            label: formatMessage({ id: 'assets.owner.shared', defaultMessage: 'Shared' }),
+          },
         ]}
         value={value.shared ? 'shared' : 'mine'}
         onChange={pickOwner}

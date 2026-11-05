@@ -2,6 +2,9 @@
 // through the ONE server decision pipeline; the manual mapping is sent to the server as a
 // TEACH (saved as the source's format profile) before the same decision preview runs.
 import { Fragment, useState, useRef, useMemo, useEffect, useLayoutEffect } from 'react'
+import { defineMessages } from 'react-intl'
+import { useStatementSkipReason } from './useStatementSkipReason'
+import { useAppIntl } from '../../../i18n/useAppIntl'
 import { authFetch } from '../../../api/client'
 import { Modal, Button, FormField, Select, EmptyState, SegmentedControl } from '../../ui'
 import { Spark as LuciusSpark } from '../../../lucius/identity'
@@ -15,7 +18,7 @@ import { catOptionsFor } from './categories'
 import TxnDetail from './TxnDetail'
 import { useIsMobile } from '../../../hooks/useIsMobile'
 import { X, ArrowLeftRight, Plus, ChevronDown, ChevronRight } from '../../../ui/icons'
-import { fDate } from '../../../utils/format'
+import { fDate, getNumberLocale } from '../../../utils/format'
 import { fetchVaultItem, type VaultItem } from '../../../api/vault'
 import { PreviewLoading } from '../../vault/PreviewLoading'
 import { DocumentPreview } from '../../vault/DocumentPreview'
@@ -76,23 +79,35 @@ const FILE_WIDTH_KEY = 'onw.import.fileWidth'
 const FILE_MIN_PX = 280
 const REVIEW_MIN_PX = 420
 
-const READ_PHASES = [
-  'Reading the statement',
-  'Finding the transaction table',
-  'Checking the statement against its own balances',
-  'Applying your instructions',
-  'Checking every row against your ledger',
-]
+const READ_PHASES = defineMessages({
+  read: { id: 'accounts.importProgress.read', defaultMessage: 'Reading the statement' },
+  table: { id: 'accounts.importProgress.table', defaultMessage: 'Finding the transaction table' },
+  reconcile: { id: 'accounts.importProgress.reconcile', defaultMessage: 'Checking the statement against its own balances' },
+  instructions: { id: 'accounts.importProgress.instructions', defaultMessage: 'Applying your instructions' },
+  match: { id: 'accounts.importProgress.match', defaultMessage: 'Checking every row against your ledger' },
+})
+const READ_PHASE_ORDER = [READ_PHASES.read, READ_PHASES.table, READ_PHASES.reconcile, READ_PHASES.instructions, READ_PHASES.match]
+
+const importFlagMessages = defineMessages({
+  near_duplicate: { id: 'accounts.importFlag.nearDuplicate', defaultMessage: 'Already in your account?' },
+  transfer_pair: { id: 'accounts.importFlag.transferPair', defaultMessage: 'Opposite legs — one transfer?' },
+  transfer_leg_echo: { id: 'accounts.importFlag.transferEcho', defaultMessage: 'Already booked as a transfer' },
+  intra_batch_duplicate: { id: 'accounts.importFlag.repeated', defaultMessage: 'Repeated in file' },
+  amount_anomaly: { id: 'accounts.importFlag.amount', defaultMessage: 'Unusual amount' },
+  no_account_for_currency: { id: 'accounts.importFlag.noAccount', defaultMessage: 'No account in this currency' },
+  fx_transfer_pair: { id: 'accounts.importFlag.fxPair', defaultMessage: 'Transfer between your accounts' },
+  fx_transfer_leg: { id: 'accounts.importFlag.fxLeg', defaultMessage: 'Second leg — folds into the transfer' },
+})
 
 // Mirrors TxnDetail.tsx's own KIND_LABEL — the matched-ledger-entry's kind, shown on the
 // collapsed match line so its date + kind are visible without expanding.
-const MATCH_KIND_LABEL: Record<string, string> = {
-  expense: 'Expense',
-  income: 'Income',
-  transfer: 'Transfer',
-  investment: 'Investment',
-  adjustment: 'Balance adjustment',
-}
+const matchKindMessages = defineMessages({
+  expense: { id: 'accounts.reviewKind.expense', defaultMessage: 'Expense' },
+  income: { id: 'accounts.reviewKind.income', defaultMessage: 'Income' },
+  transfer: { id: 'accounts.reviewKind.transfer', defaultMessage: 'Transfer' },
+  investment: { id: 'accounts.reviewKind.investment', defaultMessage: 'Investment' },
+  adjustment: { id: 'accounts.reviewKind.adjustment', defaultMessage: 'Balance adjustment' },
+})
 /** Roughly how many characters `.imp3-arow-name` shows before its ellipsis bites: a fixed 252px
  * rail (statementImport.css `.imp3-arow-main`) at 12.5px/600. An expanded body restates the
  * description only ABOVE this, because below it the name above is already fully legible and
@@ -119,6 +134,7 @@ function ImpSelect({
   placeholder?: string
   ariaLabel?: string
 }) {
+  const { formatMessage } = useAppIntl()
   const [open, setOpen] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
   const cur = options.find((o) => o.value === value)
@@ -148,7 +164,7 @@ function ImpSelect({
         onClick={() => setOpen((o) => !o)}
       >
         <span className="acct-acctsel-nm" style={cur ? undefined : { color: 'var(--faint)' }}>
-          {cur ? cur.label : placeholder || 'Select…'}
+          {cur ? cur.label : placeholder || formatMessage({ id: 'accounts.visible.select', defaultMessage: 'Select…' })}
         </span>
         <svg
           className="acct-acctsel-caret"
@@ -217,6 +233,7 @@ function KindFilterButton({
   category: string
   onCategoryChange: (key: string) => void
 }) {
+  const { formatMessage } = useAppIntl()
   const [open, setOpen] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
   useEffect(() => {
@@ -236,9 +253,9 @@ function KindFilterButton({
   }, [open])
   const options = (
     [
-      { v: 'expense', label: 'Expense', n: counts.expense },
-      { v: 'income', label: 'Income', n: counts.income },
-      { v: 'transfer', label: 'Transfer', n: counts.transfer },
+      { v: 'expense', label: formatMessage({ id: 'accounts.importFilter.expense', defaultMessage: "Expense" }), n: counts.expense },
+      { v: 'income', label: formatMessage({ id: 'accounts.importFilter.income', defaultMessage: "Income" }), n: counts.income },
+      { v: 'transfer', label: formatMessage({ id: 'accounts.importFilter.transfer', defaultMessage: "Transfer" }), n: counts.transfer },
     ] satisfies Array<{ v: 'expense' | 'income' | 'transfer'; label: string; n: number }>
   ).filter((o) => o.n > 0)
   const showKinds = options.length >= 2
@@ -252,11 +269,11 @@ function KindFilterButton({
         type="button"
         aria-haspopup="listbox"
         aria-expanded={open}
-        aria-label="Filter by type or category"
+        aria-label={formatMessage({ id: 'accounts.importFilter.filter', defaultMessage: "Filter by type or category" })}
         title={
           active
-            ? `Filtering by ${[value !== 'all' ? value : null, catLabel].filter(Boolean).join(' · ')}`
-            : 'Filter by type or category'
+            ? formatMessage({ id: 'accounts.importFilter.active', defaultMessage: 'Filtering by {filters}' }, { filters: [value !== 'all' ? options.find((option) => option.v === value)?.label ?? value : null, catLabel].filter(Boolean).join(' · ') })
+            : formatMessage({ id: 'accounts.importFilter.filter', defaultMessage: "Filter by type or category" })
         }
         className={'imp3-kindfilter-btn' + (active ? ' on' : '')}
         onClick={() => setOpen((o) => !o)}
@@ -277,8 +294,8 @@ function KindFilterButton({
       {open && (
         <div className="imp3-kindfilter-pop">
           {showKinds && (
-            <div role="listbox" aria-label="Type">
-              <div className="imp3-kindfilter-group">Type</div>
+            <div role="listbox" aria-label={formatMessage({ id: 'accounts.importFilter.type', defaultMessage: "Type" })}>
+              <div className="imp3-kindfilter-group">{formatMessage({ id: 'accounts.importFilter.type', defaultMessage: "Type" })}</div>
               <button
                 type="button"
                 role="option"
@@ -289,7 +306,7 @@ function KindFilterButton({
                   setOpen(false)
                 }}
               >
-                All types
+                {formatMessage({ id: 'accounts.importFilter.allTypes', defaultMessage: "All types" })}
               </button>
               {options.map((o) => (
                 <button
@@ -309,8 +326,8 @@ function KindFilterButton({
             </div>
           )}
           {showCategories && (
-            <div role="listbox" aria-label="Category" className="imp3-kindfilter-cats">
-              <div className="imp3-kindfilter-group">Category</div>
+            <div role="listbox" aria-label={formatMessage({ id: 'accounts.importFilter.category', defaultMessage: "Category" })} className="imp3-kindfilter-cats">
+              <div className="imp3-kindfilter-group">{formatMessage({ id: 'accounts.importFilter.category', defaultMessage: "Category" })}</div>
               <button
                 type="button"
                 role="option"
@@ -321,7 +338,7 @@ function KindFilterButton({
                   setOpen(false)
                 }}
               >
-                All categories
+                {formatMessage({ id: 'accounts.importFilter.allCategories', defaultMessage: "All categories" })}
               </button>
               {categories.map((c) => (
                 <button
@@ -377,6 +394,7 @@ function EditDraftModal({
   onSetTransfer: (accountId: string | null) => void
   onClose: () => void
 }) {
+  const { formatMessage } = useAppIntl()
   const [payee, setPayee] = useState(d.payee || '')
   const [category, setCategory] = useState(d.category || '')
   const outflow = d.amount < 0
@@ -384,7 +402,7 @@ function EditDraftModal({
   const routedTo = d.routed ? (outflow ? d.routed.to_account_id : d.routed.from_account_id) : ''
   const [type, setType] = useState<'plain' | 'transfer'>(d.routed ? 'transfer' : 'plain')
   const [transferTo, setTransferTo] = useState(routedTo || '')
-  const plainLabel = outflow ? 'Expense' : 'Income'
+  const plainLabel = outflow ? formatMessage({ id: 'accounts.editDraft.expense', defaultMessage: "Expense" }) : formatMessage({ id: 'accounts.editDraft.income', defaultMessage: "Income" })
   const save = () => {
     if (type === 'transfer') {
       if (transferTo !== routedTo) onSetTransfer(transferTo)
@@ -398,12 +416,12 @@ function EditDraftModal({
     <Modal
       open
       onClose={onClose}
-      title="Edit payee & category"
+      title={formatMessage({ id: 'accounts.editDraft.title', defaultMessage: "Edit payee & category" })}
       size="sm"
       footer={
         <>
           <Button size="sm" variant="ghost" onClick={onClose}>
-            Cancel
+            {formatMessage({ id: 'accounts.editDraft.cancel', defaultMessage: "Cancel" })}
           </Button>
           <Button
             size="sm"
@@ -411,7 +429,7 @@ function EditDraftModal({
             disabled={type === 'transfer' && !transferTo}
             onClick={save}
           >
-            Save
+            {formatMessage({ id: 'accounts.editDraft.save', defaultMessage: "Save" })}
           </Button>
         </>
       }
@@ -424,12 +442,12 @@ function EditDraftModal({
             type?"): Transfer swaps Payee + Category for the other account — a transfer between
             your own accounts books no payee or category; the other account is its counterpart. */}
         <div className="acct-edit-field">
-          <div className="acct-edit-label">Type</div>
+          <div className="acct-edit-label">{formatMessage({ id: 'accounts.editDraft.type', defaultMessage: "Type" })}</div>
           <SegmentedControl
-            ariaLabel="Type"
+            ariaLabel={formatMessage({ id: 'accounts.editDraft.type', defaultMessage: "Type" })}
             options={[
               { value: 'plain', label: plainLabel },
-              { value: 'transfer', label: 'Transfer' },
+              { value: 'transfer', label: formatMessage({ id: 'accounts.editDraft.transfer', defaultMessage: "Transfer" }) },
             ]}
             value={type}
             onChange={setType}
@@ -437,7 +455,7 @@ function EditDraftModal({
         </div>
         {type === 'plain' && (
           <div className="acct-edit-field">
-            <div className="acct-edit-label">Payee</div>
+            <div className="acct-edit-label">{formatMessage({ id: 'accounts.editDraft.payee', defaultMessage: "Payee" })}</div>
             <AddPayeeField
               value={payee}
               onChange={(v) => setPayee(v)}
@@ -452,23 +470,23 @@ function EditDraftModal({
         )}
         {type === 'transfer' ? (
           <div className="acct-edit-field">
-            <div className="acct-edit-label">{outflow ? 'To account' : 'From account'}</div>
+            <div className="acct-edit-label">{outflow ? formatMessage({ id: 'accounts.editDraft.to', defaultMessage: "To account" }) : formatMessage({ id: 'accounts.editDraft.from', defaultMessage: "From account" })}</div>
             <Select
-              aria-label={outflow ? 'To account' : 'From account'}
+              aria-label={outflow ? formatMessage({ id: 'accounts.editDraft.to', defaultMessage: "To account" }) : formatMessage({ id: 'accounts.editDraft.from', defaultMessage: "From account" })}
               value={transferTo}
               onChange={(e) => setTransferTo(e.target.value)}
-              placeholder="Choose an account"
+              placeholder={formatMessage({ id: 'accounts.editDraft.choose', defaultMessage: "Choose an account" })}
               options={transferAccounts.map((a) => ({ value: a.id, label: a.name }))}
             />
             <div className="imp3-edit-hint">
               {transferAccounts.length === 0
-                ? `No other ${d.currency} account to transfer with.`
-                : 'Books one transfer between the two accounts — never spending or income.'}
+                ? formatMessage({ id: 'accounts.editDraft.noAccount', defaultMessage: 'No other {currency} account to transfer with.' }, { currency: d.currency })
+                : formatMessage({ id: 'accounts.editDraft.hint', defaultMessage: "Books one transfer between the two accounts — never spending or income." })}
             </div>
           </div>
         ) : (
           <div className="acct-edit-field">
-            <div className="acct-edit-label">Category</div>
+            <div className="acct-edit-label">{formatMessage({ id: 'accounts.editDraft.category', defaultMessage: "Category" })}</div>
             <AddCategoryField
               value={category}
               onChange={(k) => setCategory(k)}
@@ -532,6 +550,7 @@ function LinkPicker({
    *  action shares one family, never a bare underlined text link). */
   variant?: string
 }) {
+  const { formatMessage } = useAppIntl()
   const [open, setOpen] = useState(false)
   const [q, setQ] = useState('')
   const [pos, setPos] = useState<Record<string, number | string> | null>(null)
@@ -605,8 +624,8 @@ function LinkPicker({
           autoFocus={!isMobile}
           className="imp3-lpick-search"
           type="text"
-          placeholder="Search entries"
-          aria-label="Search entries"
+          placeholder={formatMessage({ id: 'accounts.linkPicker.search', defaultMessage: "Search entries" })}
+          aria-label={formatMessage({ id: 'accounts.linkPicker.search', defaultMessage: "Search entries" })}
           value={q}
           onChange={(e) => setQ(e.target.value)}
           onMouseDown={(e) => e.stopPropagation()}
@@ -614,7 +633,7 @@ function LinkPicker({
       )}
       {shown.length === 0 ? (
         <div className="imp3-lpick-empty">
-          {options.length === 0 ? 'No uncovered entries in this period.' : 'Nothing matches'}
+          {options.length === 0 ? formatMessage({ id: 'accounts.linkPicker.none', defaultMessage: "No uncovered entries in this period." }) : formatMessage({ id: 'accounts.linkPicker.noMatch', defaultMessage: "Nothing matches" })}
         </div>
       ) : (
         shown.map((o) => (
@@ -662,7 +681,7 @@ function LinkPicker({
               <button
                 type="button"
                 className="imp3-lpick-sheet-x"
-                aria-label="Close"
+                aria-label={formatMessage({ id: 'accounts.linkPicker.close', defaultMessage: "Close" })}
                 onClick={() => setOpen(false)}
               >
                 <X size={18} strokeWidth={1.6} aria-hidden="true" />
@@ -699,6 +718,7 @@ function LinkPicker({
  * multi-currency wallet routing — in the design's own panel. Nothing renders when the server
  * said nothing (no empty violet box). */
 function LuciusNote({ preview }: { preview: ImportPreviewResult }) {
+  const { formatMessage } = useAppIntl()
   const fp = preview.formatProfile
   // The "already known, nothing changed" case is deliberately NOT a profile fact here — it's
   // the lowest-value case (no news: same format as always) and already redundant with the
@@ -708,15 +728,15 @@ function LuciusNote({ preview }: { preview: ImportPreviewResult }) {
   const profile = !fp
     ? null
     : fp.learned
-      ? 'Learned this file’s format — next time it imports instantly, no AI needed.'
+      ? formatMessage({ id: 'accounts.importNote.learned', defaultMessage: 'Learned this file’s format — next time it imports instantly, no AI needed.' })
       : fp.relearned
-        ? 'This source changed its layout — re-learned and saved.'
+        ? formatMessage({ id: 'accounts.importNote.relearned', defaultMessage: 'This source changed its layout — re-learned and saved.' })
         : null
   const a = preview.anomaly || { intra_batch_duplicate: 0, amount_anomaly: 0 }
   const flagged = [
-    a.intra_batch_duplicate ? `${a.intra_batch_duplicate} repeated in the file` : null,
+    a.intra_batch_duplicate ? formatMessage({ id: 'accounts.importNote.repeated', defaultMessage: '{count} repeated in the file' }, { count: a.intra_batch_duplicate }) : null,
     a.amount_anomaly
-      ? `${a.amount_anomaly} unusually large amount${a.amount_anomaly === 1 ? '' : 's'}`
+      ? formatMessage({ id: 'accounts.importNote.large', defaultMessage: '{count, plural, one {# unusually large amount} other {# unusually large amounts}}' }, { count: a.amount_anomaly })
       : null,
   ]
     .filter(Boolean)
@@ -731,20 +751,19 @@ function LuciusNote({ preview }: { preview: ImportPreviewResult }) {
         {profile && <span>{profile}</span>}
         {flagged && (
           <span>
-            <b>{flagged}.</b> They’ll still be imported — just marked “needs review” in your
-            register so you can check them.
+            {formatMessage({ id: 'accounts.importNote.flagged', defaultMessage: '<b>{flagged}.</b> They’ll still be imported — just marked “needs review” in your register so you can check them.' }, { flagged, b: (chunks) => <b>{chunks}</b> })}
           </span>
         )}
         {routing && (
           <span>
-            Multi-currency statement — rows route to the wallet holding each currency:{' '}
+            {formatMessage({ id: 'accounts.importNote.routing', defaultMessage: 'Multi-currency statement — rows route to the wallet holding each currency:' })}{' '}
             {Object.entries(routing).map(([ccy, r], i) => (
               <span key={ccy}>
                 {i > 0 ? ' • ' : ''}
                 {ccy} →{' '}
                 {r
                   ? r.account_name || r.account_id
-                  : 'no account — pick per row or they stay left out'}
+                  : formatMessage({ id: 'accounts.importNote.noAccount', defaultMessage: 'no account — pick per row or they stay left out' })}
               </span>
             ))}
           </span>
@@ -767,14 +786,15 @@ function fSize(bytes: number): string {
  *  how long it can take (owner, 2026-10-26: the old "Opening your review" only repeated the
  *  title above it). */
 function OpeningReviewLine() {
+  const { formatMessage } = useAppIntl()
   const [seconds, setSeconds] = useState(0)
   useEffect(() => {
     const started = Date.now()
     const id = setInterval(() => setSeconds(Math.floor((Date.now() - started) / 1000)), 1000)
     return () => clearInterval(id)
   }, [])
-  if (seconds < 4) return <>Usually a few seconds</>
-  return <>Still opening — {seconds}s. A long statement can take up to 30 seconds.</>
+  if (seconds < 4) return <>{formatMessage({ id: 'accounts.importProgress.fewSeconds', defaultMessage: 'Usually a few seconds' })}</>
+  return <>{formatMessage({ id: 'accounts.importProgress.stillOpening', defaultMessage: 'Still opening — {seconds}s. A long statement can take up to 30 seconds.' }, { seconds })}</>
 }
 
 export interface ReopenOptions {
@@ -1011,6 +1031,9 @@ export function ImportModal({
   onLoadTxnSourceEntries,
   onDetachTxnSourceRef,
 }: ImportModalProps) {
+  const intl = useAppIntl()
+  const { formatMessage } = intl
+  const statementSkipReason = useStatementSkipReason()
   const [step, setStep] = useState<
     'source' | 'choose' | 'processing' | 'configure' | 'preview' | 'done'
   >(() => (resumeStatementId ? 'processing' : 'source'))
@@ -1316,7 +1339,7 @@ export function ImportModal({
   useEffect(() => {
     if (step !== 'processing') return
     setPhase(0)
-    const id = setInterval(() => setPhase((p) => Math.min(p + 1, READ_PHASES.length - 1)), 520)
+    const id = setInterval(() => setPhase((p) => Math.min(p + 1, READ_PHASE_ORDER.length - 1)), 520)
     return () => clearInterval(id)
   }, [step])
   // The account picker closes on a click outside itself — the prototype's own handler
@@ -1811,7 +1834,7 @@ export function ImportModal({
           msg = e.message
         }
       }
-      setError(msg || 'Could not read the file — try again or map columns yourself.')
+      setError(msg || formatMessage({ id: 'accounts.importMessage.readError', defaultMessage: "Could not read the file — try again or map columns yourself." }))
       setStep(routeKind === 'manual' ? 'configure' : 'choose')
     }
   }
@@ -2102,7 +2125,7 @@ export function ImportModal({
       return
     }
     if (!rows.length || !mapComplete(currentMap())) {
-      setError('Complete the column mapping first.')
+      setError(formatMessage({ id: 'accounts.importMessage.mappingIncomplete', defaultMessage: "Complete the column mapping first." }))
       return
     }
     // The mapping is SAVED server-side as this source's format profile (SI-16), then the
@@ -2287,7 +2310,7 @@ export function ImportModal({
         } catch {
           /* raw text is fine */
         }
-        setError(msg || 'Import failed — nothing was booked. Check the rows and try again.')
+        setError(msg || formatMessage({ id: 'accounts.importMessage.importError', defaultMessage: "Import failed — nothing was booked. Check the rows and try again." }))
         setCommitting(false)
         return
       }
@@ -2324,7 +2347,7 @@ export function ImportModal({
     }
     // Every server preview carries a statement_id (the decision pipeline caches the parse);
     // a missing one means the preview is stale — re-run it, never fall back to a side door.
-    setError('This preview is stale — run the preview again before importing.')
+    setError(formatMessage({ id: 'accounts.importMessage.stale', defaultMessage: "This preview is stale — run the preview again before importing." }))
   }
 
   // "Mark all as reviewed" (SI-79 Done-screen action) — a real write, not local-only state
@@ -2369,7 +2392,7 @@ export function ImportModal({
     } catch (e) {
       setReviewMarkState('idle')
       setReviewMarkError(
-        e instanceof Error ? e.message : 'Could not mark rows as reviewed — try again.',
+        e instanceof Error ? e.message : formatMessage({ id: 'accounts.importMessage.reviewError', defaultMessage: "Could not mark rows as reviewed — try again." }),
       )
     }
   }
@@ -2488,7 +2511,7 @@ export function ImportModal({
       } catch {
         /* raw text is fine */
       }
-      setInstrErr(msg || 'Could not save instructions.')
+      setInstrErr(msg || formatMessage({ id: 'accounts.importMessage.instructionError', defaultMessage: "Could not save instructions." }))
       return false
     } finally {
       setInstrSaving(false)
@@ -2531,7 +2554,7 @@ export function ImportModal({
       if (!r.ok) throw new Error(await r.text())
       await runServerPreview(route, undefined, undefined, undefined, undefined, true)
     } catch {
-      setError('Could not change the row type — try again.')
+      setError(formatMessage({ id: 'accounts.importMessage.kindError', defaultMessage: "Could not change the row type — try again." }))
     } finally {
       setLuciusUndoing((m) => ({ ...m, [row]: false }))
     }
@@ -2794,7 +2817,7 @@ export function ImportModal({
   const outcomeLine = (d: ImportPreviewDraft, i: number): string | null => {
     const act = actionFor(d, i)
     if (act === 'skip') return null
-    if (act === 'new') return 'Adds a second transaction next to the one you already have'
+    if (act === 'new') return formatMessage({ id: 'accounts.importMessage.newSecond', defaultMessage: "Adds a second transaction next to the one you already have" })
     const resolved = resolveExisting(d)
     if (!resolved) return null
     const flagType = resolvedFlagType(d, resolved)
@@ -2804,8 +2827,8 @@ export function ImportModal({
       // other, so only that leg is re-amounted (ledger.apply_import_merge, facts="statement").
       const legDrifted = typeof ex?.amount === 'number' && Math.abs(ex.amount - d.amount) > 0.004
       return legDrifted
-        ? `Links to your existing transfer • this side adopts the statement’s ${fCur(Math.abs(d.amount), d.currency, { cents: true })} • the other leg stays as booked`
-        : 'Links to your existing transfer • its legs stay as booked'
+        ? formatMessage({ id: 'accounts.importMessage.transferChanged', defaultMessage: 'Links to your existing transfer • this side adopts the statement’s {amount} • the other leg stays as booked' }, { amount: fCur(Math.abs(d.amount), d.currency, { cents: true }) })
+        : formatMessage({ id: 'accounts.importMessage.transferSame', defaultMessage: "Links to your existing transfer • its legs stay as booked" })
     }
     // transfer_pair merge (decision_commit → apply_import_merge, facts="statement"): the two
     // legs carry DIFFERENT kinds (expense vs income) by construction, so the merge's own
@@ -2813,7 +2836,7 @@ export function ImportModal({
     // what actually happens: the existing row is marked cleared and absorbs the statement's
     // reference (future re-imports dedupe against it); this statement row itself never books.
     if (flagType === 'transfer_pair')
-      return 'Marks it cleared & links the statement’s reference • date, amount, category & notes stay as they are • this row won’t be booked on its own'
+      return formatMessage({ id: 'accounts.importMessage.pair', defaultMessage: "Marks it cleared & links the statement’s reference • date, amount, category & notes stay as they are • this row won’t be booked on its own" })
     const dateChanged = !!ex?.date && ex.date !== d.date
     const amountChanged = typeof ex?.amount === 'number' && Math.abs(ex.amount - d.amount) > 0.004
     // Foreign-charge gap-fill (apply_import_merge: "copied in when the existing row lacks
@@ -2829,10 +2852,10 @@ export function ImportModal({
       )
     if (addsOriginal)
       frags.push(
-        `adds the original charge (${fCur(draftOrigAmt!, draftOrigCcy!, { cents: true })})`,
+        formatMessage({ id: 'accounts.importMessage.addsOriginal', defaultMessage: 'adds the original charge ({amount})' }, { amount: fCur(draftOrigAmt!, draftOrigCcy!, { cents: true }) }),
       )
-    if (!frags.length) frags.push('Marks it settled')
-    frags.push('keeps your category & notes')
+    if (!frags.length) frags.push(formatMessage({ id: 'accounts.importMessage.settled', defaultMessage: "Marks it settled" }))
+    frags.push(formatMessage({ id: 'accounts.importMessage.keeps', defaultMessage: "keeps your category & notes" }))
     return frags.join(' • ')
   }
   // SI-64 per-row ledger effect — mirrors confirmImport's decision ladder EXACTLY (keep the
@@ -2964,8 +2987,8 @@ export function ImportModal({
     const drift = driftByIndex.get(i)
     if (!drift) return null
     return (
-      <span className="imp-offby" title={offByTitle(verdictInputs[i]!) || undefined}>
-        Off by {fCur(Math.abs(drift.diff), currency, { cents: true })}
+      <span className="imp-offby" title={offByTitle(verdictInputs[i]!, intl) || undefined}>
+        {formatMessage({ id: 'accounts.visible.offBy', defaultMessage: 'Off by {amount}' }, { amount: fCur(Math.abs(drift.diff), currency, { cents: true }) })}
       </span>
     )
   }
@@ -3003,7 +3026,7 @@ export function ImportModal({
   const heldHint = (d: ImportPreviewDraft, entryId: string) => {
     const holder = heldByOther(d, entryId)
     return holder
-      ? `• linked to ${rowTitle(holder)} (${fCur(holder.amount, holder.currency, { cents: true })})`
+      ? formatMessage({ id: 'accounts.importConfirm.held', defaultMessage: '• linked to {row} ({amount})' }, { row: rowTitle(holder), amount: fCur(holder.amount, holder.currency, { cents: true }) })
       : undefined
   }
   /** Run a row-side link pick; an entry another row holds is moved only after a confirm, and
@@ -3014,7 +3037,7 @@ export function ImportModal({
     const from = holder.rowIndex
     const entry = checkRowById.get(entryId)
     const entryLabel =
-      (entry?.note || 'This entry') +
+      (entry?.note || formatMessage({ id: 'accounts.importConfirm.thisEntry', defaultMessage: 'This entry' })) +
       (entry?.amount != null
         ? ` (${fCur(entry.amount, entry.currency || d.currency, { cents: true })})`
         : '')
@@ -3023,7 +3046,7 @@ export function ImportModal({
       row: holderLabel,
       from: entryLabel,
       to: `${rowTitle(d)} (${fCur(d.amount, d.currency, { cents: true })})`,
-      body: `${entryLabel} is linked to ${holderLabel}. Link it to ${rowTitle(d)} (${fCur(d.amount, d.currency, { cents: true })}) instead? ${holderLabel} loses the link.`,
+      body: formatMessage({ id: 'accounts.importConfirm.moveHeld', defaultMessage: '{entry} is linked to {holder}. Link it to {target} ({amount}) instead? {holder} loses the link.' }, { entry: entryLabel, holder: holderLabel, target: rowTitle(d), amount: fCur(d.amount, d.currency, { cents: true }) }),
       run: () => {
         const drop = <T,>(current: Record<number, T>) => {
           const next = { ...current }
@@ -3048,17 +3071,17 @@ export function ImportModal({
     const to = accounts.find((a) => a.id === d.lucius?.account_id)?.name
     const call =
       op === 'route_transfer'
-        ? `booked ${label} as a transfer${to ? ` with ${to}` : ''}`
+        ? formatMessage({ id: 'accounts.importConfirm.bookedTransfer', defaultMessage: 'booked {label} as a transfer{account}' }, { label, account: to ? formatMessage({ id: 'accounts.importConfirm.withAccount', defaultMessage: ' with {account}' }, { account: to }) : '' })
         : op === 'skip'
-          ? `left ${label} out`
-          : `matched ${label} to another entry`
+          ? formatMessage({ id: 'accounts.importConfirm.leftOut', defaultMessage: 'left {label} out' }, { label })
+          : formatMessage({ id: 'accounts.importConfirm.matched', defaultMessage: 'matched {label} to another entry' }, { label })
     setRelinkAsk({
       row: label,
       from: '',
       to: '',
-      title: 'Undo Lucius’s call?',
-      confirmLabel: 'Undo and link',
-      body: `Lucius ${call}. Linking it here undoes that for this row first.`,
+      title: formatMessage({ id: 'accounts.importConfirm.undoLucius', defaultMessage: 'Undo Lucius’s call?' }),
+      confirmLabel: formatMessage({ id: 'accounts.importConfirm.undoLink', defaultMessage: 'Undo and link' }),
+      body: formatMessage({ id: 'accounts.importConfirm.undoLuciusBody', defaultMessage: 'Lucius {call}. Linking it here undoes that for this row first.' }, { call }),
       run: () => void undoLucius(row).then((ok) => ok && apply()),
     })
   }
@@ -3395,8 +3418,8 @@ export function ImportModal({
         ? 1
         : 2
   const progress = (
-    <span className="imp3-crumbs" aria-label="Import progress">
-      {['Choose', 'Read', 'Decide'].map((label, i) => (
+    <span className="imp3-crumbs" aria-label={formatMessage({ id: 'accounts.import.progress', defaultMessage: 'Import progress' })}>
+      {[formatMessage({ id: 'accounts.import.choose', defaultMessage: 'Choose' }), formatMessage({ id: 'accounts.import.read', defaultMessage: 'Read' }), formatMessage({ id: 'accounts.import.decide', defaultMessage: 'Decide' })].map((label, i) => (
         <span
           key={label}
           className={'imp3-crumb' + (i === stepIdx ? ' on' : '') + (i < stepIdx ? ' done' : '')}
@@ -3435,17 +3458,18 @@ export function ImportModal({
   const liveStage = activeProgress?.stages[activeProgress.stages.length - 1] ?? null
   const readingPhase = activeProgress
     ? activeStale
-      ? 'Still working — losing touch with the progress feed.'
+      ? formatMessage({ id: 'accounts.importProgress.stale', defaultMessage: 'Still working — losing touch with the progress feed.' })
       : progressPhaseLabel(
           liveStage?.stage || '',
           liveStage?.page,
           liveStage?.pages,
           liveStage?.label,
+          intl,
         )
-    : READ_PHASES[Math.min(phase, READ_PHASES.length - 1)]
+    : formatMessage(READ_PHASE_ORDER[Math.min(phase, READ_PHASE_ORDER.length - 1)]!)
   const readingRetryText =
     liveStage && liveStage.stage === 'read' && liveStage.retry
-      ? `Retrying page ${liveStage.page} (attempt ${liveStage.retry + 1} of 3)`
+      ? formatMessage({ id: 'accounts.importProgress.retry', defaultMessage: 'Retrying page {page} (attempt {attempt} of 3)' }, { page: liveStage.page ?? 0, attempt: liveStage.retry + 1 })
       : null
   const readingHint =
     !!liveStage &&
@@ -3462,7 +3486,7 @@ export function ImportModal({
       return (
         <>
           <Button size="sm" variant="ghost" onClick={() => setStep('choose')}>
-            Back
+            {formatMessage({ id: 'accounts.importFooter.back', defaultMessage: "Back" })}
           </Button>
           <Button
             size="sm"
@@ -3470,7 +3494,7 @@ export function ImportModal({
             disabled={!canManualPreview}
             onClick={runManualPreview}
           >
-            Preview import
+            {formatMessage({ id: 'accounts.importFooter.preview', defaultMessage: "Preview import" })}
           </Button>
         </>
       )
@@ -3479,7 +3503,7 @@ export function ImportModal({
       // DOES, never a "still pending" count (needs-you rows default to skip, invisible here).
       const frags: string[] = []
       if (links > 0) frags.push(`link ${links}`)
-      if (imports > 0) frags.push(`import ${imports}`)
+      if (imports > 0) frags.push(formatMessage({ id: 'accounts.importFooter.import', defaultMessage: 'import {count}' }, { count: imports }))
       const deletes = markedForDelete.length
       // Staged deletions ARE an outcome: a statement with nothing to book but 8 marked
       // duplicates must still be confirmable, and must not read "Nothing to book".
@@ -3490,10 +3514,10 @@ export function ImportModal({
       const closeOnly = canFile && !!preview?.alreadyImported
       const leaveOuts = excludedRows.length
       const outcomeFrags = [
-        links > 0 ? `Link ${links}` : null,
-        imports > 0 ? `import ${imports}` : null,
-        leaveOuts > 0 ? `leave out ${leaveOuts}` : null,
-        awaitingDecisions > 0 ? `${awaitingDecisions} awaiting you` : null,
+        links > 0 ? formatMessage({ id: 'accounts.importFooter.link', defaultMessage: 'Link {count}' }, { count: links }) : null,
+        imports > 0 ? formatMessage({ id: 'accounts.importFooter.import', defaultMessage: 'import {count}' }, { count: imports }) : null,
+        leaveOuts > 0 ? formatMessage({ id: 'accounts.importFooter.leaveOut', defaultMessage: 'leave out {count}' }, { count: leaveOuts }) : null,
+        awaitingDecisions > 0 ? formatMessage({ id: 'accounts.importFooter.awaiting', defaultMessage: '{count} awaiting you' }, { count: awaitingDecisions }) : null,
       ].filter((fragment): fragment is string => !!fragment)
       // Just "Confirm" — the footer note right next to it already spells out the
       // link/import/leave-out breakdown, so repeating it on the button itself was redundant.
@@ -3501,12 +3525,12 @@ export function ImportModal({
       // equivalent for, so it keeps its own honest label instead of reading as a no-op.
       const label =
         frags.length || deletes > 0
-          ? 'Confirm'
+          ? formatMessage({ id: 'accounts.importFooter.confirm', defaultMessage: "Confirm" })
           : closeOnly
-            ? 'Close'
+            ? formatMessage({ id: 'accounts.importProgress.close', defaultMessage: "Close" })
             : canFile
-              ? 'File statement — nothing new'
-              : 'Nothing to book'
+              ? formatMessage({ id: 'accounts.importFooter.fileNothing', defaultMessage: "File statement — nothing new" })
+              : formatMessage({ id: 'accounts.importFooter.nothing', defaultMessage: "Nothing to book" })
       // ONE honest outcome sentence on the left, the commit CTA on the right — green (`ready`)
       // only once every row is decided, otherwise the primary blue.
       const ready = awaitingDecisions === 0 && !nothingHappens
@@ -3515,11 +3539,11 @@ export function ImportModal({
           <span className="imp3-foot-note">
             {closeOnly ? (
               <>
-                <b>Already filed</b> — nothing new to book.
+                {formatMessage({ id: 'accounts.importFooter.alreadyFiled', defaultMessage: '<b>Already filed</b> — nothing new to book.' }, { b: (chunks) => <b>{chunks}</b> })}
               </>
             ) : (
               <>
-                <b>{outcomeFrags.join(' • ') || 'Nothing to book'}</b>
+                <b>{outcomeFrags.join(' • ') || formatMessage({ id: 'accounts.importFooter.nothing', defaultMessage: "Nothing to book" })}</b>
                 {/* Deletions are DESTRUCTIVE and get their own emphasised term rather than another
                 comma-separated fragment — buried in the run of "link 1 · import 3" it reads as
                 one more bookkeeping outcome. "from your ledger" is load-bearing: it is what
@@ -3527,22 +3551,21 @@ export function ImportModal({
                 {deletes > 0 && (
                   <>
                     {' • '}
-                    <b className="imp3-foot-del">delete {deletes} from your ledger</b>
+                    <b className="imp3-foot-del">{formatMessage({ id: 'accounts.importFooter.delete', defaultMessage: 'delete {count} from your ledger' }, { count: deletes })}</b>
                   </>
                 )}{' '}
-                — nothing is written until you confirm.
+                {formatMessage({ id: 'accounts.importFooter.nothingWritten', defaultMessage: '— nothing is written until you confirm.' })}
                 {awaitingDecisions > 0 && (
                   <span className="imp3-foot-wait">
                     {' '}
-                    {awaitingDecisions} undecided row{awaitingDecisions === 1 ? '' : 's'} book the
-                    shown default{awaitingDecisions === 1 ? '' : 's'}.
+                    {formatMessage({ id: 'accounts.importFooter.defaults', defaultMessage: '{count, plural, one {# undecided row books the shown default.} other {# undecided rows book the shown defaults.}}' }, { count: awaitingDecisions })}
                   </span>
                 )}
               </>
             )}
           </span>
           <button type="button" className="imp3-btn2" disabled={committing} onClick={requestBack}>
-            Back
+            {formatMessage({ id: 'accounts.importFooter.back', defaultMessage: "Back" })}
           </button>
           <button
             type="button"
@@ -3552,7 +3575,7 @@ export function ImportModal({
             onClick={closeOnly ? close : () => void confirmImport()}
           >
             {committing && <span className="imp3-commit-spin" aria-hidden="true" />}
-            {committing ? 'Booking…' : label}
+            {committing ? formatMessage({ id: 'accounts.importFooter.booking', defaultMessage: "Booking…" }) : label}
           </button>
         </div>
       )
@@ -3572,7 +3595,7 @@ export function ImportModal({
         open={open}
         onClose={requestClose}
         size={modalSize}
-        title="Import a statement"
+        title={formatMessage({ id: 'accounts.import.title', defaultMessage: 'Import a statement' })}
         subtitle={progress}
         footer={renderFooter()}
         closeOnBackdrop={false}
@@ -3581,10 +3604,10 @@ export function ImportModal({
         headerActions={
           fileStatementId && isMobile ? (
             <SegmentedControl
-              ariaLabel="Review or statement file"
+              ariaLabel={formatMessage({ id: 'accounts.import.reviewOrFile', defaultMessage: 'Review or statement file' })}
               options={[
-                { value: 'review', label: 'Review' },
-                { value: 'file', label: 'File' },
+                { value: 'review', label: formatMessage({ id: 'accounts.import.review', defaultMessage: 'Review' }) },
+                { value: 'file', label: formatMessage({ id: 'accounts.import.file', defaultMessage: 'File' }) },
               ]}
               value={phoneView}
               onChange={setPhoneView}
@@ -3610,7 +3633,7 @@ export function ImportModal({
               <button
                 type="button"
                 className={'imp3-drop' + (dragOver ? ' over' : '')}
-                aria-label="Choose a statement file or drop it here"
+                aria-label={formatMessage({ id: 'accounts.importChoose.chooseFile', defaultMessage: "Choose a statement file or drop it here" })}
                 onDragOver={(e) => {
                   e.preventDefault()
                   setDragOver(true)
@@ -3641,10 +3664,10 @@ export function ImportModal({
                   <path d="M12 3v12" />
                 </svg>
                 <span className="imp3-drop-t">
-                  Drop a statement here, or <span className="lk">browse</span>
+                  {formatMessage({ id: 'accounts.importChoose.drop', defaultMessage: 'Drop a statement here, or <link>browse</link>' }, { link: (chunks) => <span className="lk">{chunks}</span> })}
                 </span>
                 <span className="imp3-drop-d">
-                  PDF, CSV, XLSX, OFX, QIF, MT940, CAMT — scanned PDFs work too
+                  {formatMessage({ id: 'accounts.importChoose.formats', defaultMessage: "PDF, CSV, XLSX, OFX, QIF, MT940, CAMT — scanned PDFs work too" })}
                 </span>
               </button>
               <input
@@ -3653,7 +3676,7 @@ export function ImportModal({
                 type="file"
                 accept={ACCEPT}
                 tabIndex={-1}
-                aria-label="Statement file"
+                aria-label={formatMessage({ id: 'accounts.importChoose.file', defaultMessage: "Statement file" })}
                 onChange={(e) => {
                   const f = e.target.files?.[0]
                   if (f) pickFile(f)
@@ -3664,7 +3687,7 @@ export function ImportModal({
                 <div className="imp3-urlbox">
                   <input
                     type="url"
-                    aria-label="Statement URL"
+                    aria-label={formatMessage({ id: 'accounts.importChoose.url', defaultMessage: "Statement URL" })}
                     placeholder="https://docs.google.com/…/pub?output=csv"
                     value={url}
                     onChange={(e) => {
@@ -3676,7 +3699,7 @@ export function ImportModal({
                   />
                   <div className="imp3-urlbox-acts">
                     <span className="imp3-drop-cost">
-                      A hosted CSV, OFX, QIF, MT940, CAMT, XLSX or PDF link.
+                      {formatMessage({ id: 'accounts.importChoose.hosted', defaultMessage: "A hosted CSV, OFX, QIF, MT940, CAMT, XLSX or PDF link." })}
                     </span>
                     <button
                       type="button"
@@ -3686,7 +3709,7 @@ export function ImportModal({
                         setError('')
                       }}
                     >
-                      Cancel
+                      {formatMessage({ id: 'accounts.importChoose.cancel', defaultMessage: "Cancel" })}
                     </button>
                     <button
                       type="button"
@@ -3694,7 +3717,7 @@ export function ImportModal({
                       disabled={!url.trim()}
                       onClick={loadUrl}
                     >
-                      Load
+                      {formatMessage({ id: 'accounts.importChoose.load', defaultMessage: "Load" })}
                     </button>
                   </div>
                 </div>
@@ -3707,7 +3730,7 @@ export function ImportModal({
                     setError('')
                   }}
                 >
-                  or paste a URL / Google Sheet link
+                  {formatMessage({ id: 'accounts.importChoose.paste', defaultMessage: "or paste a URL / Google Sheet link" })}
                 </button>
               )}
             </div>
@@ -3722,7 +3745,7 @@ export function ImportModal({
                     {FORMAT_LABEL[detectFormat(resumeFilename || '')]}
                   </span>
                   <div>
-                    <div className="imp3-file-nm">{resumeFilename || 'Statement'}</div>
+                    <div className="imp3-file-nm">{resumeFilename || formatMessage({ id: 'accounts.importChoose.statement', defaultMessage: "Statement" })}</div>
                     {reopenSub && <div className="imp3-file-sub">{reopenSub}</div>}
                   </div>
                 </div>
@@ -3741,7 +3764,7 @@ export function ImportModal({
                       setUrlOpen(!file)
                     }}
                   >
-                    Change
+                    {formatMessage({ id: 'accounts.importChoose.change', defaultMessage: "Change" })}
                   </button>
                 </div>
               )}
@@ -3752,7 +3775,7 @@ export function ImportModal({
               {peekState === 'pending' && !reopenChoose && (
                 <div className="imp3-known pending" role="status" aria-live="polite">
                   <span className="imp3-known-spin" aria-hidden="true" />
-                  <div className="imp3-known-t">Checking if this source is remembered…</div>
+                  <div className="imp3-known-t">{formatMessage({ id: 'accounts.importChoose.checkingSource', defaultMessage: "Checking if this source is remembered…" })}</div>
                 </div>
               )}
               {sourceKnown && !reopenChoose && (
@@ -3765,18 +3788,18 @@ export function ImportModal({
                     Date") that reads as noise here — and on the Decide step's LuciusNote too
                     (2026-07-27 fix: dropped there as well, not just here). */}
                   <div className="imp3-known-t">
-                    <b>I know this source.</b> Layout is remembered.
+                    {formatMessage({ id: 'accounts.importChoose.known', defaultMessage: '<b>I know this source.</b> Layout is remembered.' }, { b: (chunks) => <b>{chunks}</b> })}
                   </div>
                   <label
                     className="imp3-known-cb"
-                    title="Forget everything remembered about this source for this run: re-detect the format from scratch AND re-read the file instead of reusing the cached parse."
+                    title={formatMessage({ id: 'accounts.importChoose.freshTitle', defaultMessage: "Forget everything remembered about this source for this run: re-detect the format from scratch AND re-read the file instead of reusing the cached parse." })}
                   >
                     <input
                       type="checkbox"
                       checked={fresh}
                       onChange={(e) => setFresh(e.target.checked)}
                     />{' '}
-                    Re-read from scratch
+                    {formatMessage({ id: 'accounts.importChoose.fresh', defaultMessage: "Re-read from scratch" })}
                   </label>
                 </div>
               )}
@@ -3787,21 +3810,21 @@ export function ImportModal({
               {peekState === 'unavailable' && !reopenChoose && (
                 <label
                   className="imp3-remember"
-                  title="Forget everything remembered about this source for this run: re-detect the format from scratch AND re-read the file instead of reusing the cached parse."
+                  title={formatMessage({ id: 'accounts.importChoose.freshTitle', defaultMessage: "Forget everything remembered about this source for this run: re-detect the format from scratch AND re-read the file instead of reusing the cached parse." })}
                 >
                   <input
                     type="checkbox"
                     checked={fresh}
                     onChange={(e) => setFresh(e.target.checked)}
                   />{' '}
-                  Re-read from scratch
+                  {formatMessage({ id: 'accounts.importChoose.fresh', defaultMessage: "Re-read from scratch" })}
                 </label>
               )}
               <div className="imp3-cfg">
                 <div className="imp3-cfg-row">
                   <span className="imp3-cfg-l">
-                    Into accounts
-                    <em>a statement can cover several — each row routes to the right one</em>
+                    {formatMessage({ id: 'accounts.importChoose.into', defaultMessage: "Into accounts" })}
+                    <em>{formatMessage({ id: 'accounts.importChoose.intoHint', defaultMessage: "a statement can cover several — each row routes to the right one" })}</em>
                   </span>
                   <div className="imp3-acctchips">
                     {acctIds.map((id) => {
@@ -3812,7 +3835,7 @@ export function ImportModal({
                           {a.name}
                           <button
                             type="button"
-                            aria-label={`Remove ${a.name}`}
+                            aria-label={formatMessage({ id: 'accounts.importChoose.removeAccount', defaultMessage: 'Remove {name}' }, { name: a.name })}
                             onClick={() => removeAccount(id)}
                           >
                             <X size={11} aria-hidden="true" />
@@ -3829,14 +3852,14 @@ export function ImportModal({
                         >
                           {acctIds.length ? (
                             <>
-                              <Plus size={12} aria-hidden="true" /> Add account
+                              <Plus size={12} aria-hidden="true" /> {formatMessage({ id: 'accounts.importChoose.addAccount', defaultMessage: "Add account" })}
                             </>
                           ) : (
-                            'Select account'
+                            formatMessage({ id: 'accounts.importChoose.selectAccount', defaultMessage: "Select account" })
                           )}
                         </button>
                         {acctPickOpen && (
-                          <div className="imp3-lpick-pop" role="listbox" aria-label="Accounts">
+                          <div className="imp3-lpick-pop" role="listbox" aria-label={formatMessage({ id: 'accounts.importChoose.accounts', defaultMessage: "Accounts" })}>
                             {accounts
                               .filter((a) => !acctIds.includes(a.id))
                               .map((a) => (
@@ -3862,9 +3885,9 @@ export function ImportModal({
                   layout), and carrying it would mean allowlisting a generic global token. */}
                 <div className="imp3-cfg-row">
                   <span className="imp3-cfg-l">
-                    Tell Lucius
+                    {formatMessage({ id: 'accounts.importChoose.tellLucius', defaultMessage: "Tell Lucius" })}
                     <em>
-                      bank quirks, context, corrections — these make the read noticeably better
+                      {formatMessage({ id: 'accounts.importChoose.instructionHint', defaultMessage: "bank quirks, context, corrections — these make the read noticeably better" })}
                     </em>
                   </span>
                   <div className="imp3-cfg-note">
@@ -3872,10 +3895,8 @@ export function ImportModal({
                       ref={instrTextareaRef}
                       rows={3}
                       maxLength={1000}
-                      aria-label="Tell Lucius"
-                      placeholder={
-                        'e.g. Rows with MOMO.0352 are transfers to my wallet, never expenses.\nDates are DD/MM. Amounts in the ‘Foreign’ column are the original currency, not SGD.'
-                      }
+                      aria-label={formatMessage({ id: 'accounts.importChoose.tellLucius', defaultMessage: "Tell Lucius" })}
+                      placeholder={formatMessage({ id: 'accounts.importChoose.instructionsExample', defaultMessage: 'e.g. Rows with MOMO.0352 are transfers to my wallet, never expenses.\nDates are DD/MM. Amounts in the ‘Foreign’ column are the original currency, not SGD.' })}
                       value={instructions}
                       onChange={(e) => {
                         instrTyped.current = true
@@ -3892,20 +3913,19 @@ export function ImportModal({
                       instructions.trim() !== savedInstructions.trim() &&
                       !fresh && (
                         <div className="imp3-cache-hint">
-                          <Spark /> Instructions changed — Lucius processes the file again with
-                          these.
+                          <Spark /> {formatMessage({ id: 'accounts.importChoose.changed', defaultMessage: 'Instructions changed — Lucius processes the file again with these.' })}
                         </div>
                       )}
                     <label
                       className="imp3-remember"
-                      title="Checked: saved on this source's format profile and auto-applied to every future import of it. Unchecked: applies to this import only."
+                      title={formatMessage({ id: 'accounts.importChoose.rememberTitle', defaultMessage: "Checked: saved on this source's format profile and auto-applied to every future import of it. Unchecked: applies to this import only." })}
                     >
                       <input
                         type="checkbox"
                         checked={rememberInstr}
                         onChange={(e) => setRememberInstr(e.target.checked)}
                       />{' '}
-                      Remember for this source
+                      {formatMessage({ id: 'accounts.importChoose.remember', defaultMessage: "Remember for this source" })}
                     </label>
                   </div>
                 </div>
@@ -3926,15 +3946,15 @@ export function ImportModal({
                     disabled={!acctIds.length || rereading}
                     onClick={() => void readAgain()}
                   >
-                    {rereading ? 'Starting…' : 'Read again'}
+                    {rereading ? formatMessage({ id: 'accounts.importChoose.starting', defaultMessage: "Starting…" }) : formatMessage({ id: 'accounts.importChoose.readAgain', defaultMessage: "Read again" })}
                   </Button>
                   <Button variant="primary" disabled={!preview} onClick={() => setStep('preview')}>
-                    Back to review
+                    {formatMessage({ id: 'accounts.importChoose.backReview', defaultMessage: "Back to review" })}
                   </Button>
                 </div>
               ) : (
                 <div className="imp3-drop-cta">
-                  <span className="imp3-drop-cost">You review everything before it books</span>
+                  <span className="imp3-drop-cost">{formatMessage({ id: 'accounts.importChoose.reviewBefore', defaultMessage: "You review everything before it books" })}</span>
                   <Button
                     variant="primary"
                     className="fi-lucius"
@@ -3942,7 +3962,7 @@ export function ImportModal({
                     disabled={!acctIds.length}
                     onClick={() => runLucius()}
                   >
-                    Read the statement
+                    {formatMessage({ id: 'accounts.importChoose.readStatement', defaultMessage: "Read the statement" })}
                   </Button>
                 </div>
               )}
@@ -3953,20 +3973,20 @@ export function ImportModal({
           {step === 'processing' && resuming && reopenFailed && (
             <div className="imp3-body imp3-reading" role="alert">
               <div className="imp3-reading-t">
-                Couldn’t open <b>{resumeFilename || 'this statement'}</b>
+                {formatMessage({ id: 'accounts.importProgress.couldNotOpen', defaultMessage: 'Couldn’t open <b>{name}</b>' }, { name: resumeFilename || formatMessage({ id: 'accounts.statements.thisStatement', defaultMessage: 'this statement' }), b: (chunks) => <b>{chunks}</b> })}
               </div>
               <div className="imp3-phase">
                 {reopenFailed.kind === 'account'
-                  ? 'Which account is this statement for? Nothing is re-read — the review opens for it.'
+                  ? formatMessage({ id: 'accounts.importProgress.accountQuestion', defaultMessage: "Which account is this statement for? Nothing is re-read — the review opens for it." })
                   : reopenFailed.kind === 'read'
-                    ? 'Its read didn’t finish. Re-run it from the account’s Statements list.'
-                    : 'The review didn’t load. Nothing was lost — try again.'}
+                    ? formatMessage({ id: 'accounts.importProgress.unfinished', defaultMessage: "Its read didn’t finish. Re-run it from the account’s Statements list." })
+                    : formatMessage({ id: 'accounts.importProgress.notLoaded', defaultMessage: "The review didn’t load. Nothing was lost — try again." })}
               </div>
               {reopenFailed.kind === 'account' && (
                 <div className="imp3-reopen-acct">
-                  <FormField label="Account">
+                  <FormField label={formatMessage({ id: 'accounts.importProgress.account', defaultMessage: "Account" })}>
                     <Select
-                      options={[{ value: '', label: 'Choose an account' }, ...acctOpts]}
+                      options={[{ value: '', label: formatMessage({ id: 'accounts.importProgress.chooseAccount', defaultMessage: "Choose an account" }) }, ...acctOpts]}
                       value={reopenAccount}
                       onChange={(e) => setReopenAccount(e.target.value)}
                     />
@@ -3975,7 +3995,7 @@ export function ImportModal({
               )}
               {reopenFailed.kind === 'read' ? (
                 <Button variant="secondary" size="sm" onClick={close}>
-                  Close
+                  {formatMessage({ id: 'accounts.importProgress.close', defaultMessage: "Close" })}
                 </Button>
               ) : (
                 <Button
@@ -3986,7 +4006,7 @@ export function ImportModal({
                     void resumeReopen(activeResumeId as string, reopenAccount || undefined)
                   }
                 >
-                  {reopenFailed.kind === 'account' ? 'Open review' : 'Try again'}
+                  {reopenFailed.kind === 'account' ? formatMessage({ id: 'accounts.importProgress.openReview', defaultMessage: "Open review" }) : formatMessage({ id: 'accounts.importProgress.tryAgain', defaultMessage: "Try again" })}
                 </Button>
               )}
             </div>
@@ -3997,8 +4017,8 @@ export function ImportModal({
                 <Spark />
               </div>
               <div className="imp3-reading-t">
-                {openingReview ? 'Opening' : 'Lucius is reading'}{' '}
-                <b>{file ? file.name : resuming ? resumeFilename || 'your file' : 'your file'}</b>
+                {openingReview ? formatMessage({ id: 'accounts.importProgress.opening', defaultMessage: "Opening" }) : formatMessage({ id: 'accounts.importProgress.luciusReading', defaultMessage: "Lucius is reading" })}{' '}
+                <b>{file ? file.name : resuming ? resumeFilename || formatMessage({ id: 'accounts.importProgress.yourFile', defaultMessage: "your file" }) : formatMessage({ id: 'accounts.importProgress.yourFile', defaultMessage: "your file" })}</b>
               </div>
               <div
                 className={'imp3-phase' + (activeStale ? ' imp3-phase--stale' : '')}
@@ -4015,21 +4035,21 @@ export function ImportModal({
                   <div
                     className="imp3-stagebar"
                     role="img"
-                    aria-label={`Progress: ${readingPhase}`}
+                    aria-label={formatMessage({ id: 'accounts.importProgress.label', defaultMessage: 'Progress: {phase}' }, { phase: readingPhase })}
                   >
                     {PROGRESS_STAGE_ORDER.map((s) => (
                       <span
                         key={s}
                         className={'seg ' + progressStageStatus(activeProgress, s)}
-                        title={progressPhaseLabel(s, null, null)}
+                        title={progressPhaseLabel(s, null, null, undefined, intl)}
                       />
                     ))}
                   </div>
                   {readingRetryText && <div className="imp3-retry">{readingRetryText}</div>}
-                  <div className="imp3-elapsed">{formatElapsed(activeElapsedS)} elapsed</div>
+                  <div className="imp3-elapsed">{formatMessage({ id: 'accounts.importProgress.elapsed', defaultMessage: '{time} elapsed' }, { time: formatElapsed(activeElapsedS) })}</div>
                   {readingHint && (
                     <div className="imp3-hint">
-                      This page is taking longer than usual — still working.
+                      {formatMessage({ id: 'accounts.importProgress.slow', defaultMessage: 'This page is taking longer than usual — still working.' })}
                     </div>
                   )}
                 </>
@@ -4042,7 +4062,7 @@ export function ImportModal({
                   disabled={bgPending}
                   onClick={() => continueInBackground()}
                 >
-                  {bgPending ? 'Continuing…' : 'Continue in background'}
+                  {bgPending ? formatMessage({ id: 'accounts.importProgress.continuing', defaultMessage: "Continuing…" }) : formatMessage({ id: 'accounts.importProgress.background', defaultMessage: "Continue in background" })}
                 </Button>
               )}
             </div>
@@ -4057,22 +4077,22 @@ export function ImportModal({
                 <span className="imp-srcname">{file ? file.name : url}</span>
                 <span className="imp-srcfmt">{FORMAT_LABEL[format]}</span>
                 <button className="imp-srcchange" onClick={() => setStep('choose')}>
-                  Back
+                  {formatMessage({ id: 'accounts.importMapping.back', defaultMessage: "Back" })}
                 </button>
               </div>
-              <FormField label="Import into account">
+              <FormField label={formatMessage({ id: 'accounts.importMapping.account', defaultMessage: "Import into account" })}>
                 <ImpSelect
                   options={acctOpts}
                   value={accountId}
                   onChange={setAnchorAccount}
-                  placeholder="Choose an account…"
-                  ariaLabel="Import into account"
+                  placeholder={formatMessage({ id: 'accounts.importMapping.chooseAccount', defaultMessage: "Choose an account…" })}
+                  ariaLabel={formatMessage({ id: 'accounts.importMapping.account', defaultMessage: "Import into account" })}
                 />
               </FormField>
               {needsMapping(format) && columns.length ? (
                 <>
                   <div className="imp-maphead">
-                    <span className="imp-maphead-t">Map columns</span>
+                    <span className="imp-maphead-t">{formatMessage({ id: 'accounts.importMapping.map', defaultMessage: "Map columns" })}</span>
                     <Button
                       size="sm"
                       variant="primary"
@@ -4081,18 +4101,18 @@ export function ImportModal({
                       disabled={!accountId}
                       onClick={() => runLucius()}
                     >
-                      Let Lucius do it instead
+                      {formatMessage({ id: 'accounts.importMapping.lucius', defaultMessage: "Let Lucius do it instead" })}
                     </Button>
                   </div>
                   <div className="imp-map">
-                    <FormField label="Date column">
+                    <FormField label={formatMessage({ id: 'accounts.importMapping.date', defaultMessage: "Date column" })}>
                       <Select
                         options={colOpts}
                         value={map.date}
                         onChange={(e) => setMap((m) => ({ ...m, date: e.target.value }))}
                       />
                     </FormField>
-                    <FormField label="Description column">
+                    <FormField label={formatMessage({ id: 'accounts.importMapping.description', defaultMessage: "Description column" })}>
                       <Select
                         options={colOpts}
                         value={map.description}
@@ -4100,24 +4120,24 @@ export function ImportModal({
                       />
                     </FormField>
                   </div>
-                  <FormField label="Amount">
+                  <FormField label={formatMessage({ id: 'accounts.importMapping.amount', defaultMessage: "Amount" })}>
                     <div className="imp-amtmode">
                       <button
                         className={'imp-seg' + (amountMode === 'single' ? ' on' : '')}
                         onClick={() => setAmountMode('single')}
                       >
-                        Single column
+                        {formatMessage({ id: 'accounts.importMapping.single', defaultMessage: "Single column" })}
                       </button>
                       <button
                         className={'imp-seg' + (amountMode === 'split' ? ' on' : '')}
                         onClick={() => setAmountMode('split')}
                       >
-                        Inflow / outflow
+                        {formatMessage({ id: 'accounts.importMapping.inOut', defaultMessage: "Inflow / outflow" })}
                       </button>
                     </div>
                   </FormField>
                   {amountMode === 'single' ? (
-                    <FormField label="Amount column">
+                    <FormField label={formatMessage({ id: 'accounts.importMapping.amountColumn', defaultMessage: "Amount column" })}>
                       <Select
                         options={colOpts}
                         value={map.amount}
@@ -4126,14 +4146,14 @@ export function ImportModal({
                     </FormField>
                   ) : (
                     <div className="imp-map">
-                      <FormField label="Money in (inflow)">
+                      <FormField label={formatMessage({ id: 'accounts.importMapping.moneyIn', defaultMessage: "Money in (inflow)" })}>
                         <Select
                           options={colOpts}
                           value={map.inflow}
                           onChange={(e) => setMap((m) => ({ ...m, inflow: e.target.value }))}
                         />
                       </FormField>
-                      <FormField label="Money out (outflow)">
+                      <FormField label={formatMessage({ id: 'accounts.importMapping.moneyOut', defaultMessage: "Money out (outflow)" })}>
                         <Select
                           options={colOpts}
                           value={map.outflow}
@@ -4143,14 +4163,14 @@ export function ImportModal({
                     </div>
                   )}
                   <div className="imp-map">
-                    <FormField label="Category column (optional)">
+                    <FormField label={formatMessage({ id: 'accounts.importMapping.category', defaultMessage: "Category column (optional)" })}>
                       <Select
                         options={colOpts}
                         value={map.category}
                         onChange={(e) => setMap((m) => ({ ...m, category: e.target.value }))}
                       />
                     </FormField>
-                    <FormField label="Status column (optional)">
+                    <FormField label={formatMessage({ id: 'accounts.importMapping.status', defaultMessage: "Status column (optional)" })}>
                       <Select
                         options={colOpts}
                         value={map.status}
@@ -4160,8 +4180,7 @@ export function ImportModal({
                   </div>
                   {map.status && (
                     <div className="imp-lucard-note">
-                      Rows whose status differs from this column&apos;s most common value (e.g. a
-                      failed or reversed transaction) are skipped automatically.
+                      {formatMessage({ id: 'accounts.importMapping.statusHint', defaultMessage: "Rows whose status differs from this column's most common value (e.g. a failed or reversed transaction) are skipped automatically." })}
                     </div>
                   )}
                 </>
@@ -4172,12 +4191,12 @@ export function ImportModal({
                   </span>
                   <div>
                     <div className="imp-structured-t">
-                      {FORMAT_LABEL[format]} — no column mapping
+                      {formatMessage({ id: 'accounts.importMapping.noMapping', defaultMessage: '{format} — no column mapping' }, { format: FORMAT_LABEL[format] })}
                     </div>
                     <div className="imp-structured-d">
                       {needsMapping(format)
-                        ? 'Couldn’t read columns from this file directly.'
-                        : FORMAT_LABEL[format] + ' is a structured format.'}
+                        ? formatMessage({ id: 'accounts.importMapping.cannotRead', defaultMessage: "Couldn’t read columns from this file directly." })
+                        : formatMessage({ id: 'accounts.importMapping.structured', defaultMessage: '{format} is a structured format.' }, { format: FORMAT_LABEL[format] })}
                     </div>
                     <Button
                       size="sm"
@@ -4188,7 +4207,7 @@ export function ImportModal({
                       disabled={!accountId}
                       onClick={() => runLucius()}
                     >
-                      Import with Lucius instead
+                      {formatMessage({ id: 'accounts.importMapping.luciusInstead', defaultMessage: "Import with Lucius instead" })}
                     </Button>
                   </div>
                 </div>
@@ -4234,6 +4253,7 @@ export function ImportModal({
                     line:
                       (r.note ? r.note + ' ' : '') +
                       existingTxnLine(r, accounts, catMapProp, d.currency, {
+                        intl,
                         anchorAccountId: d.destId || accountId,
                       }),
                     hint: heldHint(d, r.id),
@@ -4321,7 +4341,7 @@ export function ImportModal({
                 const kase = ledgerOnlyCase(r)
                 const explanation =
                   kase === 'booked'
-                    ? 'Probably a duplicate — your ledger already has this from an earlier import.'
+                    ? formatMessage({ id: 'accounts.importMessage.duplicate', defaultMessage: "Probably a duplicate — your ledger already has this from an earlier import." })
                     : r.kind === 'transfer'
                       ? 'A transfer between your own accounts — it may simply be recorded on the other account’s statement. Open it to check both legs before deleting.'
                       : 'A real card charge should appear on its own statement — if it’s not on the next one either, it’s likely a double-booking. Open it to inspect.'
@@ -4341,10 +4361,10 @@ export function ImportModal({
                   : undefined
                 // A transfer keeps its own identity in the category cell and NEVER reads
                 // "Uncategorized" (owner, 2026-07-17) — same treatment as the pair/plain rows.
-                const transferIdentity = transferLine(r, accounts, catMapProp)
+                const transferIdentity = transferLine(r, accounts, catMapProp, { intl })
                 const catLabel =
                   transferIdentity ??
-                  (r.category ? catMapProp[r.category]?.label || r.category : 'Uncategorized')
+                  (r.category ? catMapProp[r.category]?.label || r.category : formatMessage({ id: 'accounts.importDecision.uncategorized', defaultMessage: "Uncategorized" }))
                 /* `acct-stmtview-check-row` (accounts.css) is a legacy FLAT one-line row —
                `display: flex; align-items: center` — meant for StatementsSection's own
                summary rows and the boundary rows below (both non-expandable). This row has
@@ -4361,7 +4381,7 @@ export function ImportModal({
                       type="button"
                       className="imp3-arow-line"
                       aria-expanded={expanded}
-                      aria-label={r.note || 'Ledger transaction'}
+                      aria-label={r.note || formatMessage({ id: 'accounts.importMessage.ledgerTransaction', defaultMessage: "Ledger transaction" })}
                       onClick={() =>
                         setLedgerExpanded((current) => ({ ...current, [r.id]: !current[r.id] }))
                       }
@@ -4391,11 +4411,11 @@ export function ImportModal({
                         {/* A marked row states its STAGED outcome where its status normally reads —
                         the same slot every other row uses to say what confirm will do to it. */}
                         {marked ? (
-                          <span className="imp3-dchip willdelete">Will delete</span>
+                          <span className="imp3-dchip willdelete">{formatMessage({ id: 'accounts.importReview.willDelete', defaultMessage: "Will delete" })}</span>
                         ) : keptLedger[r.id] ? (
-                          <span className="imp3-dchip keep">Will keep</span>
+                          <span className="imp3-dchip keep">{formatMessage({ id: 'accounts.importReview.willKeep', defaultMessage: "Will keep" })}</span>
                         ) : (
-                          <span className="imp3-dchip ledger">Ledger only</span>
+                          <span className="imp3-dchip ledger">{formatMessage({ id: 'accounts.importReview.ledgerOnly', defaultMessage: "Ledger only" })}</span>
                         )}
                         {/* "Not on this statement" usually means "it's on the adjacent one" — this
                         chip is what tells those two apart. Server-decided edge + distance; the
@@ -4429,7 +4449,7 @@ export function ImportModal({
                           return o ? (
                             <span
                               className="imp3-orig"
-                              title="Original charge — before currency conversion"
+                              title={formatMessage({ id: 'accounts.importReview.originalHint', defaultMessage: "Original charge — before currency conversion" })}
                             >
                               {o}
                             </span>
@@ -4485,7 +4505,7 @@ export function ImportModal({
                       about whether to act, and that question is answered once marked. */}
                         <div className="imp3-lc-hint">
                           {marked
-                            ? 'Marked — this will be deleted from your ledger when you confirm.'
+                            ? formatMessage({ id: 'accounts.importMessage.marked', defaultMessage: "Marked — this will be deleted from your ledger when you confirm." })
                             : explanation}
                         </div>
                         <div className="imp3-lc-acts">
@@ -4495,12 +4515,12 @@ export function ImportModal({
                             disabled={opening}
                             onClick={() => openExistingTxn(r.id)}
                           >
-                            Open{opening ? '…' : ''}
+                            {formatMessage({ id: 'accounts.importDecision.open', defaultMessage: 'Open' })}{opening ? '…' : ''}
                           </button>
                           {!marked && linkableDrafts.length > 0 && (
                             <LinkPicker
-                              label="Link to a new row"
-                              listLabel="Link a statement row to this entry"
+                              label={formatMessage({ id: 'accounts.importDecision.linkNewRow', defaultMessage: 'Link to a new row' })}
+                              listLabel={formatMessage({ id: 'accounts.importDecision.linkStatementRow', defaultMessage: 'Link a statement row to this entry' })}
                               options={linkableDrafts}
                               onPick={(idx) => {
                                 const rowIndex = Number(idx)
@@ -4563,7 +4583,7 @@ export function ImportModal({
                               className="imp3-lc-btn"
                               onClick={() => toggleDeleteMark(r.id)}
                             >
-                              Undo
+                              {formatMessage({ id: 'accounts.importAction.undo', defaultMessage: "Undo" })}
                             </button>
                           ) : (
                             <button
@@ -4571,7 +4591,7 @@ export function ImportModal({
                               className="imp3-lc-btn danger"
                               onClick={() => toggleDeleteMark(r.id)}
                             >
-                              Delete
+                              {formatMessage({ id: 'accounts.importAction.delete', defaultMessage: "Delete" })}
                             </button>
                           )}
                           {!marked &&
@@ -4587,7 +4607,7 @@ export function ImportModal({
                                   })
                                 }
                               >
-                                Undo
+                                {formatMessage({ id: 'accounts.importAction.undo', defaultMessage: "Undo" })}
                               </button>
                             ) : (
                               <button
@@ -4598,12 +4618,12 @@ export function ImportModal({
                                   setLedgerExpanded((current) => ({ ...current, [r.id]: false }))
                                 }}
                               >
-                                Leave it
+                                {formatMessage({ id: 'accounts.importAction.leaveIt', defaultMessage: "Leave it" })}
                               </button>
                             ))}
                         </div>
                         {drawerFailed[r.id] && (
-                          <div className="acct-stmtview-check-err">Couldn’t open — try again.</div>
+                          <div className="acct-stmtview-check-err">{formatMessage({ id: 'accounts.importReview.openError', defaultMessage: "Couldn’t open — try again." })}</div>
                         )}
                       </div>
                     )}
@@ -4625,8 +4645,8 @@ export function ImportModal({
                 // A transfer row reads "Transfer" (degraded — a boundary row matched nothing, so
                 // there is no statement side to name its counter-leg from), never "Uncategorized".
                 const catLabel =
-                  transferLine(r, accounts, catMapProp) ??
-                  (r.category ? catMapProp[r.category]?.label || r.category : 'Uncategorized')
+                  transferLine(r, accounts, catMapProp, { intl }) ??
+                  (r.category ? catMapProp[r.category]?.label || r.category : formatMessage({ id: 'accounts.importDecision.uncategorized', defaultMessage: "Uncategorized" }))
                 return [acctName, catLabel, r.on_statements?.label, r.near_cutoff?.label]
                   .filter(Boolean)
                   .join(' • ')
@@ -4644,14 +4664,14 @@ export function ImportModal({
                         onClick={() => openExistingTxn(r.id)}
                       >
                         {r.note || '—'}
-                        {opening ? ' • opening…' : ''}
+                        {opening ? formatMessage({ id: 'accounts.visible.openingSuffix', defaultMessage: ' • opening…' }) : ''}
                       </button>
                       <div className="imp-desc-sub">{boundaryDetail(r)}</div>
                       {drawerFailed[r.id] && (
-                        <div className="acct-stmtview-check-err">Couldn’t open — try again.</div>
+                        <div className="acct-stmtview-check-err">{formatMessage({ id: 'accounts.importReview.openError', defaultMessage: "Couldn’t open — try again." })}</div>
                       )}
                     </span>
-                    <span className="imp-uncat">{r.source || r.kind || 'row'}</span>
+                    <span className="imp-uncat">{r.source || r.kind || formatMessage({ id: 'accounts.visible.rowFallback', defaultMessage: 'row' })}</span>
                     <span className="nums">
                       {r.amount != null ? fCur(r.amount, r.currency || 'SGD', { cents: true }) : ''}
                       {(() => {
@@ -4659,7 +4679,7 @@ export function ImportModal({
                         return o ? (
                           <span
                             className="imp3-orig"
-                            title="Original charge — before currency conversion"
+                            title={formatMessage({ id: 'accounts.importReview.originalHint', defaultMessage: "Original charge — before currency conversion" })}
                           >
                             {o}
                           </span>
@@ -4691,8 +4711,7 @@ export function ImportModal({
                       aria-expanded={boundaryOpen}
                     >
                       <span className="acct-stmtview-check-boundary-t">
-                        {boundary.length} entr{boundary.length === 1 ? 'y sits' : 'ies sit'} near
-                        the cut-off — likely the previous/next statement.
+                        {formatMessage({ id: 'accounts.visible.boundaryCount', defaultMessage: '{count, plural, one {{display} entry sits} other {{display} entries sit}} near the cut-off — likely the previous/next statement.' }, { count: boundary.length, display: boundary.length.toLocaleString(getNumberLocale()) })}
                       </span>
                       <span className="acct-stmtview-check-caret">
                         {boundaryOpen ? (
@@ -4706,13 +4725,13 @@ export function ImportModal({
                       <>
                         {opening.length > 0 && (
                           <div className="acct-stmtview-check-group">
-                            Near the opening cut-off — likely the previous statement
+                            {formatMessage({ id: "accounts.visible.openingCutoff", defaultMessage: "Near the opening cut-off — likely the previous statement" })}
                           </div>
                         )}
                         {opening.map(renderBoundaryRow)}
                         {closing.length > 0 && (
                           <div className="acct-stmtview-check-group">
-                            Near the closing cut-off — likely the next statement
+                            {formatMessage({ id: "accounts.visible.closingCutoff", defaultMessage: "Near the closing cut-off — likely the next statement" })}
                           </div>
                         )}
                         {closing.map(renderBoundaryRow)}
@@ -4733,8 +4752,7 @@ export function ImportModal({
                       aria-expanded={otherStatementOpen}
                     >
                       <span className="acct-stmtview-check-boundary-t">
-                        {n} entr{n === 1 ? 'y is' : 'ies are'} on another statement you imported —
-                        nothing to fix.
+                        {formatMessage({ id: 'accounts.visible.otherStatementCount', defaultMessage: '{count, plural, one {{display} entry is} other {{display} entries are}} on another statement you imported — nothing to fix.' }, { count: n, display: n.toLocaleString(getNumberLocale()) })}
                       </span>
                       <span className="acct-stmtview-check-caret">
                         {otherStatementOpen ? (
@@ -4786,7 +4804,7 @@ export function ImportModal({
                   .filter((alt) => !pendingDelete[alt.id])
                   .map((alt) => ({
                     id: alt.id,
-                    line: matchOptionLine(alt.existing ?? {}, d.amount, d.currency),
+                    line: matchOptionLine(alt.existing ?? {}, d.amount, d.currency, intl),
                     selected: alt.id === resolved.id,
                     hint: alt.id === resolved.id ? '• current' : undefined,
                   }))
@@ -4813,11 +4831,12 @@ export function ImportModal({
                 // no `d.routed` of its own — only the MATCHED entry knows it's a transfer at all —
                 // so fall back to naming the counterpart from the existing summary's own account fields.
                 const stmtTransfer =
-                  transferLine(d, accounts, catMapProp, { compact: true }) ||
+                  transferLine(d, accounts, catMapProp, { compact: true, intl }) ||
                   (ex.kind === 'transfer'
-                    ? transferLine(ex, accounts, catMapProp, { compact: true, ...transferCtx })
+                    ? transferLine(ex, accounts, catMapProp, { compact: true, ...transferCtx, intl })
                     : null)
                 const proj = afterImportProjection({
+                  intl,
                   action: act,
                   draft: d,
                   existing: ex,
@@ -4837,14 +4856,14 @@ export function ImportModal({
                 // decision CHIP still says Link/Import/Leave out: it names the outcome, and the
                 // outcome is identical across bands.
                 const chips: Array<[MatchAction, string]> = [
-                  ['merge', band === 'weak' ? 'Same one — link' : 'Link'],
-                  ['new', 'Import'],
-                  ['skip', 'Leave out'],
+                  ['merge', band === 'weak' ? formatMessage({ id: 'accounts.importDecision.weakLink', defaultMessage: "Same one — link" }) : formatMessage({ id: 'accounts.importDecision.link', defaultMessage: "Link" })],
+                  ['new', formatMessage({ id: 'accounts.importDecision.import', defaultMessage: "Import" })],
+                  ['skip', formatMessage({ id: 'accounts.importDecision.leave', defaultMessage: "Leave out" })],
                 ]
                 // The handoff's rule: the closed row's verdict chip uses the EXACT wording of the
                 // override control underneath it, so the two can never disagree.
                 const decisionLabel =
-                  act === 'merge' ? 'Link' : act === 'new' ? 'Import' : 'Leave out'
+                  act === 'merge' ? formatMessage({ id: 'accounts.importDecision.link', defaultMessage: "Link" }) : act === 'new' ? formatMessage({ id: 'accounts.importDecision.import', defaultMessage: "Import" }) : formatMessage({ id: 'accounts.importDecision.leave', defaultMessage: "Leave out" })
                 const effectiveCategory =
                   act === 'skip'
                     ? null
@@ -4856,10 +4875,10 @@ export function ImportModal({
                   act === 'skip'
                     ? '—'
                     : isTransfer
-                      ? stmtTransfer || 'Transfer'
+                      ? stmtTransfer || formatMessage({ id: 'accounts.importDecision.transfer', defaultMessage: "Transfer" })
                       : effectiveCategory
                         ? catMapProp[effectiveCategory]?.label || effectiveCategory
-                        : 'Uncategorized'
+                        : formatMessage({ id: 'accounts.importDecision.uncategorized', defaultMessage: "Uncategorized" })
                 // Off-by rows expand by default under their own filter — the whole point of that
                 // view is to review the drift without an extra click per row; an explicit
                 // collapse still overrides it.
@@ -4887,7 +4906,7 @@ export function ImportModal({
                 const dateDrifts = !!ledgerDate && ledgerDate !== d.date
                 const triggerDecision =
                   band === 'review' && !queueDecided[d.rowIndex ?? i]
-                    ? 'Needs decision'
+                    ? formatMessage({ id: 'accounts.importDecision.needDecision', defaultMessage: "Needs decision" })
                     : decisionLabel
                 return (
                   <article
@@ -4900,7 +4919,7 @@ export function ImportModal({
                       tabIndex={0}
                       className="imp3-arow-line"
                       aria-expanded={expanded}
-                      aria-label={`${rowTitle(d)}, ${triggerDecision}, ${categoryLabel}, ${fCur(d.amount, d.currency, { cents: true })}. Matched ledger transaction available. ${expanded ? 'Collapse details' : 'Expand details'}`}
+                      aria-label={formatMessage({ id: 'accounts.importDecision.matchedLabel', defaultMessage: '{title}, {decision}, {category}, {amount}. Matched ledger transaction available. {action}' }, { title: rowTitle(d), decision: triggerDecision, category: categoryLabel, amount: fCur(d.amount, d.currency, { cents: true }), action: expanded ? formatMessage({ id: 'accounts.importDecision.collapse', defaultMessage: 'Collapse details' }) : formatMessage({ id: 'accounts.importDecision.expand', defaultMessage: 'Expand details' }) })}
                       onClick={() =>
                         setExpandedRows((rows) => ({ ...rows, [d.rowIndex ?? i]: !expanded }))
                       }
@@ -4927,13 +4946,13 @@ export function ImportModal({
                           {decisionLabel}
                         </span>
                         {band === 'review' && !queueDecided[d.rowIndex ?? i] && (
-                          <span className="imp3-qchip open">needs you</span>
+                          <span className="imp3-qchip open">{formatMessage({ id: 'accounts.importReview.needsYou', defaultMessage: "needs you" })}</span>
                         )}
                         {/* Muted, never amber and never green: amber on this screen means "we are
                         blocking on you", and a weak row is explicitly NOT blocking — it
                         already carries a safe default (SIUM-WEAK-QUIET). */}
                         {band === 'weak' && (
-                          <span className="imp3-qchip maybe">Possible match</span>
+                          <span className="imp3-qchip maybe">{formatMessage({ id: 'accounts.importReview.possible', defaultMessage: "Possible match" })}</span>
                         )}
                       </span>
                       <span className="imp3-arow-catcol">
@@ -4962,8 +4981,8 @@ export function ImportModal({
                         <button
                           type="button"
                           className="imp3-editpencil"
-                          title="Edit payee & category"
-                          aria-label={`Edit payee and category for ${rowTitle(d)}`}
+                          title={formatMessage({ id: 'accounts.importReview.editPayee', defaultMessage: "Edit payee & category" })}
+                          aria-label={formatMessage({ id: 'accounts.importA11y.edit', defaultMessage: 'Edit payee and category for {name}' }, { name: rowTitle(d) })}
                           onClick={(e) => {
                             e.stopPropagation()
                             setEditingDraftIndex(i)
@@ -5031,18 +5050,18 @@ export function ImportModal({
                           type="button"
                           className="imp3-arow-maybe-main"
                           disabled={opening}
-                          aria-label={`Open possible ledger match ${ex.note || 'transaction'}`}
+                          aria-label={formatMessage({ id: 'accounts.importA11y.possible', defaultMessage: 'Open possible ledger match {name}' }, { name: ex.note || formatMessage({ id: 'accounts.importA11y.transaction', defaultMessage: 'transaction' }) })}
                           onClick={() => openExistingTxn(resolved.id)}
                         >
                           <span className="imp3-arow-maybe-ic" aria-hidden="true">
                             ?
                           </span>
-                          <span className="imp3-arow-maybe-tag">Maybe</span>
+                          <span className="imp3-arow-maybe-tag">{formatMessage({ id: 'accounts.importReview.maybe', defaultMessage: "Maybe" })}</span>
                           <span className="imp3-arow-maybe-name">{ex.note || '—'}</span>
                           <span className="imp3-arow-maybe-facts">
                             <span>{ledgerDate ? ledgerDate.slice(5) : '—'}</span>
-                            {driftPhrase(d.amount, ledgerAmount) && (
-                              <span>{driftPhrase(d.amount, ledgerAmount)}</span>
+                            {driftPhrase(d.amount, ledgerAmount, intl) && (
+                              <span>{driftPhrase(d.amount, ledgerAmount, intl)}</span>
                             )}
                           </span>
                           <span className="imp3-arow-maybe-amt">
@@ -5052,7 +5071,7 @@ export function ImportModal({
                             {ledgerOriginal && (
                               <span
                                 className="imp3-orig"
-                                title="Original charge — before currency conversion"
+                                title={formatMessage({ id: 'accounts.importReview.originalHint', defaultMessage: "Original charge — before currency conversion" })}
                               >
                                 {ledgerOriginal}
                               </span>
@@ -5072,7 +5091,7 @@ export function ImportModal({
                         type="button"
                         className="imp3-arow-match"
                         disabled={opening}
-                        aria-label={`Open matched ledger entry ${ex.note || 'transaction'}`}
+                        aria-label={formatMessage({ id: 'accounts.importA11y.matched', defaultMessage: 'Open matched ledger entry {name}' }, { name: ex.note || formatMessage({ id: 'accounts.importA11y.transaction', defaultMessage: 'transaction' }) })}
                         onClick={() => openExistingTxn(resolved.id)}
                       >
                         <span className="imp3-arow-match-ic">
@@ -5080,7 +5099,7 @@ export function ImportModal({
                         </span>
                         <span className="imp3-arow-match-main">
                           <span className="imp3-arow-match-name">
-                            <span className="imp3-arow-match-tag">Ledger</span>
+                            <span className="imp3-arow-match-tag">{formatMessage({ id: 'accounts.importReview.ledger', defaultMessage: "Ledger" })}</span>
                             {ex.note || '—'}
                           </span>
                           {/* Date + kind, always visible without expanding — enough to judge "is
@@ -5092,7 +5111,7 @@ export function ImportModal({
                               {ledgerDate ? ledgerDate.slice(5) : '—'}
                             </span>
                             <span aria-hidden="true">•</span>
-                            <span>{MATCH_KIND_LABEL[ex.kind || ''] || ex.kind || '—'}</span>
+                            <span>{ex.kind && Object.hasOwn(matchKindMessages, ex.kind) ? formatMessage(matchKindMessages[ex.kind as keyof typeof matchKindMessages]) : (ex.kind || '—')}</span>
                           </span>
                           {/* NO verdict sub-line. The "✓ Will link • via agent • <engine reason>"
                         line that used to sit here is gone for good (owner, 2026-07-29: "these,
@@ -5112,7 +5131,7 @@ export function ImportModal({
                           {ledgerOriginal && (
                             <span
                               className="imp3-orig"
-                              title="Original charge — before currency conversion"
+                              title={formatMessage({ id: 'accounts.importReview.originalHint', defaultMessage: "Original charge — before currency conversion" })}
                             >
                               {ledgerOriginal}
                             </span>
@@ -5135,7 +5154,7 @@ export function ImportModal({
                       dashed mid rail carrying either `=` or the Δ drift pill. */}
                         <div className="imp3-cmp">
                           <div className="imp3-cmp-col imp-pair-side stmt">
-                            <div className="imp3-cmp-h">On the statement</div>
+                            <div className="imp3-cmp-h">{formatMessage({ id: 'accounts.importReview.statementSide', defaultMessage: "On the statement" })}</div>
                             <div className="imp3-cmp-name">{d.payee || d.description}</div>
                             {d.payee && d.description && d.payee !== d.description && (
                               <div className="imp3-cmp-src">{d.description}</div>
@@ -5145,7 +5164,7 @@ export function ImportModal({
                               {origAmt && origCcy && origCcy !== d.currency ? (
                                 <span
                                   className="imp3-orig"
-                                  title="Original charge — before currency conversion"
+                                  title={formatMessage({ id: 'accounts.importReview.originalHint', defaultMessage: "Original charge — before currency conversion" })}
                                 >
                                   {fCur(origAmt, origCcy, { cents: true })}
                                 </span>
@@ -5162,7 +5181,7 @@ export function ImportModal({
                               ledgerCurrency === d.currency ? (
                                 <span
                                   className="imp3-cmp-drift"
-                                  title={`Statement ${fCur(d.amount, d.currency, { cents: true })} • yours ${fCur(ledgerAmount, ledgerCurrency, { cents: true })}`}
+                                  title={formatMessage({ id: 'accounts.importAction.compare', defaultMessage: 'Statement {statement} • yours {yours}' }, { statement: fCur(d.amount, d.currency, { cents: true }), yours: fCur(ledgerAmount, ledgerCurrency, { cents: true }) })}
                                 >
                                   Δ{' '}
                                   {fCur(Math.abs(ledgerAmount - d.amount), d.currency, {
@@ -5175,9 +5194,9 @@ export function ImportModal({
                                 // an unrelated S$16.75 entry showed "Δ ₫325,670" — not a real amount).
                                 <span
                                   className="imp3-cmp-drift"
-                                  title="Different currencies — not directly comparable"
+                                  title={formatMessage({ id: 'accounts.importReview.differentCurrencies', defaultMessage: "Different currencies — not directly comparable" })}
                                 >
-                                  ≠ different currency
+                                  {formatMessage({ id: "accounts.visible.differentCurrency", defaultMessage: "≠ different currency" })}
                                 </span>
                               )
                             ) : (
@@ -5187,12 +5206,12 @@ export function ImportModal({
                             )}
                           </div>
                           <div className="imp3-cmp-col imp-pair-side ledger">
-                            <div className="imp3-cmp-h">In your ledger</div>
+                            <div className="imp3-cmp-h">{formatMessage({ id: 'accounts.importReview.ledgerSide', defaultMessage: "In your ledger" })}</div>
                             <div className="imp3-cmp-name">
                               <button
                                 type="button"
                                 className="imp3-cmp-lk"
-                                title="Open this transaction"
+                                title={formatMessage({ id: 'accounts.importReview.openTransaction', defaultMessage: "Open this transaction" })}
                                 disabled={opening}
                                 onClick={() => openExistingTxn(resolved.id)}
                               >
@@ -5204,13 +5223,14 @@ export function ImportModal({
                             </div>
                             <div className="imp3-cmp-src">
                               {existingTxnLine(ex, accounts, catMapProp, d.currency, {
+                                intl,
                                 ...transferCtx,
                                 omitFacts: true,
                               })}
                             </div>
                             {openFailed && (
                               <span className="imp-rowmatch-drawererr">
-                                Couldn’t open — try again.
+                                {formatMessage({ id: 'accounts.importAction.openError', defaultMessage: "Couldn’t open — try again." })}
                               </span>
                             )}
                             {/* Same slot, same class, same placement as the statement side's own
@@ -5222,7 +5242,7 @@ export function ImportModal({
                               {ledgerOriginal && (
                                 <span
                                   className="imp3-orig"
-                                  title="Original charge — before currency conversion"
+                                  title={formatMessage({ id: 'accounts.importReview.originalHint', defaultMessage: "Original charge — before currency conversion" })}
                                 >
                                   {ledgerOriginal}
                                 </span>
@@ -5241,7 +5261,7 @@ export function ImportModal({
                           <span
                             className="imp3-seg"
                             role="radiogroup"
-                            aria-label={`What happens to ${rowTitle(d)}`}
+                            aria-label={formatMessage({ id: 'accounts.importA11y.whatHappens', defaultMessage: 'What happens to {name}' }, { name: rowTitle(d) })}
                           >
                             {chips.map(([action, label]) => (
                               <button
@@ -5278,7 +5298,7 @@ export function ImportModal({
                                 })
                               }}
                             >
-                              Unlink
+                              {formatMessage({ id: 'accounts.importDecision.unlink', defaultMessage: "Unlink" })}
                             </button>
                           )}
                           {/* ONE `Change match` control for every band, driven by the SERVER's
@@ -5288,9 +5308,9 @@ export function ImportModal({
                         claimed, so there is nothing to dim. */}
                           {pickOptions.length > 0 && d.rowIndex != null && (
                             <LinkPicker
-                              label="Change match"
+                              label={formatMessage({ id: 'accounts.importDecision.changeMatch', defaultMessage: "Change match" })}
                               variant="imp3-actbtn"
-                              listLabel="Match with a different ledger entry"
+                              listLabel={formatMessage({ id: 'accounts.importDecision.differentEntry', defaultMessage: "Match with a different ledger entry" })}
                               options={pickOptions}
                               onPick={pickAlternative}
                             />
@@ -5302,9 +5322,9 @@ export function ImportModal({
                             d.rowIndex != null &&
                             manualLinkOptions(d).length > 0 && (
                               <LinkPicker
-                                label="Link to existing"
+                                label={formatMessage({ id: 'accounts.importDecision.linkExisting', defaultMessage: "Link to existing" })}
                                 variant="imp3-actbtn"
-                                listLabel="Link this row to a different ledger entry"
+                                listLabel={formatMessage({ id: 'accounts.importDecision.differentRow', defaultMessage: "Link this row to a different ledger entry" })}
                                 options={manualLinkOptions(d)}
                                 onPick={(id) => {
                                   const summary = checkRowById.get(id)
@@ -5328,7 +5348,7 @@ export function ImportModal({
                             <button
                               type="button"
                               className="imp3-actbtn"
-                              aria-label="Back to Lucius's pick"
+                              aria-label={formatMessage({ id: 'accounts.importReview.backPick', defaultMessage: "Back to Lucius's pick" })}
                               onClick={() =>
                                 setMatchOverride((current) => {
                                   const next = { ...current }
@@ -5337,7 +5357,7 @@ export function ImportModal({
                                 })
                               }
                             >
-                              Back to Lucius’s pick
+                              {formatMessage({ id: 'accounts.importAction.backPick', defaultMessage: "Back to Lucius’s pick" })}
                             </button>
                           )}
                         </div>
@@ -5347,10 +5367,10 @@ export function ImportModal({
                         <div className="imp3-after">
                           <span className="imp3-after-l">
                             {act === 'merge'
-                              ? 'After link'
+                              ? formatMessage({ id: 'accounts.importOutcome.afterLink', defaultMessage: "After link" })
                               : act === 'new'
-                                ? 'After import'
-                                : 'After'}
+                                ? formatMessage({ id: 'accounts.importOutcome.afterImport', defaultMessage: "After import" })
+                                : formatMessage({ id: 'accounts.importOutcome.after', defaultMessage: "After" })}
                             {proj.count ? ` • ${proj.count}` : ''}
                           </span>
                           {proj.records.map((rec, ri) => (
@@ -5385,7 +5405,7 @@ export function ImportModal({
                               )}
                               {rec.original && (
                                 <span className="imp-after-orig">
-                                  {rec.original.added ? '+ original charge ' : 'original '}
+                                  {rec.original.added ? formatMessage({ id: 'accounts.importReceipt.originalAdded', defaultMessage: "+ original charge " }) : formatMessage({ id: 'accounts.importReceipt.original', defaultMessage: "original " })}
                                   {rec.original.value}
                                 </span>
                               )}
@@ -5399,7 +5419,7 @@ export function ImportModal({
                         design deliberately doesn't restate it in prose. */}
                           {proj.records.length === 0 && (
                             <span className="imp3-after-none">
-                              {line || 'Nothing books — this row won’t be in your ledger.'}
+                              {line || formatMessage({ id: 'accounts.importOutcome.nothingBooks', defaultMessage: "Nothing books — this row won’t be in your ledger." })}
                             </span>
                           )}
                         </div>
@@ -5429,9 +5449,9 @@ export function ImportModal({
                 const subtitle = rowSubtitle(d)
                 const fullText = d.description || title
                 const reason = d.dup
-                  ? 'Already imported — protected by its external reference.'
+                  ? formatMessage({ id: 'accounts.importOutcome.previousDuplicate', defaultMessage: "Already imported — protected by its external reference." })
                   : pairLeftOutWithPartner
-                    ? 'Left out because its paired transfer row is not represented in the ledger.'
+                    ? formatMessage({ id: 'accounts.importOutcome.pairedExcluded', defaultMessage: "Left out because its paired transfer row is not represented in the ledger." })
                     : // Lucius's `reason` only explains an EXCLUSION when its op actually excluded the
                       // row (skip) — a set_category/route_transfer op's reason justifies what it did to
                       // the row, not why it's left out, and showing it here as if it were "why excluded"
@@ -5447,7 +5467,7 @@ export function ImportModal({
                       (excluded && d.needsEyes
                         ? 'Low-confidence read, no matching entry — review before importing.'
                         : excluded
-                          ? 'Excluded by the current decision.'
+                          ? formatMessage({ id: 'accounts.importOutcome.excluded', defaultMessage: "Excluded by the current decision." })
                           : '')
                 // A row linked to a matched existing transfer (a weak twin or manual link picking
                 // one — the engine's own transfer_leg_echo/transfer_pair matches always carry a
@@ -5455,9 +5475,10 @@ export function ImportModal({
                 // back to naming the counterpart from the existing summary's own account fields.
                 const resolvedForCategory = resolveExisting(d)
                 const transferCategoryLine =
-                  transferLine(d, accounts, catMapProp, { compact: true }) ||
+                  transferLine(d, accounts, catMapProp, { compact: true, intl }) ||
                   (resolvedForCategory?.summary.kind === 'transfer'
                     ? transferLine(resolvedForCategory.summary, accounts, catMapProp, {
+                        intl,
                         compact: true,
                         anchorAccountId: d.destId || accountId,
                         counterHint: d.routed?.to_account_id,
@@ -5465,7 +5486,7 @@ export function ImportModal({
                     : null)
                 const category =
                   transferCategoryLine ||
-                  (d.category ? catMapProp[d.category]?.label || d.category : 'Uncategorized')
+                  (d.category ? catMapProp[d.category]?.label || d.category : formatMessage({ id: 'accounts.importDecision.uncategorized', defaultMessage: "Uncategorized" }))
                 const ri = d.rowIndex ?? i
                 const includeRow = () => {
                   setPlainSkip((current) => {
@@ -5548,14 +5569,14 @@ export function ImportModal({
                               className="imp3-actbtn imp3-lc-btn imp"
                               onClick={includeRow}
                             >
-                              Import
+                              {formatMessage({ id: 'accounts.importAction.import', defaultMessage: "Import" })}
                             </button>
                           )
                         ) : (
                           <span
                             className="imp3-seg"
                             role="radiogroup"
-                            aria-label={`What happens to ${title}`}
+                            aria-label={formatMessage({ id: 'accounts.importA11y.whatHappens', defaultMessage: 'What happens to {name}' }, { name: title })}
                           >
                             <button
                               type="button"
@@ -5564,7 +5585,7 @@ export function ImportModal({
                               className="on"
                               onClick={includeRow}
                             >
-                              Import
+                              {formatMessage({ id: 'accounts.importAction.import', defaultMessage: "Import" })}
                             </button>
                             <button
                               type="button"
@@ -5572,7 +5593,7 @@ export function ImportModal({
                               aria-checked="false"
                               onClick={leaveOut}
                             >
-                              Leave out
+                              {formatMessage({ id: 'accounts.importAction.leave', defaultMessage: "Leave out" })}
                             </button>
                           </span>
                         )}
@@ -5580,15 +5601,15 @@ export function ImportModal({
                           <button
                             type="button"
                             className="imp3-actbtn"
-                            title="Correct a blurry or misread statement figure."
+                            title={formatMessage({ id: 'accounts.importReview.correctAmount', defaultMessage: "Correct a blurry or misread statement figure." })}
                             onClick={beginAmountFix}
                           >
-                            Fix the amount
+                            {formatMessage({ id: 'accounts.importAction.fixAmount', defaultMessage: "Fix the amount" })}
                           </button>
                         )}
                         {manualOptions.length > 0 && (
                           <LinkPicker
-                            label="Link to existing"
+                            label={formatMessage({ id: 'accounts.importDecision.linkExisting', defaultMessage: "Link to existing" })}
                             listLabel="Link this row to an existing ledger entry"
                             variant="imp3-actbtn"
                             options={manualOptions}
@@ -5619,7 +5640,7 @@ export function ImportModal({
                         <div
                           className="imp3-fixrow"
                           role="group"
-                          aria-label={`Correct amount for ${title}`}
+                          aria-label={formatMessage({ id: 'accounts.importA11y.correct', defaultMessage: 'Correct amount for {name}' }, { name: title })}
                         >
                           <span>{d.currency}</span>
                           <input
@@ -5628,7 +5649,7 @@ export function ImportModal({
                             type="number"
                             min="0"
                             step="0.01"
-                            aria-label={`Correct amount for ${title}`}
+                            aria-label={formatMessage({ id: 'accounts.importA11y.correct', defaultMessage: 'Correct amount for {name}' }, { name: title })}
                             value={queueFixValue}
                             onChange={(event) => setQueueFixValue(event.target.value)}
                             onKeyDown={(event) => {
@@ -5639,7 +5660,7 @@ export function ImportModal({
                             }}
                           />
                           <button type="button" className="imp3-fixgo" onClick={applyAmountFix}>
-                            Use this
+                            {formatMessage({ id: 'accounts.importAction.useThis', defaultMessage: "Use this" })}
                           </button>
                           <button
                             type="button"
@@ -5649,19 +5670,19 @@ export function ImportModal({
                               setQueueFixValue('')
                             }}
                           >
-                            Cancel
+                            {formatMessage({ id: 'accounts.importAction.cancel', defaultMessage: "Cancel" })}
                           </button>
                         </div>
                       )}
                     </>
                   ) : null
                 const decisionLabel = absorbed
-                  ? 'Folded into transfer'
+                  ? formatMessage({ id: 'accounts.importDecision.folded', defaultMessage: 'Folded into transfer' })
                   : excluded
-                    ? 'Left out'
+                    ? formatMessage({ id: 'accounts.importBand.leftOut', defaultMessage: 'Left out' })
                     : separatePairLeg
-                      ? 'Import separately'
-                      : 'Import'
+                      ? formatMessage({ id: 'accounts.importDecision.separate', defaultMessage: 'Import separately' })
+                      : formatMessage({ id: 'accounts.importDecision.import', defaultMessage: "Import" })
                 return (
                   <article
                     key={i}
@@ -5683,7 +5704,7 @@ export function ImportModal({
                       tabIndex={0}
                       className="imp3-arow-line"
                       aria-expanded={bodyOpen}
-                      aria-label={`${title}, ${decisionLabel}, ${excluded ? 'no category applied' : category}, ${fCur(d.amount, d.currency, { cents: true })}. ${bodyOpen ? 'Collapse details' : 'Expand details'}`}
+                      aria-label={formatMessage({ id: 'accounts.importDecision.rowLabel', defaultMessage: '{title}, {decision}, {category}, {amount}. {action}' }, { title, decision: decisionLabel, category: excluded ? formatMessage({ id: 'accounts.importDecision.noCategory', defaultMessage: 'no category applied' }) : category, amount: fCur(d.amount, d.currency, { cents: true }), action: bodyOpen ? formatMessage({ id: 'accounts.importDecision.collapse', defaultMessage: 'Collapse details' }) : formatMessage({ id: 'accounts.importDecision.expand', defaultMessage: 'Expand details' }) })}
                       onClick={() =>
                         setExpandedRows((current) => ({ ...current, [ri]: !bodyOpen }))
                       }
@@ -5726,7 +5747,7 @@ export function ImportModal({
                         d.dup directly too, or the badge lingers forever next to "Left out". */}
                         {d.needsEyes && !queueDecided[ri] && !d.dup && (
                           <span className="imp3-qchip open">
-                            Needs your eyes
+                            {formatMessage({ id: 'accounts.importAction.needsEyes', defaultMessage: "Needs your eyes" })}
                             {typeof d.confidence === 'number'
                               ? ` • ${Math.round(d.confidence * 100)}%`
                               : ''}
@@ -5737,7 +5758,7 @@ export function ImportModal({
                         {luciusUndoing[d.rowIndex ?? -1] ? (
                           <span className="imp3-cat imp3-cat--busy">
                             <span className="imp3-commit-spin" aria-hidden="true" />
-                            <span>Updating…</span>
+                            <span>{formatMessage({ id: 'accounts.importReview.updating', defaultMessage: "Updating…" })}</span>
                           </span>
                         ) : (
                           !excluded && (
@@ -5761,8 +5782,8 @@ export function ImportModal({
                         <button
                           type="button"
                           className="imp3-editpencil"
-                          title="Edit payee & category"
-                          aria-label={`Edit payee and category for ${title}`}
+                          title={formatMessage({ id: 'accounts.importReview.editPayee', defaultMessage: "Edit payee & category" })}
+                          aria-label={formatMessage({ id: 'accounts.importA11y.edit', defaultMessage: 'Edit payee and category for {name}' }, { name: title })}
                           onClick={(e) => {
                             e.stopPropagation()
                             setEditingDraftIndex(i)
@@ -5801,7 +5822,7 @@ export function ImportModal({
                           return o ? (
                             <span
                               className="imp3-orig"
-                              title="Original charge — before currency conversion"
+                              title={formatMessage({ id: 'accounts.importReview.originalHint', defaultMessage: "Original charge — before currency conversion" })}
                             >
                               {o}
                             </span>
@@ -5843,13 +5864,13 @@ export function ImportModal({
                             </span>
                             <span className="imp3-arow-match-main">
                               <span className="imp3-arow-match-name">
-                                <span className="imp3-arow-match-tag">Ledger</span>
+                                <span className="imp3-arow-match-tag">{formatMessage({ id: 'accounts.importReview.ledger', defaultMessage: "Ledger" })}</span>
                                 {existing && existingId ? (
                                   <button
                                     type="button"
                                     className="imp3-cmp-lk"
                                     disabled={!!drawerLoading[existingId]}
-                                    aria-label={`Open matched ledger entry ${existing.note || 'transaction'}`}
+                                    aria-label={formatMessage({ id: 'accounts.importA11y.matched', defaultMessage: 'Open matched ledger entry {name}' }, { name: existing.note || formatMessage({ id: 'accounts.importA11y.transaction', defaultMessage: 'transaction' }) })}
                                     onClick={() => openExistingTxn(existingId)}
                                   >
                                     {existing.note || '—'}
@@ -5865,13 +5886,13 @@ export function ImportModal({
                                   }
                                 >
                                   {action === 'merge'
-                                    ? 'will link'
+                                    ? formatMessage({ id: 'accounts.importReceipt.willLink', defaultMessage: "will link" })
                                     : action === 'new'
-                                      ? 'importing as new'
-                                      : 'left out'}
+                                      ? formatMessage({ id: 'accounts.importReceipt.new', defaultMessage: "importing as new" })
+                                      : formatMessage({ id: 'accounts.importReceipt.left', defaultMessage: "left out" })}
                                 </span>
                                 {existing &&
-                                  ` • ${existingTxnLine(existing, accounts, catMapProp, d.currency, { anchorAccountId: d.destId || accountId, counterHint: d.routed?.to_account_id })}`}
+                                  ` • ${existingTxnLine(existing, accounts, catMapProp, d.currency, { anchorAccountId: d.destId || accountId, counterHint: d.routed?.to_account_id, intl })}`}
                                 {outcome && (
                                   <span className="imp-rowmatch-outcome"> • {outcome}</span>
                                 )}
@@ -5891,7 +5912,7 @@ export function ImportModal({
                                 return o ? (
                                   <span
                                     className="imp3-orig"
-                                    title="Original charge — before currency conversion"
+                                    title={formatMessage({ id: 'accounts.importReview.originalHint', defaultMessage: "Original charge — before currency conversion" })}
                                   >
                                     {o}
                                   </span>
@@ -5925,10 +5946,10 @@ export function ImportModal({
                             <span className="imp3-lo-t">{reason}</span>
                             <span className="imp3-lo-open" aria-hidden="true">
                               {drawerLoading[d.dupOf] ? (
-                                'Opening…'
+                                formatMessage({ id: 'accounts.visible.opening', defaultMessage: 'Opening…' })
                               ) : (
                                 <>
-                                  Open <ChevronRight size={12} />
+                                  {formatMessage({ id: 'accounts.visible.open', defaultMessage: 'Open' })} <ChevronRight size={12} />
                                 </>
                               )}
                             </span>
@@ -5967,10 +5988,10 @@ export function ImportModal({
                                       }
                                     >
                                       {action === 'merge'
-                                        ? 'will link'
+                                        ? formatMessage({ id: 'accounts.importReceipt.willLink', defaultMessage: "will link" })
                                         : action === 'new'
-                                          ? 'importing as new'
-                                          : 'left out'}
+                                          ? formatMessage({ id: 'accounts.importReceipt.new', defaultMessage: "importing as new" })
+                                          : formatMessage({ id: 'accounts.importReceipt.left', defaultMessage: "left out" })}
                                     </span>
                                     {outcome && <span> • {outcome}</span>}
                                     {offByChip(i, d.currency)}
@@ -5982,15 +6003,14 @@ export function ImportModal({
                             {(d.flags || []).map((flag, index) => (
                               <div key={index} className="imp3-detail-note">
                                 <span className={'imp-flag ' + flag.type}>
-                                  {FLAG_LABEL[flag.type] || flag.type}
+                                  {Object.hasOwn(importFlagMessages, flag.type) ? formatMessage(importFlagMessages[flag.type as keyof typeof importFlagMessages]) : (FLAG_LABEL[flag.type] || flag.type)}
                                 </span>
                               </div>
                             ))}
                             {d.routed && (
                               <div className="imp3-detail-note">
                                 <span>
-                                  Books as transfer: {d.routed.from_account_name || '?'} →{' '}
-                                  {d.routed.to_account_name || '?'}
+                                  {formatMessage({ id: 'accounts.visible.booksTransfer', defaultMessage: 'Books as transfer: {from} → {to}' }, { from: d.routed.from_account_name || '?', to: d.routed.to_account_name || '?' })}
                                 </span>
                                 {d.lucius?.op === 'route_transfer' && (
                                   // A real server round-trip (removes the routing, re-previews
@@ -6009,8 +6029,8 @@ export function ImportModal({
                                       <span className="imp3-commit-spin" aria-hidden="true" />
                                     )}
                                     {luciusUndoing[d.rowIndex ?? -1]
-                                      ? 'Updating…'
-                                      : `Not a transfer — book as ${d.amount < 0 ? 'an expense' : 'income'} instead`}
+                                      ? formatMessage({ id: 'accounts.importReview.updating', defaultMessage: 'Updating…' })
+                                      : formatMessage({ id: 'accounts.importAction.notTransfer', defaultMessage: 'Not a transfer — book as {kind, select, expense {an expense} other {income}} instead' }, { kind: d.amount < 0 ? 'expense' : 'income' })}
                                   </button>
                                 )}
                               </div>
@@ -6018,21 +6038,16 @@ export function ImportModal({
                             {d.pair?.role === 'in' &&
                               (pairLeftOutWithPartner ? (
                                 <div className="imp3-detail-note">
-                                  Left out with its paired transfer row; restore the OUT decision
-                                  before folding this leg.
+                                  {formatMessage({ id: 'accounts.visible.pairedLeftOut', defaultMessage: 'Left out with its paired transfer row; restore the OUT decision before folding this leg.' })}
                                 </div>
                               ) : ordinaryPairConflict ? (
                                 <div className="imp3-detail-note">
-                                  Reviewed separately because one paired leg matches an ordinary
-                                  ledger entry, not a two-leg transfer.
+                                  {formatMessage({ id: 'accounts.visible.ordinaryPair', defaultMessage: 'Reviewed separately because one paired leg matches an ordinary ledger entry, not a two-leg transfer.' })}
                                 </div>
                               ) : (
                                 <div className="imp3-detail-note">
                                   <span>
-                                    Folds into the transfer on row{' '}
-                                    {preview.drafts.findIndex(
-                                      (row) => row.rowIndex === d.pair!.partner_index,
-                                    ) + 1 || ''}
+                                    {formatMessage({ id: 'accounts.visible.foldRow', defaultMessage: 'Folds into the transfer on row {row}' }, { row: preview.drafts.findIndex((row) => row.rowIndex === d.pair!.partner_index) + 1 || '' })}
                                   </span>
                                   <button
                                     type="button"
@@ -6060,7 +6075,7 @@ export function ImportModal({
                                       }
                                     }}
                                   >
-                                    {pairInclude[ri] ? 'Fold in' : 'Book separately'}
+                                    {pairInclude[ri] ? formatMessage({ id: 'accounts.importOutcome.fold', defaultMessage: "Fold in" }) : formatMessage({ id: 'accounts.importOutcome.bookSeparate', defaultMessage: "Book separately" })}
                                   </button>
                                 </div>
                               ))}
@@ -6098,7 +6113,7 @@ export function ImportModal({
                 // statement window (books-close)"). Owner: "please stop showing these
                 // thing/reason to users". Falls through to the parser's own row note, then an
                 // honest generic prompt; no replacement copy invented.
-                const reason = (d.notes || [])[0] || 'Check the statement row before booking it.'
+                const reason = (d.notes || [])[0] || formatMessage({ id: 'accounts.importOutcome.checkRow', defaultMessage: "Check the statement row before booking it." })
                 const setQueueChoice = (choice: MatchAction) => {
                   if (resolved) setMatchAction((current) => ({ ...current, [ri]: choice }))
                   else {
@@ -6215,6 +6230,7 @@ export function ImportModal({
                 }
                 const projection = resolved
                   ? afterImportProjection({
+                      intl,
                       action,
                       draft: d,
                       existing: resolved.summary,
@@ -6240,7 +6256,7 @@ export function ImportModal({
                 const existingAmount =
                   typeof existingValue === 'number'
                     ? fCur(existingValue, existingCurrency, { cents: true })
-                    : 'its current amount'
+                    : formatMessage({ id: 'accounts.importReceipt.currentAmount', defaultMessage: "its current amount" })
                 // Handoff Cmp: BOTH sides of the comparison show a date + amount footer — the
                 // ledger side was missing its date entirely (owner, 2026-07-27: "why don't we show
                 // date for all on your ledger view").
@@ -6258,14 +6274,14 @@ export function ImportModal({
                 const receipt = resolved
                   ? action === 'merge'
                     ? mergeAdopts
-                      ? `linked • ${existingAmount} → ${statementAmount}`
-                      : `linked • yours stays ${existingAmount}`
+                      ? formatMessage({ id: 'accounts.importReceipt.linkedChanged', defaultMessage: 'linked • {old} → {new}' }, { old: existingAmount, new: statementAmount })
+                      : formatMessage({ id: 'accounts.importReceipt.linkedKept', defaultMessage: 'linked • yours stays {amount}' }, { amount: existingAmount })
                     : action === 'new'
-                      ? 'keeps both • 2 entries'
-                      : `left out • yours stays ${existingAmount}`
+                      ? formatMessage({ id: 'accounts.importReceipt.both', defaultMessage: "keeps both • 2 entries" })
+                      : formatMessage({ id: 'accounts.importReceipt.leftKept', defaultMessage: 'left out • yours stays {amount}' }, { amount: existingAmount })
                   : action === 'new'
-                    ? `${statementAmount} • confirmed${ri != null && queueAmountCorrected[ri] ? ' • corrected' : ''}`
-                    : 'left out'
+                    ? formatMessage({ id: 'accounts.importReceipt.confirmed', defaultMessage: '{amount} • confirmed{corrected}' }, { amount: statementAmount, corrected: ri != null && queueAmountCorrected[ri] ? formatMessage({ id: 'accounts.importReceipt.corrected', defaultMessage: ' • corrected' }) : '' })
+                    : formatMessage({ id: 'accounts.importReceipt.left', defaultMessage: "left out" })
                 // Handoff `QueueCard`: stays FULLY EXPANDED whether decided or not — deciding
                 // never collapses or removes a card, so the list can't jump out from under the
                 // user. Once decided the chosen option highlights ('on'), and a ✓ receipt appears
@@ -6278,10 +6294,10 @@ export function ImportModal({
                 const existingOriginal = resolved
                   ? originalCharge(resolved.summary, existingCurrency)
                   : null
-                const queueTransfer = transferLine(d, accounts, catMapProp, { compact: true })
+                const queueTransfer = transferLine(d, accounts, catMapProp, { compact: true, intl })
                 const queueCategory =
                   queueTransfer ||
-                  (d.category ? catMapProp[d.category]?.label || d.category : 'Uncategorized')
+                  (d.category ? catMapProp[d.category]?.label || d.category : formatMessage({ id: 'accounts.importDecision.uncategorized', defaultMessage: "Uncategorized" }))
                 return (
                   <article
                     key={i}
@@ -6290,7 +6306,7 @@ export function ImportModal({
                   >
                     <div className="imp3-qcard-top">
                       <span className="imp3-qn">
-                        {position} of {queueItems.length}
+                        {formatMessage({ id: 'accounts.visible.positionOf', defaultMessage: '{position} of {total}' }, { position: position.toLocaleString(getNumberLocale()), total: queueItems.length.toLocaleString(getNumberLocale()) })}
                       </span>
                       <span className="imp3-qtitle">
                         {title} • {d.date.slice(5)} •{' '}
@@ -6298,7 +6314,7 @@ export function ImportModal({
                         {origLine && (
                           <span
                             className="imp3-orig"
-                            title="Original charge — before currency conversion"
+                            title={formatMessage({ id: 'accounts.importReview.originalHint', defaultMessage: "Original charge — before currency conversion" })}
                           >
                             {' '}
                             ({origLine})
@@ -6313,7 +6329,7 @@ export function ImportModal({
                       ) : (
                         !resolved && (
                           <span className="imp3-conf">
-                            Needs your eyes
+                            {formatMessage({ id: 'accounts.importAction.needsEyes', defaultMessage: "Needs your eyes" })}
                             {typeof d.confidence === 'number'
                               ? ` • ${Math.round(d.confidence * 100)}%`
                               : ''}
@@ -6326,8 +6342,8 @@ export function ImportModal({
                         <button
                           type="button"
                           className="imp3-editpencil"
-                          title="Edit payee & category"
-                          aria-label={`Edit payee and category for ${title}`}
+                          title={formatMessage({ id: 'accounts.importReview.editPayee', defaultMessage: "Edit payee & category" })}
+                          aria-label={formatMessage({ id: 'accounts.importA11y.edit', defaultMessage: 'Edit payee and category for {name}' }, { name: title })}
                           onClick={() => setEditingDraftIndex(i)}
                         >
                           <svg
@@ -6347,14 +6363,14 @@ export function ImportModal({
                       )}
                       {decided && (
                         <button type="button" className="imp3-undo" onClick={undoQueueChoice}>
-                          Undo
+                          {formatMessage({ id: 'accounts.importAction.undo', defaultMessage: "Undo" })}
                         </button>
                       )}
                     </div>
                     {resolved ? (
                       <div className="imp3-cmp">
                         <div className="imp3-cmp-col imp-pair-side stmt">
-                          <div className="imp3-cmp-h">On the statement</div>
+                          <div className="imp3-cmp-h">{formatMessage({ id: 'accounts.importReview.statementSide', defaultMessage: "On the statement" })}</div>
                           <div className="imp3-cmp-name">{d.payee || d.description}</div>
                           <div className="imp3-cmp-src">{d.description}</div>
                           <div className="imp3-cmp-facts">
@@ -6362,7 +6378,7 @@ export function ImportModal({
                             {origLine && (
                               <span
                                 className="imp3-orig"
-                                title="Original charge — before currency conversion"
+                                title={formatMessage({ id: 'accounts.importReview.originalHint', defaultMessage: "Original charge — before currency conversion" })}
                               >
                                 {origLine}
                               </span>
@@ -6376,7 +6392,7 @@ export function ImportModal({
                             existingCurrency === d.currency ? (
                               <span
                                 className="imp3-cmp-drift"
-                                title={`Statement ${statementAmount} • yours ${existingAmount}`}
+                                title={formatMessage({ id: 'accounts.importAction.compare', defaultMessage: 'Statement {statement} • yours {yours}' }, { statement: statementAmount, yours: existingAmount })}
                               >
                                 Δ{' '}
                                 {fCur(Math.abs(existingValue - d.amount), d.currency, {
@@ -6386,9 +6402,9 @@ export function ImportModal({
                             ) : (
                               <span
                                 className="imp3-cmp-drift"
-                                title="Different currencies — not directly comparable"
+                                title={formatMessage({ id: 'accounts.importReview.differentCurrencies', defaultMessage: "Different currencies — not directly comparable" })}
                               >
-                                ≠ different currency
+                                {formatMessage({ id: "accounts.visible.differentCurrency", defaultMessage: "≠ different currency" })}
                               </span>
                             )
                           ) : (
@@ -6398,12 +6414,12 @@ export function ImportModal({
                           )}
                         </div>
                         <div className="imp3-cmp-col imp-pair-side ledger">
-                          <div className="imp3-cmp-h">In your ledger</div>
+                          <div className="imp3-cmp-h">{formatMessage({ id: 'accounts.importReview.ledgerSide', defaultMessage: "In your ledger" })}</div>
                           <div className="imp3-cmp-name">
                             <button
                               type="button"
                               className="imp3-cmp-lk"
-                              title="Open this transaction"
+                              title={formatMessage({ id: 'accounts.importReview.openTransaction', defaultMessage: "Open this transaction" })}
                               onClick={() => openExistingTxn(resolved.id)}
                             >
                               {resolved.summary.note || '—'}
@@ -6411,6 +6427,7 @@ export function ImportModal({
                           </div>
                           <div className="imp3-cmp-src">
                             {existingTxnLine(resolved.summary, accounts, catMapProp, d.currency, {
+                              intl,
                               anchorAccountId: d.destId || accountId,
                               omitFacts: true,
                             })}
@@ -6420,7 +6437,7 @@ export function ImportModal({
                             {existingOriginal && (
                               <span
                                 className="imp3-orig"
-                                title="Original charge — before currency conversion"
+                                title={formatMessage({ id: 'accounts.importReview.originalHint', defaultMessage: "Original charge — before currency conversion" })}
                               >
                                 {existingOriginal}
                               </span>
@@ -6439,13 +6456,13 @@ export function ImportModal({
                     {resolved && hasChangeAlternative && (
                       <div className="imp3-actrow">
                         <LinkPicker
-                          label="Change match"
-                          listLabel={`Change the ledger match for ${title}`}
+                          label={formatMessage({ id: 'accounts.importDecision.changeMatch', defaultMessage: "Change match" })}
+                          listLabel={formatMessage({ id: 'accounts.importA11y.changeMatch', defaultMessage: 'Change the ledger match for {name}' }, { name: title })}
                           options={changeOptions.map((o) => ({
                             id: o.id,
                             line: o.line,
                             selected: o.id === resolved.id,
-                            hint: o.id === resolved.id ? '• current' : o.hint,
+                            hint: o.id === resolved.id ? formatMessage({ id: 'accounts.importAction.current', defaultMessage: '• current' }) : o.hint,
                           }))}
                           onPick={changeQueueMatch}
                         />
@@ -6453,7 +6470,7 @@ export function ImportModal({
                           <button
                             type="button"
                             className="imp3-lpick-btn"
-                            aria-label="Back to Lucius's pick"
+                            aria-label={formatMessage({ id: 'accounts.importReview.backPick', defaultMessage: "Back to Lucius's pick" })}
                             onClick={() => {
                               if (d.rowIndex == null) return
                               setMatchOverride((current) => {
@@ -6465,7 +6482,7 @@ export function ImportModal({
                               setQueueDecided((current) => ({ ...current, [d.rowIndex!]: true }))
                             }}
                           >
-                            Back to Lucius’s pick
+                            {formatMessage({ id: 'accounts.importAction.backPick', defaultMessage: "Back to Lucius’s pick" })}
                           </button>
                         )}
                       </div>
@@ -6473,7 +6490,7 @@ export function ImportModal({
                     <span
                       className="imp3-seg"
                       role="group"
-                      aria-label={`Choose what happens to ${title}`}
+                      aria-label={formatMessage({ id: 'accounts.importA11y.choose', defaultMessage: 'Choose what happens to {name}' }, { name: title })}
                     >
                       {resolved && (
                         <button
@@ -6481,16 +6498,16 @@ export function ImportModal({
                           aria-pressed={action === 'merge'}
                           className={action === 'merge' ? 'on' : ''}
                           title={
-                            (!decided && action === 'merge' ? 'Lucius’s call • ' : '') +
+                            (!decided && action === 'merge' ? formatMessage({ id: 'accounts.importAction.luciusCall', defaultMessage: 'Lucius’s call • ' }) : '') +
                             (mergeAdopts
                               ? `${existingAmount} → ${statementAmount} • cleared ✓`
-                              : 'Stays as booked • cleared ✓')
+                              : formatMessage({ id: 'accounts.importOutcome.staysBooked', defaultMessage: "Stays as booked • cleared ✓" }))
                           }
                           onClick={() => setQueueChoice('merge')}
                         >
                           {mergeAdopts
-                            ? `Same one — update to ${statementAmount}`
-                            : 'Same one — link'}
+                            ? formatMessage({ id: 'accounts.importAction.updateTo', defaultMessage: 'Same one — update to {amount}' }, { amount: statementAmount })
+                            : formatMessage({ id: 'accounts.importDecision.weakLink', defaultMessage: "Same one — link" })}
                         </button>
                       )}
                       <button
@@ -6498,20 +6515,20 @@ export function ImportModal({
                         aria-pressed={action === 'new'}
                         className={action === 'new' ? 'on' : ''}
                         title={
-                          (!decided && resolved && action === 'new' ? 'Lucius’s call • ' : '') +
-                          (resolved ? '2 entries' : 'flagged for review')
+                          (!decided && resolved && action === 'new' ? formatMessage({ id: 'accounts.importAction.luciusCall', defaultMessage: 'Lucius’s call • ' }) : '') +
+                          (resolved ? formatMessage({ id: 'accounts.importAction.twoEntries', defaultMessage: '2 entries' }) : formatMessage({ id: 'accounts.importReceipt.flagged', defaultMessage: "flagged for review" }))
                         }
                         onClick={() => setQueueChoice('new')}
                       >
-                        {resolved ? 'Different — keep both' : `Include ${statementAmount}`}
+                        {resolved ? formatMessage({ id: 'accounts.importOutcome.different', defaultMessage: "Different — keep both" }) : formatMessage({ id: 'accounts.importOutcome.include', defaultMessage: 'Include {amount}' }, { amount: statementAmount })}
                       </button>
                       {!resolved && !twoChoicePairOut && !fixingAmount && (
                         <button
                           type="button"
-                          title="Correct a blurry or misread statement figure."
+                          title={formatMessage({ id: 'accounts.importReview.correctAmount', defaultMessage: "Correct a blurry or misread statement figure." })}
                           onClick={beginAmountFix}
                         >
-                          Fix the amount
+                          {formatMessage({ id: 'accounts.importAction.fixAmount', defaultMessage: "Fix the amount" })}
                         </button>
                       )}
                       <button
@@ -6519,21 +6536,21 @@ export function ImportModal({
                         aria-pressed={action === 'skip'}
                         className={action === 'skip' ? 'on' : ''}
                         title={
-                          (!decided && resolved && action === 'skip' ? 'Lucius’s call • ' : '') +
+                          (!decided && resolved && action === 'skip' ? formatMessage({ id: 'accounts.importAction.luciusCall', defaultMessage: 'Lucius’s call • ' }) : '') +
                           (resolved
-                            ? `Yours stays ${existingAmount}`
-                            : 'Nothing from this statement row will be booked.')
+                            ? formatMessage({ id: 'accounts.importAction.yoursStays', defaultMessage: 'Yours stays {amount}' }, { amount: existingAmount })
+                            : formatMessage({ id: 'accounts.importOutcome.nothingFromRow', defaultMessage: "Nothing from this statement row will be booked." }))
                         }
                         onClick={() => setQueueChoice('skip')}
                       >
-                        Leave out
+                        {formatMessage({ id: 'accounts.importAction.leave', defaultMessage: "Leave out" })}
                       </button>
                     </span>
                     {!resolved && !twoChoicePairOut && fixingAmount && (
                       <div
                         className="imp3-fixrow"
                         role="group"
-                        aria-label={`Correct amount for ${title}`}
+                        aria-label={formatMessage({ id: 'accounts.importA11y.correct', defaultMessage: 'Correct amount for {name}' }, { name: title })}
                       >
                         <span>{d.currency}</span>
                         <input
@@ -6542,7 +6559,7 @@ export function ImportModal({
                           type="number"
                           min="0"
                           step="0.01"
-                          aria-label={`Correct amount for ${title}`}
+                          aria-label={formatMessage({ id: 'accounts.importA11y.correct', defaultMessage: 'Correct amount for {name}' }, { name: title })}
                           value={queueFixValue}
                           onChange={(event) => setQueueFixValue(event.target.value)}
                           onKeyDown={(event) => {
@@ -6553,7 +6570,7 @@ export function ImportModal({
                           }}
                         />
                         <button type="button" className="imp3-fixgo" onClick={applyAmountFix}>
-                          Use this
+                          {formatMessage({ id: 'accounts.importAction.useThis', defaultMessage: "Use this" })}
                         </button>
                         <button
                           type="button"
@@ -6563,7 +6580,7 @@ export function ImportModal({
                             setQueueFixValue('')
                           }}
                         >
-                          Cancel
+                          {formatMessage({ id: 'accounts.importAction.cancel', defaultMessage: "Cancel" })}
                         </button>
                       </div>
                     )}
@@ -6576,12 +6593,12 @@ export function ImportModal({
                     <div className="imp3-after">
                       <span className="imp3-after-l">
                         {action === 'merge'
-                          ? 'After link'
+                          ? formatMessage({ id: 'accounts.importOutcome.afterLink', defaultMessage: "After link" })
                           : action === 'new'
-                            ? 'After import'
-                            : 'After'}
+                            ? formatMessage({ id: 'accounts.importOutcome.afterImport', defaultMessage: "After import" })
+                            : formatMessage({ id: 'accounts.importOutcome.after', defaultMessage: "After" })}
                         {projection && projection.records.length > 1
-                          ? ` • ${projection.records.length} records`
+                          ? formatMessage({ id: 'accounts.importOutcome.records', defaultMessage: ' • {count} records' }, { count: projection.records.length })
                           : ''}
                       </span>
                       {projection && projection.records.length > 0 ? (
@@ -6607,7 +6624,7 @@ export function ImportModal({
                             card's copy silently dropped it. Same class, same wording. */}
                             {record.original && (
                               <span className="imp-after-orig">
-                                {record.original.added ? '+ original charge ' : 'original '}
+                                {record.original.added ? formatMessage({ id: 'accounts.importReceipt.originalAdded', defaultMessage: "+ original charge " }) : formatMessage({ id: 'accounts.importReceipt.original', defaultMessage: "original " })}
                                 {record.original.value}
                               </span>
                             )}
@@ -6622,12 +6639,12 @@ export function ImportModal({
                           <span>{d.date.slice(5)}</span>
                           <span>{queueCategory}</span>
                           <span className="amt">{statementAmount}</span>
-                          {origLine && <span className="imp-after-orig">original {origLine}</span>}
-                          <em>new entry</em>
+                          {origLine && <span className="imp-after-orig">{formatMessage({ id: 'accounts.visible.original', defaultMessage: 'original {value}' }, { value: origLine })}</span>}
+                          <em>{formatMessage({ id: 'accounts.importReview.newEntry', defaultMessage: "new entry" })}</em>
                         </span>
                       ) : (
                         <span className="imp3-after-none">
-                          Nothing books — this row won’t be in your ledger.
+                          {formatMessage({ id: 'accounts.importAction.nothing', defaultMessage: "Nothing books — this row won’t be in your ledger." })}
                         </span>
                       )}
                     </div>
@@ -6638,11 +6655,11 @@ export function ImportModal({
                 <div className="imp-pane imp-pane--ws imp3-scroll">
                   {preview.drafts.length === 0 ? (
                     <EmptyState
-                      title="No transactions found in this statement"
-                      body="Lucius couldn't find any rows to import — try a different file, or map columns yourself."
+                      title={formatMessage({ id: 'accounts.importReview.noTransactions', defaultMessage: "No transactions found in this statement" })}
+                      body={formatMessage({ id: 'accounts.importFacts.empty', defaultMessage: "Lucius couldn't find any rows to import — try a different file, or map columns yourself." })}
                       action={
                         <Button variant="secondary" size="sm" onClick={reset}>
-                          Try another file
+                          {formatMessage({ id: 'accounts.importFacts.tryAnother', defaultMessage: 'Try another file' })}
                         </Button>
                       }
                     />
@@ -6678,37 +6695,37 @@ export function ImportModal({
                             {reconciled && (
                               <span
                                 className="imp3-facts-ok"
-                                title="Every row checks out against the statement’s own printed balances"
+                                title={formatMessage({ id: 'accounts.importReview.balancesMatch', defaultMessage: "Every row checks out against the statement’s own printed balances" })}
                               >
-                                ✓ reconciled
+                                {formatMessage({ id: 'accounts.importFacts.reconciled', defaultMessage: '✓ reconciled' })}
                               </span>
                             )}
                             {preview.meta?.payment_due_date && (
                               <span>
-                                Due {preview.meta.payment_due_date}
+                                {formatMessage({ id: 'accounts.importFacts.due', defaultMessage: 'Due {date}' }, { date: preview.meta.payment_due_date })}
                                 {preview.meta.amount_due != null
                                   ? ` • ${fCur(preview.meta.amount_due, preview.meta.currency || account?.currency || 'SGD', { cents: true })}`
                                   : ''}
                                 {preview.meta.minimum_payment
-                                  ? ` • min ${fCur(preview.meta.minimum_payment, preview.meta.currency || account?.currency || 'SGD', { cents: true })}`
+                                  ? formatMessage({ id: 'accounts.importFacts.minimum', defaultMessage: ' • min {amount}' }, { amount: fCur(preview.meta.minimum_payment, preview.meta.currency || account?.currency || 'SGD', { cents: true }) })
                                   : ''}
                               </span>
                             )}
                             {preview.meta?.rewards?.balance != null && (
                               <span>
-                                {preview.meta.rewards.balance.toLocaleString()}{' '}
-                                {preview.meta.rewards.unit || 'points'}
+                                {preview.meta.rewards.balance.toLocaleString(getNumberLocale())}{' '}
+                                {preview.meta.rewards.unit || formatMessage({ id: 'accounts.importFacts.points', defaultMessage: 'points' })}
                               </span>
                             )}
                             <span className="imp3-facts-dim">
-                              {rowsRead} row{rowsRead === 1 ? '' : 's'} read
+                              {formatMessage({ id: 'accounts.importFacts.rowsRead', defaultMessage: '{count, plural, one {# row read} other {# rows read}}' }, { count: rowsRead })}
                             </span>
                             {dups > 0 && (
                               <span
                                 className="imp3-facts-dim"
-                                title="Booked by a previous import of this file (matched by reference id) — they will not import again"
+                                title={formatMessage({ id: 'accounts.importReview.previousImport', defaultMessage: "Booked by a previous import of this file (matched by reference id) — they will not import again" })}
                               >
-                                {dups} already imported
+                                {formatMessage({ id: 'accounts.importFacts.duplicates', defaultMessage: '{count} already imported' }, { count: dups })}
                               </span>
                             )}
                             {/* "You've imported this exact file before" — a quiet fact on this
@@ -6719,9 +6736,9 @@ export function ImportModal({
                             {preview.alreadyImported && (
                               <span
                                 className="imp3-facts-dim"
-                                title="You've imported this exact file before. Anything already booked stays deduped."
+                                title={formatMessage({ id: 'accounts.importReview.sameFile', defaultMessage: "You've imported this exact file before. Anything already booked stays deduped." })}
                               >
-                                file imported before
+                                {formatMessage({ id: 'accounts.importFacts.fileImported', defaultMessage: 'file imported before' })}
                                 {preview.alreadyImported.imported_at
                                   ? ` ${fDate(preview.alreadyImported.imported_at, 'short', 'always')}`
                                   : ''}
@@ -6729,35 +6746,35 @@ export function ImportModal({
                             )}
                             {nSkipped > 0 && (
                               <span className="imp3-facts-dim">
-                                {nSkipped} skipped •{' '}
+                                {formatMessage({ id: 'accounts.importFacts.skipped', defaultMessage: '{count} skipped •' }, { count: nSkipped })}{' '}
                                 <button
                                   type="button"
                                   className="imp3-facts-btn"
                                   aria-expanded={showSkipped}
                                   onClick={() => setShowSkipped((v) => !v)}
                                 >
-                                  {showSkipped ? 'hide' : 'view'}
+                                  {showSkipped ? formatMessage({ id: 'accounts.importFacts.hide', defaultMessage: 'hide' }) : formatMessage({ id: 'accounts.importFacts.view', defaultMessage: 'view' })}
                                 </button>
                               </span>
                             )}
                             {typeof preview.llmCostUsd === 'number' && (
                               <span
                                 className="imp3-facts-cost"
-                                title="What reading this file cost in AI calls — also counted in Settings → AI costs"
+                                title={formatMessage({ id: 'accounts.importReview.aiCost', defaultMessage: "What reading this file cost in AI calls — also counted in Settings → AI costs" })}
                               >
                                 {preview.llmCostUsd > 0
-                                  ? `AI read ≈ $${preview.llmCostUsd.toFixed(3)}`
-                                  : 'read from memory'}
+                                  ? formatMessage({ id: 'accounts.importFacts.aiCost', defaultMessage: 'AI read ≈ ${amount}' }, { amount: preview.llmCostUsd.toFixed(3) })
+                                  : formatMessage({ id: 'accounts.importFacts.memory', defaultMessage: 'read from memory' })}
                                 {' • '}
                                 <button
                                   type="button"
                                   className="imp3-facts-btn"
-                                  title="Re-runs the AI read of this file (under the current instructions) and bills again"
+                                  title={formatMessage({ id: 'accounts.importReview.rereadCost', defaultMessage: "Re-runs the AI read of this file (under the current instructions) and bills again" })}
                                   onClick={() =>
                                     runServerPreview(route, undefined, undefined, true)
                                   }
                                 >
-                                  Re-read
+                                  {formatMessage({ id: 'accounts.importFacts.reread', defaultMessage: 'Re-read' })}
                                 </button>
                               </span>
                             )}
@@ -6770,23 +6787,19 @@ export function ImportModal({
                       {(preview.skipped ?? []).length > 0 && showSkipped && (
                         <div className="imp-skipped">
                           <div className="imp-skipped-t">
-                            {preview.skippedTotal ?? (preview.skipped ?? []).length} skipped row
-                            {(preview.skippedTotal ?? (preview.skipped ?? []).length) === 1
-                              ? ''
-                              : 's'}{' '}
-                            — not imported
+                            {formatMessage({ id: 'accounts.importFacts.skippedRows', defaultMessage: '{count, plural, one {# skipped row} other {# skipped rows}} — not imported' }, { count: preview.skippedTotal ?? (preview.skipped ?? []).length })}
                             {/* The list itself is a bounded first-10 sample (`skip_samples` on the wire)
                       — say so once the true total runs past what's actually listed below,
                       rather than letting the count and the list quietly disagree. */}
                             {(preview.skippedTotal ?? 0) > (preview.skipped ?? []).length &&
-                              ` (showing first ${(preview.skipped ?? []).length})`}
+                              formatMessage({ id: 'accounts.importFacts.firstShown', defaultMessage: ' (showing first {count})' }, { count: (preview.skipped ?? []).length })}
                           </div>
                           {(preview.skipped ?? []).map((s, i) => (
                             <div key={i} className="imp-skipped-row">
                               <span className="imp-skipped-desc">
-                                {s.description || (s.line != null ? 'Row ' + s.line : 'Row')}
+                                {s.description || (s.line != null ? formatMessage({ id: 'accounts.importAction.rowNumber', defaultMessage: 'Row {number}' }, { number: s.line }) : formatMessage({ id: 'accounts.importAction.row', defaultMessage: 'Row' }))}
                               </span>
-                              <span className="imp-skipped-reason">{s.reason}</span>
+                              <span className="imp-skipped-reason">{statementSkipReason(s)}</span>
                               {Number.isFinite(s.amount) && (
                                 <span className="imp-skipped-amt">
                                   {(s.amount || 0) < 0 ? '' : '+'}
@@ -6831,12 +6844,12 @@ export function ImportModal({
                           // query, and the ledger-only section's own subtotal still reads them).
                           const covFrags = [
                             cov.linked > 0
-                              ? `${cov.linked} linked to entr${cov.linked === 1 ? 'y' : 'ies'} you already had`
+                              ? formatMessage({ id: 'accounts.importVerdict.linked', defaultMessage: '{count, plural, one {# linked to entry you already had} other {# linked to entries you already had}}' }, { count: cov.linked })
                               : null,
-                            cov.imported > 0 ? `${cov.imported} imported new` : null,
-                            cov.dups > 0 ? `${cov.dups} already booked` : null,
+                            cov.imported > 0 ? formatMessage({ id: 'accounts.importVerdict.imported', defaultMessage: '{count} imported new' }, { count: cov.imported }) : null,
+                            cov.dups > 0 ? formatMessage({ id: 'accounts.importVerdict.duplicates', defaultMessage: '{count} already booked' }, { count: cov.dups }) : null,
                             cov.absorbed > 0
-                              ? `${cov.absorbed} folded into transfer${cov.absorbed === 1 ? '' : 's'}`
+                              ? formatMessage({ id: 'accounts.importVerdict.folded', defaultMessage: '{count, plural, one {# folded into transfer} other {# folded into transfers}}' }, { count: cov.absorbed })
                               : null,
                           ]
                             .filter(Boolean)
@@ -6874,17 +6887,17 @@ export function ImportModal({
                                       <div>
                                         <b>
                                           {recon.status === 'off'
-                                            ? `Statement is off by ${fCur(Math.abs(recon.delta || 0), recon.currency || account?.currency || 'SGD', { cents: true })} against its own balances`
+                                            ? formatMessage({ id: 'accounts.importMessage.offAmount', defaultMessage: 'Statement is off by {amount} against its own balances' }, { amount: fCur(Math.abs(recon.delta || 0), recon.currency || account?.currency || 'SGD', { cents: true }) })
                                             : recon.status === 'ok_if_flipped'
-                                              ? 'Statement reconciles only with money in/out flipped'
-                                              : 'Balance check not available for this statement'}
+                                              ? formatMessage({ id: 'accounts.importMessage.flipped', defaultMessage: "Statement reconciles only with money in/out flipped" })
+                                              : formatMessage({ id: 'accounts.importMessage.unavailable', defaultMessage: "Balance check not available for this statement" })}
                                         </b>
                                         <em>
                                           {recon.status === 'off'
-                                            ? 'Some rows may be missing or doubled — worth a look before booking.'
+                                            ? formatMessage({ id: 'accounts.importMessage.missing', defaultMessage: "Some rows may be missing or doubled — worth a look before booking." })
                                             : recon.status === 'ok_if_flipped'
-                                              ? 'Check the amount direction on a row or two.'
-                                              : 'Nothing to check the read against, so nothing is proven complete.'}
+                                              ? formatMessage({ id: 'accounts.importMessage.checkDirection', defaultMessage: "Check the amount direction on a row or two." })
+                                              : formatMessage({ id: 'accounts.importMessage.unproven', defaultMessage: "Nothing to check the read against, so nothing is proven complete." })}
                                         </em>
                                       </div>
                                     </div>,
@@ -6902,10 +6915,9 @@ export function ImportModal({
                                     </span>
                                     <div>
                                       <b>
-                                        {awaitingDecisions} transaction
-                                        {awaitingDecisions === 1 ? '' : 's'} still need your call
+                                        {formatMessage({ id: 'accounts.importVerdict.awaiting', defaultMessage: '{count, plural, one {# transaction still need your call} other {# transactions still need your call}}' }, { count: awaitingDecisions })}
                                       </b>
-                                      <em>Review each card below before booking.</em>
+                                      <em>{formatMessage({ id: 'accounts.importReview.reviewCards', defaultMessage: "Review each card below before booking." })}</em>
                                     </div>
                                   </div>,
                                 )
@@ -6917,7 +6929,7 @@ export function ImportModal({
                                         ✓
                                       </span>
                                       <div>
-                                        <b>Every statement transaction will be in your ledger</b>
+                                        <b>{formatMessage({ id: 'accounts.importReview.allInLedger', defaultMessage: "Every statement transaction will be in your ledger" })}</b>
                                         {covFrags && <em>{covFrags}</em>}
                                       </div>
                                     </div>,
@@ -6934,13 +6946,10 @@ export function ImportModal({
                                         onClick={() => jumpToChip('uncovered')}
                                       >
                                         <b>
-                                          {cov.uncovered} statement transaction
-                                          {cov.uncovered === 1 ? '' : 's'} won{'’'}t be anywhere
-                                          after import
+                                          {formatMessage({ id: 'accounts.importVerdict.uncovered', defaultMessage: '{count, plural, one {# statement transaction won’t be anywhere after import} other {# statement transactions won’t be anywhere after import}}' }, { count: cov.uncovered })}
                                         </b>
                                         <em>
-                                          Left out with no ledger match. Click to see{' '}
-                                          {cov.uncovered === 1 ? 'it' : 'them'}.
+                                          {formatMessage({ id: 'accounts.importVerdict.uncoveredHint', defaultMessage: '{count, plural, one {Left out with no ledger match. Click to see it.} other {Left out with no ledger match. Click to see them.}}' }, { count: cov.uncovered })}
                                         </em>
                                       </button>
                                     </div>,
@@ -6958,10 +6967,9 @@ export function ImportModal({
                                     </span>
                                     <div>
                                       <b>
-                                        Amounts settle once you decide the {awaitingDecisions} row
-                                        {awaitingDecisions === 1 ? '' : 's'} above
+                                        {formatMessage({ id: 'accounts.importVerdict.amountsWaiting', defaultMessage: '{count, plural, one {Amounts settle once you decide the # row above} other {Amounts settle once you decide the # rows above}}' }, { count: awaitingDecisions })}
                                       </b>
-                                      <em>Linking adopts the statement’s figures.</em>
+                                      <em>{formatMessage({ id: 'accounts.importReview.linkFigures', defaultMessage: "Linking adopts the statement’s figures." })}</em>
                                     </div>
                                   </div>,
                                 )
@@ -6974,10 +6982,9 @@ export function ImportModal({
                                           ✓
                                         </span>
                                         <div>
-                                          <b>Amounts match the statement to the cent</b>
+                                          <b>{formatMessage({ id: 'accounts.importReview.amountsMatch', defaultMessage: "Amounts match the statement to the cent" })}</b>
                                           <em>
-                                            These transactions will total {perCur(amt.totals, true)}{' '}
-                                            in your ledger.
+                                            {formatMessage({ id: 'accounts.importVerdict.total', defaultMessage: 'These transactions will total {amount} in your ledger.' }, { amount: perCur(amt.totals, true) })}
                                           </em>
                                         </div>
                                       </div>,
@@ -6995,17 +7002,12 @@ export function ImportModal({
                                         >
                                           <b>
                                             {Object.keys(amt.deltas).length > 0
-                                              ? `Your ledger ends ${offByAmount} off the statement`
-                                              : `${amt.kept} row${amt.kept === 1 ? '' : 's'} kept at your original figure${amt.kept === 1 ? '' : 's'}`}
+                                              ? formatMessage({ id: 'accounts.importVerdict.off', defaultMessage: 'Your ledger ends {amount} off the statement' }, { amount: offByAmount })
+                                              : formatMessage({ id: 'accounts.importVerdict.kept', defaultMessage: '{count, plural, one {# row kept at your original figure} other {# rows kept at your original figures}}' }, { count: amt.kept })}
                                           </b>
                                           <em>
-                                            {amt.kept} row{amt.kept === 1 ? ' keeps' : 's keep'}{' '}
-                                            your older figure{amt.kept === 1 ? '' : 's'}
-                                            {Object.keys(amt.deltas).length > 0
-                                              ? ''
-                                              : ' — the differences cancel out'}{' '}
-                                            — choose Link &amp; update to adopt the settled ones.
-                                            Click to see them.
+                                            {formatMessage({ id: 'accounts.importVerdict.keptHint', defaultMessage: '{count, plural, one {# row keeps your older figure} other {# rows keep your older figures}}{cancelled} — choose Link & update to adopt the settled ones.' }, { count: amt.kept, cancelled: Object.keys(amt.deltas).length > 0 ? '' : formatMessage({ id: 'accounts.importVerdict.cancelled', defaultMessage: ' — the differences cancel out' }) })}
+                                            {formatMessage({ id: 'accounts.importAction.clickSee', defaultMessage: "Click to see them." })}
                                           </em>
                                         </button>
                                       </div>,
@@ -7029,14 +7031,10 @@ export function ImportModal({
                                       onClick={() => jumpToChip('ledger')}
                                     >
                                       <b>
-                                        {ledgerOnlyRows.length} ledger{' '}
-                                        {ledgerOnlyRows.length === 1 ? 'entry' : 'entries'} from
-                                        this period{' '}
-                                        {ledgerOnlyRows.length === 1 ? 'isn’t' : 'aren’t'} on this
-                                        statement
+                                        {formatMessage({ id: 'accounts.importVerdict.ledgerOnly', defaultMessage: '{count, plural, one {{displayCount} ledger entry from this period isn’t on this statement} other {{displayCount} ledger entries from this period aren’t on this statement}}' }, { count: ledgerOnlyRows.length, displayCount: ledgerOnlyRows.length.toLocaleString(getNumberLocale()) })}
                                       </b>
                                       <em>
-                                        Click to see {ledgerOnlyRows.length === 1 ? 'it' : 'them'}.
+                                        {formatMessage({ id: 'accounts.importVerdict.click', defaultMessage: '{count, plural, one {Click to see it.} other {Click to see them.}}' }, { count: ledgerOnlyRows.length })}
                                       </em>
                                     </button>
                                   </div>,
@@ -7074,12 +7072,12 @@ export function ImportModal({
                             links === 0 && imports === 0 && markedForDelete.length === 0
                           const summaryText =
                             waitCount > 0
-                              ? `${awaitingDecisions} transaction${awaitingDecisions === 1 ? '' : 's'} still need your call`
+                              ? formatMessage({ id: 'accounts.importVerdict.awaiting', defaultMessage: '{count, plural, one {# transaction still need your call} other {# transactions still need your call}}' }, { count: awaitingDecisions })
                               : warnCount > 0
-                                ? `${warnCount} thing${warnCount === 1 ? '' : 's'} to check before importing`
+                                ? formatMessage({ id: 'accounts.importVerdict.checks', defaultMessage: '{count, plural, one {# thing to check before importing} other {# things to check before importing}}' }, { count: warnCount })
                                 : nothingToDo
-                                  ? 'Nothing new — this statement is already in your ledger'
-                                  : 'Looks good — ready to import'
+                                  ? formatMessage({ id: 'accounts.importMessage.alreadyLedger', defaultMessage: "Nothing new — this statement is already in your ledger" })
+                                  : formatMessage({ id: 'accounts.importMessage.looksGood', defaultMessage: "Looks good — ready to import" })
                           return (
                             <>
                               <button
@@ -7113,8 +7111,7 @@ export function ImportModal({
                                   ))}
                                   {!lc && (
                                     <div className="imp3-verdict-note">
-                                      No printed period on this statement — the ledger cross-check
-                                      needs one.
+                                      {formatMessage({ id: 'accounts.importVerdict.noPeriod', defaultMessage: 'No printed period on this statement — the ledger cross-check needs one.' })}
                                     </div>
                                   )}
                                 </div>
@@ -7134,27 +7131,16 @@ export function ImportModal({
                         (() => {
                           const lc = preview.ledgerCheck!
                           const n = lc.pages_incomplete || 0
-                          const s = n === 1 ? '' : 's'
                           const body =
                             lc.withheld === 'parse_incomplete'
-                              ? `${n} page${s} of this statement didn’t finish reading, so we ` +
-                                `can’t tell what’s missing from it yet. The rows we did read are ` +
-                                `shown above and are safe to import — re-read the file to try ` +
-                                `the incomplete page${s} again.`
+                              ? formatMessage({ id: 'accounts.importWithheld.incomplete', defaultMessage: '{count, plural, one {# page of this statement didn’t finish reading, so we can’t tell what’s missing from it yet. The rows we did read are shown above and are safe to import — re-read the file to try the incomplete page again.} other {# pages of this statement didn’t finish reading, so we can’t tell what’s missing from it yet. The rows we did read are shown above and are safe to import — re-read the file to try the incomplete pages again.}}' }, { count: n })
                               : lc.withheld === 'parse_unverified'
-                                ? `This statement was read before completeness checks existed, ` +
-                                  `so we can’t tell what’s missing from it yet. The rows are ` +
-                                  `still safe to import — re-read the file to enable the ` +
-                                  `ledger comparison.`
-                                : `This statement is off by ` +
-                                  `${fCur(Math.abs(lc.delta ?? 0), lc.currency || account?.currency || 'SGD', { cents: true })} ` +
-                                  `against its own balances, so we can’t trust a ledger-only ` +
-                                  `comparison yet. The rows above are still safe to import — ` +
-                                  `re-read the file, or double-check the statement’s totals.`
+                                ? formatMessage({ id: 'accounts.importWithheld.unverified', defaultMessage: 'This statement was read before completeness checks existed, so we can’t tell what’s missing from it yet. The rows are still safe to import — re-read the file to enable the ledger comparison.' })
+                                : formatMessage({ id: 'accounts.importWithheld.off', defaultMessage: 'This statement is off by {amount} against its own balances, so we can’t trust a ledger-only comparison yet. The rows above are still safe to import — re-read the file, or double-check the statement’s totals.' }, { amount: fCur(Math.abs(lc.delta ?? 0), lc.currency || account?.currency || 'SGD', { cents: true }) })
                           return (
                             <div className="imp-recon">
                               <div className="imp-recon-txt">
-                                <b>Can’t check what’s already in your ledger yet</b> {body}
+                                <b>{formatMessage({ id: 'accounts.importReview.cannotCheck', defaultMessage: "Can’t check what’s already in your ledger yet" })}</b> {body}
                               </div>
                               <div className="imp-recon-action">
                                 <button
@@ -7164,7 +7150,7 @@ export function ImportModal({
                                     runServerPreview(route, undefined, undefined, true)
                                   }
                                 >
-                                  Re-read the file
+                                  {formatMessage({ id: 'accounts.importReview.reread', defaultMessage: 'Re-read the file' })}
                                 </button>
                               </div>
                             </div>
@@ -7182,9 +7168,7 @@ export function ImportModal({
                         <div className="imp-recon">
                           <div className="imp-recon-txt">
                             <b>
-                              {earlierRows.length} transaction
-                              {earlierRows.length === 1 ? ' is' : 's are'} dated before{' '}
-                              {account?.name} was last reconciled ({account?.lastReconciled}).
+                              {formatMessage({ id: 'accounts.importBand.earlierWarning', defaultMessage: '{count, plural, one {# transaction is} other {# transactions are}} dated before {account} was last reconciled ({date}).' }, { count: earlierRows.length, account: account?.name ?? '', date: account?.lastReconciled ?? '' })}
                             </b>
                           </div>
                           <label className="imp-recon-tog">
@@ -7193,8 +7177,7 @@ export function ImportModal({
                               checked={includeEarlier}
                               onChange={(e) => setIncludeEarlier(e.target.checked)}
                             />{' '}
-                            Include {earlierRows.length} earlier transaction
-                            {earlierRows.length === 1 ? '' : 's'}
+                            {formatMessage({ id: 'accounts.importBand.includeEarlier', defaultMessage: 'Include {count, plural, one {# earlier transaction} other {# earlier transactions}}' }, { count: earlierRows.length })}
                           </label>
                         </div>
                       )}
@@ -7212,22 +7195,22 @@ export function ImportModal({
                             n: number
                             cls: string
                           }> = [
-                            { key: 'all', label: 'All', n: preview.drafts.length, cls: '' },
+                            { key: 'all', label: formatMessage({ id: 'accounts.importBand.all', defaultMessage: "All" }), n: preview.drafts.length, cls: '' },
                             // Exception-first, per the handoff's own chip order (review3.jsx) and the
                             // stylesheet's own header comment: what needs you comes before what is settled.
-                            { key: 'needs', label: 'Needs you', n: chipPop.needs, cls: ' needs' },
-                            { key: 'strong', label: 'Will link', n: chipPop.strong, cls: ' link' },
-                            { key: 'new', label: 'Import', n: chipPop.new, cls: '' },
-                            { key: 'skip', label: 'Left out', n: chipPop.skip, cls: ' skip' },
+                            { key: 'needs', label: formatMessage({ id: 'accounts.importBand.needs', defaultMessage: "Needs you" }), n: chipPop.needs, cls: ' needs' },
+                            { key: 'strong', label: formatMessage({ id: 'accounts.importBand.willLink', defaultMessage: "Will link" }), n: chipPop.strong, cls: ' link' },
+                            { key: 'new', label: formatMessage({ id: 'accounts.importBand.import', defaultMessage: "Import" }), n: chipPop.new, cls: '' },
+                            { key: 'skip', label: formatMessage({ id: 'accounts.importBand.leftOut', defaultMessage: "Left out" }), n: chipPop.skip, cls: ' skip' },
                             {
                               key: 'uncovered',
-                              label: 'Not in ledger',
+                              label: formatMessage({ id: 'accounts.importBand.notLedger', defaultMessage: "Not in ledger" }),
                               n: uncoveredRows.length,
                               cls: ' skip',
                             },
                             {
                               key: 'ledger',
-                              label: 'Not on statement',
+                              label: formatMessage({ id: 'accounts.importBand.notStatement', defaultMessage: "Not on statement" }),
                               n: ledgerOnlyRows.length,
                               cls: '',
                             },
@@ -7243,7 +7226,7 @@ export function ImportModal({
                           // active = filled surface2 + border, and — on Needs you only — a warn `<em>`
                           // dot while anything is still undecided.
                           return (
-                            <nav className="imp3-filter" aria-label="Filter statement rows">
+                            <nav className="imp3-filter" aria-label={formatMessage({ id: 'accounts.importReview.filterRows', defaultMessage: "Filter statement rows" })}>
                               <div className="imp3-filter-scroll">
                                 {chips.map((c) => (
                                   <button
@@ -7267,7 +7250,7 @@ export function ImportModal({
                                       </>
                                     )}
                                     {c.key === 'needs' && awaitingDecisions > 0 && (
-                                      <em title={`${awaitingDecisions} undecided`} />
+                                      <em title={formatMessage({ id: 'accounts.visible.undecided', defaultMessage: '{count} undecided' }, { count: awaitingDecisions.toLocaleString(getNumberLocale()) })} />
                                     )}
                                   </button>
                                 ))}
@@ -7281,12 +7264,12 @@ export function ImportModal({
                                     type="button"
                                     aria-pressed={chip === 'offby'}
                                     className={'offby' + (chip === 'offby' ? ' on' : '')}
-                                    title="Rows whose post-import figure will differ from the statement — click to see only them"
+                                    title={formatMessage({ id: 'accounts.importReview.differentAfter', defaultMessage: "Rows whose post-import figure will differ from the statement — click to see only them" })}
                                     onClick={() =>
                                       setActiveChip(chip === 'offby' ? 'all' : 'offby')
                                     }
                                   >
-                                    Off by {offByAmount} <i>{chipPop.offby}</i>
+                                    {formatMessage({ id: 'accounts.visible.offBy', defaultMessage: 'Off by {amount}' }, { amount: offByAmount })} <i>{chipPop.offby}</i>
                                     {chip === 'offby' && (
                                       <span className="x" aria-hidden="true">
                                         <X size={10} />
@@ -7305,10 +7288,10 @@ export function ImportModal({
                                     type="button"
                                     aria-pressed={chip === 'weak'}
                                     className={'maybe' + (chip === 'weak' ? ' on' : '')}
-                                    title="Rows the engine thinks MIGHT already be in your ledger — click to see only them"
+                                    title={formatMessage({ id: 'accounts.importReview.possibleMatches', defaultMessage: "Rows the engine thinks MIGHT already be in your ledger — click to see only them" })}
                                     onClick={() => setActiveChip(chip === 'weak' ? 'all' : 'weak')}
                                   >
-                                    Possible matches <i>{chipPop.weak}</i>
+                                    {formatMessage({ id: "accounts.visible.possibleMatches", defaultMessage: "Possible matches" })} <i>{chipPop.weak}</i>
                                     {chip === 'weak' && (
                                       <span className="x" aria-hidden="true">
                                         <X size={10} />
@@ -7341,7 +7324,7 @@ export function ImportModal({
                                     onClick={toggleShowFile}
                                   >
                                     <Ic d={I_FILE} size={15} />
-                                    {showFile ? 'Hide file' : 'Show file'}
+                                    {showFile ? formatMessage({ id: 'accounts.importOutcome.hideFile', defaultMessage: "Hide file" }) : formatMessage({ id: 'accounts.importOutcome.showFile', defaultMessage: "Show file" })}
                                   </button>
                                 )}
                               </div>
@@ -7360,9 +7343,9 @@ export function ImportModal({
                         // One consistent word per action across the whole app — link, import, leave out —
                         // in the same order as every row's own decision control underneath.
                         const bulk: Array<[MatchAction, string]> = [
-                          ['merge', 'Link all'],
-                          ['new', 'Import all'],
-                          ['skip', 'Leave all out'],
+                          ['merge', formatMessage({ id: 'accounts.importAction.linkAll', defaultMessage: 'Link all' })],
+                          ['new', formatMessage({ id: 'accounts.importAction.importAll', defaultMessage: 'Import all' })],
+                          ['skip', formatMessage({ id: 'accounts.importAction.excludeAll', defaultMessage: 'Leave all out' })],
                         ]
                         return (
                           <div className="imp-pair-bandhead">
@@ -7385,11 +7368,11 @@ export function ImportModal({
                           // decided/total tally and the 1/2/3 keyboard hint, then the persistent cards.
                           <div className="imp3-queue" id="statement-import-needs">
                             <div className="imp3-queue-h">
-                              <span className="imp3-queue-t">Needs you</span>
+                              <span className="imp3-queue-t">{formatMessage({ id: 'accounts.importReview.queue', defaultMessage: "Needs you" })}</span>
                               <span className="imp3-queue-n">
                                 {awaitingDecisions > 0
-                                  ? `${queueItems.length - awaitingDecisions} of ${queueItems.length} decided`
-                                  : 'all decided ✓'}
+                                  ? formatMessage({ id: 'accounts.visible.decided', defaultMessage: '{decided} of {total} decided' }, { decided: (queueItems.length - awaitingDecisions).toLocaleString(getNumberLocale()), total: queueItems.length.toLocaleString(getNumberLocale()) })
+                                  : formatMessage({ id: 'accounts.importReceipt.allDecided', defaultMessage: "all decided ✓" })}
                               </span>
                             </div>
                             {queueItems.map((item, index) => renderQueueCard(item, index + 1))}
@@ -7417,29 +7400,29 @@ export function ImportModal({
                               chip === 'strong'
                                 ? {
                                     tone: 'link',
-                                    title: 'Already in your ledger — will link',
-                                    sub: 'categories & notes kept',
+                                    title: formatMessage({ id: 'accounts.importBand.linkedTitle', defaultMessage: "Already in your ledger — will link" }),
+                                    sub: formatMessage({ id: 'accounts.importBand.keptNotes', defaultMessage: "categories & notes kept" }),
                                   }
                                 : chip === 'new'
-                                  ? { tone: 'new', title: 'Import', sub: newSub }
+                                  ? { tone: 'new', title: formatMessage({ id: 'accounts.importBand.import', defaultMessage: "Import" }), sub: newSub }
                                   : chip === 'skip'
                                     ? {
                                         tone: 'skip',
-                                        title: 'Left out',
-                                        sub: 'won’t book — you can override',
+                                        title: formatMessage({ id: 'accounts.importBand.leftOut', defaultMessage: "Left out" }),
+                                        sub: formatMessage({ id: 'accounts.importBand.leftOutHint', defaultMessage: "won’t book — you can override" }),
                                       }
                                     : chip === 'offby'
                                       ? {
                                           tone: 'skip',
-                                          title: 'Kept at your original figures',
-                                          sub: 'choose Link to adopt the settled ones',
+                                          title: formatMessage({ id: 'accounts.importBand.originalFigures', defaultMessage: "Kept at your original figures" }),
+                                          sub: formatMessage({ id: 'accounts.importBand.linkHint', defaultMessage: "choose Link to adopt the settled ones" }),
                                         }
                                       : {
                                           tone: 'stmt',
-                                          title: 'The statement — top to bottom',
+                                          title: formatMessage({ id: 'accounts.importBand.statementTitle', defaultMessage: "The statement — top to bottom" }),
                                           sub:
                                             awaitingDecisions > 0
-                                              ? `${awaitingDecisions} need you`
+                                              ? formatMessage({ id: 'accounts.importBand.awaiting', defaultMessage: '{count} need you' }, { count: awaitingDecisions })
                                               : '',
                                         }
                             return (
@@ -7507,7 +7490,7 @@ export function ImportModal({
                               >
                                 <span className="imp3-sec-badge">{ledgerOnlyRows.length}</span>
                                 <span className="imp3-sec-t">
-                                  In your ledger, not on this statement
+                                  {formatMessage({ id: 'accounts.importAction.ledgerOnly', defaultMessage: "In your ledger, not on this statement" })}
                                 </span>
                                 {t0 && t0.uncovered_net !== 0 && (
                                   <span className="imp3-sec-sub">
@@ -7549,7 +7532,7 @@ export function ImportModal({
                                           )
                                         }
                                       >
-                                        Mark all {ledgerOnlyRows.length} for deletion
+                                        {formatMessage({ id: 'accounts.visible.markAll', defaultMessage: 'Mark all {count} for deletion' }, { count: ledgerOnlyRows.length.toLocaleString(getNumberLocale()) })}
                                       </button>
                                       {markedForDelete.length > 0 && (
                                         <button
@@ -7562,7 +7545,7 @@ export function ImportModal({
                                             )
                                           }
                                         >
-                                          Clear marks
+                                          {formatMessage({ id: 'accounts.importAction.clearMarks', defaultMessage: "Clear marks" })}
                                         </button>
                                       )}
                                     </div>
@@ -7595,10 +7578,10 @@ export function ImportModal({
                             >
                               <span className="imp3-sec-badge">{uncoveredRows.length}</span>
                               <span className="imp3-sec-t">
-                                On the statement, not in your ledger
+                                {formatMessage({ id: 'accounts.importAction.statementOnly', defaultMessage: "On the statement, not in your ledger" })}
                               </span>
                               <span className="imp3-sec-sub">
-                                not in your ledger — won’t be anywhere after import
+                                {formatMessage({ id: "accounts.visible.notInLedger", defaultMessage: "not in your ledger — won’t be anywhere after import" })}
                               </span>
                               <svg
                                 className={'imp3-chev' + (sectionOpen.uncovered ? ' open' : '')}
@@ -7635,13 +7618,12 @@ export function ImportModal({
                         <div className="imp3-teach">
                           {teach === 'saved' ? (
                             <span className="imp3-teach-t">
-                              <i>✦</i>Saved — applies to future imports from this source.
+                              <i>✦</i>{formatMessage({ id: "accounts.visible.rememberSaved", defaultMessage: "Saved — applies to future imports from this source." })}
                             </span>
                           ) : (
                             <>
                               <span className="imp3-teach-t">
-                                <i>✦</i>Remember something about {account?.name || 'this source'}’s
-                                statements?
+                                <i>✦</i>{formatMessage({ id: 'accounts.visible.rememberSource', defaultMessage: 'Remember something about {source}’s statements?' }, { source: account?.name || formatMessage({ id: 'accounts.visible.thisSource', defaultMessage: 'this source' }) })}
                               </span>
                               {teach === 'editing' ? (
                                 <div className="imp3-teach-edit">
@@ -7649,8 +7631,8 @@ export function ImportModal({
                                     autoFocus
                                     rows={2}
                                     maxLength={1000}
-                                    aria-label="Instruction for this source"
-                                    placeholder="e.g. Shopee orders often settle a few dollars higher with shipping — link them when the dates are close."
+                                    aria-label={formatMessage({ id: 'accounts.importReview.instruction', defaultMessage: "Instruction for this source" })}
+                                    placeholder={formatMessage({ id: 'accounts.importReview.instructionExample', defaultMessage: "e.g. Shopee orders often settle a few dollars higher with shipping — link them when the dates are close." })}
                                     value={teachText}
                                     onChange={(e) => setTeachText(e.target.value)}
                                   />
@@ -7671,7 +7653,7 @@ export function ImportModal({
                                       })
                                     }}
                                   >
-                                    {instrSaving ? 'Saving…' : 'Save for this source'}
+                                    {instrSaving ? formatMessage({ id: 'accounts.importOutcome.saving', defaultMessage: "Saving…" }) : formatMessage({ id: 'accounts.importOutcome.saveSource', defaultMessage: "Save for this source" })}
                                   </button>
                                 </div>
                               ) : (
@@ -7681,14 +7663,14 @@ export function ImportModal({
                                     className="imp3-teach-yes"
                                     onClick={() => setTeach('editing')}
                                   >
-                                    Add an instruction
+                                    {formatMessage({ id: 'accounts.importAction.addInstruction', defaultMessage: "Add an instruction" })}
                                   </button>
                                   <button
                                     type="button"
                                     className="imp3-teach-no"
                                     onClick={() => setTeach('done')}
                                   >
-                                    No thanks
+                                    {formatMessage({ id: 'accounts.importAction.noThanks', defaultMessage: "No thanks" })}
                                   </button>
                                 </span>
                               )}
@@ -7734,7 +7716,7 @@ export function ImportModal({
             className="imp3-filesplit"
             role="separator"
             aria-orientation="vertical"
-            aria-label="Resize the file pane"
+            aria-label={formatMessage({ id: 'accounts.importReview.resize', defaultMessage: "Resize the file pane" })}
             tabIndex={0}
             onPointerDown={startFileResize}
             onKeyDown={nudgeFileWidth}
@@ -7744,23 +7726,23 @@ export function ImportModal({
         {fileWanted && (
           <aside
             className="imp3-filepane"
-            aria-label="Statement file"
+            aria-label={formatMessage({ id: 'accounts.importReview.file', defaultMessage: "Statement file" })}
             style={fileWidth != null && !isMobile ? { flex: `0 1 ${fileWidth}px` } : undefined}
           >
             <div className="imp3-filepane-head">
               <span className="imp3-file-badge">
                 {FORMAT_LABEL[detectFormat(filePaneItem?.filename || resumeFilename || '')] ||
-                  'FILE'}
+                  formatMessage({ id: 'accounts.visible.file', defaultMessage: 'FILE' })}
               </span>
               <span className="imp3-filepane-name">
-                {filePaneItem?.filename || resumeFilename || file?.name || 'Statement'}
+                {filePaneItem?.filename || resumeFilename || file?.name || formatMessage({ id: 'accounts.visible.statement', defaultMessage: 'Statement' })}
               </span>
-              {fileRow && <span className="imp3-filepane-row">Row {fileRow}</span>}
+              {fileRow && <span className="imp3-filepane-row">{formatMessage({ id: 'accounts.visible.row', defaultMessage: 'Row {row}' }, { row: fileRow })}</span>}
               {!isMobile && (
                 <button
                   type="button"
                   className="imp3-filepane-close"
-                  aria-label="Close the file"
+                  aria-label={formatMessage({ id: 'accounts.importReview.closeFile', defaultMessage: "Close the file" })}
                   onClick={toggleShowFile}
                 >
                   <X size={14} />
@@ -7776,7 +7758,7 @@ export function ImportModal({
                 />
               ) : filePaneItem === null ? (
                 <div className="imp3-filepane-hint">
-                  This statement's file isn't stored, so it can't be shown here.
+                  {formatMessage({ id: 'accounts.importReview.fileNotStored', defaultMessage: "This statement's file isn't stored, so it can't be shown here." })}
                 </div>
               ) : (
                 <PreviewLoading />
@@ -7803,7 +7785,7 @@ export function ImportModal({
           onClose={() => setDrawerTxn(null)}
           onSave={saveDrawerTxn}
           onDelete={(tx) => {
-            if (!window.confirm(`“${tx.description || 'This transaction'}” will be removed.`))
+            if (!window.confirm(formatMessage({ id: 'accounts.surfaces.deleteBody', defaultMessage: '“{name}” will be removed.' }, { name: tx.description || formatMessage({ id: 'accounts.surfaces.thisTransaction', defaultMessage: 'This transaction' }) })))
               return
             void (onDeleteTxn ? onDeleteTxn(tx.id) : Promise.resolve()).then(() =>
               setDrawerTxn(null),
@@ -7840,9 +7822,9 @@ export function ImportModal({
         background", not "abandon a paid read" — see requestClose/continueInBackground. */}
       <ConfirmModal
         open={deleteAskOpen}
-        title={`Delete ${markedForDelete.length} ${markedForDelete.length === 1 ? 'transaction' : 'transactions'} from your ledger?`}
-        body="They're removed when the import is booked. Undo import on the next screen brings them back."
-        confirmLabel="Delete and import"
+        title={formatMessage({ id: 'accounts.importFooter.deleteQuestion', defaultMessage: 'Delete {count, plural, one {# transaction} other {# transactions}} from your ledger?' }, { count: markedForDelete.length })}
+        body={formatMessage({ id: 'accounts.importFooter.deleteExplanation', defaultMessage: "They're removed when the import is booked. Undo import on the next screen brings them back." })}
+        confirmLabel={formatMessage({ id: 'accounts.importFooter.deleteAndImport', defaultMessage: 'Delete and import' })}
         danger
         onConfirm={() => {
           setDeleteAskOpen(false)
@@ -7852,15 +7834,15 @@ export function ImportModal({
       />
       <ConfirmModal
         open={relinkAsk !== null}
-        title={relinkAsk?.title ?? 'Move this link?'}
+        title={relinkAsk?.title ?? formatMessage({ id: 'accounts.importConfirm.moveTitle', defaultMessage: 'Move this link?' })}
         body={
           relinkAsk?.body
             ? relinkAsk.body
             : relinkAsk
-              ? `${relinkAsk.row} is linked to ${relinkAsk.from}. Link it to ${relinkAsk.to} instead? ${relinkAsk.from} goes back to “In your ledger, not on this statement”.`
+              ? formatMessage({ id: 'accounts.importConfirm.moveBody', defaultMessage: '{row} is linked to {from}. Link it to {to} instead? {from} goes back to “In your ledger, not on this statement”.' }, { row: relinkAsk.row, from: relinkAsk.from, to: relinkAsk.to })
               : ''
         }
-        confirmLabel={relinkAsk?.confirmLabel ?? 'Move link'}
+        confirmLabel={relinkAsk?.confirmLabel ?? formatMessage({ id: 'accounts.importConfirm.move', defaultMessage: 'Move link' })}
         onConfirm={() => {
           // Cleared BEFORE running: a run may ask the next question (move a link, then undo
           // Lucius's call on the row it lands on).
@@ -7873,10 +7855,10 @@ export function ImportModal({
       <ConfirmModal
         open={pendingExit !== null}
         title={
-          pendingExit === 'back' ? 'Go back and lose this review?' : 'Close and lose this review?'
+          pendingExit === 'back' ? formatMessage({ id: 'accounts.importConfirm.backQuestion', defaultMessage: 'Go back and lose this review?' }) : formatMessage({ id: 'accounts.importConfirm.closeQuestion', defaultMessage: 'Close and lose this review?' })
         }
-        body="Nothing has been booked yet — your row-by-row decisions (Import, Leave out, Link) on this statement aren't saved anywhere. Leaving now discards all of them; you'd need to read the file again."
-        confirmLabel={pendingExit === 'back' ? 'Go back' : 'Discard review'}
+        body={formatMessage({ id: 'accounts.importConfirm.discardBody', defaultMessage: "Nothing has been booked yet — your row-by-row decisions (Import, Leave out, Link) on this statement aren't saved anywhere. Leaving now discards all of them; you'd need to read the file again." })}
+        confirmLabel={pendingExit === 'back' ? formatMessage({ id: 'accounts.importConfirm.back', defaultMessage: 'Go back' }) : formatMessage({ id: 'accounts.importConfirm.discard', defaultMessage: 'Discard review' })}
         danger
         onConfirm={confirmExit}
         onClose={() => setPendingExit(null)}

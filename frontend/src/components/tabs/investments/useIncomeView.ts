@@ -1,4 +1,12 @@
-import { useEffect, useMemo, useRef, useState, type Dispatch, type SetStateAction } from 'react'
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  useSyncExternalStore,
+  type Dispatch,
+  type SetStateAction,
+} from 'react'
 import type {
   IncomeEvent,
   IncomeForecast,
@@ -7,7 +15,13 @@ import type {
 } from '../../../types/portfolio'
 import type { IncomeCalendar, IncomeCalendarRow } from '../../../types/income'
 import { fetchIncome, fetchIncomeCalendar, fetchIncomeForecast } from '../../../api/portfolio'
-import { fBase, fDate, fPct } from '../../../utils/format'
+import {
+  fBase,
+  fDate,
+  fPct,
+  getFormatRevision,
+  subscribeDisplayFormats,
+} from '../../../utils/format'
 import type { StatCard } from '../../ui'
 import { ViewCache } from './viewCache'
 
@@ -26,12 +40,6 @@ function daysUntil(iso: string): number {
   today.setHours(0, 0, 0, 0)
   const target = new Date(`${iso}T00:00:00`)
   return Math.round((target.getTime() - today.getTime()) / 86_400_000)
-}
-
-function fRelDays(n: number): string {
-  if (n <= 0) return 'today'
-  if (n === 1) return 'in 1 day'
-  return `in ${n} days`
 }
 
 // ── Derived view shapes ───────────────────────────────────────────────────────
@@ -84,7 +92,7 @@ export interface IncomePaymentRow {
 export interface IncomeNextPayment {
   sym: string
   exLabel: string
-  exRelDays: string
+  exDaysUntil: number
   payLabel: string
   amountFmt: number
 }
@@ -96,11 +104,19 @@ export interface IncomeHistoryRow {
   symbol: string
   name: string
   kindLabel: 'Dividend' | 'Interest' | 'Distribution'
+  kindKey: IncomeEvent['income_kind']
+  symbolFallback: boolean
   amountBase: number | null
   amountBaseAvailable: boolean
   amountNative: number
   amountCurrency: string
   deliveryLabel: 'Cash' | 'Reinvested'
+  reinvested: boolean
+}
+
+export interface IncomeStatCard extends Omit<StatCard, 'label'> {
+  labelKey: 'received12m' | 'receivedAll' | 'yieldCost' | 'forecast' | 'forwardYield'
+  fxUnavailable?: boolean
 }
 
 export interface IncomeViewState {
@@ -113,7 +129,7 @@ export interface IncomeViewState {
   hasAny: boolean
 
   /** KPI summary bar cards. */
-  cards: StatCard[]
+  cards: IncomeStatCard[]
 
   /** Ranked by annual_income_base desc (highest contributor first). */
   sourceRows: IncomeSourceRow[]
@@ -202,11 +218,14 @@ function toHistoryRow(event: IncomeEvent): IncomeHistoryRow {
     symbol,
     name,
     kindLabel: INCOME_KIND_LABELS[event.income_kind],
+    kindKey: event.income_kind,
+    symbolFallback: !event.instrument_ticker && !event.instrument_label,
     amountBase: event.base_amount,
     amountBaseAvailable: event.base_amount_available !== false,
     amountNative: event.native_net_amount ?? event.gross_amount - event.tax_withheld,
     amountCurrency: event.native_currency || event.currency || '',
     deliveryLabel: event.is_drp ? 'Reinvested' : 'Cash',
+    reinvested: !!event.is_drp,
   }
 }
 
@@ -221,20 +240,26 @@ export function buildIncomeHistory(events: IncomeEvent[]): IncomeHistoryRow[] {
     .map(toHistoryRow)
 }
 
-function buildCards(summary: IncomeSummary | null, forecast: IncomeForecast | null): StatCard[] {
-  const cards: StatCard[] = []
+function buildCards(
+  summary: IncomeSummary | null,
+  forecast: IncomeForecast | null,
+): IncomeStatCard[] {
+  const cards: IncomeStatCard[] = []
   if (summary) {
     const totalsAvailable = summary.base_totals_available !== false
     cards.push({
-      label: 'Received • last 12m',
+      labelKey: 'received12m',
+      fxUnavailable: !totalsAvailable,
       value: totalsAvailable ? fBase(summary.trailing_12m_base) : 'FX unavailable',
     })
     cards.push({
-      label: 'Received • all time',
+      labelKey: 'receivedAll',
+      fxUnavailable: !totalsAvailable,
       value: totalsAvailable ? fBase(summary.total_base) : 'FX unavailable',
     })
     cards.push({
-      label: 'Yield on cost',
+      labelKey: 'yieldCost',
+      fxUnavailable: summary.yield_on_cost_available === false,
       value:
         summary.yield_on_cost_available !== false && summary.yield_on_cost_pct != null
           ? fPct(summary.yield_on_cost_pct)
@@ -244,9 +269,12 @@ function buildCards(summary: IncomeSummary | null, forecast: IncomeForecast | nu
     })
   }
   if (forecast) {
-    cards.push({ label: 'Forecast • next 12m', value: fBase(forecast.annual_total_base) })
     cards.push({
-      label: 'Forward yield',
+      labelKey: 'forecast',
+      value: fBase(forecast.annual_total_base),
+    })
+    cards.push({
+      labelKey: 'forwardYield',
       value: forecast.forward_yield_pct != null ? fPct(forecast.forward_yield_pct) : '—',
     })
   }
@@ -301,7 +329,7 @@ export function deriveIncomeView(
     ? {
         sym: next.symbol,
         exLabel: fDate(next.ex_date),
-        exRelDays: fRelDays(daysUntil(next.ex_date)),
+        exDaysUntil: daysUntil(next.ex_date),
         payLabel: fDate(next.pay_date),
         amountFmt: next.amount_base,
       }
@@ -404,9 +432,14 @@ export function useIncomeView(version = 0): IncomeViewState & {
     }
   }, [version, retryKey])
 
+  const formatRevision = useSyncExternalStore(
+    subscribeDisplayFormats,
+    getFormatRevision,
+    getFormatRevision,
+  )
   const derived = useMemo(
     () => deriveIncomeView(summary, forecast, calendar),
-    [summary, forecast, calendar],
+    [summary, forecast, calendar, formatRevision],
   )
 
   // For the "show all" source rows expansion
@@ -417,12 +450,12 @@ export function useIncomeView(version = 0): IncomeViewState & {
   const showAllSrc_allRows = useMemo(
     () => ranked.map((r) => toSourceRow(r, maxAnnual)),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [forecast],
+    [forecast, formatRevision],
   )
 
   const allPaymentRows = useMemo(
     () => (calendar ? calendar.payments.map(toPaymentRow) : []),
-    [calendar],
+    [calendar, formatRevision],
   )
 
   return {

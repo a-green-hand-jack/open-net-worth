@@ -162,17 +162,17 @@ def _txn_to_draft(txn: dict, resolved_account: str, category_rows: list[dict]) -
     with a per-row reason for any unmappable record (recorded as a skip)."""
     date_raw = (txn.get("date") or "").strip()
     if not date_raw:
-        raise QifImportError("missing date")
+        raise QifImportError("missing date", message_id="statement.skip.missing_date")
     amount = _parse_amount(txn.get("amount", ""))
     if amount is None:
-        raise QifImportError("unparseable amount")
+        raise QifImportError("unparseable amount", message_id="statement.skip.unparseable_amount")
     if amount == 0:
-        raise QifImportError("zero amount")
+        raise QifImportError("zero amount", message_id="statement.skip.zero_amount")
 
     description = (txn.get("payee") or txn.get("memo") or "").strip() or "Imported transaction"
     acct = ledger_service.accounts.find_by_id(resolved_account)
     if acct is None:
-        raise QifImportError("account not found")
+        raise QifImportError("account not found", message_id="statement.skip.account_not_found")
     currency = (acct.get("currency") or ledger_service.base_currency()).upper()
     magnitude = abs(amount)
 
@@ -244,7 +244,7 @@ def _map_rows(raw: list[dict], account_id: str | None) -> list[RowResult]:
         try:
             draft = _txn_to_draft(txn, resolved, category_rows)
         except QifImportError as exc:
-            results.append(RowResult(line=i, skip_reason=str(exc)))
+            results.append(RowResult(line=i, skip_reason=str(exc), skip_message=exc.skip_message))
             continue
         results.append(RowResult(line=i, draft=draft))
     # Keep genuinely-identical rows distinct before dedup (content-hash collision bug —

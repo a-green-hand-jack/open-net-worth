@@ -75,7 +75,10 @@ class MoveTooLarge(ValidationError):
 
     def __init__(self, max_size: int) -> None:
         super().__init__(
-            "This book is larger than the free space on the destination.", max_size=max_size
+            "This book is larger than the free space on the destination.",
+            max_size=max_size,
+            message_id="move.too_large",
+            message_params={"max_size": max_size},
         )
         self.max_size = max_size
 
@@ -90,7 +93,7 @@ def _root() -> Path:
 
 def _dir(move_id: str) -> Path:
     if not _MOVE_ID.match(move_id):
-        raise NotFoundError("unknown move")
+        raise NotFoundError("unknown move", message_id="move.unknown")
     return _root() / move_id
 
 
@@ -110,9 +113,14 @@ def _read(move_id: str) -> dict:
         try:
             meta = json.loads((_dir(move_id) / "meta.json").read_text("utf-8"))
         except (FileNotFoundError, ValueError):
-            raise NotFoundError("unknown move") from None
+            raise NotFoundError("unknown move", message_id="move.unknown") from None
         if meta["status"] == IMPORTING and move_id not in _running:
-            meta.update(status=FAILED, error="The import was interrupted. Start the move again.")
+            meta.update(
+                status=FAILED,
+                error="The import was interrupted. Start the move again.",
+                error_message_id="move.import_interrupted",
+                error_message_params={},
+            )
             _write(meta)
         return meta
 
@@ -129,7 +137,7 @@ def _discard(move_id: str) -> None:
 def _owned(move_id: str, owner: str) -> dict:
     meta = _read(move_id)
     if meta["owner"] != owner:
-        raise NotFoundError("unknown move")
+        raise NotFoundError("unknown move", message_id="move.unknown")
     return meta
 
 
@@ -173,12 +181,20 @@ def consume_export_nonce(owner: str, nonce: str) -> bool:
 
 def begin(owner: str, size: object, sha256: object) -> dict:
     if not isinstance(size, int) or isinstance(size, bool) or size < 1:
-        raise ValidationError("size must be a positive number of bytes")
+        raise ValidationError(
+            "size must be a positive number of bytes", message_id="move.size_invalid"
+        )
     if not isinstance(sha256, str) or not _HEX64.match(sha256.lower()):
-        raise ValidationError("sha256 must be a 64-character hex digest")
+        raise ValidationError(
+            "sha256 must be a 64-character hex digest", message_id="move.digest_invalid"
+        )
     allowed, retry = _begin_limiter.check(owner)
     if not allowed:
-        raise ConflictError(f"too many moves started; try again in {retry} seconds")
+        raise ConflictError(
+            f"too many moves started; try again in {retry} seconds",
+            message_id="move.rate_limited",
+            message_params={"retry_seconds": retry},
+        )
     with _lock:
         sweep_expired()
         for entry in _root().iterdir() if _root().is_dir() else []:
@@ -191,7 +207,10 @@ def begin(owner: str, size: object, sha256: object) -> dict:
             if live["owner"] == owner and live["status"] == UPLOADING:
                 _discard(live["move_id"])
             else:
-                raise ConflictError("another move is already in progress on this server")
+                raise ConflictError(
+                    "another move is already in progress on this server",
+                    message_id="move.already_in_progress",
+                )
         max_size = free_space_limit()
         if size > max_size:
             raise MoveTooLarge(max_size)
@@ -228,7 +247,7 @@ def part_count(meta: dict) -> int:
 
 def status(move_id: str, owner: str) -> dict:
     meta = _owned(move_id, owner)
-    return {
+    result = {
         "move_id": move_id,
         "status": meta["status"],
         "received": sorted(int(n) for n in meta["parts"]),
@@ -238,6 +257,10 @@ def status(move_id: str, owner: str) -> dict:
         "part_size": meta["part_size"],
         "parts": part_count(meta),
     }
+    if meta.get("error_message_id"):
+        result["error_message_id"] = meta["error_message_id"]
+        result["error_message_params"] = meta.get("error_message_params", {})
+    return result
 
 
 async def put_part(
@@ -246,11 +269,15 @@ async def put_part(
     """Store part ``n`` (0-based). Idempotent: resending a part replaces it with identical bytes."""
     meta = _owned(move_id, owner)
     if meta["status"] != UPLOADING:
-        raise ConflictError("this move is no longer accepting parts")
+        raise ConflictError(
+            "this move is no longer accepting parts", message_id="move.parts_closed"
+        )
     if not 0 <= n < part_count(meta):
-        raise ValidationError("part number out of range")
+        raise ValidationError("part number out of range", message_id="move.part_out_of_range")
     if not _HEX64.match(part_sha256.lower()):
-        raise ValidationError("X-Part-Sha256 must be a 64-character hex digest")
+        raise ValidationError(
+            "X-Part-Sha256 must be a 64-character hex digest", message_id="move.part_digest_invalid"
+        )
     expected = min(meta["part_size"], meta["size"] - n * meta["part_size"])
     scratch = _dir(move_id) / f"part-{n}.tmp"
     digest, length = hashlib.sha256(), 0
@@ -259,17 +286,23 @@ async def put_part(
             async for chunk in body:
                 length += len(chunk)
                 if length > expected:
-                    raise ValidationError("part is larger than expected")
+                    raise ValidationError(
+                        "part is larger than expected", message_id="move.part_too_large"
+                    )
                 digest.update(chunk)
                 out.write(chunk)
         if length != expected:
-            raise ValidationError("part is shorter than expected")
+            raise ValidationError("part is shorter than expected", message_id="move.part_too_short")
         if digest.hexdigest() != part_sha256.lower():
-            raise ValidationError("part checksum does not match")
+            raise ValidationError(
+                "part checksum does not match", message_id="move.part_checksum_mismatch"
+            )
         with _lock:
             meta = _owned(move_id, owner)
             if meta["status"] != UPLOADING:
-                raise ConflictError("this move is no longer accepting parts")
+                raise ConflictError(
+                    "this move is no longer accepting parts", message_id="move.parts_closed"
+                )
             with open(scratch, "rb") as src, open(_bundle(move_id), "r+b") as dest:
                 dest.seek(n * meta["part_size"])
                 shutil.copyfileobj(src, dest, 1024 * 1024)
@@ -299,13 +332,20 @@ def commit(move_id: str, owner: str, replace: bool, runner: Callable[[bytes], di
     with _lock:
         meta = _owned(move_id, owner)
         if meta["status"] != UPLOADING:
-            raise ConflictError("this move was already committed")
+            raise ConflictError(
+                "this move was already committed", message_id="move.already_committed"
+            )
         missing = part_count(meta) - len(meta["parts"])
         if missing:
-            raise ConflictError(f"{missing} parts have not arrived yet")
+            raise ConflictError(
+                f"{missing} parts have not arrived yet",
+                message_id="move.parts_missing",
+                message_params={"missing_parts": missing},
+            )
         if not replace and not _book_is_empty():
             raise MoveNotEmpty(
-                "This server already has a book. Moving replaces it; confirm to continue."
+                "This server already has a book. Moving replaces it; confirm to continue.",
+                message_id="move.book_not_empty",
             )
         _running.add(move_id)
         meta.update(status=IMPORTING, progress=1, replace=replace, error=None)
@@ -327,12 +367,14 @@ def _import(move_id: str, runner: Callable[[bytes], dict]) -> None:
     from backend.services import move_secrets, portability
 
     failure: Optional[str] = None
+    failure_id: Optional[str] = None
     try:
         meta = _read(move_id)
         _progress(move_id, 5)
         if _whole_sha256(_bundle(move_id)) != meta["sha256"]:
             raise ValidationError(
-                "The uploaded book did not match its checksum. Start the move again."
+                "The uploaded book did not match its checksum. Start the move again.",
+                message_id="move.import_checksum_mismatch",
             )
         _progress(move_id, 20)
         data = read_bundle(_bundle(move_id))
@@ -352,9 +394,12 @@ def _import(move_id: str, runner: Callable[[bytes], dict]) -> None:
             _write(meta)
     except OpenNetWorthError as exc:
         failure = exc.message or str(exc)
+        if exc.context.get("message_id") == "move.import_checksum_mismatch":
+            failure_id = "move.import_checksum_mismatch"
     except Exception:
         logger.exception("move import failed: %s", move_id)
         failure = "The import did not finish. Check the server and try again."
+        failure_id = "move.import_failed"
     with _lock:
         try:
             meta = _read(move_id)
@@ -362,7 +407,12 @@ def _import(move_id: str, runner: Callable[[bytes], dict]) -> None:
                 meta.update(status=DONE, progress=100)
                 _bundle(move_id).unlink(missing_ok=True)
             else:
-                meta.update(status=FAILED, error=failure)
+                meta.update(
+                    status=FAILED,
+                    error=failure,
+                    error_message_id=failure_id,
+                    error_message_params={},
+                )
             _write(meta)
         except NotFoundError:
             pass
@@ -381,7 +431,10 @@ def apply_secrets(move_id: str, owner: str, payload: dict) -> dict:
 
     meta = _owned(move_id, owner)
     if meta["status"] != DONE:
-        raise ConflictError("the book must finish importing before secrets can be applied")
+        raise ConflictError(
+            "the book must finish importing before secrets can be applied",
+            message_id="move.import_before_secrets",
+        )
     result = move_secrets.apply(payload)
     with _lock:
         meta = _read(move_id)
@@ -404,7 +457,10 @@ def finish(move_id: str, owner: str) -> dict:
     if meta["finish_result"] is not None:
         return meta["finish_result"]
     if meta["status"] != DONE:
-        raise ConflictError("the book must finish importing before the move can finish")
+        raise ConflictError(
+            "the book must finish importing before the move can finish",
+            message_id="move.import_before_finish",
+        )
     enabled, failed = move_secrets.enable_connectors(meta["deferred_connectors"])
     resumed = move_secrets.resume_automations(meta["paused_automations"])
     if meta.get("model_ready"):
@@ -426,5 +482,7 @@ def finish(move_id: str, owner: str) -> dict:
 def abort(move_id: str, owner: str) -> None:
     meta = _owned(move_id, owner)
     if meta["status"] == IMPORTING:
-        raise ConflictError("the import is running and cannot be cancelled")
+        raise ConflictError(
+            "the import is running and cannot be cancelled", message_id="move.import_cannot_cancel"
+        )
     _discard(move_id)

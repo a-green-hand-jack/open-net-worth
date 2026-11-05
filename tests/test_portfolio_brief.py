@@ -113,6 +113,8 @@ def test_concentration_signal(monkeypatch):
     conc = next(s for s in result["signals"] if s["kind"] == "concentration")
     assert conc["actionable"] is True
     assert conc["tone"] == "warn"
+    assert conc["narrative_message"]["id"] == "portfolio.concentration"
+    assert conc["narrative_message"]["params"]["percent"] == "50"
     assert result["decisions_count"] >= 1
 
 

@@ -9,6 +9,8 @@
 import './design.css'
 
 import { useEffect, useMemo, useRef, useState, useCallback } from 'react'
+import { defineMessages } from 'react-intl'
+import { useAppIntl } from '../../../i18n/useAppIntl'
 import { useNavigate } from '@tanstack/react-router'
 import type { ComputedRow } from '../../../types/portfolio'
 import { useRegisterHandles, useRegisterScreenPrompts } from '../../../lucius/useScreenContract'
@@ -81,6 +83,38 @@ const SEGMENTS: SegmentedOption<InvTab>[] = [
   { value: 'options', label: 'Options' },
   { value: 'equity', label: 'Equity Compensation' },
 ]
+const segmentLabels = defineMessages({
+  holdings: { id: 'investments.tab.holdings', defaultMessage: 'Holdings' },
+  watchlist: { id: 'investments.tab.watchlist', defaultMessage: 'Watchlists' },
+  analysis: { id: 'investments.tab.analysis', defaultMessage: 'Analysis' },
+  performance: { id: 'investments.tab.performance', defaultMessage: 'Performance' },
+  income: { id: 'investments.tab.income', defaultMessage: 'Income' },
+  activity: { id: 'investments.tab.activity', defaultMessage: 'Activity' },
+  options: { id: 'investments.tab.options', defaultMessage: 'Options' },
+  equity: { id: 'investments.tab.equity', defaultMessage: 'Equity Compensation' },
+})
+const classLabels = defineMessages({
+  equity: { id: 'investments.class.equity', defaultMessage: 'Equities' },
+  bond: { id: 'investments.class.bond', defaultMessage: 'Fixed income' },
+  commodity: { id: 'investments.class.commodity', defaultMessage: 'Commodities' },
+  crypto: { id: 'investments.class.crypto', defaultMessage: 'Crypto' },
+  option: { id: 'investments.class.option', defaultMessage: 'Options' },
+  property: { id: 'investments.class.property', defaultMessage: 'Property' },
+  other_asset: { id: 'investments.class.otherAsset', defaultMessage: 'Other assets' },
+  receivable: { id: 'investments.class.receivable', defaultMessage: 'Receivables' },
+  cash: { id: 'investments.class.cash', defaultMessage: 'Cash on hand' },
+  fixed_deposit: { id: 'investments.class.fixedDeposit', defaultMessage: 'Fixed deposits' },
+  settlement_cash: { id: 'investments.class.settlementCash', defaultMessage: 'Settlement cash' },
+  retirement: { id: 'investments.class.retirement', defaultMessage: 'Retirement cash' },
+  credit: { id: 'investments.class.credit', defaultMessage: 'Credit' },
+  loan: { id: 'investments.class.loan', defaultMessage: 'Loans' },
+})
+const groupLabels = defineMessages({
+  none: { id: 'investments.group.none', defaultMessage: 'No grouping' },
+  asset_class: { id: 'investments.group.assetClass', defaultMessage: 'Asset class' },
+  account: { id: 'investments.group.account', defaultMessage: 'Account' },
+  currency: { id: 'investments.group.currency', defaultMessage: 'Currency' },
+})
 // The sub-tab is remembered for the VISIT (sessionStorage), not forever: within a visit
 // Investments returns to the tab you were on, a fresh visit opens on Holdings (owner,
 // 2026-10-10, same rule as Plan and the Dashboard). A deep link names its tab with ?sub=.
@@ -176,6 +210,7 @@ export function InvestmentsTab({
   onNavigate,
   subTabRequest,
 }: Props) {
+  const { formatMessage } = useAppIntl()
   const navigate = useNavigate()
   const isMobile = useIsMobile()
   const { paneAnchorRef, cockpitInSubtab } = useCompactInvestmentsPane(isMobile)
@@ -326,33 +361,33 @@ export function InvestmentsTab({
       // 'Plan a tax-efficient trim' / 'Tax at my next vest' were dropped —
       // the tax feature was removed, so Lucius could only answer these from general
       // reasoning with no real figures behind it, no hedge.
-      holdings: ["Explain today's moves", 'Rebalance toward my targets', 'Where am I overweight?'],
+      holdings: [formatMessage({ id: 'investments.prompt.moves', defaultMessage: "Explain today's moves" }), formatMessage({ id: 'investments.prompt.rebalance', defaultMessage: "Rebalance toward my targets" }), formatMessage({ id: 'investments.prompt.overweight', defaultMessage: "Where am I overweight?" })],
       watchlist: [
-        "What's moving on my watchlist?",
-        'Which watched names are near their 52-week low?',
-        'Compare my watchlist with what I hold',
+        formatMessage({ id: 'investments.prompt.watchMoves', defaultMessage: "What's moving on my watchlist?" }),
+        formatMessage({ id: 'investments.prompt.nearLow', defaultMessage: "Which watched names are near their 52-week low?" }),
+        formatMessage({ id: 'investments.prompt.compareWatch', defaultMessage: "Compare my watchlist with what I hold" }),
       ],
       analysis: [
-        'Where am I overweight?',
-        'Rebalance toward my targets',
-        "What's my concentration risk?",
+        formatMessage({ id: 'investments.prompt.overweight', defaultMessage: "Where am I overweight?" }),
+        formatMessage({ id: 'investments.prompt.rebalance', defaultMessage: "Rebalance toward my targets" }),
+        formatMessage({ id: 'investments.prompt.concentration', defaultMessage: "What's my concentration risk?" }),
       ],
-      performance: ['Am I beating SPY?', 'What drove my return?', 'Show my risk-adjusted return'],
+      performance: [formatMessage({ id: 'investments.prompt.beatSpy', defaultMessage: "Am I beating SPY?" }), formatMessage({ id: 'investments.prompt.returnDrivers', defaultMessage: "What drove my return?" }), formatMessage({ id: 'investments.prompt.riskReturn', defaultMessage: "Show my risk-adjusted return" })],
       income: [
-        'Project my next 12 months',
-        'Which holdings pay the most?',
-        "When's my next dividend?",
+        formatMessage({ id: 'investments.prompt.projectIncome', defaultMessage: "Project my next 12 months" }),
+        formatMessage({ id: 'investments.prompt.mostIncome', defaultMessage: "Which holdings pay the most?" }),
+        formatMessage({ id: 'investments.prompt.nextDividend', defaultMessage: "When's my next dividend?" }),
       ],
-      activity: ['Summarize this month', 'How much did I invest?', 'Export my transactions'],
+      activity: [formatMessage({ id: 'investments.prompt.monthSummary', defaultMessage: "Summarize this month" }), formatMessage({ id: 'investments.prompt.invested', defaultMessage: "How much did I invest?" }), formatMessage({ id: 'investments.prompt.export', defaultMessage: "Export my transactions" })],
       options: [
-        "What's my assignment risk?",
-        'Roll my covered calls',
-        'How much premium have I collected?',
+        formatMessage({ id: 'investments.prompt.assignment', defaultMessage: "What's my assignment risk?" }),
+        formatMessage({ id: 'investments.prompt.rollCalls', defaultMessage: "Roll my covered calls" }),
+        formatMessage({ id: 'investments.prompt.premiums', defaultMessage: "How much premium have I collected?" }),
       ],
       equity: [
-        'When do my next vests hit?',
-        'How many units are still unvested?',
-        'Draft a sell-to-cover plan',
+        formatMessage({ id: 'investments.prompt.nextVests', defaultMessage: "When do my next vests hit?" }),
+        formatMessage({ id: 'investments.prompt.unvested', defaultMessage: "How many units are still unvested?" }),
+        formatMessage({ id: 'investments.prompt.sellCover', defaultMessage: "Draft a sell-to-cover plan" }),
       ],
     }
     return map[activeTab] ?? map.holdings
@@ -387,17 +422,26 @@ export function InvestmentsTab({
     counts[c] = mergedBase.filter((r) => r.cls === c).length
   })
   const filters = [
-    { id: 'all', label: 'All' },
+    { id: 'all', label: formatMessage({ id: 'investments.all', defaultMessage: 'All' }) },
     ...presentClasses
       .filter((c) => d.sections.some((s) => s.cls === c))
-      .map((c) => ({ id: c, label: classLabel(c) })),
+      .map((c) => ({
+        id: c,
+        label: Object.hasOwn(classLabels, c)
+          ? formatMessage(classLabels[c as keyof typeof classLabels])
+          : classLabel(c),
+      })),
   ]
   const filteredRows = sortRows(
     mergedBase.filter((r) => filter === 'all' || r.cls === filter),
     sort.key,
     sort.dir,
   )
-  const groups = buildGroups(filteredRows, effGroupBy, d.grand)
+  const groups = buildGroups(filteredRows, effGroupBy, d.grand).map((group) =>
+    group.cls && Object.hasOwn(classLabels, group.cls)
+      ? { ...group, label: formatMessage(classLabels[group.cls as keyof typeof classLabels]) }
+      : group,
+  )
 
   // Allocation with edits applied
   // The server computes each class's CURRENT share (money) and its stored TARGET. While the
@@ -464,11 +508,25 @@ export function InvestmentsTab({
   // only the second one gets a spinner, never the "add your first holding" pitch.
   const holdingsPanel = d.empty ? (
     loading || d.loading ? (
-      <TabSkeleton variant="holdings" label="Loading your holdings…" header={false} />
+      <TabSkeleton
+        variant="holdings"
+        label={formatMessage({
+          id: 'investments.loadingHoldings',
+          defaultMessage: 'Loading your holdings…',
+        })}
+        header={false}
+      />
     ) : loadFailed ? (
       <ErrorState
-        title="Your holdings couldn’t load"
-        message="Nothing is missing from your book. It couldn’t be read just now, so try again or ask Lucius what went wrong."
+        title={formatMessage({
+          id: 'investments.loadError',
+          defaultMessage: 'Your holdings couldn’t load',
+        })}
+        message={formatMessage({
+          id: 'investments.loadErrorBody',
+          defaultMessage:
+            'Nothing is missing from your book. It couldn’t be read just now, so try again or ask Lucius what went wrong.',
+        })}
         onRetry={refresh}
       />
     ) : (
@@ -502,8 +560,18 @@ export function InvestmentsTab({
               </svg>
               <input
                 className="mk-search"
-                aria-label="Search holdings"
-                placeholder={isMobile ? 'Search…' : 'Search holdings…'}
+                aria-label={formatMessage({
+                  id: 'investments.search',
+                  defaultMessage: 'Search holdings',
+                })}
+                placeholder={
+                  isMobile
+                    ? formatMessage({ id: 'investments.searchShort', defaultMessage: 'Search…' })
+                    : formatMessage({
+                        id: 'investments.searchPlaceholder',
+                        defaultMessage: 'Search holdings…',
+                      })
+                }
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 onFocus={() => setSearchFocus(true)}
@@ -515,7 +583,13 @@ export function InvestmentsTab({
               className="mk-pane-filter"
               presentation={isMobile ? 'sheet' : 'popover'}
               accountOptions={[
-                { id: '', label: 'All accounts' },
+                {
+                  id: '',
+                  label: formatMessage({
+                    id: 'investments.allAccounts',
+                    defaultMessage: 'All accounts',
+                  }),
+                },
                 ...accounts.map((a) => ({ id: a, label: a })),
               ]}
               accountValue={acct}
@@ -526,9 +600,14 @@ export function InvestmentsTab({
                 className="mk-toolsel mk-account-filter"
                 value={acct}
                 onChange={(e) => setAcct(e.target.value)}
-                aria-label="Filter by account"
+                aria-label={formatMessage({
+                  id: 'investments.filterAccount',
+                  defaultMessage: 'Filter by account',
+                })}
               >
-                <option value="">All accounts</option>
+                <option value="">
+                  {formatMessage({ id: 'investments.allAccounts', defaultMessage: 'All accounts' })}
+                </option>
                 {accounts.map((a) => (
                   <option key={a} value={a}>
                     {a}
@@ -540,7 +619,12 @@ export function InvestmentsTab({
               <div
                 className={`mk-group-wrap${groupBy === 'none' ? '' : ' is-active'}`}
                 title={
-                  groupBy === 'none' ? 'No grouping' : `Grouped by ${groupBy.replace('_', ' ')}`
+                  groupBy === 'none'
+                    ? formatMessage(groupLabels.none)
+                    : formatMessage(
+                        { id: 'investments.groupedBy', defaultMessage: 'Grouped by {group}' },
+                        { group: formatMessage(groupLabels[groupBy]).toLowerCase() },
+                      )
                 }
               >
                 <Grid2X2 size={17} strokeWidth={1.7} aria-hidden="true" />
@@ -550,24 +634,55 @@ export function InvestmentsTab({
                   onChange={(e) => setGroupBy(e.target.value as GroupByKey)}
                   aria-label={
                     groupBy === 'none'
-                      ? 'Grouping: No grouping'
-                      : `Grouping: ${groupBy.replace('_', ' ')}`
+                      ? formatMessage({
+                          id: 'investments.groupingNone',
+                          defaultMessage: 'Grouping: No grouping',
+                        })
+                      : formatMessage(
+                          { id: 'investments.grouping', defaultMessage: 'Grouping: {group}' },
+                          { group: formatMessage(groupLabels[groupBy]).toLowerCase() },
+                        )
                   }
                 >
-                  <option value="none">No grouping</option>
-                  <option value="asset_class">Group: Asset class</option>
-                  <option value="account">Group: Account</option>
-                  <option value="currency">Group: Currency</option>
+                  <option value="none">{formatMessage(groupLabels.none)}</option>
+                  <option value="asset_class">
+                    {formatMessage(
+                      { id: 'investments.groupOption', defaultMessage: 'Group: {group}' },
+                      { group: formatMessage(groupLabels.asset_class) },
+                    )}
+                  </option>
+                  <option value="account">
+                    {formatMessage(
+                      { id: 'investments.groupOption', defaultMessage: 'Group: {group}' },
+                      { group: formatMessage(groupLabels.account) },
+                    )}
+                  </option>
+                  <option value="currency">
+                    {formatMessage(
+                      { id: 'investments.groupOption', defaultMessage: 'Group: {group}' },
+                      { group: formatMessage(groupLabels.currency) },
+                    )}
+                  </option>
                 </select>
               </div>
             )}
-            <div className="mk-density" role="radiogroup" aria-label="Holdings density">
+            <div
+              className="mk-density"
+              role="radiogroup"
+              aria-label={formatMessage({
+                id: 'investments.density',
+                defaultMessage: 'Holdings density',
+              })}
+            >
               <button
                 type="button"
                 role="radio"
                 aria-checked={density === 'cards'}
-                aria-label="Card view"
-                title="Card view"
+                aria-label={formatMessage({
+                  id: 'investments.cardView',
+                  defaultMessage: 'Card view',
+                })}
+                title={formatMessage({ id: 'investments.cardView', defaultMessage: 'Card view' })}
                 className={density === 'cards' ? 'on' : ''}
                 onClick={() => setDensity('cards')}
               >
@@ -588,8 +703,11 @@ export function InvestmentsTab({
                 type="button"
                 role="radio"
                 aria-checked={density === 'table'}
-                aria-label="Table view"
-                title="Table view"
+                aria-label={formatMessage({
+                  id: 'investments.tableView',
+                  defaultMessage: 'Table view',
+                })}
+                title={formatMessage({ id: 'investments.tableView', defaultMessage: 'Table view' })}
                 className={density === 'table' ? 'on' : ''}
                 onClick={() => setDensity('table')}
               >
@@ -614,13 +732,20 @@ export function InvestmentsTab({
               className="mk-add-holding"
               onClick={() => setAddHolding(true)}
             >
-              Add
+              {formatMessage({ id: 'investments.add', defaultMessage: 'Add' })}
             </Button>
           </div>
 
           {/* Every width, phone included: asset class is pills, the filter button is account-only. */}
           <div className="intel-feed-bar">
-            <div className="mk-chips" role="tablist" aria-label="Filter holdings by class">
+            <div
+              className="mk-chips"
+              role="tablist"
+              aria-label={formatMessage({
+                id: 'investments.filterClass',
+                defaultMessage: 'Filter holdings by class',
+              })}
+            >
               {filters.map((ff) => (
                 <button
                   key={ff.id}
@@ -639,7 +764,12 @@ export function InvestmentsTab({
         </div>
 
         {filteredRows.length === 0 ? (
-          <div className="mk-empty-filter">No holdings match your filters.</div>
+          <div className="mk-empty-filter">
+            {formatMessage({
+              id: 'investments.noMatches',
+              defaultMessage: 'No holdings match your filters.',
+            })}
+          </div>
         ) : density === 'cards' ? (
           <FeedCards
             groups={groups}
@@ -666,7 +796,7 @@ export function InvestmentsTab({
 
         {fees && fees.total_fees_base > 0 && (
           <p className="mk-feedbar-note">
-            Trading fees paid (all-time): fees reflected in cost basis and proceeds.
+            {formatMessage({ id: 'investments.tradingFeesHelp', defaultMessage: 'Trading fees paid (all-time): fees reflected in cost basis and proceeds.' })}
           </p>
         )}
       </div>
@@ -688,7 +818,14 @@ export function InvestmentsTab({
         data-ctx-region="content"
         data-ctx-title="Investments"
       >
-        <TabSkeleton variant="holdings" label="Loading investments…" header={false} />
+        <TabSkeleton
+          variant="holdings"
+          label={formatMessage({
+            id: 'investments.loading',
+            defaultMessage: 'Loading investments…',
+          })}
+          header={false}
+        />
       </Container>
     )
   }
@@ -728,10 +865,16 @@ export function InvestmentsTab({
 
         <div ref={setTabwrap} className="mk-tabwrap">
           <PageTabs
-            ariaLabel="Investments view"
+            ariaLabel={formatMessage({
+              id: 'investments.view',
+              defaultMessage: 'Investments view',
+            })}
             value={activeTab}
             onChange={setInvtab}
-            tabs={segments.map((s) => ({ key: s.value, label: s.label as string }))}
+            tabs={segments.map((s) => ({
+              key: s.value,
+              label: formatMessage(segmentLabels[s.value]),
+            }))}
           />
 
           {/* Stable min-height so switching sub-tabs (or a first-load <Loading/>,

@@ -7,6 +7,7 @@ import { fBase } from '../../../../../utils/format'
 import { amountTotals, amountsPayload, initialAmountEdits, parseAmount } from './amountRows'
 import type { AmountEdits } from './amountRows'
 import type { EnvelopeDraftRow } from '../types'
+import { useAppIntl } from '../../../../../i18n/useAppIntl'
 
 export interface AmountReviewCopy {
   /** The question this list answers, above the rows. */
@@ -42,6 +43,7 @@ export function AmountReview({
   onApply: (picked: { envelope_id: string; amount: number }[]) => void
   onCancel: () => void
 }) {
+  const { formatMessage } = useAppIntl()
   const [edits, setEdits] = useState<AmountEdits>(() => initialAmountEdits(rows, preselected))
 
   function toggle(envelopeId: string) {
@@ -78,7 +80,7 @@ export function AmountReview({
             disabled={busy || totals.count === rows.length}
             onClick={() => setEdits(initialAmountEdits(rows, true))}
           >
-            Select all
+            {formatMessage({ id: 'plan.amountReview.selectAll', defaultMessage: 'Select all' })}
           </Button>
           <Button
             variant="ghost"
@@ -86,7 +88,7 @@ export function AmountReview({
             disabled={busy || totals.count === 0}
             onClick={() => setEdits(initialAmountEdits(rows, false))}
           >
-            Clear
+            {formatMessage({ id: 'plan.amountReview.clear', defaultMessage: 'Clear' })}
           </Button>
         </span>
       </div>
@@ -94,7 +96,10 @@ export function AmountReview({
       <div className="bgl-review-list">
         {rows.length === 0 ? (
           <p className="bgl-review-list__empty">
-            No envelopes yet — create one in your budget first, then come back.
+            {formatMessage({
+              id: 'plan.amountReview.empty',
+              defaultMessage: 'No envelopes yet — create one in your budget first, then come back.',
+            })}
           </p>
         ) : (
           rows.map((row) => {
@@ -117,7 +122,10 @@ export function AmountReview({
                   {row.low_confidence && (
                     <span
                       className="bgl-review-row__lowconf"
-                      title="Not enough steady history to size this — check the amount"
+                      title={formatMessage({
+                        id: 'plan.amountReview.lowConfidence',
+                        defaultMessage: 'Not enough steady history to size this — check the amount',
+                      })}
                     >
                       {copy.lowConfidence}
                     </span>
@@ -141,14 +149,33 @@ export function AmountReview({
 
       <div className="bgl-review__footer">
         <span className="bgl-review__recap">
-          {totals.count} of {rows.length} {copy.unit} • {fBase(totals.total)} a month
+          {formatMessage(
+            {
+              id: 'plan.amountReview.recap',
+              defaultMessage: '{count} of {total} {unit} • {amount} a month',
+            },
+            {
+              count: totals.count,
+              total: rows.length,
+              unit: copy.unit,
+              amount: fBase(totals.total),
+            },
+          )}
           {totals.unfunded > 0 && (
-            <span className="bgl-review__warn"> • {totals.unfunded} with no amount yet</span>
+            <span className="bgl-review__warn">
+              {formatMessage(
+                {
+                  id: 'plan.amountReview.unfunded',
+                  defaultMessage: ' • {count} with no amount yet',
+                },
+                { count: totals.unfunded },
+              )}
+            </span>
           )}
         </span>
         <span className="bgl-review__actions">
           <Button variant="secondary" size="dense" disabled={busy} onClick={onCancel}>
-            Cancel
+            {formatMessage({ id: 'plan.amountReview.cancel', defaultMessage: 'Cancel' })}
           </Button>
           <Button
             variant="primary"
@@ -156,7 +183,9 @@ export function AmountReview({
             disabled={busy || totals.count === 0}
             onClick={() => onApply(amountsPayload(rows, edits))}
           >
-            {busy ? 'Applying…' : 'Apply'}
+            {busy
+              ? formatMessage({ id: 'plan.amountReview.applying', defaultMessage: 'Applying…' })
+              : formatMessage({ id: 'plan.amountReview.apply', defaultMessage: 'Apply' })}
           </Button>
         </span>
       </div>

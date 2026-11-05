@@ -75,7 +75,11 @@ def _post(store: PlaidConfigStore, path: str, payload: dict) -> dict:
     client_id = store.client_id()
     secret = store.secret()
     if not client_id or not secret:
-        raise ValidationError("Plaid client_id / secret are not configured")
+        raise ValidationError(
+            "Plaid client_id / secret are not configured",
+            message_id="connector.error.plaidNotConfigured",
+            message_params={},
+        )
     body = {"client_id": client_id, "secret": secret, **payload}
     try:
         resp = httpx.post(
@@ -131,7 +135,11 @@ def create_link_token(redirect: str = "", *, bank: str = "", add_accounts: bool 
     if bank:
         item = store.item_by_key(bank)
         if item is None:
-            raise ValidationError("That bank is not linked")
+            raise ValidationError(
+                "That bank is not linked",
+                message_id="connector.error.plaidBankNotLinked",
+                message_params={},
+            )
         payload["access_token"] = item["access_token"]
         if add_accounts:
             payload["update"] = {"account_selection_enabled": True}
@@ -145,7 +153,11 @@ def create_link_token(redirect: str = "", *, bank: str = "", add_accounts: bool 
     link = (data.get("hosted_link_url") or "").strip()
     link_token = (data.get("link_token") or "").strip()
     if not link:
-        raise ValidationError("Plaid did not return a hosted-link URL")
+        raise ValidationError(
+            "Plaid did not return a hosted-link URL",
+            message_id="connector.error.plaidNoLink",
+            message_params={},
+        )
     # Hosted Link ends on Plaid's own "you can close this window" page and never hands the
     # user a public token — ``complete_hosted_link`` reads it back with this token.
     store.update({"link_token": link_token})
@@ -179,7 +191,11 @@ def complete_hosted_link() -> dict:
     store = PlaidConfigStore()
     link_token = store.link_token()
     if not link_token:
-        raise ValidationError("No Plaid link is in progress — click Link bank first")
+        raise ValidationError(
+            "No Plaid link is in progress — click Link bank first",
+            message_id="connector.error.plaidNoLinkProgress",
+            message_params={},
+        )
     data = _post(store, "/link/token/get", {"link_token": link_token})
     renewing = store.pending_link_bank()
     if renewing:
@@ -228,14 +244,22 @@ def exchange_public_token(public_token: str, *, institution: Optional[dict] = No
     bad/used token / auth failure."""
     token = (public_token or "").strip()
     if not token:
-        raise ValidationError("public_token is required")
+        raise ValidationError(
+            "public_token is required",
+            message_id="connector.error.plaidPublicTokenRequired",
+            message_params={},
+        )
 
     store = PlaidConfigStore()
     data = _post(store, "/item/public_token/exchange", {"public_token": token})
     access_token = (data.get("access_token") or "").strip()
     item_id = (data.get("item_id") or "").strip()
     if not access_token:
-        raise ValidationError("Plaid did not return an access token")
+        raise ValidationError(
+            "Plaid did not return an access token",
+            message_id="connector.error.plaidNoAccessToken",
+            message_params={},
+        )
     inst = institution or {}
     name = str(inst.get("name") or "").strip()
     inst_id = str(inst.get("institution_id") or "").strip()
@@ -333,10 +357,18 @@ def rename_bank(key: str, name: str) -> dict:
     store = PlaidConfigStore()
     item = store.item_by_key(key)
     if item is None:
-        raise ValidationError("That bank is not linked")
+        raise ValidationError(
+            "That bank is not linked",
+            message_id="connector.error.plaidBankNotLinked",
+            message_params={},
+        )
     label = (name or "").strip()
     if len(label) > 80:
-        raise ValidationError("Keep the bank's name under 80 characters")
+        raise ValidationError(
+            "Keep the bank's name under 80 characters",
+            message_id="connector.error.plaidBankNameLong",
+            message_params={},
+        )
     updated = store.update_item(item.get("item_id") or "", {"custom_name": label or None})
     return {"key": key, "name": bank_name(updated or item), "renamed": bool(label)}
 
@@ -350,10 +382,16 @@ def remove_bank(key: str) -> dict:
     store = PlaidConfigStore()
     item = next((i for i in store.items() if bank_key(i.get("item_id") or "") == key), None)
     if item is None:
-        raise ValidationError("That bank is not linked")
+        raise ValidationError(
+            "That bank is not linked",
+            message_id="connector.error.plaidBankNotLinked",
+            message_params={},
+        )
     if not _retire_item(store, item):
         raise ValidationError(
-            "Couldn't reach Plaid to remove that bank — nothing changed. Try again in a moment."
+            "Couldn't reach Plaid to remove that bank — nothing changed. Try again in a moment.",
+            message_id="connector.error.plaidRemoveFailed",
+            message_params={},
         )
     return {"removed": True, "banks_left": len(store.items())}
 
@@ -417,7 +455,11 @@ def fetch_transactions_get(store: PlaidConfigStore, *, start_date: str, end_date
     warnings[], complete}``."""
     items = store.items()
     if not items:
-        raise ValidationError("Plaid is not linked (no access token)")
+        raise ValidationError(
+            "Plaid is not linked (no access token)",
+            message_id="connector.error.plaidNotLinked",
+            message_params={},
+        )
 
     transactions: list[dict] = []
     accounts: dict[str, dict] = {}

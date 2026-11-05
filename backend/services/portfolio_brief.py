@@ -50,6 +50,8 @@ _ONTRACK: dict[str, Any] = {
     "actionable": False,
     "tag": "On track",
     "narrative": "Your portfolio is within guidelines. No rebalancing or concentration alerts.",
+    "tag_message": {"id": "portfolio.ontrackTag", "params": {}},
+    "narrative_message": {"id": "portfolio.ontrack", "params": {}},
 }
 
 
@@ -130,7 +132,20 @@ def _concentration_signal(
         "tone": "warn",
         "actionable": True,
         "tag": "Concentration",
+        "tag_message": {"id": "portfolio.concentrationTag", "params": {}},
         "narrative": _concentration_narrative(top, over_by, concentration_guideline_pct),
+        "narrative_message": {
+            "id": "portfolio.concentration",
+            "params": {
+                "name": top["name"],
+                "percent": f"{top['pct']:.0f}",
+                "over": f"{over_by:.0f}",
+                "guideline": f"{concentration_guideline_pct:.0f}",
+                "custom": "no"
+                if concentration_guideline_pct == investments_book.CONCENTRATION_GUIDELINE_PCT
+                else "yes",
+            },
+        },
         "amount": top["value"],
     }
 
@@ -177,11 +192,21 @@ def _rebalance_signal() -> dict[str, Any] | None:
         "tone": "accent",
         "actionable": True,
         "tag": "Rebalance",
+        "tag_message": {"id": "portfolio.rebalanceTag", "params": {}},
         "narrative": (
             f"{count} asset class{'es' if count != 1 else ''} off target. "
             f"{subject} {verb} {abs(drift):.1f} percentage points {direction} your target. "
             f"Review your target mix."
         ),
+        "narrative_message": {
+            "id": "portfolio.rebalance",
+            "params": {
+                "count": count,
+                "asset_class": worst.get("asset_class") or "",
+                "drift": f"{abs(drift):.1f}",
+                "direction": direction,
+            },
+        },
     }
 
 
@@ -214,10 +239,20 @@ def _vesting_signal(base: str) -> dict[str, Any] | None:
         "tone": "accent",
         "actionable": True,
         "tag": "Vesting",
+        "tag_message": {"id": "portfolio.vestingTag", "params": {}},
         "narrative": (
             f"{symbol} vests in {days} day{'s' if days != 1 else ''}"
             f"{value_str}. Plan for the tax event."
         ),
+        "narrative_message": {
+            "id": "portfolio.vesting",
+            "params": {
+                "symbol": symbol,
+                "days": days,
+                "value": _fmt_base(indicative, base) if indicative else "",
+                "has_value": "yes" if indicative else "no",
+            },
+        },
         "amount": indicative,
     }
 
@@ -250,10 +285,15 @@ def _income_signal(base: str) -> dict[str, Any] | None:
         "tone": "good",
         "actionable": False,
         "tag": "Income",
+        "tag_message": {"id": "portfolio.incomeTag", "params": {}},
         "narrative": (
             f"{symbol} goes ex-div in {days} day{'s' if days != 1 else ''} — "
             f"{_fmt_base(amount_base, base)} projected."
         ),
+        "narrative_message": {
+            "id": "portfolio.income",
+            "params": {"symbol": symbol, "days": days, "amount": _fmt_base(amount_base, base)},
+        },
         "amount": amount_base,
     }
 
@@ -276,9 +316,17 @@ def _today_signal(rows: list[dict], base: str) -> dict[str, Any] | None:
         "tone": tone,
         "actionable": False,
         "tag": "Today",
+        "tag_message": {"id": "portfolio.todayTag", "params": {}},
         "narrative": (
             f"Portfolio is {sign}{_fmt_base(total_day, base)} ({sign}{day_pct:.1f}%) today."
         ),
+        "narrative_message": {
+            "id": "portfolio.today",
+            "params": {
+                "amount": sign + _fmt_base(total_day, base),
+                "percent": f"{sign}{day_pct:.1f}",
+            },
+        },
         "amount": total_day,
     }
 

@@ -1,3 +1,6 @@
+import { useAppIntl } from '../../../i18n/useAppIntl'
+import type { IntlShape } from 'react-intl'
+import { templateField } from './templateMessages'
 import { ArrowUpDown, ChevronDown, Plus, Search, Sparkles, Wrench } from 'lucide-react'
 import type { Automation, AutomationDraft } from '../../../api/automations'
 import { AutomationCard } from './AutomationCard'
@@ -9,13 +12,6 @@ import { TemplateGallery } from './TemplateGallery'
 import { Cluster, EmptyState } from '../../ui'
 import { Workflow } from '../../../ui/icons'
 import { LuciusCta } from '../../intro/LuciusCta'
-
-const NEW_AUTOMATION_PROMPT =
-  'Draft a new automation for me. Ask what it should do and when it should run, then show me the completed draft before creating it.'
-
-const FIRST_AUTOMATION_MESSAGE =
-  'Help me set up a useful automation, like logging transactions from my bank emails or a ' +
-  'daily briefing. Ask me one thing at a time.'
 
 export type AutomationSort = 'next' | 'recent' | 'cost' | 'name'
 
@@ -36,6 +32,7 @@ export function filterAndSortAutomations(
   query: string,
   sort: AutomationSort,
   options?: AutomationOptions,
+  intl?: IntlShape,
 ) {
   const needle = query.trim().toLocaleLowerCase()
   const filtered = automations.filter((automation) => {
@@ -43,7 +40,16 @@ export function filterAndSortAutomations(
       automation.name,
       automation.description,
       automation.instructions,
-      automationTriggerLabel(automation.trigger, options),
+      automationTriggerLabel(automation.trigger, options, intl),
+      intl ? templateField(intl, 'name', automation.name, automation.template_source?.name) : '',
+      intl
+        ? templateField(
+            intl,
+            'description',
+            automation.description,
+            automation.template_source?.description,
+          )
+        : '',
     ]
       .join(' ')
       .toLocaleLowerCase()
@@ -104,7 +110,15 @@ export function AutomationList({
   onTemplate: (template: AutomationDraft) => void
   onClearFinished: () => void
 }) {
-  const visible = filterAndSortAutomations(automations, query, sort, options)
+  const intl = useAppIntl()
+  const { formatMessage } = intl
+  const sortLabels: Record<AutomationSort, string> = {
+    next: formatMessage({ id: 'automations.sortNext', defaultMessage: 'Next run' }),
+    recent: formatMessage({ id: 'automations.sortRecent', defaultMessage: 'Recently run' }),
+    cost: formatMessage({ id: 'automations.sortCost', defaultMessage: 'Cost this month' }),
+    name: formatMessage({ id: 'automations.sortName', defaultMessage: 'Name' }),
+  }
+  const visible = filterAndSortAutomations(automations, query, sort, options, intl)
   const live = visible.filter((automation) => automation.status !== 'completed')
   const finished = visible
     .filter((automation) => automation.status === 'completed')
@@ -114,18 +128,23 @@ export function AutomationList({
       <div className="a3-toolbar" data-od-id="list-toolbar">
         <label className="a3-search">
           <Search size={15} strokeWidth={1.6} aria-hidden="true" />
-          <span className="ui-visually-hidden">Search automations</span>
+          <span className="ui-visually-hidden">
+            {formatMessage({ id: 'automations.search', defaultMessage: 'Search automations' })}
+          </span>
           <input
             type="search"
             value={query}
-            placeholder="Search automations…"
+            placeholder={formatMessage({
+              id: 'automations.searchPlaceholder',
+              defaultMessage: 'Search automations…',
+            })}
             onChange={(event) => onQueryChange(event.target.value)}
           />
         </label>
         <span className="grow" />
         <AutomationMenu
           triggerClassName="a3-sort"
-          label="Sort automations"
+          label={formatMessage({ id: 'automations.sort', defaultMessage: 'Sort automations' })}
           trigger={
             <>
               <ArrowUpDown
@@ -135,7 +154,8 @@ export function AutomationList({
                 aria-hidden="true"
               />
               <span className="a3-toolbar-label">
-                Sort by <b>{SORT_LABELS[sort]}</b>
+                {formatMessage({ id: 'automations.sortBy', defaultMessage: 'Sort by' })}{' '}
+                <b>{sortLabels[sort]}</b>
               </span>
               <ChevronDown
                 className="a3-toolbar-chevron"
@@ -146,7 +166,7 @@ export function AutomationList({
             </>
           }
           items={(Object.keys(SORT_LABELS) as AutomationSort[]).map((key) => ({
-            label: SORT_LABELS[key],
+            label: sortLabels[key],
             checked: sort === key,
             onSelect: () => onSortChange(key),
           }))}
@@ -154,11 +174,13 @@ export function AutomationList({
         <AutomationMenu
           triggerClassName="a3-new-button"
           popoverClassName="a3-new-pop"
-          label="New automation"
+          label={formatMessage({ id: 'automations.new', defaultMessage: 'New automation' })}
           trigger={
             <>
               <Plus className="a3-toolbar-ic" size={14} aria-hidden="true" />
-              <span className="a3-toolbar-label">New automation</span>
+              <span className="a3-toolbar-label">
+                {formatMessage({ id: 'automations.new', defaultMessage: 'New automation' })}
+              </span>
               <ChevronDown
                 className="a3-toolbar-chevron"
                 size={12}
@@ -169,16 +191,26 @@ export function AutomationList({
           }
           items={[
             {
-              label: 'Create with Lucius',
+              label: formatMessage({
+                id: 'automations.createLucius',
+                defaultMessage: 'Create with Lucius',
+              }),
               icon: (
                 <span className="a3-menu-ic lucius">
                   <Sparkles size={13} aria-hidden="true" />
                 </span>
               ),
-              onSelect: () => onAskLucius(NEW_AUTOMATION_PROMPT),
+              onSelect: () =>
+                onAskLucius(
+                  formatMessage({
+                    id: 'automations.newPrompt',
+                    defaultMessage:
+                      'Draft a new automation for me. Ask what it should do and when it should run, then show me the completed draft before creating it.',
+                  }),
+                ),
             },
             {
-              label: 'Set up manually',
+              label: formatMessage({ id: 'automations.manual', defaultMessage: 'Set up manually' }),
               icon: (
                 <span className="a3-menu-ic">
                   <Wrench size={14} aria-hidden="true" />
@@ -196,13 +228,23 @@ export function AutomationList({
         (automations.length === 0 ? (
           <EmptyState
             icon={<Workflow size={28} strokeWidth={1.5} aria-hidden="true" />}
-            title="No automations yet"
-            body="Start from a template below."
+            title={formatMessage({ id: 'automations.empty', defaultMessage: 'No automations yet' })}
+            body={formatMessage({
+              id: 'automations.emptyHelp',
+              defaultMessage: 'Start from a template below.',
+            })}
             action={
               <Cluster gap="--space-3" justify="center">
                 <LuciusCta
-                  label="Set up with Lucius"
-                  message={FIRST_AUTOMATION_MESSAGE}
+                  label={formatMessage({
+                    id: 'automations.setupLucius',
+                    defaultMessage: 'Set up with Lucius',
+                  })}
+                  message={formatMessage({
+                    id: 'automations.firstPrompt',
+                    defaultMessage:
+                      'Help me set up a useful automation, like logging transactions from my bank emails or a daily briefing. Ask me one thing at a time.',
+                  })}
                   onAskLucius={onAskLucius}
                 />
               </Cluster>
@@ -210,11 +252,20 @@ export function AutomationList({
           />
         ) : (
           <div className="a3-empty">
-            <span>Nothing matches “{query}”</span>.{' '}
+            <span>
+              {formatMessage(
+                { id: 'automations.noMatches', defaultMessage: 'Nothing matches “{query}”' },
+                { query },
+              )}
+            </span>
+            .{' '}
             <button type="button" className="a3-linkbtn" onClick={() => onQueryChange('')}>
-              Clear the search
+              {formatMessage({ id: 'automations.clearSearch', defaultMessage: 'Clear the search' })}
             </button>
-            , or start from a template below.
+            {formatMessage({
+              id: 'automations.orTemplate',
+              defaultMessage: ', or start from a template below.',
+            })}
           </div>
         ))}
       {live.length > 0 && (

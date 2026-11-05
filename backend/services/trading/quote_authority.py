@@ -40,7 +40,8 @@ def record_quote_authority(run_id, instruments, quotes, observations, checked_at
 def assert_quote_authority(run, instrument, quote):
     if not quote_is_authorized(run, instrument, quote):
         raise ConflictError(
-            "This instrument has no verified current-source authority matching the latest quote's currency, time and price"
+            "This instrument has no verified current-source authority matching the latest quote's currency, time and price",
+            message_id="trading.error.quote_authority_missing",
         )
 
 

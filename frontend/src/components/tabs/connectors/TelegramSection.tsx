@@ -1,3 +1,4 @@
+import { useAppIntl } from '../../../i18n/useAppIntl'
 import { useCallback, useEffect, useState } from 'react'
 import { authFetch } from '../../../api/client'
 import { Stack, Text, FormField, TextField, PasswordField, useSecretReveal } from '../../ui'
@@ -60,6 +61,7 @@ function formOf(c: TelegramConfig): TelegramForm {
 }
 
 export function TelegramSection() {
+  const { formatMessage } = useAppIntl()
   const [cfg, setCfg] = useState<TelegramConfig | null>(null)
   const [form, setForm] = useState<TelegramForm | null>(null)
   const [error, setError] = useState(false)
@@ -97,14 +99,14 @@ export function TelegramSection() {
       })
       if (!r.ok) {
         const d = await r.json().catch(() => ({}))
-        setSaveErr(d.detail || 'Could not save the Telegram configuration.')
+        setSaveErr(d.detail || formatMessage({ id: 'connectors.telegram.save', defaultMessage: 'Could not save the Telegram configuration.' }))
         return false
       }
       setForm((f) => f && { ...f, bot_token: '' })
       load()
       return true
     } catch {
-      setSaveErr('Could not save — could not reach the server.')
+      setSaveErr(formatMessage({ id: 'connectors.email.serverFailed', defaultMessage: 'Could not save — could not reach the server.' }))
       return false
     } finally {
       setSaving(false)
@@ -134,14 +136,14 @@ export function TelegramSection() {
   if (error) {
     return (
       <Text size="sm" tone="bad">
-        Could not load the Telegram connector config.
+        {formatMessage({ id: 'connectors.telegram.load', defaultMessage: 'Could not load the Telegram connector config.' })}
       </Text>
     )
   }
   if (!cfg || !form) {
     return (
       <Text size="sm" tone="faint">
-        Loading…
+        {formatMessage({ id: 'connectors.email.loading', defaultMessage: 'Loading…' })}
       </Text>
     )
   }
@@ -152,28 +154,22 @@ export function TelegramSection() {
   return (
     <Stack gap="--space-4">
       <Text size="sm" tone="faint">
-        Ask questions, send photos, and approve changes from your own Telegram bot — the same things
-        Lucius can do in the app. Create a bot with{' '}
-        <a href="https://t.me/BotFather" target="_blank" rel="noreferrer">
-          @BotFather
-        </a>{' '}
-        and paste its token below.
+        {formatMessage({ id: 'connectors.telegram.intro', defaultMessage: 'Ask questions, send photos, and approve changes from your own Telegram bot — the same things Lucius can do in the app. Create a bot with <link>@BotFather</link> and paste its token below.' }, { link: (chunks) => <a href="https://t.me/BotFather" target="_blank" rel="noreferrer">{chunks}</a> })}
       </Text>
       {cfg.configured && !cfg.enabled && (
         <Text size="xs" tone="warn">
-          Currently paused — saving here won&apos;t resume it. Use Resume on the connector card to
-          turn it back on.
+          {formatMessage({ id: 'connectors.alpaca.paused', defaultMessage: "Currently paused — saving here won't resume it. Use Resume on the connector card to turn it back on." })}
         </Text>
       )}
 
       <FormField
-        label="Bot token"
+        label={formatMessage({ id: 'connectors.telegram.token', defaultMessage: 'Bot token' })}
         htmlFor="conn-tg-token"
         required
-        help={token.caption || 'From @BotFather, e.g. 123456:ABC-DEF…'}
+        help={token.caption || formatMessage({ id: 'connectors.telegram.tokenHelp', defaultMessage: "From @BotFather, e.g. 123456:ABC-DEF…" })}
         error={
           token.error ||
-          (tokenTouched.touched && !tokenValid ? 'A bot token is required.' : undefined)
+          (tokenTouched.touched && !tokenValid ? formatMessage({ id: 'connectors.telegram.tokenRequired', defaultMessage: "A bot token is required." }) : undefined)
         }
       >
         <PasswordField
@@ -205,12 +201,12 @@ export function TelegramSection() {
       />
 
       <FormField
-        label={form.access_policy === 'pairing' ? 'People who can chat' : 'Allowed chat IDs'}
+        label={form.access_policy === 'pairing' ? formatMessage({ id: 'connectors.telegram.people', defaultMessage: "People who can chat" }) : formatMessage({ id: 'connectors.telegram.allowed', defaultMessage: "Allowed chat IDs" })}
         htmlFor="conn-tg-allowed"
         help={
           form.access_policy === 'pairing'
-            ? 'Fills in as you approve. Or paste a chat ID (send /id to the bot).'
-            : 'Send /id to the bot to get your chat ID. Blank means no one can reach Lucius.'
+            ? formatMessage({ id: 'connectors.telegram.pairingHelp', defaultMessage: "Fills in as you approve. Or paste a chat ID (send /id to the bot)." })
+            : formatMessage({ id: 'connectors.telegram.allowedHelp', defaultMessage: "Send /id to the bot to get your chat ID. Blank means no one can reach Lucius." })
         }
       >
         <TextField

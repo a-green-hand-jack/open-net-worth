@@ -61,17 +61,25 @@ def clean_tags(tags: object) -> list[str]:
     if tags is None:
         return []
     if not isinstance(tags, (list, tuple)):
-        raise ValidationError("tags must be a list")
+        raise ValidationError("tags must be a list", message_id="vault.error.tagsList")
     out: list[str] = []
     for raw in tags:
         tag = " ".join(str(raw or "").split()).lstrip("#").strip()
         if not tag or tag.casefold() in {t.casefold() for t in out}:
             continue
         if len(tag) > MAX_TAG:
-            raise ValidationError(f"A tag can be up to {MAX_TAG} characters.")
+            raise ValidationError(
+                f"A tag can be up to {MAX_TAG} characters.",
+                message_id="vault.error.tagLength",
+                message_params={"limit": str(MAX_TAG)},
+            )
         out.append(tag)
     if len(out) > MAX_TAGS:
-        raise ValidationError(f"An item can have up to {MAX_TAGS} tags.")
+        raise ValidationError(
+            f"An item can have up to {MAX_TAGS} tags.",
+            message_id="vault.error.tagsCount",
+            message_params={"limit": str(MAX_TAGS)},
+        )
     return out
 
 
@@ -87,7 +95,11 @@ def item_id(kind: str, source_id: str) -> str:
 def parse_item_id(vid: str) -> tuple[str, str]:
     kind, _, source_id = (vid or "").partition("-")
     if kind not in KINDS or not source_id:
-        raise ValidationError(f"not a document id: {vid!r}")
+        raise ValidationError(
+            f"not a document id: {vid!r}",
+            message_id="vault.error.invalidId",
+            message_params={"id": str(vid)},
+        )
     return kind, source_id
 
 
@@ -307,7 +319,7 @@ def list_items(
     than silently matching nothing (an empty answer would read as "the user has no such
     files")."""
     if kind is not None and kind not in KINDS:
-        raise ValidationError(f"kind must be one of {KINDS}")
+        raise ValidationError(f"kind must be one of {KINDS}", message_id="vault.error.invalidKind")
     needle = (query or "").strip().lower()
     wanted = (tag or "").strip().lstrip("#").casefold()
     out = []
@@ -337,7 +349,11 @@ def get_item(vid: str) -> dict:
     kind, source_id = parse_item_id(vid)
     item = _ONE[kind](source_id)
     if item is None:
-        raise NotFoundError(f"no document {vid!r}")
+        raise NotFoundError(
+            f"no document {vid!r}",
+            message_id="vault.error.documentMissing",
+            message_params={"id": str(vid)},
+        )
     return item
 
 

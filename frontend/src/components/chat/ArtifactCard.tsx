@@ -1,3 +1,4 @@
+import { useAppIntl } from '../../i18n/useAppIntl'
 import { useState } from 'react'
 import type { ArtifactRef } from '../../types/chat'
 import { useArtifactPanel } from '../../state/artifactPanel'
@@ -33,6 +34,7 @@ import { SaveToVaultButton } from '../vault/SaveToVaultButton'
 // the user's Vault (components/vault/SaveToVaultButton.tsx) — saving is the user's call.
 
 export function ArtifactCard({ artifact }: { artifact: ArtifactRef }) {
+  const intl = useAppIntl()
   const openPanel = useArtifactPanel()
   const [fullscreen, setFullscreen] = useState(false)
   const open = () => (openPanel ? openPanel(artifact) : setFullscreen(true))
@@ -45,7 +47,7 @@ export function ArtifactCard({ artifact }: { artifact: ArtifactRef }) {
             <ArtifactTypeIcon type={artifact.artifactType} />
           </span>
           <span className="artifact-chip-text">
-            <span className="artifact-chip-title">{artifact.title || 'Artifact'}</span>
+            <span className="artifact-chip-title">{artifact.title || intl.formatMessage({ id: 'artifactUi.artifact', defaultMessage: 'Artifact' })}</span>
             <span className="artifact-chip-meta">{typeLine(artifact)}</span>
           </span>
         </button>
@@ -54,11 +56,11 @@ export function ArtifactCard({ artifact }: { artifact: ArtifactRef }) {
           type="button"
           className="artifact-chip-open"
           onClick={() => void downloadArtifact(artifact)}
-          aria-label="Download"
-          title="Download"
+          aria-label={intl.formatMessage({ id: 'chat.artifact.download', defaultMessage: 'Download' })}
+          title={intl.formatMessage({ id: 'chat.artifact.download', defaultMessage: 'Download' })}
         >
           <Download size={13} strokeWidth={1.6} />
-          <span className="artifact-chip-label">Download</span>
+          <span className="artifact-chip-label">{intl.formatMessage({ id: 'chat.artifact.download', defaultMessage: 'Download' })}</span>
         </button>
       </div>
 

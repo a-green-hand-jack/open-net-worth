@@ -59,6 +59,9 @@ def _validate_widget(w: dict, idx: int) -> None:
     for key in ("x", "y", "w", "h"):
         _validate_geometry(w, idx, key)
     if is_section:
+        source = w.get("titleSource")
+        if source is not None and (source != "default_section" or w.get("title") != "Section"):
+            raise ValidationError(f"widgets[{idx}].titleSource is invalid")
         return
     title = w.get("title")
     if title is not None and (not isinstance(title, str) or len(title) > _MAX_TITLE_LEN):
@@ -73,6 +76,17 @@ def _validate_view(v: dict, idx: int) -> None:
         raise ValidationError(f"views[{idx}].name is required")
     if len(name) > _MAX_NAME_LEN:
         raise ValidationError(f"views[{idx}].name must be ≤ {_MAX_NAME_LEN} chars")
+    source = v.get("nameSource")
+    source_names = {
+        "preset_overview": "Overview",
+        "preset_reports": "Reports",
+        "preset_investing": "Investing",
+        "preset_cash_flow": "Cash flow",
+        "preset_plan": "Plan",
+        "default_view": "New view",
+    }
+    if source is not None and (not isinstance(source, str) or source_names.get(source) != name):
+        raise ValidationError(f"views[{idx}].nameSource is invalid")
     widgets = v.get("widgets")
     if not isinstance(widgets, list):
         raise ValidationError(f"views[{idx}].widgets must be an array")

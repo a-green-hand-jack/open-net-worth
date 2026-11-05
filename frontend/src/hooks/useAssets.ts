@@ -1,4 +1,5 @@
 import { useCallback } from 'react'
+import { useAppIntl } from '../i18n/useAppIntl'
 import type {
   AssetCategory,
   AssetLoan,
@@ -10,6 +11,14 @@ import type {
 import { authFetch } from '../api/client'
 import { useQueryCache } from '../state/queryCache'
 import { useDataVersion } from './useDataVersion'
+
+class AssetsHttpError extends Error {
+  readonly status: number
+  constructor(status: number) {
+    super(`Failed to load assets (${status})`)
+    this.status = status
+  }
+}
 
 export interface AssetsState {
   data: AssetsPayload | undefined
@@ -29,6 +38,7 @@ export interface AssetsState {
  *  money-bearing read in the app (every write in tabs/assets/api.ts announces its domains,
  *  which bumps `version` below; this just guards against a stale mount). */
 export function useAssets(): AssetsState {
+  const intl = useAppIntl()
   // One line per tab (useDataVersion.ts's own doc comment) — without this, a write from
   // Lucius (every asset tool is tagged mutates=("assets",)) never refetches an already-mounted
   // Assets tab; only a fresh mount does, since staleTime is 0. The payload is built from more
@@ -40,7 +50,7 @@ export function useAssets(): AssetsState {
     '/api/assets',
     async () => {
       const response = await authFetch('/api/assets')
-      if (!response.ok) throw new Error(`Failed to load assets (${response.status})`)
+      if (!response.ok) throw new AssetsHttpError(response.status)
       return response.json()
     },
     { staleTime: 0, version },
@@ -57,7 +67,15 @@ export function useAssets(): AssetsState {
     summary: query.data?.summary,
     baseCurrency: query.data?.base_currency,
     loading: query.initialLoading,
-    error: query.error instanceof Error ? query.error.message : null,
+    error:
+      query.error instanceof AssetsHttpError
+        ? intl.formatMessage(
+            { id: 'assets.loadHttpError', defaultMessage: 'Failed to load assets ({status})' },
+            { status: query.error.status },
+          )
+        : query.error instanceof Error
+          ? query.error.message
+          : null,
     refresh,
   }
 }

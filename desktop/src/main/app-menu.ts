@@ -1,5 +1,7 @@
 import type { MenuItemConstructorOptions } from 'electron';
 import { GO_TABS, type DesktopCommand, type GoTab, type HistoryState } from '../contracts';
+import { getDesktopLocale } from './desktop-locale';
+import { message as t } from './native-messages';
 
 // File > Sign in to / Switch / Sign out of / Move my book to or back from Private Cloud. Empty while the cloud is not offered.
 export function privateCloudItems(
@@ -10,7 +12,7 @@ export function privateCloudItems(
   if (!enabled) return [];
   if (state.signedIn) {
     return [
-      { label: state.email ? `Signed in as ${state.email}` : 'Signed in to Private Cloud', enabled: false },
+      { label: state.email ? t('Signed in as {account}', getDesktopLocale(), { account: state.email }) : 'Signed in to Private Cloud', enabled: false },
       { label: 'Switch Private Cloud account…', click: actions.switchAccount },
       { label: 'Sign out of Private Cloud', click: actions.signOut },
       { label: 'Move my book back to this computer…', click: actions.moveBack },

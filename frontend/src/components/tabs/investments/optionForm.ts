@@ -63,24 +63,34 @@ export interface OpenOptionDraft {
   premium_currency: string
   open_date: string
   strategy_tag: string
+  strategy_preset?: StrategyPreset
   premium_account_id: string
   note: string
   allow_duplicate?: boolean
 }
 
-export function validateDraft(d: OpenOptionDraft): string | null {
-  if (!d.underlying_instrument_id) return 'Pick the underlying instrument.'
-  if (!d.account_id) return 'Pick the securities account.'
+export type DraftErrorKey =
+  | 'underlying'
+  | 'account'
+  | 'strike'
+  | 'expiry'
+  | 'contracts'
+  | 'multiplier'
+  | 'premium'
+
+export function validateDraftKey(d: OpenOptionDraft): DraftErrorKey | null {
+  if (!d.underlying_instrument_id) return 'underlying'
+  if (!d.account_id) return 'account'
   const strike = Number(d.strike)
-  if (!d.strike || !Number.isFinite(strike) || strike <= 0) return 'Strike must be > 0.'
-  if (!d.expiry) return 'Pick the expiry date.'
+  if (!d.strike || !Number.isFinite(strike) || strike <= 0) return 'strike'
+  if (!d.expiry) return 'expiry'
   const contracts = Number(d.contracts)
-  if (!d.contracts || !Number.isFinite(contracts) || contracts <= 0) return 'Contracts must be > 0.'
+  if (!d.contracts || !Number.isFinite(contracts) || contracts <= 0) return 'contracts'
   const multiplier = Number(d.multiplier)
   if (!Number.isFinite(multiplier) || multiplier <= 0 || !Number.isInteger(multiplier))
-    return 'Multiplier must be a positive whole number.'
+    return 'multiplier'
   const pps = Number(d.premium_per_share || 0)
-  if (!Number.isFinite(pps) || pps < 0) return 'Premium per share cannot be negative.'
+  if (!Number.isFinite(pps) || pps < 0) return 'premium'
   return null
 }
 
@@ -99,6 +109,7 @@ export function draftToPayload(d: OpenOptionDraft): Record<string, unknown> {
   }
   if (d.open_date) payload.open_date = d.open_date
   if (d.strategy_tag) payload.strategy_tag = d.strategy_tag
+  if (d.strategy_preset) payload.strategy_preset = d.strategy_preset
   if (d.premium_account_id) payload.premium_account_id = d.premium_account_id
   if (d.note) payload.note = d.note
   if (d.allow_duplicate) payload.allow_duplicate = true

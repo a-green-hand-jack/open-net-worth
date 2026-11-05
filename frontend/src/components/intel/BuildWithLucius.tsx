@@ -1,3 +1,4 @@
+import { FormattedMessage } from './FormattedMessage'
 import { Sparkles } from 'lucide-react'
 import { useChatComposerOptional } from '../../state/chatComposer'
 
@@ -26,7 +27,7 @@ export function BuildWithLucius({
   return (
     <button type="button" className="asd-thesis-lucius" onClick={start}>
       <Sparkles size={13} aria-hidden="true" />
-      Build with Lucius
+      {<FormattedMessage id="intel.extra.86db9567" defaultMessage={"Build with Lucius"} />}
     </button>
   )
 }

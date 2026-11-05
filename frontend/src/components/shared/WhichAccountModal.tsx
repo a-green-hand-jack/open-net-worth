@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useAppIntl } from '../../i18n/useAppIntl'
 import { Button, Cluster, Modal, Select } from '../ui'
 import { ArrowRight } from '../../ui/icons'
 
@@ -15,6 +16,7 @@ interface Props {
 }
 
 export function WhichAccountModal({ targets, onPick, onClose }: Props) {
+  const { formatMessage } = useAppIntl()
   const only = targets[0]
   const [chosen, setChosen] = useState(targets.length === 1 && only ? only.positionId : '')
   const selected = targets.find((t) => t.positionId === chosen)
@@ -22,12 +24,12 @@ export function WhichAccountModal({ targets, onPick, onClose }: Props) {
     <Modal
       open
       onClose={onClose}
-      title="Which account?"
+      title={formatMessage({ id: 'shared.whichAccount.title', defaultMessage: 'Which account?' })}
       size="sm"
       footer={
         <Cluster justify="end">
           <Button variant="ghost" size="sm" onClick={onClose}>
-            Cancel
+            {formatMessage({ id: 'shared.whichAccount.cancel', defaultMessage: 'Cancel' })}
           </Button>
           <Button
             variant="primary"
@@ -35,19 +37,25 @@ export function WhichAccountModal({ targets, onPick, onClose }: Props) {
             disabled={!selected}
             onClick={() => selected && onPick(selected)}
           >
-            Continue
+            {formatMessage({ id: 'shared.whichAccount.continue', defaultMessage: 'Continue' })}
             <ArrowRight size={14} aria-hidden="true" />
           </Button>
         </Cluster>
       }
     >
       <p className="ui-confirm-body">
-        This holding spans multiple accounts. Choose the one to record against.
+        {formatMessage({
+          id: 'shared.whichAccount.help',
+          defaultMessage: 'This holding spans multiple accounts. Choose the one to record against.',
+        })}
       </p>
       <label className="disposal-deposit">
-        Account
+        {formatMessage({ id: 'shared.whichAccount.account', defaultMessage: 'Account' })}
         <Select
-          placeholder="Choose account…"
+          placeholder={formatMessage({
+            id: 'shared.whichAccount.choose',
+            defaultMessage: 'Choose account…',
+          })}
           options={targets.map((t) => ({ value: t.positionId, label: t.accountName }))}
           value={chosen}
           onChange={(e) => setChosen(e.target.value)}

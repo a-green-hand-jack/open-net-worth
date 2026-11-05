@@ -113,11 +113,28 @@ def test_link_bad_config_returns_422(client, monkeypatch):
     from backend.services.aggregation import plaid as svc
 
     def _raise(redirect="", **kwargs):
-        raise ValidationError("Plaid client_id / secret are not configured")
+        raise ValidationError(
+            "Plaid client_id / secret are not configured",
+            message_id="connector.error.plaidNotConfigured",
+            message_params={},
+        )
 
     monkeypatch.setattr(svc, "create_link_token", _raise)
     r = client.post("/api/plaid/link", json={})
     assert r.status_code == 422
+    assert r.json()["message_id"] == "connector.error.plaidNotConfigured"
+
+
+def test_link_external_error_keeps_original_detail_without_id(client, monkeypatch):
+    from backend.core.errors import ValidationError
+    from backend.services.aggregation import plaid as svc
+
+    def fail(*args, **kwargs):
+        raise ValidationError("provider says reconnect")
+
+    monkeypatch.setattr(svc, "create_link_token", fail)
+    response = client.post("/api/plaid/link", json={})
+    assert response.json() == {"detail": "provider says reconnect"}
 
 
 def test_link_complete_returns_the_linked_item(client):

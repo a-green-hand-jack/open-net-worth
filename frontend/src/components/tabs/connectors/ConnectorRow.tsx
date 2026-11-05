@@ -9,6 +9,8 @@
 // list, the name alone did not say what each was for.
 
 import type { JSX, KeyboardEvent } from 'react'
+import { useAppIntl } from '../../../i18n/useAppIntl'
+import { useConnectorLabels, useConnectorName } from './useConnectorLabels'
 import { EntityRow } from '../../../lucius/EntityRow'
 import { Badge, Btn, Mono } from './primitives'
 import { Icons } from './icons'
@@ -24,6 +26,10 @@ export interface ConnectorRowProps {
 }
 
 export function ConnectorRow({ entry, onOpen, onReconnect }: ConnectorRowProps): JSX.Element {
+  const { formatMessage } = useAppIntl()
+  const labels = useConnectorLabels()
+  const displayName = useConnectorName()
+  const status = labels.rowStatus(entry.statusText)
   // The prototype marks the row `role="button"` and `tabIndex={0}` but wires no key
   // handler, so a keyboard user can focus a control that does nothing. Activating on
   // Enter/Space is additive — it changes no markup and no pixel.
@@ -54,7 +60,7 @@ export function ConnectorRow({ entry, onOpen, onReconnect }: ConnectorRowProps):
       })}
       // "Connected" already means on and "Not connected"/"Disconnected" off — a trailing
       // lowercase "• on" only repeated it (the server's picker row says the same words).
-      sublabel={entry.statusText}
+      sublabel={status}
       // Every connector chip rendered as the same grey glyph — the glyph identifies the TYPE,
       // and per-entity distinction comes from color, which this row never forwarded.
       color={entry.hue}
@@ -66,27 +72,27 @@ export function ConnectorRow({ entry, onOpen, onReconnect }: ConnectorRowProps):
       <Mono icon={entry.icon} hue={entry.hue} logo={entry.logo} />
       <div className="cn-main">
         <div className="cn-name">
-          <b>{entry.name}</b>
-          {entry.tag ? <span className="cn-tag">{entry.tag}</span> : null}
+          <b>{displayName(entry.id, entry.name)}</b>
+          {entry.tag ? <span className="cn-tag">{entry.tag === 'Default' ? formatMessage({ id: 'connectors.defaultTag', defaultMessage: 'Default' }) : entry.tag}</span> : null}
           {entry.categories?.length ? <CategoryChips categories={entry.categories} /> : null}
         </div>
       </div>
       <div className="cn-meta">
         {entry.tone === 'good' ? (
-          <span className="cn-statusgood" title={entry.statusText}>
-            <Icons.checkcircle /> <span className="cn-statusgood-label">{entry.statusText}</span>
+          <span className="cn-statusgood" title={status}>
+            <Icons.checkcircle /> <span className="cn-statusgood-label">{status}</span>
           </span>
         ) : entry.tone === 'bad' ? (
-          <span className="cn-statusbad" title={entry.lastError ?? entry.statusText}>
-            <Icons.warn /> {entry.statusText}
+          <span className="cn-statusbad" title={entry.lastError ?? status}>
+            <Icons.warn /> {status}
           </span>
         ) : (
-          <Badge tone={entry.tone}>{entry.statusText}</Badge>
+          <Badge tone={entry.tone}>{status}</Badge>
         )}
         {entry.attention ? (
           <span onClick={(e) => e.stopPropagation()}>
             <Btn size="xs" variant="primary" onClick={() => onReconnect(entry)}>
-              Reconnect
+              {formatMessage({ id: 'connectors.reconnect', defaultMessage: 'Reconnect' })}
             </Btn>
           </span>
         ) : null}

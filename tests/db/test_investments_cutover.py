@@ -592,6 +592,8 @@ def test_all_eight_stores_round_trip_exactly_through_the_real_migration(
     with eng.get_engine().connect() as conn:
         for attr, (_filename, original) in files.items():
             expected = POSITIONS_AT_HEAD if attr == "POSITIONS_SOURCE" else original
+            if attr == "OPTION_CONTRACTS_SOURCE":
+                expected = [{**row, "strategy_preset": None} for row in original]
             assert exporters[attr](conn) == expected, f"{attr} did not round-trip exactly"
 
     eng.dispose_engine()

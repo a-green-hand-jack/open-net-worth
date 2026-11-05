@@ -13,6 +13,7 @@ from pydantic import ValidationError as SchemaError
 from backend.core.data_events import publish
 from backend.core.errors import ConflictError, ValidationError
 from backend.core.ids import new_id
+from backend.core.redact import redact_secrets, redact_token_shapes
 from backend.core.trading_runtime import trading_context
 from backend.db.engine import on_commit
 from backend.db.trading_store import TradingStore
@@ -25,6 +26,31 @@ ACTIVE_ORDER_STATES = {
     "cancel_pending",
     "submission_unknown",
 }
+
+
+def notice(message_id: str, default_message: str, **params) -> dict:
+    """Stable presentation identity with an English fallback for older clients."""
+    return {"id": message_id, "default_message": default_message, "params": params}
+
+
+def error_notice(exc: Exception, default_message: str) -> dict | None:
+    """Preserve explicitly declared public parameters, never the whole exception context."""
+    context = getattr(exc, "context", {})
+    message_id = context.get("message_id")
+    params = context.get("message_params", {})
+    if not isinstance(message_id, str) or not isinstance(params, dict):
+        return None
+    if any(
+        not isinstance(key, str) or not isinstance(value, (str, int, float, bool, type(None)))
+        for key, value in params.items()
+    ):
+        return None
+    clean = redact_secrets(params)
+    clean = {
+        key: redact_token_shapes(value) if isinstance(value, str) else value
+        for key, value in clean.items()
+    }
+    return notice(message_id, default_message, **clean)
 
 
 def uses_broker_execution(run: dict) -> bool:
@@ -42,7 +68,7 @@ def instant(value: str) -> datetime:
 def amount(value) -> Decimal:
     result = Decimal(str(value))
     if not result.is_finite():
-        raise ValidationError("Amount must be finite")
+        raise ValidationError("Amount must be finite", message_id="trading.error.amount_not_finite")
     return result
 
 
@@ -51,7 +77,9 @@ def validated(model, data: dict) -> dict:
         return model.model_validate(data).model_dump(mode="json")
     except SchemaError as exc:
         raise ValidationError(
-            "Invalid trading input", errors=exc.errors(include_context=False)
+            "Invalid trading input",
+            errors=exc.errors(include_context=False),
+            message_id="trading.error.invalid_input",
         ) from exc
 
 
@@ -86,11 +114,19 @@ def event(conn, run: dict, kind: str, payload: dict | None = None) -> dict:
 
 def assert_running(run: dict) -> None:
     if run["state"] != "running":
-        raise ConflictError("Trading run is not running", state=run["state"])
+        raise ConflictError(
+            "Trading run is not running",
+            state=run["state"],
+            message_id="trading.error.run_not_running",
+        )
     if run.get("end_at") and run["mode"] != "backtest" and instant(now()) >= instant(run["end_at"]):
-        raise ConflictError("Trading mandate has expired")
+        raise ConflictError(
+            "Trading mandate has expired", message_id="trading.error.mandate_expired"
+        )
     if run.get("end_at") and instant(run["current_time"]) >= instant(run["end_at"]):
-        raise ConflictError("Trading mandate has expired")
+        raise ConflictError(
+            "Trading mandate has expired", message_id="trading.error.mandate_expired"
+        )
 
 
 def require_bound_run(conn, run_id):
@@ -98,15 +134,22 @@ def require_bound_run(conn, run_id):
     if context is None:
         return
     if context.run_id != run_id:
-        raise ConflictError("Trading principal is bound to another run")
+        raise ConflictError(
+            "Trading principal is bound to another run",
+            message_id="trading.error.principal_wrong_run",
+        )
     if context.grant_digest is not None:
         grant = TradingStore("grants").find_by_id(run_id, conn=conn)
         if not grant or not grant.get("token_hash") or not grant.get("expires_at"):
-            raise ConflictError("Trading grant is revoked")
+            raise ConflictError(
+                "Trading grant is revoked", message_id="trading.error.grant_revoked"
+            )
         if not hmac.compare_digest(grant["token_hash"], context.grant_digest) or instant(
             grant["expires_at"]
         ) <= instant(now()):
-            raise ConflictError("Trading grant is invalid or expired")
+            raise ConflictError(
+                "Trading grant is invalid or expired", message_id="trading.error.grant_invalid"
+            )
 
 
 def collection(items: list, *, limit: int = 100, offset: int = 0) -> dict:

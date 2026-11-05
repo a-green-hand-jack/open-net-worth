@@ -10,6 +10,7 @@
 // dock) and bending it into a full page via `.app-layout--lucius .lx-side` CSS overrides.
 
 import { useEffect, useState } from 'react'
+import { useAppIntl } from '../../../i18n/useAppIntl'
 import { ChatPanel, conversationGroups, conversationWhen } from '../../chat/ChatPanel'
 import { ConversationMenu, shortWhen, type ConversationKind } from '../../chat/ConversationMenu'
 import { ConversationBrowser } from '../../chat/ConversationBrowser'
@@ -44,6 +45,7 @@ export function LuciusMobile({
   // Forwarded to ChatPanel: only one mounted panel may send the welcome.
   claimOnboarding?: () => boolean
 }) {
+  const intl = useAppIntl()
   const {
     conversations,
     activeId,
@@ -128,8 +130,14 @@ export function LuciusMobile({
           type="button"
           className="lucius-mobile-head-btn"
           onClick={() => setMenuOpen(true)}
-          aria-label="Conversations"
-          title="Conversations"
+          aria-label={intl.formatMessage({
+            id: 'mobile.conversations',
+            defaultMessage: 'Conversations',
+          })}
+          title={intl.formatMessage({
+            id: 'mobile.conversations',
+            defaultMessage: 'Conversations',
+          })}
         >
           <Menu size={20} />
         </button>
@@ -152,8 +160,8 @@ export function LuciusMobile({
             className="lucius-mobile-head-btn"
             onClick={() => setVaultOpen(true)}
             data-tour="lucius-documents"
-            aria-label="Documents"
-            title="Documents"
+            aria-label={intl.formatMessage({ id: 'mobile.documents', defaultMessage: 'Documents' })}
+            title={intl.formatMessage({ id: 'mobile.documents', defaultMessage: 'Documents' })}
           >
             <FolderLock size={19} strokeWidth={1.6} />
           </button>
@@ -161,8 +169,14 @@ export function LuciusMobile({
             type="button"
             className="lucius-mobile-head-btn"
             onClick={startFresh}
-            aria-label="New conversation"
-            title="New conversation"
+            aria-label={intl.formatMessage({
+              id: 'chat.newConversation',
+              defaultMessage: 'New conversation',
+            })}
+            title={intl.formatMessage({
+              id: 'chat.newConversation',
+              defaultMessage: 'New conversation',
+            })}
           >
             <SquarePen size={18} />
           </button>
@@ -175,7 +189,7 @@ export function LuciusMobile({
       <Modal
         open={vaultOpen && !vaultArtifact}
         onClose={() => setVaultOpen(false)}
-        title="Documents"
+        title={intl.formatMessage({ id: 'mobile.documents', defaultMessage: 'Documents' })}
         size="lg"
         className="vault-sheet"
       >
@@ -194,7 +208,7 @@ export function LuciusMobile({
         <ConversationMenu
           groups={groups}
           activeId={activeId}
-          formatWhen={shortWhen}
+          formatWhen={(conv) => shortWhen(conv, intl)}
           statusFor={statusFor}
           onClose={() => setMenuOpen(false)}
           onNewChat={() => {

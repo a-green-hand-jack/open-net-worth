@@ -1,3 +1,5 @@
+import { useAppIntl } from '../../i18n/useAppIntl'
+import { FormattedMessage } from './FormattedMessage'
 import { useEffect, useState } from 'react'
 import { authFetch } from '../../api/client'
 import { ChevronRight, Plus } from '../../ui/icons'
@@ -47,6 +49,7 @@ function DetailedAssetRow({
    * as opposed to several rows sharing one boxed list (Tickers/Topics tabs). */
   flat?: boolean
 }) {
+  const intl = useAppIntl()
   const meta = tickerMeta[item.value]
   const sym = ccySym(item.value, tickerCcy)
   const alerts = alertsProp || []
@@ -60,8 +63,8 @@ function DetailedAssetRow({
       <div className="intel-mm-row-top">
         <span className="intel-mm-row-sym">{cleanTicker(item.value)}</span>
         <span className="intel-mm-row-name">{meta?.name || item.label || item.value}</span>
-        {owned && <span className="intel-wlc-row-badge intel-wlc-row-badge--owned">OWNED</span>}
-        {muted && <span className="intel-wlc-row-badge intel-wlc-row-badge--muted">MUTED</span>}
+        {owned && <span className="intel-wlc-row-badge intel-wlc-row-badge--owned">{<FormattedMessage id="intel.static.owned_cce0919d" defaultMessage={"OWNED"} />}</span>}
+        {muted && <span className="intel-wlc-row-badge intel-wlc-row-badge--muted">{<FormattedMessage id="intel.static.muted_0d982cd0" defaultMessage={"MUTED"} />}</span>}
         {watchlistChips && watchlistChips.length > 0
           ? watchlistChips.map((w) => (
               <span key={w.id} className="intel-mm-wl-chip">
@@ -69,7 +72,7 @@ function DetailedAssetRow({
               </span>
             ))
           : watchlistChips !== undefined && (
-              <span className="intel-mm-wl-chip intel-mm-wl-chip--none">not in any watchlist</span>
+              <span className="intel-mm-wl-chip intel-mm-wl-chip--none">{<FormattedMessage id="intel.static.not_in_any_watchlist_7174b4b0" defaultMessage={"not in any watchlist"} />}</span>
             )}
         <span className="intel-mm-row-price money">
           {meta?.price != null ? `${sym}${fPrice(meta.price)}` : '—'}
@@ -111,12 +114,12 @@ function DetailedAssetRow({
                 : {})}
             >
               <span className="intel-wlc-alert-chip">{alertChipText(a, sym)}</span>
-              <span className="intel-mm-alert-note">{a.name || a.note || 'No instructions'}</span>
+              <span className="intel-mm-alert-note">{a.name || a.note || intl.formatMessage({ id: 'intel.monitor.noInstructions', defaultMessage: "No instructions" })}</span>
             </div>
           ))}
         </div>
       ) : (
-        <div className="intel-mm-row-noalert">No alerts • tap to add</div>
+        <div className="intel-mm-row-noalert">{<FormattedMessage id="intel.static.no_alerts_tap_to_add_4c258af5" defaultMessage={"No alerts • tap to add"} />}</div>
       )}
     </button>
   )
@@ -129,24 +132,26 @@ function DetailedTopicRow({
   item: WatchlistItem
   onEdit: (i: WatchlistItem) => void
 }) {
+  const intl = useAppIntl()
   const muted = item.monitor_news === false
   return (
     <button type="button" className="intel-mm-row" onClick={() => onEdit(item)}>
       <div className="intel-mm-row-top">
-        <span className="intel-wlc-topic-tag">topic</span>
+        <span className="intel-wlc-topic-tag">{<FormattedMessage id="intel.static.topic_9d40de1b" defaultMessage={"topic"} />}</span>
         <span className="intel-mm-row-name intel-mm-topic-name">{item.label || item.value}</span>
         {item.added_by === 'ai' && (
           <span className="intel-wlc-row-badge intel-wlc-row-badge--ai">AI</span>
         )}
-        {muted && <span className="intel-wlc-row-badge intel-wlc-row-badge--muted">MUTED</span>}
+        {muted && <span className="intel-wlc-row-badge intel-wlc-row-badge--muted">{<FormattedMessage id="intel.static.muted_0d982cd0" defaultMessage={"MUTED"} />}</span>}
         <ChevronRight size={11} className="intel-wlc-row-chevron" />
       </div>
-      <div className="intel-mm-topic-note">{item.note || 'No instructions yet.'}</div>
+      <div className="intel-mm-topic-note">{item.note || intl.formatMessage({ id: 'intel.monitor.noInstructionsYet', defaultMessage: "No instructions yet." })}</div>
     </button>
   )
 }
 
 function AddTickerInput({ listId, onAdded }: { listId: string; onAdded: () => void }) {
+  const intl = useAppIntl()
   const [val, setVal] = useState('')
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState<string | null>(null)
@@ -167,17 +172,17 @@ function AddTickerInput({ listId, onAdded }: { listId: string; onAdded: () => vo
         }),
       })
       if (res.status === 409) {
-        setErr(`${t} is already in this watchlist.`)
+        setErr(intl.formatMessage({ id: 'intel.monitor.alreadyListed', defaultMessage: '{ticker} is already in this watchlist.' }, { ticker: t }))
         return
       }
       if (!res.ok) {
-        setErr(await errorDetail(res, 'Could not add — try again.'))
+        setErr(await errorDetail(res, intl.formatMessage({ id: 'intel.monitor.addFailed', defaultMessage: "Could not add — try again." }), intl))
         return
       }
       setVal('')
       onAdded()
     } catch {
-      setErr('Could not add — try again.')
+      setErr(intl.formatMessage({ id: 'intel.monitor.addFailed', defaultMessage: "Could not add — try again." }))
     } finally {
       setBusy(false)
     }
@@ -192,7 +197,7 @@ function AddTickerInput({ listId, onAdded }: { listId: string; onAdded: () => vo
             if (err) setErr(null)
           }}
           onKeyDown={(e) => e.key === 'Enter' && void go()}
-          placeholder="Add ticker — e.g. AAPL"
+          placeholder={intl.formatMessage({ id: 'intel.monitor.addPlaceholder', defaultMessage: "Add ticker — e.g. AAPL" })}
         />
         <Button
           variant="primary"
@@ -200,7 +205,7 @@ function AddTickerInput({ listId, onAdded }: { listId: string; onAdded: () => vo
           onClick={() => void go()}
           disabled={!val.trim() || busy}
         >
-          {busy ? 'Adding…' : 'Add'}
+          {busy ? intl.formatMessage({ id: 'intel.monitor.adding', defaultMessage: "Adding…" }) : intl.formatMessage({ id: 'intel.monitor.add', defaultMessage: "Add" })}
         </Button>
       </div>
       {err && <div className="intel-wlc-add-err">{err}</div>}
@@ -229,6 +234,7 @@ function AllMonitorsView({
   onEditAlerts: (i: WatchlistItem, sourceListId?: string) => void
   onEditTopic: (i: WatchlistItem, sourceListId?: string) => void
 }) {
+  const intl = useAppIntl()
   const [tab, setTab] = useState<'alerts' | 'topics'>('alerts')
   const [query, setQuery] = useState('')
   const [alertView, setAlertView] = useState<'all' | 'triggered' | 'disabled'>('all')
@@ -247,31 +253,31 @@ function AllMonitorsView({
           className={`intel-mm-subtab${tab === 'alerts' ? ' intel-mm-subtab--active' : ''}`}
           onClick={() => setTab('alerts')}
         >
-          Price alerts ({totalAlerts})
+          {intl.formatMessage({ id: 'intel.monitor.alertCount', defaultMessage: 'Price alerts ({count})' }, { count: totalAlerts })}
         </button>
         <button
           type="button"
           className={`intel-mm-subtab${tab === 'topics' ? ' intel-mm-subtab--active' : ''}`}
           onClick={() => setTab('topics')}
         >
-          Topics ({totalTopics})
+          {intl.formatMessage({ id: 'intel.monitor.topicCount', defaultMessage: 'Topics ({count})' }, { count: totalTopics })}
         </button>
       </div>
       <div className="intel-mm-find">
         <TextField
-          aria-label="Find a monitor"
-          placeholder="Find a ticker or monitor"
+          aria-label={intl.formatMessage({ id: 'intel.monitor.findAria', defaultMessage: "Find a monitor" })}
+          placeholder={intl.formatMessage({ id: 'intel.monitor.findPlaceholder', defaultMessage: "Find a ticker or monitor" })}
           value={query}
           onChange={(event) => setQuery(event.target.value)}
         />
       </div>
       {tab === 'alerts' && (
-        <div className="intel-mm-review-filters" role="group" aria-label="Filter price alerts">
+        <div className="intel-mm-review-filters" role="group" aria-label={intl.formatMessage({ id: 'intel.monitor.filterAlerts', defaultMessage: "Filter price alerts" })}>
           {(
             [
-              ['all', `All ${totalAlerts}`],
-              ['triggered', `Triggered now ${triggeredCount}`],
-              ['disabled', `Disabled ${disabledCount}`],
+              ['all', intl.formatMessage({ id: 'intel.monitor.allCount', defaultMessage: 'All {count}' }, { count: totalAlerts })],
+              ['triggered', intl.formatMessage({ id: 'intel.monitor.triggeredCount', defaultMessage: 'Triggered now {count}' }, { count: triggeredCount })],
+              ['disabled', intl.formatMessage({ id: 'intel.monitor.disabledCount', defaultMessage: 'Disabled {count}' }, { count: disabledCount })],
             ] as const
           ).map(([id, label]) => (
             <button
@@ -318,12 +324,12 @@ function AllMonitorsView({
             return (
               <div className="intel-mm-empty">
                 {alertView === 'triggered'
-                  ? 'No price alerts currently at their trigger level.'
+                  ? intl.formatMessage({ id: 'intel.monitor.noneTriggered', defaultMessage: "No price alerts currently at their trigger level." })
                   : query
-                    ? 'No monitors match your search.'
+                    ? intl.formatMessage({ id: 'intel.monitor.noMatch', defaultMessage: "No monitors match your search." })
                     : alertView === 'disabled'
-                      ? 'No disabled alerts.'
-                      : 'No price alerts set yet.'}
+                      ? intl.formatMessage({ id: 'intel.monitor.noneDisabled', defaultMessage: "No disabled alerts." })
+                      : intl.formatMessage({ id: 'intel.monitor.noAlerts', defaultMessage: "No price alerts set yet." })}
               </div>
             )
           return Array.from(byTicker.entries())
@@ -392,7 +398,7 @@ function AllMonitorsView({
         </div>
       )}
       {tab === 'topics' && totalTopics === 0 && (
-        <div className="intel-mm-empty">No topics yet.</div>
+        <div className="intel-mm-empty">{<FormattedMessage id="intel.static.no_topics_yet_02bc581f" defaultMessage={"No topics yet."} />}</div>
       )}
     </div>
   )
@@ -427,6 +433,7 @@ function ListDetailView({
   onDelete: (list: Watchlist) => void
   onRefresh: () => void
 }) {
+  const intl = useAppIntl()
   const [renaming, setRenaming] = useState(false)
   const [name, setName] = useState(list.name)
   const [renameErr, setRenameErr] = useState<string | null>(null)
@@ -450,7 +457,7 @@ function ListDetailView({
       setRenameErr(null)
       setRenaming(false)
     } catch (e) {
-      setRenameErr(e instanceof Error ? e.message : 'Could not rename — try again.')
+      setRenameErr(e instanceof Error ? e.message : intl.formatMessage({ id: 'intel.monitor.renameFailed', defaultMessage: "Could not rename — try again." }))
       setName(list.name)
     }
   }
@@ -495,25 +502,25 @@ function ListDetailView({
           <h3 className="intel-mm-list-title">{list.name}</h3>
         )}
         <span className="intel-mm-list-count">{listItems.length}</span>
-        {system && <span className="intel-mm-list-default">DEFAULT</span>}
+        {system && <span className="intel-mm-list-default">{<FormattedMessage id="intel.static.default_dc1bfec5" defaultMessage={"DEFAULT"} />}</span>}
         <div className="intel-mm-list-actions">
           <button
             type="button"
             className={`intel-mm-mute-btn${list.muted ? ' intel-mm-mute-btn--on' : ''}`}
             onClick={() => onToggleMute(list)}
             title={
-              list.muted ? 'Resume — send alerts again' : 'Mute — stop alerts for this watchlist'
+              list.muted ? intl.formatMessage({ id: 'intel.monitor.resumeHelp', defaultMessage: "Resume — send alerts again" }) : intl.formatMessage({ id: 'intel.monitor.muteHelp', defaultMessage: "Mute — stop alerts for this watchlist" })
             }
           >
-            {list.muted ? 'Muted' : 'Mute'}
+            {list.muted ? intl.formatMessage({ id: 'intel.monitor.muted', defaultMessage: "Muted" }) : intl.formatMessage({ id: 'intel.monitor.mute', defaultMessage: "Mute" })}
           </button>
           {!system && (
             <>
               <Button variant="ghost" size="sm" onClick={() => setRenaming((r) => !r)}>
-                Rename
+                {intl.formatMessage({ id: 'intel.monitor.rename', defaultMessage: "Rename" })}
               </Button>
               <Button variant="ghost" size="sm" onClick={() => onDelete(list)}>
-                Delete watchlist
+                {intl.formatMessage({ id: 'intel.monitor.delete', defaultMessage: "Delete watchlist" })}
               </Button>
             </>
           )}
@@ -526,14 +533,14 @@ function ListDetailView({
         <div className="intel-mm-banner">
           {list.muted
             ? system
-              ? 'Muted — Lucius keeps tracking your positions but won’t send alerts for this watchlist.'
-              : 'Muted — Lucius won’t send alerts for anything in this watchlist.'
-            : 'Auto-synced from your holdings — every position you own is tracked here. Add price alerts to any of them.'}
+              ? intl.formatMessage({ id: 'intel.monitor.mutedHoldings', defaultMessage: "Muted — Lucius keeps tracking your positions but won’t send alerts for this watchlist." })
+              : intl.formatMessage({ id: 'intel.monitor.mutedList', defaultMessage: "Muted — Lucius won’t send alerts for anything in this watchlist." })
+            : intl.formatMessage({ id: 'intel.monitor.autoHoldings', defaultMessage: "Auto-synced from your holdings — every position you own is tracked here. Add price alerts to any of them." })}
         </div>
       )}
 
       <div className="intel-mm-detail-tabs">
-        <span className="intel-mm-subtab intel-mm-subtab--active">Tickers {assets.length}</span>
+        <span className="intel-mm-subtab intel-mm-subtab--active">{intl.formatMessage({ id: 'intel.monitor.tickersCount', defaultMessage: 'Tickers {count}' }, { count: assets.length })}</span>
         <span className="intel-mm-detail-tabs-spacer" />
         <LuciusReviewButton active={reviewOpen} onClick={() => setReviewOpen((o) => !o)} />
       </div>
@@ -561,7 +568,7 @@ function ListDetailView({
             onEdit={(i) => onEditAlerts(i, list.id)}
           />
         ))}
-        {assets.length === 0 && <div className="intel-mm-empty-inline">No tickers yet.</div>}
+        {assets.length === 0 && <div className="intel-mm-empty-inline">{<FormattedMessage id="intel.static.no_tickers_yet_117acaaf" defaultMessage={"No tickers yet."} />}</div>}
         {/* My holdings (is_auto_sync) is auto-managed — no manual add (ADR 0018). */}
         {!system && (
           <div className="intel-mm-add-wrap">
@@ -609,6 +616,7 @@ export function MonitorsWorkspace({
   onClose,
   onOpenSettings,
 }: Props) {
+  const intl = useAppIntl()
   const [view, setView] = useState<string>(activeListId || 'all')
   const [confirm, setConfirm] = useState<ConfirmSpec | null>(null)
   const [createErr, setCreateErr] = useState<string | null>(null)
@@ -629,10 +637,10 @@ export function MonitorsWorkspace({
       body: JSON.stringify({ name }),
     })
     if (res.status === 409) {
-      throw new Error(await errorDetail(res, 'A watchlist with that name already exists.'))
+      throw new Error(await errorDetail(res, intl.formatMessage({ id: 'intel.monitor.duplicateList', defaultMessage: "A watchlist with that name already exists." }), intl))
     }
     if (!res.ok) {
-      throw new Error(await errorDetail(res, 'Could not rename — try again.'))
+      throw new Error(await errorDetail(res, intl.formatMessage({ id: 'intel.monitor.renameFailed', defaultMessage: "Could not rename — try again." }), intl))
     }
     onRefresh()
   }
@@ -647,9 +655,9 @@ export function MonitorsWorkspace({
   function requestDeleteList(l: Watchlist) {
     const n = items.filter((i) => (i.watchlist_ids ?? []).includes(l.id)).length
     setConfirm({
-      title: `Delete “${l.name}”?`,
-      body: `This watchlist and its ${n} monitor${n === 1 ? '' : 's'} will stop being tracked. Anything you also keep in another watchlist is unaffected.`,
-      confirmLabel: 'Delete watchlist',
+      title: intl.formatMessage({ id: 'intel.monitor.deleteNamed', defaultMessage: 'Delete “{name}”?' }, { name: l.name }),
+      body: intl.formatMessage({ id: 'intel.monitor.deleteHelp', defaultMessage: 'This watchlist and its {count, plural, one {# monitor} other {# monitors}} will stop being tracked. Anything you also keep in another watchlist is unaffected.' }, { count: n }),
+      confirmLabel: intl.formatMessage({ id: 'intel.monitor.delete', defaultMessage: "Delete watchlist" }),
       onConfirm: async () => {
         await authFetch(`/api/watchlists/${l.id}`, { method: 'DELETE' })
         setConfirm(null)
@@ -665,11 +673,11 @@ export function MonitorsWorkspace({
       body: JSON.stringify({ name: 'New watchlist' }),
     })
     if (res.status === 409) {
-      setCreateErr(await errorDetail(res, 'A watchlist with that name already exists.'))
+      setCreateErr(await errorDetail(res, intl.formatMessage({ id: 'intel.monitor.duplicateList', defaultMessage: "A watchlist with that name already exists." }), intl))
       return
     }
     if (!res.ok) {
-      setCreateErr(await errorDetail(res, 'Could not create watchlist — try again.'))
+      setCreateErr(await errorDetail(res, intl.formatMessage({ id: 'intel.monitor.createFailed', defaultMessage: "Could not create watchlist — try again." }), intl))
       return
     }
     const c = await res.json()
@@ -688,13 +696,9 @@ export function MonitorsWorkspace({
         onClose={onClose}
         size="workspace"
         className="intel-mm-workspace"
-        title="Watchlists & monitors"
+        title={intl.formatMessage({ id: 'intel.monitor.workspace', defaultMessage: "Watchlists & monitors" })}
         subtitle={
-          <>
-            {totalMonitors} monitor{totalMonitors === 1 ? '' : 's'} across {watchlists.length}{' '}
-            watchlist{watchlists.length === 1 ? '' : 's'} — manage everything you track and what
-            fires.
-          </>
+intl.formatMessage({ id: 'intel.monitor.workspaceSubtitle', defaultMessage: '{monitors, plural, one {# monitor} other {# monitors}} across {lists, plural, one {# watchlist} other {# watchlists}} — manage everything you track and what fires.' }, { monitors: totalMonitors, lists: watchlists.length })
         }
       >
         <div className="intel-mm-rail">
@@ -703,10 +707,10 @@ export function MonitorsWorkspace({
             className={`intel-mm-rail-item${view === 'all' ? ' intel-mm-rail-item--active' : ''}`}
             onClick={() => setView('all')}
           >
-            <span className="intel-mm-rail-label">All monitors</span>
+            <span className="intel-mm-rail-label">{<FormattedMessage id="intel.static.all_monitors_20e82d06" defaultMessage={"All monitors"} />}</span>
             <span className="intel-mm-rail-count">{totalMonitors}</span>
           </button>
-          <div className="intel-mm-rail-section">Watchlists</div>
+          <div className="intel-mm-rail-section">{<FormattedMessage id="intel.static.watchlists_4bbd4c3d" defaultMessage={"Watchlists"} />}</div>
           {/* EntityRow renders the host <button> itself and stamps data-entity-id + draggable
               + data-ctx-*, making a watchlist @-mentionable, right-clickable ("Ask Lucius about
               this") and draggable into the dock. `watchlist` is a registered mention type
@@ -725,26 +729,26 @@ export function MonitorsWorkspace({
                 name: it.name,
                 item_count: items.filter((i) => (i.watchlist_ids ?? []).includes(it.id)).length,
               })}
-              sublabel={`${items.filter((i) => (i.watchlist_ids ?? []).includes(c.id)).length} items`}
+              sublabel={intl.formatMessage({ id: 'intel.monitor.items', defaultMessage: '{count} items' }, { count: items.filter((i) => (i.watchlist_ids ?? []).includes(c.id)).length })}
               onClick={() => {
                 setView(c.id)
                 onSelectList(c.id)
               }}
             >
               <span className="intel-mm-rail-label">{c.name}</span>
-              {c.muted && <span className="intel-mm-rail-muted">muted</span>}
+              {c.muted && <span className="intel-mm-rail-muted">{<FormattedMessage id="intel.static.muted_faccee60" defaultMessage={"muted"} />}</span>}
               <span className="intel-mm-rail-count">
                 {items.filter((i) => (i.watchlist_ids ?? []).includes(c.id)).length}
               </span>
             </EntityRow>
           ))}
           <button type="button" className="intel-mm-rail-new" onClick={() => void createList()}>
-            <Plus size={13} /> New watchlist
+            <Plus size={13} /> {intl.formatMessage({ id: 'intel.monitor.newWatchlist', defaultMessage: "New watchlist" })}
           </button>
           {createErr && <div className="intel-wlc-add-err">{createErr}</div>}
-          <div className="intel-mm-rail-section">Settings</div>
+          <div className="intel-mm-rail-section">{<FormattedMessage id="intel.static.settings_1c33c293" defaultMessage={"Settings"} />}</div>
           <button type="button" className="intel-mm-rail-item" onClick={onOpenSettings}>
-            <span className="intel-mm-rail-label">Monitoring &amp; alerts</span>
+            <span className="intel-mm-rail-label">{<FormattedMessage id="intel.static.monitoring_alerts_5b2afdd6" defaultMessage={"Monitoring & alerts"} />}</span>
             <ChevronRight size={12} aria-hidden="true" />
           </button>
           <button
@@ -752,7 +756,7 @@ export function MonitorsWorkspace({
             className={`intel-mm-rail-item${view === 'sources' ? ' intel-mm-rail-item--active' : ''}`}
             onClick={() => setView('sources')}
           >
-            <span className="intel-mm-rail-label">News sources</span>
+            <span className="intel-mm-rail-label">{<FormattedMessage id="intel.static.news_sources_e8f821d0" defaultMessage={"News sources"} />}</span>
           </button>
         </div>
 
@@ -787,7 +791,7 @@ export function MonitorsWorkspace({
           )}
           {view === 'sources' && (
             <div className="intel-mm-sources">
-              <h3 className="intel-mm-list-title">News sources</h3>
+              <h3 className="intel-mm-list-title">{<FormattedMessage id="intel.static.news_sources_e8f821d0" defaultMessage={"News sources"} />}</h3>
               <p className="intel-mm-settings-sub">{NEWS_SOURCES_SUBTITLE}</p>
               <NewsSourcesPanel embedded />
             </div>

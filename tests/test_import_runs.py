@@ -99,14 +99,32 @@ def test_list_filters_by_provider_and_carries_summaries_only(db_isolated):
     assert "log" not in summary and "verification" not in summary and summary["outcome"] == "ok"
 
 
-def test_the_list_reads_columns_only_never_the_heavy_detail(db_isolated):
+def test_the_list_reads_columns_and_message_metadata_never_the_heavy_detail(db_isolated):
     run_id = finished()
     import_runs.update(run_id, log=[{"at": "t", "line": "x"}], verification={"matches": [1] * 50})
     (summary,) = ImportRunStore().summaries("ynab", True, 10)
-    assert set(summary) == set(COLUMNS)
+    assert set(summary) == set(COLUMNS) | {"phase_message", "outcome_message"}
     assert "log" not in summary and "verification" not in summary
     assert import_runs.get(run_id)["verification"] == {"matches": [1] * 50}  # the detail is kept
     assert ImportRunStore().latest("ynab")["log"] == [{"at": "t", "line": "x"}]
+
+
+def test_replacing_phase_or_outcome_clears_obsolete_message_metadata(db_isolated):
+    run_id = finished()
+    import_runs.update(
+        run_id,
+        phase="reading YNAB",
+        phase_message={"message_id": "ynab.phase.reading", "params": {}},
+    )
+    import_runs.update(
+        run_id,
+        outcome="Nothing changed",
+        outcome_message={"message_id": "ynab.summary.complete", "params": {}},
+    )
+    import_runs.update(run_id, phase="provider phase", outcome="provider outcome")
+    run = import_runs.get(run_id)
+    assert run["phase_message"] is None
+    assert run["outcome_message"] is None
 
 
 def test_an_unknown_field_is_refused(db_isolated):
@@ -198,6 +216,11 @@ def test_verification_keeps_mismatches_apart_from_matches():
         "difference": -1,
         "note": "YNAB has 5",
         "unit": "count",
+        "check_message": None,
+        "note_message": None,
+        "note_details": None,
+        "onw_value_message": None,
+        "ynab_value_message": None,
     }
     assert (
         shaped["mismatches"][1]["difference"] is None and shaped["mismatches"][1]["unit"] == "text"

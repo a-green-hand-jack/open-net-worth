@@ -3,6 +3,7 @@
 // ColorDot (preset + HSV/hex picker), Kebab (fixed-positioned menu), InlineEdit,
 // FilterSelect, AutoAssign, HiddenRow, ReassignDeleteModal.
 import { useState, useRef, useEffect, useLayoutEffect } from 'react'
+import { useAppIntl } from '../../../i18n/useAppIntl'
 import type { CSSProperties, ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import * as PD from './planData'
@@ -136,6 +137,7 @@ export type KebabItem =
   | { divider: true }
   | { header: string }
 export function Kebab({ items, label }: { items: KebabItem[]; label: string }) {
+  const { formatMessage } = useAppIntl()
   const [open, setOpen] = useState(false)
   const [pos, setPos] = useState<{
     left: number
@@ -214,7 +216,7 @@ export function Kebab({ items, label }: { items: KebabItem[]; label: string }) {
         ref={btnRef}
         className="pl-kebab"
         aria-label={label}
-        title="Options"
+        title={formatMessage({ id: 'plan.options', defaultMessage: 'Options' })}
         onClick={(e) => {
           e.stopPropagation()
           setOpen((o) => !o)
@@ -319,6 +321,7 @@ export function ColorDot({
   label?: string
   icon?: 'tag' | 'envelope'
 }) {
+  const { formatMessage } = useAppIntl()
   const [open, setOpen] = useState(false)
   const [pos, setPos] = useState<{ left: number; top?: number; bottom?: number } | null>(null)
   const [custom, setCustom] = useState(false)
@@ -415,8 +418,8 @@ export function ColorDot({
       <button
         ref={btnRef}
         className="pl-cdot--btn"
-        title="Set color"
-        aria-label={label || 'Set category color'}
+        title={formatMessage({ id: 'plan.setColor', defaultMessage: 'Set color' })}
+        aria-label={label || formatMessage({ id: 'planScan.setCategoryColor', defaultMessage: 'Set category color' })}
         onClick={(e) => {
           e.stopPropagation()
           setOpen((o) => !o)
@@ -473,8 +476,11 @@ export function ColorDot({
                 type="button"
                 className={'pl-swatch pl-swatch-custom' + (isCustom ? ' on' : '')}
                 style={isCustom ? { background: color } : undefined}
-                title="Custom color"
-                aria-label="Custom color"
+                title={formatMessage({ id: 'plan.customColor', defaultMessage: 'Custom color' })}
+                aria-label={formatMessage({
+                  id: 'plan.customColor',
+                  defaultMessage: 'Custom color',
+                })}
                 onClick={(e) => {
                   e.stopPropagation()
                   setHue(hexToHsv(color).h)
@@ -663,7 +669,40 @@ export function buildAutoAssignItems(b: AutoBudget): [string, ReactNode | null, 
     ['Reset Assigned Amounts', <span className="mask">{fBase(b.totals.assigned)}</span>, true],
   ]
 }
+export function useAutoAssignLabel() {
+  const { formatMessage } = useAppIntl()
+  const labels: Record<string, string> = {
+    Underfunded: formatMessage({ id: 'plan.autoUnderfunded', defaultMessage: 'Underfunded' }),
+    'Assigned Last Month': formatMessage({
+      id: 'plan.autoAssignedLast',
+      defaultMessage: 'Assigned Last Month',
+    }),
+    'Spent Last Month': formatMessage({
+      id: 'plan.autoSpentLast',
+      defaultMessage: 'Spent Last Month',
+    }),
+    'Average Assigned': formatMessage({
+      id: 'plan.autoAverageAssigned',
+      defaultMessage: 'Average Assigned',
+    }),
+    'Average Spent': formatMessage({
+      id: 'plan.autoAverageSpent',
+      defaultMessage: 'Average Spent',
+    }),
+    'Reset Available Amounts': formatMessage({
+      id: 'plan.autoResetAvailable',
+      defaultMessage: 'Reset Available Amounts',
+    }),
+    'Reset Assigned Amounts': formatMessage({
+      id: 'plan.autoResetAssigned',
+      defaultMessage: 'Reset Assigned Amounts',
+    }),
+  }
+  return (id: string) => labels[id] ?? id
+}
 export function AutoAssign({ onPick, b }: { onPick: (label: string) => void; b: AutoBudget }) {
+  const { formatMessage } = useAppIntl()
+  const autoLabel = useAutoAssignLabel()
   const [open, setOpen] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
   useEffect(() => {
@@ -678,14 +717,19 @@ export function AutoAssign({ onPick, b }: { onPick: (label: string) => void; b: 
   return (
     <div ref={ref} style={{ position: 'relative' }}>
       <Button variant="primary" size="dense" onClick={() => setOpen((o) => !o)}>
-        Auto-assign{' '}
+        {formatMessage({ id: 'plan.autoAssign', defaultMessage: 'Auto-assign' })}{' '}
         <span className="car">
           <Chevron dir="down" size={12} />
         </span>
       </Button>
       {open && (
         <div className="pl-menu">
-          <div className="pl-menu-lbl">Assign money automatically</div>
+          <div className="pl-menu-lbl">
+            {formatMessage({
+              id: 'plan.autoAssignHelp',
+              defaultMessage: 'Assign money automatically',
+            })}
+          </div>
           {items.map(([label, hint, danger], i) =>
             label === '__div' ? (
               <div key={i} className="pl-menu-div" />
@@ -698,7 +742,7 @@ export function AutoAssign({ onPick, b }: { onPick: (label: string) => void; b: 
                   onPick(label)
                 }}
               >
-                <span>{label}</span>
+                <span>{autoLabel(label)}</span>
                 {hint && <span className="hint">{hint}</span>}
               </button>
             ),
@@ -722,19 +766,34 @@ export function AutoAssignPreviewModal({
   onCancel: () => void
   onConfirm: () => void
 }) {
+  const { formatMessage } = useAppIntl()
+  const autoLabel = useAutoAssignLabel()
   const { label, steps, total } = prev
   return (
-    <PlanningModal onClose={onCancel} label="Auto-assign preview">
+    <PlanningModal
+      onClose={onCancel}
+      label={formatMessage({ id: 'plan.autoAssignPreview', defaultMessage: 'Auto-assign preview' })}
+    >
       <div className="pl-modal-head">
-        <h3>{label}</h3>
-        <button className="pl-modal-x" onClick={onCancel} aria-label="Close">
+        <h3>{autoLabel(label)}</h3>
+        <button
+          className="pl-modal-x"
+          onClick={onCancel}
+          aria-label={formatMessage({ id: 'plan.close', defaultMessage: 'Close' })}
+        >
           <X size={16} />
         </button>
       </div>
       <div className="pl-modal-body">
         <p className="pl-modal-intro">
-          Preview — nothing changes until you confirm. {steps.length} envelope
-          {steps.length === 1 ? '' : 's'} affected.
+          {formatMessage(
+            {
+              id: 'plan.autoPreviewHelp',
+              defaultMessage:
+                'Preview — nothing changes until you confirm. {count, plural, one {# envelope} other {# envelopes}} affected.',
+            },
+            { count: steps.length },
+          )}
         </p>
         <div className="pl-autoprev">
           {steps.map((s) => (
@@ -756,18 +815,42 @@ export function AutoAssignPreviewModal({
       </div>
       <div className="pl-modal-foot" style={{ justifyContent: 'space-between' }}>
         <span className="pl-autoprev-total">
-          {total >= 0 ? 'Assigns ' : 'Releases '}
-          <b className="mask">{fSmart(Math.abs(total))}</b>
-          {total >= 0 ? ' from' : ' to'} Ready to Assign
+          {total >= 0
+            ? formatMessage(
+                {
+                  id: 'plan.autoAssignTotal',
+                  defaultMessage: 'Assigns <b>{amount}</b> from Ready to Assign',
+                },
+                {
+                  amount: fSmart(Math.abs(total)),
+                  b: (chunks) => <b className="mask">{chunks}</b>,
+                },
+              )
+            : formatMessage(
+                {
+                  id: 'plan.autoReleaseTotal',
+                  defaultMessage: 'Releases <b>{amount}</b> to Ready to Assign',
+                },
+                {
+                  amount: fSmart(Math.abs(total)),
+                  b: (chunks) => <b className="mask">{chunks}</b>,
+                },
+              )}
         </span>
         <span style={{ display: 'inline-flex', gap: 10 }}>
           <Button variant="secondary" size="dense" onClick={onCancel}>
-            Cancel
+            {formatMessage({ id: 'plan.cancel', defaultMessage: 'Cancel' })}
           </Button>
           <Button variant="primary" size="dense" onClick={onConfirm}>
             {total >= 0
-              ? `Assign ${fSmart(Math.abs(total))}`
-              : `Release ${fSmart(Math.abs(total))}`}
+              ? formatMessage(
+                  { id: 'plan.autoAssignAmount', defaultMessage: 'Assign {amount}' },
+                  { amount: fSmart(Math.abs(total)) },
+                )
+              : formatMessage(
+                  { id: 'plan.autoReleaseAmount', defaultMessage: 'Release {amount}' },
+                  { amount: fSmart(Math.abs(total)) },
+                )}
           </Button>
         </span>
       </div>
@@ -798,6 +881,7 @@ export function HiddenRow({
   onUnhideCat: (key: string) => void
   onShowAll: () => void
 }) {
+  const { formatMessage } = useAppIntl()
   const [open, setOpen] = useState(false)
   const [pos, setPos] = useState<{ left: number; bottom: number; root: Element } | null>(null)
   const ref = useRef<HTMLDivElement>(null)
@@ -859,7 +943,9 @@ export function HiddenRow({
         <span className="pl-hd-eye">
           <EyeOff size={13} />
         </span>
-        <span className="pl-hd-label">Hidden envelopes</span>
+        <span className="pl-hd-label">
+          {formatMessage({ id: 'plan.hiddenEnvelopes', defaultMessage: 'Hidden envelopes' })}
+        </span>
         <Chevron dir={open ? 'down' : 'right'} size={12} />
       </button>
       {/* Portaled to the app shell: the desktop table's content carries a transform (the
@@ -873,7 +959,10 @@ export function HiddenRow({
             data-modal-escape-layer
             className="pl-hidpop"
             role="dialog"
-            aria-label="Hidden envelopes"
+            aria-label={formatMessage({
+              id: 'plan.hiddenEnvelopes',
+              defaultMessage: 'Hidden envelopes',
+            })}
             style={{
               position: 'fixed',
               left: pos.left + 'px',
@@ -881,7 +970,9 @@ export function HiddenRow({
               top: 'auto',
             }}
           >
-            <div className="pl-hidpop-title">Click to unhide</div>
+            <div className="pl-hidpop-title">
+              {formatMessage({ id: 'plan.clickUnhide', defaultMessage: 'Click to unhide' })}
+            </div>
             <div className="pl-hidpop-scroll">
               {hiddenGroups.map((g) => (
                 <div key={g.id} className="pl-hidpop-sect">
@@ -891,10 +982,15 @@ export function HiddenRow({
                       onUnhideGroup(g.id)
                       setOpen(false)
                     }}
-                    title="Restore whole group"
+                    title={formatMessage({
+                      id: 'plan.restoreGroup',
+                      defaultMessage: 'Restore whole group',
+                    })}
                   >
                     {g.name}
-                    <span className="pl-hidpop-grestore">Restore all</span>
+                    <span className="pl-hidpop-grestore">
+                      {formatMessage({ id: 'plan.restoreAll', defaultMessage: 'Restore all' })}
+                    </span>
                   </button>
                   {g.cats.map((c) => (
                     <button
@@ -934,7 +1030,10 @@ export function HiddenRow({
                 setOpen(false)
               }}
             >
-              Show all hidden envelopes
+              {formatMessage({
+                id: 'plan.hidden.showAll',
+                defaultMessage: 'Show all hidden envelopes',
+              })}
             </button>
           </div>,
           pos.root,
@@ -963,6 +1062,7 @@ export function ReassignDeleteModal({
   onConfirm: (label: string, key: string) => void
   bullets?: ReactNode[]
 }) {
+  const { formatMessage } = useAppIntl()
   const [target, setTarget] = useState('')
   const label = (() => {
     for (const g of options) {
@@ -975,14 +1075,18 @@ export function ReassignDeleteModal({
     <PlanningModal onClose={onCancel} label={title}>
       <div className="pl-modal-head">
         <h3>{title}</h3>
-        <button className="pl-modal-x" onClick={onCancel} aria-label="Close">
+        <button
+          className="pl-modal-x"
+          onClick={onCancel}
+          aria-label={formatMessage({ id: 'plan.close', defaultMessage: 'Close' })}
+        >
           <X size={16} />
         </button>
       </div>
       <div className="pl-modal-body">
         <p className="pl-modal-intro">{intro}</p>
         <label className="pl-modal-label" htmlFor="pl-reassign-sel">
-          Reassign activity to
+          {formatMessage({ id: 'plan.reassignActivity', defaultMessage: 'Reassign activity to' })}
         </label>
         <div className="pl-selwrap">
           <Select
@@ -990,7 +1094,10 @@ export function ReassignDeleteModal({
             id="pl-reassign-sel"
             value={target}
             onChange={(e) => setTarget(e.target.value)}
-            placeholder="Select a category…"
+            placeholder={formatMessage({
+              id: 'plan.selectCategory',
+              defaultMessage: 'Select a category…',
+            })}
             options={options.map((g) => ({
               group: g.name,
               options: g.cats.map((c) => ({ value: c.key, label: c.label })),
@@ -1000,24 +1107,39 @@ export function ReassignDeleteModal({
             <Chevron dir="down" size={13} />
           </span>
         </div>
-        <p className="pl-modal-sub">What moves to the new category:</p>
+        <p className="pl-modal-sub">
+          {formatMessage({
+            id: 'plan.whatMovesCategory',
+            defaultMessage: 'What moves to the new category:',
+          })}
+        </p>
         <ul className="pl-modal-list">
           {bullets ? (
             bullets.map((b, i) => <li key={i}>{b}</li>)
           ) : (
             <>
               <li>
-                All transactions <b>{txns == null ? '…' : txns}</b>
+                {formatMessage(
+                  { id: 'plan.allTransactions', defaultMessage: 'All transactions <b>{count}</b>' },
+                  { count: txns == null ? '…' : txns, b: (chunks) => <b>{chunks}</b> },
+                )}
               </li>
-              <li>All assigned amounts</li>
-              <li>Any remaining available amount</li>
+              <li>
+                {formatMessage({ id: 'plan.allAssigned', defaultMessage: 'All assigned amounts' })}
+              </li>
+              <li>
+                {formatMessage({
+                  id: 'plan.remainingAvailable',
+                  defaultMessage: 'Any remaining available amount',
+                })}
+              </li>
             </>
           )}
         </ul>
       </div>
       <div className="pl-modal-foot">
         <Button variant="secondary" size="dense" onClick={onCancel}>
-          Cancel
+          {formatMessage({ id: 'plan.cancel', defaultMessage: 'Cancel' })}
         </Button>
         <Button
           variant="danger"
@@ -1050,34 +1172,62 @@ export function ConfirmDeleteGroupModal({
   onCancel: () => void
   onConfirm: () => void
 }) {
+  const { formatMessage } = useAppIntl()
   return (
-    <PlanningModal onClose={onCancel} label="Delete category group">
+    <PlanningModal
+      onClose={onCancel}
+      label={formatMessage({ id: 'plan.deleteGroup', defaultMessage: 'Delete category group' })}
+    >
       <div className="pl-modal-head">
-        <h3>Delete category group</h3>
-        <button className="pl-modal-x" onClick={onCancel} aria-label="Close">
+        <h3>
+          {formatMessage({ id: 'plan.deleteGroup', defaultMessage: 'Delete category group' })}
+        </h3>
+        <button
+          className="pl-modal-x"
+          onClick={onCancel}
+          aria-label={formatMessage({ id: 'plan.close', defaultMessage: 'Close' })}
+        >
           <X size={16} />
         </button>
       </div>
       <div className="pl-modal-body">
         <p className="pl-modal-intro">
-          All <b>{count}</b> categor{count === 1 ? 'y' : 'ies'} in <b>{groupName}</b> will move to{' '}
-          <b>Others</b>, then the group is removed.
+          {formatMessage(
+            {
+              id: 'plan.deleteGroupIntro',
+              defaultMessage:
+                'All <b>{count}</b> {count, plural, one {category} other {categories}} in <b>{group}</b> will move to <b>Others</b>, then the group is removed.',
+            },
+            { count, group: groupName, b: (chunks) => <b>{chunks}</b> },
+          )}
         </p>
-        <p className="pl-modal-sub">What moves to Others:</p>
+        <p className="pl-modal-sub">
+          {formatMessage({ id: 'plan.whatMovesOthers', defaultMessage: 'What moves to Others:' })}
+        </p>
         <ul className="pl-modal-list">
           <li>
-            All transactions <b>{txns == null ? '…' : txns}</b>
+            {formatMessage(
+              { id: 'plan.allTransactions', defaultMessage: 'All transactions <b>{count}</b>' },
+              { count: txns == null ? '…' : txns, b: (chunks) => <b>{chunks}</b> },
+            )}
           </li>
-          <li>All assigned amounts</li>
-          <li>Any remaining available amount</li>
+          <li>
+            {formatMessage({ id: 'plan.allAssigned', defaultMessage: 'All assigned amounts' })}
+          </li>
+          <li>
+            {formatMessage({
+              id: 'plan.remainingAvailable',
+              defaultMessage: 'Any remaining available amount',
+            })}
+          </li>
         </ul>
       </div>
       <div className="pl-modal-foot">
         <Button variant="secondary" size="dense" onClick={onCancel}>
-          Cancel
+          {formatMessage({ id: 'plan.cancel', defaultMessage: 'Cancel' })}
         </Button>
         <Button variant="danger" size="dense" onClick={onConfirm}>
-          Delete group
+          {formatMessage({ id: 'plan.deleteGroupButton', defaultMessage: 'Delete group' })}
         </Button>
       </div>
     </PlanningModal>

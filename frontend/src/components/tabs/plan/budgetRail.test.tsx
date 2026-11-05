@@ -22,6 +22,8 @@ vi.mock('./useBudgetModel', async (importOriginal) => {
 })
 
 import { BudgetSummaryPanel, BudgetAutoAssignPanel } from './budgetRail'
+import { IntlProvider } from 'react-intl'
+import messages from './zh-CN.messages.json'
 import { BudgetTab } from './budget'
 
 afterEach(() => {
@@ -88,6 +90,17 @@ const AUTOBUDGET = {
 }
 
 describe('BudgetAutoAssignPanel', () => {
+  it('keeps the action identifier unchanged when displayed in Chinese', () => {
+    const onPick = vi.fn()
+    render(
+      <IntlProvider locale="zh-CN" messages={messages} onError={() => {}}>
+        <BudgetAutoAssignPanel onPick={onPick} b={AUTOBUDGET} />
+      </IntlProvider>,
+    )
+    fireEvent.click(screen.getByText('资金不足'))
+    expect(onPick).toHaveBeenCalledWith('Underfunded')
+  })
+
   // Labels/grouping match real YNAB's own Auto-Assign menu exactly (owner ask, 2026-09-15) —
   // "Underfunded" here is the fund-targets action, real YNAB's own name for it.
   it('renders every auto-assign mode and calls onPick with the clicked label', () => {

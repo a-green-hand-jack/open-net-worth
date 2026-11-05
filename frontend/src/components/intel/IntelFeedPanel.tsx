@@ -1,3 +1,5 @@
+import { useAppIntl } from '../../i18n/useAppIntl'
+import { filterLabel, queueLabel } from './labels'
 import { useMemo } from 'react'
 import { FeedTools } from './DeskStatusBar'
 import { StoryCards, type StoryHandlers } from './StoryCards'
@@ -31,6 +33,7 @@ interface Props extends StoryHandlers {
 }
 
 export function IntelFeedPanel(props: Props) {
+  const intl = useAppIntl()
   const { feed, archive, filter, onFilter, showArchive, onToggleArchive, emptyText } = props
   const visible = showArchive ? archive : feed
   const filtered = filter === 'all' ? visible : visible.filter((s) => s.type === filter)
@@ -48,7 +51,7 @@ export function IntelFeedPanel(props: Props) {
   return (
     <>
       <div className="intel-feed-bar">
-        <div className="intel-feed-filter" role="group" aria-label="Filter stories by type">
+        <div className="intel-feed-filter" role="group" aria-label={intl.formatMessage({ id: 'intel.filterStories', defaultMessage: 'Filter stories by type' })}>
           {shownFilters.map((f) => (
             <button
               key={f.id}
@@ -57,7 +60,7 @@ export function IntelFeedPanel(props: Props) {
               className={`intel-feed-filter-btn${filter === f.id ? ' intel-feed-filter-btn--active' : ''}`}
               onClick={() => onFilter(f.id)}
             >
-              {f.label}
+              {filterLabel(f.id, intl, f.label)}
               <span className="intel-feed-filter-count">{counts[f.id]}</span>
             </button>
           ))}
@@ -68,7 +71,7 @@ export function IntelFeedPanel(props: Props) {
           showArchive={showArchive}
           onToggleArchive={onToggleArchive}
           onMarkAllRead={props.onMarkAllRead}
-          backLabel="Back to feed"
+          backLabel={intl.formatMessage({ id: 'intel.backFeed', defaultMessage: 'Back to feed' })}
         />
       </div>
 
@@ -83,7 +86,7 @@ export function IntelFeedPanel(props: Props) {
                 style={{ background: QUEUE_META[status].color }}
                 aria-hidden
               />
-              <span className="intel-sec-title">{QUEUE_META[status].label}</span>
+              <span className="intel-sec-title">{queueLabel(status, intl, QUEUE_META[status].label)}</span>
               <span className="intel-sec-count">{group.length}</span>
             </div>
             <StoryCards stories={group} h={props} />
@@ -94,10 +97,10 @@ export function IntelFeedPanel(props: Props) {
       {filtered.length === 0 && (
         <div className="intel-feed-empty">
           {showArchive
-            ? 'No archived stories on this tab.'
+            ? intl.formatMessage({ id: 'intel.noArchivedTab', defaultMessage: 'No archived stories on this tab.' })
             : filter === 'all'
               ? emptyText
-              : 'No stories of this type here yet.'}
+              : intl.formatMessage({ id: 'intel.noStoriesType', defaultMessage: 'No stories of this type here yet.' })}
         </div>
       )}
     </>

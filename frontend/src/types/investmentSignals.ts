@@ -17,4 +17,8 @@ export interface InvestmentSignal {
   narrative: string
   /** Optional monetary figure (base currency) for secondary context. */
   amount?: number
+  /** Client-created fallback, never inferred from a server message's wording. */
+  appFallback?: boolean
+  tag_message?: { id: string; params: Record<string, unknown> }
+  narrative_message?: { id: string; params: Record<string, unknown> }
 }

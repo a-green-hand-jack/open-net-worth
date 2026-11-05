@@ -153,14 +153,27 @@ def _story_payload(item: dict, snap: dict, findings: list[dict], ctx: dict, now_
     summary = f"{name} is on your watchlist, not held — no position at risk."
     if rest:
         summary += " Also: " + "; ".join(rest) + "."
+    headline = rules.story_headline(key, material)
+    impact = fit["note"] if fit else ""
     return {
         "type": rules.story_type(material),
-        "label": rules.story_headline(key, material),
+        "label": headline,
         "ticker": key,
         "instrument_id": item.get("instrument_id") or None,
         "status": rules.story_status(material),
         "current_summary": summary,
-        "portfolio_impact": fit["note"] if fit else "",
+        "portfolio_impact": impact,
+        "watch_presentation": {
+            "version": 1,
+            "headline_source": headline,
+            "summary_source": summary,
+            "impact_source": impact,
+            "ticker": key,
+            "name": name,
+            "headline_findings": shown,
+            "extra_findings": [f for f in findings if f not in shown],
+            "fit_message": fit.get("note_message") if fit else None,
+        },
         "action_items": [],
         "archived": False,
         "resolved": False,

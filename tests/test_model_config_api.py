@@ -963,6 +963,28 @@ def test_validate_endpoint_404_unknown_key(cfg_env):
     """POST .../validate on an unknown provider key → 404."""
     r = _client().post("/api/model-config/providers/definitely-unknown/validate")
     assert r.status_code == 404
+    assert r.json()["message_id"] == "models.error.unknownProvider"
+    assert r.json()["message_params"] == {"provider": "definitely-unknown"}
+
+
+def test_model_message_contract_tracks_emitted_ids():
+    import ast
+    import json
+    from pathlib import Path
+
+    root = Path(__file__).resolve().parents[1]
+    contract = json.loads((root / "backend/core/model_config_message_contract.json").read_text())
+    tree = ast.parse((root / "backend/api/models.py").read_text())
+    emitted = {
+        node.args[2].value
+        for node in ast.walk(tree)
+        if isinstance(node, ast.Call)
+        and isinstance(node.func, ast.Name)
+        and node.func.id == "_model_error"
+        and len(node.args) >= 3
+        and isinstance(node.args[2], ast.Constant)
+    }
+    assert emitted == set(contract)
 
 
 def test_validate_endpoint_updates_invalid_to_valid(cfg_env):
@@ -1069,6 +1091,7 @@ def test_disable_active_default_refused_409(cfg_env):
     r = client.put("/api/model-config/providers/anthropic", json={"enabled": False})
     assert r.status_code == 409
     assert "default" in r.json()["detail"].lower()
+    assert r.json()["message_id"] == "models.error.disableDefault"
 
 
 def test_disable_non_default_allowed(cfg_env):

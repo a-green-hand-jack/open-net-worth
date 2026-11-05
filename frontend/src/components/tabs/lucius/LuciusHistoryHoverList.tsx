@@ -1,3 +1,4 @@
+import { useAppIntl } from '../../../i18n/useAppIntl'
 // The floating conversation list shown on hover over the collapsed history sidebar's reopen
 // chevron (LuciusHome.tsx) — lets a user switch conversations without permanently re-expanding
 // the sidebar. Same row data/chrome as LuciusHistorySidebar (ConversationRow + the shared
@@ -48,6 +49,7 @@ export function LuciusHistoryHoverList({
    *  panel"). */
   onMenuOpenChange?: (open: boolean) => void
 }) {
+  const intl = useAppIntl()
   const [editingId, setEditingId] = useState<string | null>(null)
 
   const runs = groups.find((g) => g.key === 'automation')?.items ?? []
@@ -85,13 +87,13 @@ export function LuciusHistoryHoverList({
         <div className="conv-menu-sec">
           <div className="conv-menu-sec-h">
             <ListChecks size={14} />
-            <span>Automation runs</span>
+            <span>{intl.formatMessage({ id: 'chat.automationRuns', defaultMessage: 'Automation runs' })}</span>
             <button
               type="button"
               className="conv-menu-viewall"
               onClick={() => onViewAll('automation')}
-              aria-label="View all runs"
-              title="View all runs"
+              aria-label={intl.formatMessage({ id: 'chat.viewRuns', defaultMessage: 'View all runs' })}
+              title={intl.formatMessage({ id: 'chat.viewRuns', defaultMessage: 'View all runs' })}
             >
               <ChevronRight size={14} />
             </button>
@@ -103,13 +105,13 @@ export function LuciusHistoryHoverList({
         <div className="conv-menu-sec">
           <div className="conv-menu-sec-h">
             <Zap size={14} />
-            <span>Captures</span>
+            <span>{intl.formatMessage({ id: 'chat.captures', defaultMessage: 'Captures' })}</span>
             <button
               type="button"
               className="conv-menu-viewall"
               onClick={() => onViewAll('capture')}
-              aria-label="View all captures"
-              title="View all captures"
+              aria-label={intl.formatMessage({ id: 'chat.viewCaptures', defaultMessage: 'View all captures' })}
+              title={intl.formatMessage({ id: 'chat.viewCaptures', defaultMessage: 'View all captures' })}
             >
               <ChevronRight size={14} />
             </button>
@@ -120,19 +122,19 @@ export function LuciusHistoryHoverList({
       <div className="conv-menu-sec conv-menu-sec--fill">
         <div className="conv-menu-sec-h">
           <MessageSquare size={14} />
-          <span>Chats</span>
+          <span>{intl.formatMessage({ id: 'chat.chats', defaultMessage: 'Chats' })}</span>
           <button
             type="button"
             className="conv-menu-viewall"
             onClick={() => onViewAll('chat')}
-            aria-label="View all conversations"
-            title="View all conversations"
+            aria-label={intl.formatMessage({ id: 'chat.viewChats', defaultMessage: 'View all conversations' })}
+            title={intl.formatMessage({ id: 'chat.viewChats', defaultMessage: 'View all conversations' })}
           >
             <ChevronRight size={14} />
           </button>
         </div>
         {chats.length === 0 ? (
-          <div className="conv-menu-empty">No chats yet.</div>
+          <div className="conv-menu-empty">{intl.formatMessage({ id: 'chat.noChats', defaultMessage: 'No chats yet.' })}</div>
         ) : (
           groupByAge(visibleChats).map((bucket) => (
             <div key={bucket.label} className="conv-menu-bucket">

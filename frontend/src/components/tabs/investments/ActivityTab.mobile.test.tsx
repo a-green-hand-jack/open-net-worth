@@ -10,6 +10,8 @@ import { cleanup, fireEvent, render, screen, within } from '@testing-library/rea
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import type { ActivityRow } from './useActivityView'
+import { IntlProvider } from 'react-intl'
+import zh from '../../../i18n/zh-CN.json'
 
 const rows: ActivityRow[] = [
   row('a1', '2026-09-03', 'buy', 'RKLB', 'Rocket Lab', '25 @ 64.7 USD', 'IBKR', -2123.45),
@@ -130,13 +132,26 @@ afterEach(() => {
   document.body.style.overflow = ''
 })
 
-async function mount(isMobile: boolean) {
+async function mount(isMobile: boolean, chinese = false) {
   restore = mockMobile(isMobile)
   const { ActivityTab } = await import('./ActivityTab')
-  render(<ActivityTab />)
+  render(
+    chinese ? (
+      <IntlProvider locale="zh-CN" messages={zh}>
+        <ActivityTab />
+      </IntlProvider>
+    ) : (
+      <ActivityTab />
+    ),
+  )
 }
 
 describe('ActivityTab — phone layout', () => {
+  it('localizes range and filtering without changing user data', async () => {
+    await mount(true, true)
+    expect(screen.getByRole('button', { name: '日期范围：过去 90 天' })).toBeTruthy()
+    expect(screen.getByText('25 @ 64.7 USD')).toBeTruthy()
+  })
   it('renders one card per event instead of the ledger table', async () => {
     await mount(true)
     expect(document.querySelector('table.act-tbl')).toBeNull()

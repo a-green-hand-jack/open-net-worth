@@ -28,6 +28,7 @@ export interface OAuthOutcome {
    *  affordances (`no_registration`'s Client ID field, `dcr_rejected`'s redirect-URI list).
    *  `null` for a poll-time failure or a client-side-only reason (`popup_closed`). */
   reason: string | null
+  status?: number
   /** Always present on failure — see `mcpApi.ts::OAuthBeginResult`'s doc comment for why this
    *  is rendered verbatim rather than re-mapped from `reason`. */
   error: string | null
@@ -117,7 +118,7 @@ export function startOAuthSignIn(
     if (poll.status === 'pending') return
     finish({
       ok: poll.status === 'ok',
-      reason: null,
+      reason: poll.reason ?? null,
       error: poll.status === 'error' ? poll.error : null,
       needsClientId: false,
       redirectUris: [],
@@ -131,6 +132,7 @@ export function startOAuthSignIn(
       finish({
         ok: false,
         reason: result.reason ?? null,
+        status: result.status,
         error: result.error ?? 'Could not start the sign-in.',
         needsClientId: !!result.needs_client_id,
         redirectUris: result.redirect_uris ?? [],

@@ -1,4 +1,5 @@
 import type { RunCreate, Allocation } from '../../../types/trading'
+import { useAppIntl } from '../../../i18n/useAppIntl'
 import {
   Button,
   Checkbox,
@@ -27,6 +28,7 @@ export function DelegationEnvironment({
   value: RunCreate
   onChange: (value: RunCreate) => void
 }) {
+  const { formatMessage } = useAppIntl()
   const patch = (data: Partial<RunCreate>) => onChange({ ...value, ...data })
   const account = (index: number, data: Partial<Allocation>) =>
     patch({
@@ -34,24 +36,32 @@ export function DelegationEnvironment({
     })
   return (
     <Stack gap="--space-4">
-      <FormField label="Environment">
+      <FormField
+        label={formatMessage({ id: 'trading.environment', defaultMessage: 'Environment' })}
+      >
         <Select
-          aria-label="Environment"
+          aria-label={formatMessage({ id: 'trading.environment', defaultMessage: 'Environment' })}
           value={value.mode}
           onChange={(e) =>
             patch({ mode: e.target.value as RunCreate['mode'], live_authorized: false })
           }
           options={[
-            { value: 'backtest', label: 'Backtest' },
-            { value: 'paper', label: 'Paper' },
-            { value: 'live', label: 'Live' },
+            {
+              value: 'backtest',
+              label: formatMessage({ id: 'trading.backtest', defaultMessage: 'Backtest' }),
+            },
+            {
+              value: 'paper',
+              label: formatMessage({ id: 'trading.paper', defaultMessage: 'Paper' }),
+            },
+            { value: 'live', label: formatMessage({ id: 'trading.live', defaultMessage: 'Live' }) },
           ]}
         />
       </FormField>
       <Cluster>
-        <FormField label="Start">
+        <FormField label={formatMessage({ id: 'trading.start', defaultMessage: 'Start' })}>
           <TextField
-            aria-label="Start"
+            aria-label={formatMessage({ id: 'trading.start', defaultMessage: 'Start' })}
             type="datetime-local"
             required
             value={localTime(value.start_at)}
@@ -61,9 +71,9 @@ export function DelegationEnvironment({
           />
         </FormField>
         {value.end_at && (
-          <FormField label="End">
+          <FormField label={formatMessage({ id: 'trading.end', defaultMessage: 'End' })}>
             <TextField
-              aria-label="End"
+              aria-label={formatMessage({ id: 'trading.end', defaultMessage: 'End' })}
               type="datetime-local"
               required
               value={localTime(value.end_at)}
@@ -76,7 +86,10 @@ export function DelegationEnvironment({
       </Cluster>
       {value.mode !== 'backtest' && (
         <Checkbox
-          label="Continue until stopped"
+          label={formatMessage({
+            id: 'trading.continueUntilStopped',
+            defaultMessage: 'Continue until stopped',
+          })}
           checked={value.end_at === null}
           onChange={(e) =>
             patch({
@@ -89,37 +102,59 @@ export function DelegationEnvironment({
         <Button
           onClick={() => patch({ end_at: new Date(Date.now() + 30 * 86400000).toISOString() })}
         >
-          Set historical end date
+          {formatMessage({
+            id: 'trading.setHistoricalEnd',
+            defaultMessage: 'Set historical end date',
+          })}
         </Button>
       )}
       {value.accounts.map((item, index) => (
         <Panel
           key={index}
-          title={`Allocation ${index + 1}`}
+          title={formatMessage(
+            { id: 'trading.allocationNumber', defaultMessage: 'Allocation {number}' },
+            { number: index + 1 },
+          )}
           actions={
             value.accounts.length > 1 && (
               <Button
                 variant="ghost"
                 onClick={() => patch({ accounts: value.accounts.filter((_, i) => i !== index) })}
               >
-                Remove allocation {index + 1}
+                {formatMessage(
+                  { id: 'trading.removeAllocation', defaultMessage: 'Remove allocation {number}' },
+                  { number: index + 1 },
+                )}
               </Button>
             )
           }
         >
           <Stack gap="--space-4">
-            <FormField label="Account label">
+            <FormField
+              label={formatMessage({ id: 'trading.accountLabel', defaultMessage: 'Account label' })}
+            >
               <TextField
-                aria-label={`Account label ${index + 1}`}
+                aria-label={formatMessage(
+                  { id: 'trading.accountLabelNumber', defaultMessage: 'Account label {number}' },
+                  { number: index + 1 },
+                )}
                 required
                 value={item.name}
                 onChange={(e) => account(index, { name: e.target.value })}
               />
             </FormField>
             <Cluster>
-              <FormField label="Capital">
+              <FormField
+                label={formatMessage({ id: 'trading.capital', defaultMessage: 'Capital' })}
+              >
                 <NumberField
-                  aria-label={`Allocated capital ${index + 1}`}
+                  aria-label={formatMessage(
+                    {
+                      id: 'trading.allocatedCapitalNumber',
+                      defaultMessage: 'Allocated capital {number}',
+                    },
+                    { number: index + 1 },
+                  )}
                   required
                   min={0.01}
                   step="any"
@@ -127,18 +162,26 @@ export function DelegationEnvironment({
                   onChange={(e) => account(index, { capital: e.target.value })}
                 />
               </FormField>
-              <FormField label="Currency">
+              <FormField
+                label={formatMessage({ id: 'trading.currency', defaultMessage: 'Currency' })}
+              >
                 <TextField
-                  aria-label={`Currency ${index + 1}`}
+                  aria-label={formatMessage(
+                    { id: 'trading.currencyNumber', defaultMessage: 'Currency {number}' },
+                    { number: index + 1 },
+                  )}
                   required
                   pattern="[A-Z]{3,8}"
                   value={item.currency}
                   onChange={(e) => account(index, { currency: e.target.value.toUpperCase() })}
                 />
               </FormField>
-              <FormField label="Venue">
+              <FormField label={formatMessage({ id: 'trading.venue', defaultMessage: 'Venue' })}>
                 <TextField
-                  aria-label={`Venue ${index + 1}`}
+                  aria-label={formatMessage(
+                    { id: 'trading.venueNumber', defaultMessage: 'Venue {number}' },
+                    { number: index + 1 },
+                  )}
                   required
                   value={item.venue}
                   onChange={(e) => account(index, { venue: e.target.value })}
@@ -147,25 +190,58 @@ export function DelegationEnvironment({
             </Cluster>
             {value.mode === 'live' && (
               <>
-                <FormField label="Broker connector ID">
+                <FormField
+                  label={formatMessage({
+                    id: 'trading.brokerConnectorId',
+                    defaultMessage: 'Broker connector ID',
+                  })}
+                >
                   <TextField
-                    aria-label={`Broker connector ID ${index + 1}`}
+                    aria-label={formatMessage(
+                      {
+                        id: 'trading.brokerConnectorIdNumber',
+                        defaultMessage: 'Broker connector ID {number}',
+                      },
+                      { number: index + 1 },
+                    )}
                     required
                     value={item.connector_id ?? ''}
                     onChange={(e) => account(index, { connector_id: e.target.value })}
                   />
                 </FormField>
-                <FormField label="Dedicated broker account ID">
+                <FormField
+                  label={formatMessage({
+                    id: 'trading.dedicatedBrokerAccountId',
+                    defaultMessage: 'Dedicated broker account ID',
+                  })}
+                >
                   <TextField
-                    aria-label={`Dedicated broker account ID ${index + 1}`}
+                    aria-label={formatMessage(
+                      {
+                        id: 'trading.dedicatedBrokerAccountIdNumber',
+                        defaultMessage: 'Dedicated broker account ID {number}',
+                      },
+                      { number: index + 1 },
+                    )}
                     required
                     value={item.broker_account_id ?? ''}
                     onChange={(e) => account(index, { broker_account_id: e.target.value })}
                   />
                 </FormField>
-                <FormField label="Book account ID">
+                <FormField
+                  label={formatMessage({
+                    id: 'trading.bookAccountId',
+                    defaultMessage: 'Book account ID',
+                  })}
+                >
                   <TextField
-                    aria-label={`Book account ID ${index + 1}`}
+                    aria-label={formatMessage(
+                      {
+                        id: 'trading.bookAccountIdNumber',
+                        defaultMessage: 'Book account ID {number}',
+                      },
+                      { number: index + 1 },
+                    )}
                     value={item.book_account_id ?? ''}
                     onChange={(e) => account(index, { book_account_id: e.target.value })}
                   />
@@ -181,7 +257,10 @@ export function DelegationEnvironment({
             accounts: [
               ...value.accounts,
               {
-                name: 'Trading allocation',
+                name: formatMessage({
+                  id: 'trading.defaultAllocationName',
+                  defaultMessage: 'Trading allocation',
+                }),
                 currency: value.base_currency,
                 capital: '1000',
                 venue: 'simulation',
@@ -191,23 +270,41 @@ export function DelegationEnvironment({
         }
         disabled={value.accounts.length >= 20}
       >
-        Add allocation
+        {formatMessage({ id: 'trading.addAllocation', defaultMessage: 'Add allocation' })}
       </Button>
       <details>
-        <summary>Data and currency settings</summary>
+        <summary>
+          {formatMessage({
+            id: 'trading.dataCurrencySettings',
+            defaultMessage: 'Data and currency settings',
+          })}
+        </summary>
         <Stack gap="--space-4">
-          <FormField label="Reporting currency">
+          <FormField
+            label={formatMessage({
+              id: 'trading.reportingCurrency',
+              defaultMessage: 'Reporting currency',
+            })}
+          >
             <TextField
-              aria-label="Reporting currency"
+              aria-label={formatMessage({
+                id: 'trading.reportingCurrency',
+                defaultMessage: 'Reporting currency',
+              })}
               required
               pattern="[A-Z]{3,8}"
               value={value.base_currency}
               onChange={(e) => patch({ base_currency: e.target.value.toUpperCase() })}
             />
           </FormField>
-          <FormField label="FX rates (JSON)">
+          <FormField
+            label={formatMessage({ id: 'trading.fxRatesJson', defaultMessage: 'FX rates (JSON)' })}
+          >
             <TextArea
-              aria-label="FX rates (JSON)"
+              aria-label={formatMessage({
+                id: 'trading.fxRatesJson',
+                defaultMessage: 'FX rates (JSON)',
+              })}
               mono
               defaultValue={JSON.stringify(value.fx_rates)}
               onBlur={(e) => {
@@ -215,18 +312,34 @@ export function DelegationEnvironment({
                   patch({ fx_rates: JSON.parse(e.target.value) })
                   e.target.setCustomValidity('')
                 } catch {
-                  e.target.setCustomValidity('Enter valid JSON currency-to-base rates.')
+                  e.target.setCustomValidity(
+                    formatMessage({
+                      id: 'trading.fxJsonInvalid',
+                      defaultMessage: 'Enter valid JSON currency-to-base rates.',
+                    }),
+                  )
                 }
               }}
             />
           </FormField>
           <Text size="sm" tone="muted">
-            Historical observations must be supplied with explicit timestamps and availability.
-            Public market data is configured in the mandate.
+            {formatMessage({
+              id: 'trading.historicalObservations',
+              defaultMessage:
+                'Historical observations must be supplied with explicit timestamps and availability. Public market data is configured in the mandate.',
+            })}
           </Text>
-          <FormField label="Observation dataset (JSON)">
+          <FormField
+            label={formatMessage({
+              id: 'trading.observationDataset',
+              defaultMessage: 'Observation dataset (JSON)',
+            })}
+          >
             <TextArea
-              aria-label="Observation dataset (JSON)"
+              aria-label={formatMessage({
+                id: 'trading.observationDataset',
+                defaultMessage: 'Observation dataset (JSON)',
+              })}
               mono
               rows={5}
               defaultValue={JSON.stringify(value.observations)}
@@ -237,14 +350,27 @@ export function DelegationEnvironment({
                   patch({ observations: parsed })
                   e.target.setCustomValidity('')
                 } catch {
-                  e.target.setCustomValidity('Enter a JSON array of market observations.')
+                  e.target.setCustomValidity(
+                    formatMessage({
+                      id: 'trading.observationsInvalid',
+                      defaultMessage: 'Enter a JSON array of market observations.',
+                    }),
+                  )
                 }
               }}
             />
           </FormField>
-          <FormField label="Dataset version">
+          <FormField
+            label={formatMessage({
+              id: 'trading.datasetVersion',
+              defaultMessage: 'Dataset version',
+            })}
+          >
             <TextField
-              aria-label="Dataset version"
+              aria-label={formatMessage({
+                id: 'trading.datasetVersion',
+                defaultMessage: 'Dataset version',
+              })}
               required
               value={value.data_version}
               onChange={(e) => patch({ data_version: e.target.value })}
@@ -254,8 +380,11 @@ export function DelegationEnvironment({
       </details>
       {value.mode === 'live' && (
         <Text tone="warn">
-          Live trading uses real funds. Connection, account isolation, capabilities and permissions
-          must pass before activation. You will explicitly authorize the reviewed allocation.
+          {formatMessage({
+            id: 'trading.liveFundsWarning',
+            defaultMessage:
+              'Live trading uses real funds. Connection, account isolation, capabilities and permissions must pass before activation. You will explicitly authorize the reviewed allocation.',
+          })}
         </Text>
       )}
     </Stack>

@@ -73,3 +73,16 @@ describe('typed category syntax commits the Uncategorized token', () => {
     expect(parseSegment('category:none', withNone, '$')?.field).toBe('category')
   })
 })
+
+it('localizes generated search suggestions without changing the typed query', async () => {
+  const { createIntl } = await import('react-intl')
+  const { createElement, Fragment } = await import('react')
+  const { renderToStaticMarkup } = await import('react-dom/server')
+  const messages = (await import('./visible.zh-CN.messages.json')).default
+  const intl = createIntl({ locale: 'zh-CN', messages })
+  const row = buildSuggestions('Custom Payee', SUGGEST, '$', intl).find(s => s.field === 'textpayee')!
+  expect(row.value).toBe('Custom Payee')
+  const html = renderToStaticMarkup(createElement(Fragment, null, row.disp))
+  expect(html).toContain('在收款方中查找')
+  expect(html).toContain('<b>Custom Payee</b>')
+})

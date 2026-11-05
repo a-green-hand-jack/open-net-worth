@@ -12,16 +12,18 @@
 // every transport except codex_cli, whose blank model means "use the CLI's own default".
 
 import { useEffect, useRef, useState } from 'react'
+import { useAppIntl } from '../../i18n/useAppIntl'
 import { authFetch } from '../../api/client'
 import { Button, PasswordField, Select, Stack, Text, TextField } from '../ui'
 import { PickDialog } from './PickDialog'
+import { modelError } from '../tabs/settings/sections/modelError'
 import { ReportProblemButton } from '../ReportProblemButton'
 import type { SelectOption } from '../ui'
 import { ChevronDown } from '../../ui/icons'
 import { useCliDetectionPoll } from '../../hooks/useCliDetectionPoll'
 import { useDataVersion } from '../../hooks/useDataVersion'
 import { CliSubscriptionHelp, type CliHostPlatform } from '../shared/CliSubscriptionHelp'
-import { NO_LOCAL_MODELS_NOTE, isLocalOnlyProvider } from '../shared/privateCloudCopy'
+import { isLocalOnlyProvider } from '../shared/privateCloudCopy'
 
 interface CatalogEntry {
   key: string
@@ -36,16 +38,6 @@ interface CatalogEntry {
 }
 
 // The CLI transports that enrol by detection. Order is the order they are offered.
-const DETECTABLE: { key: string; label: string; blurb: string }[] = [
-  { key: 'claude_cli', label: 'Claude Code', blurb: 'Uses your existing Claude subscription.' },
-  { key: 'codex_cli', label: 'Codex', blurb: 'Uses your existing ChatGPT subscription.' },
-  {
-    key: 'antigravity_cli',
-    label: 'Antigravity CLI',
-    blurb: 'Uses your existing Google Antigravity account.',
-  },
-]
-
 // Which catalogue entries first run offers when nothing is detected. The full list lives in
 // Settings — this is the short path, not the complete one.
 // The CLI transports enrol by detection (above); everything else in the catalog enrols with
@@ -113,6 +105,35 @@ export function StepLucius({
   onStageChange,
   gatewayMode = false,
 }: StepLuciusProps) {
+  const intl = useAppIntl()
+  const { formatMessage } = intl
+  const DETECTABLE: { key: string; label: string; blurb: string }[] = [
+    {
+      key: 'claude_cli',
+      label: 'Claude Code',
+      blurb: formatMessage({
+        id: 'firstrun.lucius.detectable0',
+        defaultMessage: 'Uses your existing Claude subscription.',
+      }),
+    },
+    {
+      key: 'codex_cli',
+      label: 'Codex',
+      blurb: formatMessage({
+        id: 'firstrun.lucius.detectable1',
+        defaultMessage: 'Uses your existing ChatGPT subscription.',
+      }),
+    },
+    {
+      key: 'antigravity_cli',
+      label: 'Antigravity CLI',
+      blurb: formatMessage({
+        id: 'firstrun.lucius.detectable2',
+        defaultMessage: 'Uses your existing Google Antigravity account.',
+      }),
+    },
+  ]
+
   const [catalog, setCatalog] = useState<CatalogEntry[]>([])
   const [detected, setDetected] = useState<Record<string, boolean>>({})
   const [paths, setPaths] = useState<Record<string, string>>({})
@@ -298,7 +319,12 @@ export function StepLucius({
   async function saveProvider(key: string) {
     const entry = entryFor(key)
     if (!entry) {
-      setError('That provider is not available here.')
+      setError(
+        formatMessage({
+          id: 'firstrun.lucius.providerUnavailable',
+          defaultMessage: 'That provider is not available here.',
+        }),
+      )
       return
     }
     setBusyKey(key)
@@ -313,7 +339,16 @@ export function StepLucius({
         })
         if (!res.ok) {
           const detail = await res.json().catch(() => null)
-          setError(detail?.detail || 'That key could not be stored. Try again.')
+          setError(
+            modelError(
+              detail,
+              formatMessage({
+                id: 'firstrun.lucius.keySaveFailed',
+                defaultMessage: 'That key could not be stored. Try again.',
+              }),
+              intl,
+            ),
+          )
           return
         }
         setStoredKeys((keys) => ({ ...keys, [key]: true }))
@@ -341,14 +376,32 @@ export function StepLucius({
       // verify stops too, but offers to go on — the difference is whether the provider said
       // "no" or simply did not answer.
       if (data?.key_status === 'invalid') {
-        setError(data?.error || `That key was rejected by ${entry.label}.`)
+        setError(
+          data?.error ||
+            formatMessage(
+              {
+                id: 'firstrun.lucius.keyRejected',
+                defaultMessage: 'That key was rejected by {provider}.',
+              },
+              { provider: entry.label },
+            ),
+        )
         return
       }
       // A provider that cannot be proven to work is not configured. There is no "use anyway":
       // accepting it here only moves the failure to the first message Lucius cannot answer,
       // by which point nobody connects the two.
       if (data?.key_status !== 'valid') {
-        setError(data?.error || `Could not reach ${entry.label}.`)
+        setError(
+          data?.error ||
+            formatMessage(
+              {
+                id: 'firstrun.lucius.providerUnreachable',
+                defaultMessage: 'Could not reach {provider}.',
+              },
+              { provider: entry.label },
+            ),
+        )
         return
       }
       const cliDefault = cliDefaults[key]
@@ -373,7 +426,12 @@ export function StepLucius({
   async function saveModel(key: string) {
     const entry = entryFor(key)
     if (!entry) {
-      setError('That provider is not available here.')
+      setError(
+        formatMessage({
+          id: 'firstrun.lucius.providerUnavailable',
+          defaultMessage: 'That provider is not available here.',
+        }),
+      )
       return
     }
     setBusyKey(key)
@@ -397,7 +455,16 @@ export function StepLucius({
       })
       if (!res.ok) {
         const detail = await res.json().catch(() => null)
-        setError(detail?.detail || 'Could not save that. Check the details above and try again.')
+        setError(
+          modelError(
+            detail,
+            formatMessage({
+              id: 'firstrun.lucius.saveFailed',
+              defaultMessage: 'Could not save that. Check the details above and try again.',
+            }),
+            intl,
+          ),
+        )
         return
       }
       setApiKey('')
@@ -416,8 +483,15 @@ export function StepLucius({
     if (!network) console.error('model setup failed', err)
     setError(
       network
-        ? 'Could not reach the server. Check it is running and try again.'
-        : 'Something went wrong saving that. The details are in the browser console.',
+        ? formatMessage({
+            id: 'firstrun.lucius.network',
+            defaultMessage: 'Could not reach the server. Check it is running and try again.',
+          })
+        : formatMessage({
+            id: 'firstrun.lucius.saveUnexpected',
+            defaultMessage:
+              'Something went wrong saving that. The details are in the browser console.',
+          }),
     )
   }
 
@@ -472,12 +546,24 @@ export function StepLucius({
     <Stack gap="--space-6">
       <Text as="p" tone="muted" className="firstrun-lead">
         {gatewayMode
-          ? 'Lucius needs a model to think with — a provider’s API key. To use a Claude Code or Codex subscription instead, finish setup and open Settings → Terminal. Change it any time in Settings.'
-          : 'Lucius needs a model to think with — a subscription you already pay for, a provider’s key, or one running on this machine. Change it any time in Settings.'}
+          ? formatMessage({
+              id: 'firstrun.lucius.leadCloud',
+              defaultMessage:
+                'Lucius needs a model to think with — a provider’s API key. To use a Claude Code or Codex subscription instead, finish setup and open Settings → Terminal. Change it any time in Settings.',
+            })
+          : formatMessage({
+              id: 'firstrun.lucius.lead',
+              defaultMessage:
+                'Lucius needs a model to think with — a subscription you already pay for, a provider’s key, or one running on this machine. Change it any time in Settings.',
+            })}
       </Text>
       {gatewayMode && (
         <Text as="p" size="sm" tone="muted">
-          {NO_LOCAL_MODELS_NOTE}
+          {formatMessage({
+            id: 'firstrun.lucius.noLocal',
+            defaultMessage:
+              "Local models (Ollama, LM Studio) aren't offered here: this app runs on your Private Cloud server, which can't reach a model running on your own computer.",
+          })}
         </Text>
       )}
 
@@ -485,7 +571,12 @@ export function StepLucius({
         <div className="firstrun-probing">
           {slow && (
             <div className="firstrun-progress">
-              <span className="firstrun-progress__label">Looking for a model on this machine</span>
+              <span className="firstrun-progress__label">
+                {formatMessage({
+                  id: 'firstrun.lucius.looking',
+                  defaultMessage: 'Looking for a model on this machine',
+                })}
+              </span>
               <span className="firstrun-progress__track" aria-hidden="true" />
             </div>
           )}
@@ -505,15 +596,32 @@ export function StepLucius({
                   <div className="firstrun-found__eyebrow">
                     <span>
                       {detected[d.key]
-                        ? `Found ${d.label} on this machine`
-                        : 'Connect a subscription'}
+                        ? formatMessage(
+                            {
+                              id: 'firstrun.lucius.found',
+                              defaultMessage: 'Found {provider} on this machine',
+                            },
+                            { provider: d.label },
+                          )
+                        : formatMessage({
+                            id: 'firstrun.lucius.connectSubscription',
+                            defaultMessage: 'Connect a subscription',
+                          })}
                     </span>
                   </div>
                   <div className="firstrun-found__body">
                     <div className="firstrun-found__info">
                       <div className="firstrun-found__name">{d.label}</div>
                       {paths[d.key] && <div className="firstrun-found__path">{paths[d.key]}</div>}
-                      <div className="firstrun-found__desc">{d.blurb} No API key needed.</div>
+                      <div className="firstrun-found__desc">
+                        {formatMessage(
+                          {
+                            id: 'firstrun.lucius.subscriptionBlurb',
+                            defaultMessage: '{description} No API key needed.',
+                          },
+                          { description: d.blurb },
+                        )}
+                      </div>
                     </div>
                     {detected[d.key] && (
                       <Button
@@ -527,7 +635,10 @@ export function StepLucius({
                           void saveProvider(d.key)
                         }}
                       >
-                        Use this
+                        {formatMessage({
+                          id: 'firstrun.lucius.useThis',
+                          defaultMessage: 'Use this',
+                        })}
                       </Button>
                     )}
                   </div>
@@ -544,7 +655,10 @@ export function StepLucius({
               {cliCheckError && (
                 <div role="status">
                   <Text size="sm" tone="bad">
-                    {cliCheckError}
+                    {formatMessage({
+                      id: 'firstrun.lucius.checkError',
+                      defaultMessage: 'Could not check installations. Check again.',
+                    })}
                   </Text>
                 </div>
               )}
@@ -554,17 +668,26 @@ export function StepLucius({
           {keyedOptions.length === 0 && found.length === 0 && (
             <div className="firstrun-rows firstrun-settle">
               <div className="firstrun-row">
-                <span className="firstrun-row__label">Providers</span>
+                <span className="firstrun-row__label">
+                  {formatMessage({ id: 'firstrun.lucius.providers', defaultMessage: 'Providers' })}
+                </span>
                 <span className="firstrun-row__value">
                   <Text as="span" size="sm" tone="bad">
-                    Could not load the list of model providers.
+                    {formatMessage({
+                      id: 'firstrun.lucius.providersFailed',
+                      defaultMessage: 'Could not load the list of model providers.',
+                    })}
                   </Text>
                   <Text as="span" size="xs" tone="faint" className="firstrun-row__note">
-                    The app could not reach its own backend. Nothing is wrong with your setup.
+                    {formatMessage({
+                      id: 'firstrun.lucius.backendFailed',
+                      defaultMessage:
+                        'The app could not reach its own backend. Nothing is wrong with your setup.',
+                    })}
                   </Text>
                 </span>
                 <Button variant="secondary" onClick={() => setAttempt((n) => n + 1)}>
-                  Try again
+                  {formatMessage({ id: 'firstrun.lucius.retry', defaultMessage: 'Try again' })}
                 </Button>
               </div>
             </div>
@@ -575,14 +698,19 @@ export function StepLucius({
               {offered.length > 0 && (
                 <div className="firstrun-alt">
                   <span className="firstrun-alt__rule" aria-hidden="true" />
-                  <span className="firstrun-alt__label">or use a provider</span>
+                  <span className="firstrun-alt__label">
+                    {formatMessage({
+                      id: 'firstrun.lucius.orProvider',
+                      defaultMessage: 'or use a provider',
+                    })}
+                  </span>
                   <span className="firstrun-alt__rule" aria-hidden="true" />
                 </div>
               )}
               <div className="firstrun-rows firstrun-settle">
                 <div className="firstrun-row">
                   <label className="firstrun-row__label" htmlFor="fr-provider">
-                    Provider
+                    {formatMessage({ id: 'firstrun.lucius.provider', defaultMessage: 'Provider' })}
                   </label>
                   <span className="firstrun-row__value">
                     <span className="firstrun-select-wrap" style={{ width: '100%' }}>
@@ -601,16 +729,26 @@ export function StepLucius({
                     </span>
                     {keyedChosen && keyedChosen.key !== 'openrouter' && (
                       <Text as="span" size="xs" tone="faint" className="firstrun-row__note">
-                        Running Lucius can get pricey.{' '}
+                        {formatMessage({
+                          id: 'firstrun.lucius.costWarning',
+                          defaultMessage:
+                            'Running Lucius can get pricey. Consider a cheaper capable model like GLM or DeepSeek via OpenRouter.',
+                        })}{' '}
                         {keyedChosen.key === 'anthropic' &&
-                          'Claude Max and Team plans include monthly API credits. '}
-                        Consider a cheaper capable model like GLM or DeepSeek via OpenRouter.
+                          formatMessage({
+                            id: 'firstrun.lucius.claudeCredits',
+                            defaultMessage:
+                              'Claude Max and Team plans include monthly API credits.',
+                          })}
                       </Text>
                     )}
                     {keyedChosen?.key === 'openrouter' && (
                       <Text as="span" size="xs" tone="faint" className="firstrun-row__note">
-                        Pick a model on par with Claude Sonnet 5.0, such as GLM 5.3 or Kimi. Lucius
-                        works in long chains of tool calls, and weaker models slip.
+                        {formatMessage({
+                          id: 'firstrun.lucius.modelAdvice',
+                          defaultMessage:
+                            'Pick a model on par with Claude Sonnet 5.0, such as GLM 5.3 or Kimi. Lucius works in long chains of tool calls, and weaker models slip.',
+                        })}
                       </Text>
                     )}
                   </span>
@@ -621,7 +759,10 @@ export function StepLucius({
                 {keyedChosen?.editable_base_url && (
                   <div className="firstrun-row">
                     <label className="firstrun-row__label" htmlFor="fr-base">
-                      Endpoint
+                      {formatMessage({
+                        id: 'firstrun.lucius.endpoint',
+                        defaultMessage: 'Endpoint',
+                      })}
                     </label>
                     <span className="firstrun-row__value">
                       <TextField
@@ -632,7 +773,10 @@ export function StepLucius({
                         onChange={(e) => setBaseUrl(e.target.value)}
                       />
                       <Text as="span" size="xs" tone="faint" className="firstrun-row__note">
-                        Anything speaking the OpenAI API works.
+                        {formatMessage({
+                          id: 'firstrun.lucius.endpointHelp',
+                          defaultMessage: 'Anything speaking the OpenAI API works.',
+                        })}
                       </Text>
                     </span>
                   </div>
@@ -641,7 +785,7 @@ export function StepLucius({
                 {keyedChosen?.needs_api_key && (
                   <div className="firstrun-row">
                     <label className="firstrun-row__label" htmlFor="fr-key">
-                      API key
+                      {formatMessage({ id: 'firstrun.lucius.apiKey', defaultMessage: 'API key' })}
                     </label>
                     {/* The hint sits UNDER the field: as a sibling it was flex-shrink:0, took
                         its width first, and truncated the key. And NOT "never returned" — the
@@ -654,7 +798,10 @@ export function StepLucius({
                         onChange={(e) => setApiKey(e.target.value)}
                         placeholder={
                           storedKeys[keyedChosen.key]
-                            ? 'Saved — leave blank to keep it'
+                            ? formatMessage({
+                                id: 'firstrun.lucius.savedKey',
+                                defaultMessage: 'Saved — leave blank to keep it',
+                              })
                             : picked === 'anthropic'
                               ? 'sk-ant-…'
                               : 'sk-…'
@@ -662,8 +809,15 @@ export function StepLucius({
                       />
                       <Text as="span" size="xs" tone="faint" className="firstrun-row__note">
                         {keyedChosen.optional_api_key
-                          ? 'Optional — only if your proxy was started with one. Kept on this machine.'
-                          : 'Kept on this machine'}
+                          ? formatMessage({
+                              id: 'firstrun.lucius.optionalKey',
+                              defaultMessage:
+                                'Optional — only if your proxy was started with one. Kept on this machine.',
+                            })
+                          : formatMessage({
+                              id: 'firstrun.lucius.localKey',
+                              defaultMessage: 'Kept on this machine',
+                            })}
                       </Text>
                     </span>
                   </div>
@@ -674,8 +828,27 @@ export function StepLucius({
                 {busy ? (
                   <span className="firstrun-actions__status">
                     {keyedChosen?.needs_api_key
-                      ? `Checking your key and fetching models from ${keyedChosen.label}`
-                      : `Asking ${keyedChosen?.label ?? 'the provider'} what it offers`}
+                      ? formatMessage(
+                          {
+                            id: 'firstrun.lucius.checking',
+                            defaultMessage: 'Checking your key and fetching models from {provider}',
+                          },
+                          { provider: keyedChosen.label },
+                        )
+                      : formatMessage(
+                          {
+                            id: 'firstrun.lucius.asking',
+                            defaultMessage: 'Asking {provider} what it offers',
+                          },
+                          {
+                            provider:
+                              keyedChosen?.label ??
+                              formatMessage({
+                                id: 'firstrun.lucius.providerFallback',
+                                defaultMessage: 'the provider',
+                              }),
+                          },
+                        )}
                   </span>
                 ) : (
                   error && (
@@ -699,7 +872,7 @@ export function StepLucius({
                   }
                   onClick={() => keyedChosen && void saveProvider(keyedChosen.key)}
                 >
-                  Continue
+                  {formatMessage({ id: 'firstrun.lucius.continue', defaultMessage: 'Continue' })}
                 </Button>
               </div>
             </>
@@ -713,7 +886,9 @@ export function StepLucius({
         <>
           <div className="firstrun-rows firstrun-settle">
             <div className="firstrun-row">
-              <span className="firstrun-row__label">Provider</span>
+              <span className="firstrun-row__label">
+                {formatMessage({ id: 'firstrun.lucius.provider', defaultMessage: 'Provider' })}
+              </span>
               <span className="firstrun-row__value">
                 <span>{chosen.label}</span>
                 {picked && paths[picked] && (
@@ -725,10 +900,13 @@ export function StepLucius({
               <button
                 type="button"
                 className="firstrun-row__action"
-                aria-label="Change provider"
+                aria-label={formatMessage({
+                  id: 'firstrun.lucius.changeProvider',
+                  defaultMessage: 'Change provider',
+                })}
                 onClick={() => setStage('provider')}
               >
-                Change
+                {formatMessage({ id: 'firstrun.lucius.change', defaultMessage: 'Change' })}
               </button>
             </div>
 
@@ -737,46 +915,89 @@ export function StepLucius({
                   VALUE and a Change action (like the currency row), so the heading is a plain
                   span and the value carries its own accessible name. */}
               {modelOptions.length > 0 ? (
-                <span className="firstrun-row__label">Model</span>
+                <span className="firstrun-row__label">
+                  {formatMessage({ id: 'firstrun.lucius.model', defaultMessage: 'Model' })}
+                </span>
               ) : (
                 <label className="firstrun-row__label" htmlFor="fr-model">
-                  Model
+                  {formatMessage({ id: 'firstrun.lucius.model', defaultMessage: 'Model' })}
                 </label>
               )}
               <span className="firstrun-row__value">
                 {modelOptions.length > 0 ? (
-                  <span aria-label="Model" style={{ fontFamily: MONO }}>
-                    {model || 'none'}
+                  <span
+                    aria-label={formatMessage({
+                      id: 'firstrun.lucius.model',
+                      defaultMessage: 'Model',
+                    })}
+                    style={{ fontFamily: MONO }}
+                  >
+                    {model || formatMessage({ id: 'firstrun.lucius.none', defaultMessage: 'none' })}
                   </span>
                 ) : (
                   <TextField
                     id="fr-model"
                     value={model}
                     spellCheck={false}
-                    placeholder="the model name this endpoint serves"
+                    placeholder={formatMessage({
+                      id: 'firstrun.lucius.modelPlaceholder',
+                      defaultMessage: 'the model name this endpoint serves',
+                    })}
                     onChange={(e) => setModel(e.target.value)}
                   />
                 )}
                 <Text as="span" size="xs" tone="faint" className="firstrun-row__note">
                   {picked && cliDefaults[picked] && model === cliDefaults[picked]
-                    ? `${chosen.label}’s own default. Change it any time in Settings.`
+                    ? formatMessage(
+                        {
+                          id: 'firstrun.lucius.cliDefault',
+                          defaultMessage:
+                            '{provider}’s own default. Change it any time in Settings.',
+                        },
+                        { provider: chosen.label },
+                      )
                     : liveModels
-                      ? `${liveModels.length} models available from ${chosen.label}. Change it any time in Settings.`
+                      ? formatMessage(
+                          {
+                            id: 'firstrun.lucius.available',
+                            defaultMessage:
+                              '{count} models available from {provider}. Change it any time in Settings.',
+                          },
+                          { count: liveModels.length, provider: chosen.label },
+                        )
                       : modelOptions.length > 0
-                        ? 'A sensible default is chosen for you. Change it any time in Settings.'
+                        ? formatMessage({
+                            id: 'firstrun.lucius.modelSuggested',
+                            defaultMessage:
+                              'A sensible default is chosen for you. Change it any time in Settings.',
+                          })
                         : picked && CLI_KEYS.has(picked)
-                          ? `Leave blank to use whatever ${chosen.label} is set to on this machine.`
-                          : 'This provider ships no default, so name the model yourself.'}
+                          ? formatMessage(
+                              {
+                                id: 'firstrun.lucius.cliBlank',
+                                defaultMessage:
+                                  'Leave blank to use whatever {provider} is set to on this machine.',
+                              },
+                              { provider: chosen.label },
+                            )
+                          : formatMessage({
+                              id: 'firstrun.lucius.modelNoDefault',
+                              defaultMessage:
+                                'This provider ships no default, so name the model yourself.',
+                            })}
                 </Text>
               </span>
               {modelOptions.length > 0 && (
                 <button
                   type="button"
                   className="firstrun-row__action"
-                  aria-label="Change model"
+                  aria-label={formatMessage({
+                    id: 'firstrun.lucius.changeModel',
+                    defaultMessage: 'Change model',
+                  })}
                   onClick={() => setPickingModel(true)}
                 >
-                  Change
+                  {formatMessage({ id: 'firstrun.lucius.change', defaultMessage: 'Change' })}
                 </button>
               )}
             </div>
@@ -784,18 +1005,41 @@ export function StepLucius({
 
           {pickingModel && (
             <PickDialog
-              title="Model"
+              title={formatMessage({ id: 'firstrun.lucius.model', defaultMessage: 'Model' })}
               subtitle={
                 liveModels
-                  ? `${liveModels.length} models available from ${chosen.label}.`
-                  : `The models ${chosen.label} is known to serve.`
+                  ? formatMessage(
+                      {
+                        id: 'firstrun.lucius.availableShort',
+                        defaultMessage: '{count} models available from {provider}.',
+                      },
+                      { count: liveModels.length, provider: chosen.label },
+                    )
+                  : formatMessage(
+                      {
+                        id: 'firstrun.lucius.knownModels',
+                        defaultMessage: 'The models {provider} is known to serve.',
+                      },
+                      { provider: chosen.label },
+                    )
               }
-              searchPlaceholder="Search models…"
+              searchPlaceholder={formatMessage({
+                id: 'firstrun.lucius.searchModels',
+                defaultMessage: 'Search models…',
+              })}
               options={modelOptions.map((m) => ({
                 value: m,
                 code: m,
                 name:
-                  picked && m === cliDefaults[picked] ? `Default in ${chosen.label}` : undefined,
+                  picked && m === cliDefaults[picked]
+                    ? formatMessage(
+                        {
+                          id: 'firstrun.lucius.defaultIn',
+                          defaultMessage: 'Default in {provider}',
+                        },
+                        { provider: chosen.label },
+                      )
+                    : undefined,
               }))}
               value={model}
               onPick={(m) => {
@@ -803,7 +1047,10 @@ export function StepLucius({
                 setPickingModel(false)
               }}
               onClose={() => setPickingModel(false)}
-              emptyLabel="No model matches “{q}”."
+              emptyLabel={formatMessage(
+                { id: 'firstrun.lucius.noMatches', defaultMessage: 'No model matches “{q}”.' },
+                { q: '{q}' },
+              )}
             />
           )}
 
@@ -822,7 +1069,7 @@ export function StepLucius({
               }
               onClick={() => picked && void saveModel(picked)}
             >
-              Continue
+              {formatMessage({ id: 'firstrun.lucius.continue', defaultMessage: 'Continue' })}
             </Button>
           </div>
         </>

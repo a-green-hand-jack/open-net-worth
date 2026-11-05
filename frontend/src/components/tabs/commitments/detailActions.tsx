@@ -1,3 +1,4 @@
+import { useAppIntl } from '../../../i18n/useAppIntl'
 // Actions & events tab — ported from detail3.jsx's `Actions`/`derivedActions`. `status:
 // 'missed'` ("not happening") is REAL, persisted state (ADR 2026-07-22 backend addition) — not
 // a client-only array like the design handoff (which had no backend to persist to).
@@ -18,6 +19,7 @@ import { entityRefProps } from '../../../utils/mentionable'
 import { buildCtxFields } from '../../../lucius/ctxFields'
 import { filterByDescriptor } from '../../../lucius/entityRegistry'
 import { ArrowRight } from '../../../ui/icons'
+import { displayActionLabel } from './actionLabel'
 
 // ── a synthetic checklist item derived from a not-yet-promoted funding draw (a loan draw-
 //    down, an asset sale, a windfall receipt) — never persisted on its own; checking it off or
@@ -25,6 +27,7 @@ import { ArrowRight } from '../../../ui/icons'
 interface DerivedAction {
   id: string
   label: string
+  label_source: NonNullable<CommitmentAction['label_source']>
   category: string
   due_date: string
   start_by: null
@@ -48,15 +51,23 @@ const daysApart = (a: string, b: string): number =>
 function derivedActions(c: Commitment, fx: Record<string, number>): DerivedAction[] {
   return (c.funding_plan || []).flatMap((f) => {
     if (f.disabled || !f.available_date) return []
-    let label: string | null = null
-    if (f.type === 'loan') label = `Draw down ${f.label}`
-    else if (f.type === 'asset_sale') {
-      label =
+    let source: NonNullable<CommitmentAction['label_source']> | null = null
+    if (f.type === 'loan') source = { kind: 'draw_down', label: f.label }
+    else if (f.type === 'asset_sale')
+      source =
         f.sell_quantity != null
-          ? `Sell ${f.sell_quantity} units — ${f.label.replace(/^Sell \d+ /, '')}`
-          : `Sell ${f.label}`
-    } else if (f.type === 'windfall') label = `Receive ${f.label}`
-    if (!label) return []
+          ? {
+              kind: 'sell_units',
+              label: f.label.replace(/^Sell \d+ /, ''),
+              count: String(f.sell_quantity),
+            }
+          : { kind: 'sell', label: f.label }
+    else if (f.type === 'windfall') source = { kind: 'receive', label: f.label }
+    if (!source) return []
+    const label =
+      source.kind === 'sell_units'
+        ? `Sell ${source.count} units — ${source.label}`
+        : `${source.kind === 'draw_down' ? 'Draw down' : source.kind === 'sell' ? 'Sell' : 'Receive'} ${source.label}`
     // Skip if a real action already describes this event. `funding_id` is the DESIGNED link
     // and is authoritative on its own — a plan date and the date you actually expect the money
     // are routinely months apart, so requiring `a.due_date === f.available_date` (as this did
@@ -80,6 +91,7 @@ function derivedActions(c: Commitment, fx: Record<string, number>): DerivedActio
       {
         id: `derived-${f.id}`,
         label,
+        label_source: source,
         category: 'Funding plan',
         due_date: f.available_date,
         start_by: null,
@@ -120,6 +132,8 @@ interface ActionsProps {
 }
 
 export function Actions({ commitment: c, fx, m }: ActionsProps) {
+  const intl = useAppIntl()
+  const { formatMessage } = intl
   const narrow = useNarrow()
   const [showAllActs, setShowAllActs] = useState(false)
   const [fStatus, setFStatus] = useState('all')
@@ -146,6 +160,7 @@ export function Actions({ commitment: c, fx, m }: ActionsProps) {
     m.addAction({
       id: `act-${a.funding_id}-${Date.now()}`,
       label: a.label,
+      label_source: a.label_source,
       category: 'financing',
       due_date: a.due_date,
       start_by: a.start_by,
@@ -178,7 +193,9 @@ export function Actions({ commitment: c, fx, m }: ActionsProps) {
   return (
     <div className="c2-exp-sec">
       <div className="c2-exp-sec-h">
-        <span className="c2-exp-sec-t">Actions &amp; events</span>
+        <span className="c2-exp-sec-t">
+          {formatMessage({ id: 'commitments.actions.heading', defaultMessage: 'Actions & events' })}
+        </span>
         {narrow ? (
           <span className="c2-exp-sec-note c3-act-tools">
             <button
@@ -189,13 +206,20 @@ export function Actions({ commitment: c, fx, m }: ActionsProps) {
                 )
               }
             >
-              Manage with Lucius <ArrowRight size={13} aria-hidden="true" />
+              {formatMessage({
+                id: 'commitments.actions.manage',
+                defaultMessage: 'Manage with Lucius',
+              })}{' '}
+              <ArrowRight size={13} aria-hidden="true" />
             </button>
             <button
               className={
                 'c2-fund-typefilter-btn' + (fStatus !== 'all' || fCat !== 'all' ? ' active' : '')
               }
-              aria-label="Filter actions"
+              aria-label={formatMessage({
+                id: 'commitments.actions.filter',
+                defaultMessage: 'Filter actions',
+              })}
               onClick={() => setFilterOpen(true)}
             >
               <FilterIcon />
@@ -210,13 +234,47 @@ export function Actions({ commitment: c, fx, m }: ActionsProps) {
                 setFStatus(e.target.value)
                 setShowAllActs(true)
               }}
-              aria-label="Filter by status"
+              aria-label={formatMessage({
+                id: 'commitments.actions.filterStatus',
+                defaultMessage: 'Filter by status',
+              })}
             >
-              <option value="all">All statuses ({acts.length})</option>
-              <option value="overdue">Overdue ({nOf('overdue')})</option>
-              <option value="pending">Pending ({nOf('pending')})</option>
-              <option value="done">Done ({nOf('done')})</option>
-              <option value="missed">Not happening ({nOf('missed')})</option>
+              <option value="all">
+                {formatMessage(
+                  {
+                    id: 'commitments.actions.filter_all',
+                    defaultMessage: 'All statuses ({count})',
+                  },
+                  { count: acts.length },
+                )}
+              </option>
+              <option value="overdue">
+                {formatMessage(
+                  { id: 'commitments.actions.filter_overdue', defaultMessage: 'Overdue ({count})' },
+                  { count: nOf('overdue') },
+                )}
+              </option>
+              <option value="pending">
+                {formatMessage(
+                  { id: 'commitments.actions.filter_pending', defaultMessage: 'Pending ({count})' },
+                  { count: nOf('pending') },
+                )}
+              </option>
+              <option value="done">
+                {formatMessage(
+                  { id: 'commitments.actions.filter_done', defaultMessage: 'Done ({count})' },
+                  { count: nOf('done') },
+                )}
+              </option>
+              <option value="missed">
+                {formatMessage(
+                  {
+                    id: 'commitments.actions.filter_missed',
+                    defaultMessage: 'Not happening ({count})',
+                  },
+                  { count: nOf('missed') },
+                )}
+              </option>
             </select>
             <select
               className="c2-select"
@@ -225,9 +283,17 @@ export function Actions({ commitment: c, fx, m }: ActionsProps) {
                 setFCat(e.target.value)
                 setShowAllActs(true)
               }}
-              aria-label="Filter by category"
+              aria-label={formatMessage({
+                id: 'commitments.actions.filterCategory',
+                defaultMessage: 'Filter by category',
+              })}
             >
-              <option value="all">All categories</option>
+              <option value="all">
+                {formatMessage({
+                  id: 'commitments.actions.allCategories',
+                  defaultMessage: 'All categories',
+                })}
+              </option>
               {cats.map((k) => (
                 <option key={k} value={k}>
                   {k}
@@ -242,22 +308,71 @@ export function Actions({ commitment: c, fx, m }: ActionsProps) {
                 )
               }
             >
-              Manage with Lucius <ArrowRight size={13} aria-hidden="true" />
+              {formatMessage({
+                id: 'commitments.actions.manage',
+                defaultMessage: 'Manage with Lucius',
+              })}{' '}
+              <ArrowRight size={13} aria-hidden="true" />
             </button>
           </span>
         )}
       </div>
 
       {narrow && filterOpen && (
-        <Modal open onClose={() => setFilterOpen(false)} title="Filter actions">
+        <Modal
+          open
+          onClose={() => setFilterOpen(false)}
+          title={formatMessage({
+            id: 'commitments.actions.filter',
+            defaultMessage: 'Filter actions',
+          })}
+        >
           <div className="c3-menu-sheet" role="menu">
-            <div className="c3-menu-label">Status</div>
+            <div className="c3-menu-label">
+              {formatMessage({ id: 'commitments.actions.status', defaultMessage: 'Status' })}
+            </div>
             {[
-              { v: 'all', label: `All statuses (${acts.length})` },
-              { v: 'overdue', label: `Overdue (${nOf('overdue')})` },
-              { v: 'pending', label: `Pending (${nOf('pending')})` },
-              { v: 'done', label: `Done (${nOf('done')})` },
-              { v: 'missed', label: `Not happening (${nOf('missed')})` },
+              {
+                v: 'all',
+                label: formatMessage(
+                  {
+                    id: 'commitments.actions.filter_all',
+                    defaultMessage: 'All statuses ({count})',
+                  },
+                  { count: acts.length },
+                ),
+              },
+              {
+                v: 'overdue',
+                label: formatMessage(
+                  { id: 'commitments.actions.filter_overdue', defaultMessage: 'Overdue ({count})' },
+                  { count: nOf('overdue') },
+                ),
+              },
+              {
+                v: 'pending',
+                label: formatMessage(
+                  { id: 'commitments.actions.filter_pending', defaultMessage: 'Pending ({count})' },
+                  { count: nOf('pending') },
+                ),
+              },
+              {
+                v: 'done',
+                label: formatMessage(
+                  { id: 'commitments.actions.filter_done', defaultMessage: 'Done ({count})' },
+                  { count: nOf('done') },
+                ),
+              },
+              {
+                v: 'missed',
+                label: formatMessage(
+                  {
+                    id: 'commitments.actions.filter_missed',
+                    defaultMessage: 'Not happening ({count})',
+                  },
+                  { count: nOf('missed') },
+                ),
+              },
             ].map((o) => (
               <button
                 key={o.v}
@@ -275,7 +390,9 @@ export function Actions({ commitment: c, fx, m }: ActionsProps) {
               </button>
             ))}
             <div className="c3-menu-divider" />
-            <div className="c3-menu-label">Category</div>
+            <div className="c3-menu-label">
+              {formatMessage({ id: 'commitments.actions.category', defaultMessage: 'Category' })}
+            </div>
             <button
               className={'c3-menu-it' + (fCat === 'all' ? ' on' : '')}
               role="menuitemradio"
@@ -286,7 +403,10 @@ export function Actions({ commitment: c, fx, m }: ActionsProps) {
                 setFilterOpen(false)
               }}
             >
-              All categories
+              {formatMessage({
+                id: 'commitments.actions.allCategories',
+                defaultMessage: 'All categories',
+              })}
               {fCat === 'all' && <CheckIcon />}
             </button>
             {cats.map((k) => (
@@ -310,11 +430,20 @@ export function Actions({ commitment: c, fx, m }: ActionsProps) {
       )}
 
       {sorted.length === 0 && acts.length > 0 && (
-        <div className="c2-fund-empty">Nothing matches these filters.</div>
+        <div className="c2-fund-empty">
+          {formatMessage({
+            id: 'commitments.actions.noMatches',
+            defaultMessage: 'Nothing matches these filters.',
+          })}
+        </div>
       )}
       {!acts.length && (
         <div className="c2-fund-empty">
-          No actions yet — paperwork, signatures, and reminders tied to this commitment land here.
+          {formatMessage({
+            id: 'commitments.actions.noActions',
+            defaultMessage:
+              'No actions yet — paperwork, signatures, and reminders tied to this commitment land here.',
+          })}
         </div>
       )}
       <div>
@@ -327,6 +456,7 @@ export function Actions({ commitment: c, fx, m }: ActionsProps) {
           const fund = fid ? (c.funding_plan || []).find((f) => f.id === fid) : null
           const fundBase = fund?.value_base ?? null
           const category = isDerived(a) ? 'Funding plan' : a.category
+          const shownLabel = displayActionLabel(intl, a)
 
           return (
             <div
@@ -363,13 +493,20 @@ export function Actions({ commitment: c, fx, m }: ActionsProps) {
             >
               <div className="c2-act-main">
                 <div className="c2-act-t">
-                  {a.label}
+                  {shownLabel}
                   {fund && !isMissedRow && !isDone && (
                     <span
                       className="c3-act-load"
-                      title="This step unlocks a funding source — mark it not happening and that funding drops from the projection"
+                      title={formatMessage({
+                        id: 'commitments.actions.unlockHint',
+                        defaultMessage:
+                          'This step unlocks a funding source — mark it not happening and that funding drops from the projection',
+                      })}
                     >
-                      unlocks funding
+                      {formatMessage({
+                        id: 'commitments.actions.unlockFunding',
+                        defaultMessage: 'unlocks funding',
+                      })}
                     </span>
                   )}
                 </div>
@@ -377,9 +514,16 @@ export function Actions({ commitment: c, fx, m }: ActionsProps) {
                   {isDerived(a) ? (
                     <span
                       className="c2-act-cat"
-                      title="Generated from the funding plan — edit the funding source to change it"
+                      title={formatMessage({
+                        id: 'commitments.actions.generatedHint',
+                        defaultMessage:
+                          'Generated from the funding plan — edit the funding source to change it',
+                      })}
                     >
-                      {category}
+                      {formatMessage({
+                        id: 'commitments.actions.fundingPlan',
+                        defaultMessage: 'Funding plan',
+                      })}
                     </span>
                   ) : (
                     <span className="c2-act-cat">{category}</span>
@@ -393,19 +537,43 @@ export function Actions({ commitment: c, fx, m }: ActionsProps) {
                       className="c3-missbadge"
                       title={
                         fund
-                          ? 'Marked not happening — the funding source it unlocked has dropped from the projection'
-                          : 'Marked not happening — excluded from this commitment’s schedule'
+                          ? formatMessage({
+                              id: 'commitments.actions.missedFundingHint',
+                              defaultMessage:
+                                'Marked not happening — the funding source it unlocked has dropped from the projection',
+                            })
+                          : formatMessage({
+                              id: 'commitments.actions.missedHint',
+                              defaultMessage:
+                                'Marked not happening — excluded from this commitment’s schedule',
+                            })
                       }
                     >
-                      Not happening
+                      {formatMessage({
+                        id: 'commitments.actions.notHappening',
+                        defaultMessage: 'Not happening',
+                      })}
                     </span>
                   ) : (
                     <>
                       {a.start_by && !isDone && (
-                        <span className="c3-startby">start by {fmtDay(a.start_by)}</span>
+                        <span className="c3-startby">
+                          {formatMessage(
+                            {
+                              id: 'commitments.actions.startBy',
+                              defaultMessage: 'start by {date}',
+                            },
+                            { date: fmtDay(a.start_by) },
+                          )}
+                        </span>
                       )}
                       <span className={'c2-act-due' + (overdue ? ' od' : '')}>
-                        {overdue ? 'Overdue • ' : ''}
+                        {overdue
+                          ? formatMessage({
+                              id: 'commitments.actions.overdue',
+                              defaultMessage: 'Overdue',
+                            }) + ' • '
+                          : ''}
                         {a.due_date ? fmtDate(a.due_date) : '—'}
                       </span>
                     </>
@@ -420,6 +588,7 @@ export function Actions({ commitment: c, fx, m }: ActionsProps) {
                         commitmentName: c.name,
                         action: a as CommitmentAction,
                         fundingAmountBase: fundBase,
+                        intl,
                       })}
                     </div>
                     <div className="c3-impact-cta">
@@ -430,11 +599,14 @@ export function Actions({ commitment: c, fx, m }: ActionsProps) {
                         iconLeft={<Spark size={15} />}
                         onClick={() => m.onAskLucius(missPrompt(a, fundBase))}
                       >
-                        Plan the fix with Lucius
+                        {formatMessage({
+                          id: 'commitments.actions.planFix',
+                          defaultMessage: 'Plan the fix with Lucius',
+                        })}
                         <ArrowRight size={14} aria-hidden="true" />
                       </Button>
                       <Button size="sm" variant="ghost" onClick={() => setMissed(a, false)}>
-                        Undo
+                        {formatMessage({ id: 'commitments.actions.undo', defaultMessage: 'Undo' })}
                       </Button>
                     </div>
                   </div>
@@ -444,8 +616,28 @@ export function Actions({ commitment: c, fx, m }: ActionsProps) {
                 {!isDerived(a) && a.due_date ? (
                   <button
                     className={'c2-act-bell' + (a.reminder_automation_id ? ' on' : '')}
-                    aria-label={a.reminder_automation_id ? 'Cancel reminder' : 'Remind me'}
-                    title={a.reminder_automation_id ? 'Cancel reminder' : 'Remind me'}
+                    aria-label={
+                      a.reminder_automation_id
+                        ? formatMessage({
+                            id: 'commitments.actions.cancelReminder',
+                            defaultMessage: 'Cancel reminder',
+                          })
+                        : formatMessage({
+                            id: 'commitments.actions.remind',
+                            defaultMessage: 'Remind me',
+                          })
+                    }
+                    title={
+                      a.reminder_automation_id
+                        ? formatMessage({
+                            id: 'commitments.actions.cancelReminder',
+                            defaultMessage: 'Cancel reminder',
+                          })
+                        : formatMessage({
+                            id: 'commitments.actions.remind',
+                            defaultMessage: 'Remind me',
+                          })
+                    }
                     onClick={() => void m.setActionReminder(a, !a.reminder_automation_id)}
                   >
                     <BellIcon on={!!a.reminder_automation_id} />
@@ -460,8 +652,28 @@ export function Actions({ commitment: c, fx, m }: ActionsProps) {
                   <span className="c2-act-icon-acts">
                     <button
                       className={'c2-need-icon-btn pay' + (isDone ? ' on' : '')}
-                      aria-label={isDone ? 'Undo done' : 'Mark done'}
-                      title={isDone ? 'Undo done' : 'Mark done'}
+                      aria-label={
+                        isDone
+                          ? formatMessage({
+                              id: 'commitments.actions.undoDone',
+                              defaultMessage: 'Undo done',
+                            })
+                          : formatMessage({
+                              id: 'commitments.actions.markDone',
+                              defaultMessage: 'Mark done',
+                            })
+                      }
+                      title={
+                        isDone
+                          ? formatMessage({
+                              id: 'commitments.actions.undoDone',
+                              defaultMessage: 'Undo done',
+                            })
+                          : formatMessage({
+                              id: 'commitments.actions.markDone',
+                              defaultMessage: 'Mark done',
+                            })
+                      }
                       onClick={() => toggleDone(a)}
                     >
                       <CheckIcon />
@@ -469,8 +681,11 @@ export function Actions({ commitment: c, fx, m }: ActionsProps) {
                     {!isDone && (
                       <button
                         className="c2-need-icon-btn miss"
-                        aria-label="Not happening"
-                        title={buildDidntHint(a as CommitmentAction, fundBase)}
+                        aria-label={formatMessage({
+                          id: 'commitments.actions.notHappening',
+                          defaultMessage: 'Not happening',
+                        })}
+                        title={buildDidntHint(a as CommitmentAction, fundBase, intl)}
                         onClick={() => setMissed(a, true)}
                       >
                         <XIcon />
@@ -488,13 +703,24 @@ export function Actions({ commitment: c, fx, m }: ActionsProps) {
             style={{ marginTop: 8 }}
             onClick={() => setShowAllActs(!showAllActs)}
           >
-            {showAllActs ? 'Collapse' : `Show all ${sorted.length} actions…`}
+            {showAllActs
+              ? formatMessage({ id: 'commitments.actions.collapse', defaultMessage: 'Collapse' })
+              : formatMessage(
+                  {
+                    id: 'commitments.actions.showAll',
+                    defaultMessage: 'Show all {count} actions…',
+                  },
+                  { count: sorted.length },
+                )}
           </button>
         )}
       </div>
       {pending === 0 && acts.length > 0 && (
         <div className="c2-fund-empty" style={{ marginTop: 8 }}>
-          Nothing pending — every action is done or marked not happening.
+          {formatMessage({
+            id: 'commitments.actions.noPending',
+            defaultMessage: 'Nothing pending — every action is done or marked not happening.',
+          })}
         </div>
       )}
     </div>

@@ -17,6 +17,9 @@ const authFetch = vi.hoisted(() =>
 )
 vi.mock('../../../api/client', () => ({ authFetch }))
 
+import { IntlProvider } from 'react-intl'
+import messages from './zh-CN.messages.json'
+import commonMessages from '../../../i18n/zh-CN.json'
 import { PayeesModal } from './PayeesModal'
 import type { Category, Payee } from './types'
 
@@ -383,4 +386,15 @@ describe('PayeesModal — merge confirmation copy', () => {
       screen.getByText(/aliases, renaming rules, and 20 transactions will move to Target Payee/),
     ).toBeTruthy()
   })
+})
+
+it('shows the irreversible payee deletion warning in Chinese before deleting', async () => {
+  const payee = makePayee({ name: 'Example', txnCount: 0 })
+  const onDelete = vi.fn()
+  serveUsage(payee)
+  render(<IntlProvider locale="zh-CN" messages={{ ...commonMessages, ...messages }}><PayeesModal open payees={[payee]} categories={categories} onClose={noop} onChange={noop} onMerge={noop} onView={noop} onAdd={() => ''} onDelete={onDelete} /></IntlProvider>)
+  await screen.findByText('从未使用')
+  fireEvent.click(screen.getByRole('button', { name: '删除收款方' }))
+  expect(screen.getByText('Example 没有交易，将被永久删除。此操作无法撤销。')).toBeTruthy()
+  expect(onDelete).not.toHaveBeenCalled()
 })

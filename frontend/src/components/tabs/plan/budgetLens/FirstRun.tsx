@@ -2,6 +2,7 @@
 // pane. Pick a card, one CTA. Ported from the Budget Onboarding (cards) design
 // (budget_onboarding/compare.jsx FirstRun, owner 2026-09-25).
 import { useState } from 'react'
+import { useAppIntl } from '../../../../i18n/useAppIntl'
 import type { CSSProperties } from 'react'
 import { Button } from '../../../ui'
 import { FitPicker, MethodCard, Spark } from './MethodCard'
@@ -18,6 +19,7 @@ export function FirstRun({
   onLucius: (prompt: string) => void
   busy?: boolean
 }) {
+  const { formatMessage } = useAppIntl()
   const [fit, setFit] = useState<FitId | null>(null)
   const [sel, setSel] = useState<MethodId | null>('proportional')
   const [more, setMore] = useState(false)
@@ -30,12 +32,26 @@ export function FirstRun({
     <div className="bo-intro">
       <div className="bo-intro-head">
         <div>
-          <h2 className="bo-intro-title">How do you want to budget?</h2>
-          <p className="bo-intro-note">The figures below are examples, not your spending.</p>
+          <h2 className="bo-intro-title">
+            {formatMessage({
+              id: 'plan.chooseBudget',
+              defaultMessage: 'How do you want to budget?',
+            })}
+          </h2>
+          <p className="bo-intro-note">
+            {formatMessage({
+              id: 'plan.examples',
+              defaultMessage: 'The figures below are examples, not your spending.',
+            })}
+          </p>
         </div>
         <FitPicker value={fit} onChange={pick} />
       </div>
-      <div className="bo-cards" role="radiogroup" aria-label="Budgeting method">
+      <div
+        className="bo-cards"
+        role="radiogroup"
+        aria-label={formatMessage({ id: 'plan.budgetMethod', defaultMessage: 'Budgeting method' })}
+      >
         {METHODS.map((m) => (
           <div
             key={m.id}
@@ -62,7 +78,7 @@ export function FirstRun({
             iconLeft={<Spark size={15} />}
             onClick={() => onLucius('Help me choose a budgeting method')}
           >
-            Help me choose
+            {formatMessage({ id: 'plan.helpChoose', defaultMessage: 'Help me choose' })}
           </Button>
         </span>
         <Button
@@ -73,7 +89,17 @@ export function FirstRun({
           onClick={() => chosen && onStart(chosen.id)}
           data-tour="setup-plan"
         >
-          {chosen ? `Start with ${chosen.name}` : 'Start'}
+          {chosen
+            ? formatMessage(
+                { id: 'plan.startWith', defaultMessage: 'Start with {method}' },
+                {
+                  method:
+                    chosen.id === 'zero_based'
+                      ? formatMessage({ id: 'plan.zeroBased', defaultMessage: 'Zero-Based' })
+                      : chosen.name,
+                },
+              )
+            : formatMessage({ id: 'plan.start', defaultMessage: 'Start' })}
           <Arrow size={14} />
         </Button>
       </div>

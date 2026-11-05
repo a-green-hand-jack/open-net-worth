@@ -3,6 +3,7 @@
 // design — budget_onboarding/compare.jsx + diagrams.jsx (owner, 2026-09-25). The diagrams are
 // one illustrative month, obviously-round figures, never the book's real data.
 import type { CSSProperties, ReactElement, ReactNode } from 'react'
+import { useAppIntl } from '../../../../i18n/useAppIntl'
 import * as PD from '../planData'
 import { FITS } from './methodsData'
 import type { FitId, MethodMeta } from './methodsData'
@@ -90,6 +91,7 @@ function Row({
   tone?: 'zero' | 'warn' | 'pool'
   stop?: boolean
 }) {
+  const { formatMessage } = useAppIntl()
   return (
     <div className="bo-dg-row">
       <span className="n">{n}</span>
@@ -108,7 +110,7 @@ function Row({
           >
             <path d="M20 6 9 17l-5-5" />
           </svg>
-          Every dollar assigned
+          {formatMessage({ id: 'plan.everyAssigned', defaultMessage: 'Every dollar assigned' })}
         </span>
       ) : (
         <span className={'bo-track' + (stop ? ' empty' : '')}>
@@ -124,22 +126,55 @@ function Row({
 
 /** Zero-Based: one pool drains to zero into envelopes with targets. */
 function ZeroDiagram() {
+  const { formatMessage } = useAppIntl()
   return (
-    <div className="bo-dg" aria-label="Zero-based: income pool drained to zero into envelopes">
-      <Row n="To assign" pct={0} v={fSmart(0)} tone="zero" />
+    <div
+      className="bo-dg"
+      aria-label={formatMessage({
+        id: 'plan.zeroDiagram',
+        defaultMessage: 'Zero-based: income pool drained to zero into envelopes',
+      })}
+    >
+      <Row
+        n={formatMessage({ id: 'plan.toAssign', defaultMessage: 'To assign' })}
+        pct={0}
+        v={fSmart(0)}
+        tone="zero"
+      />
       <div className="bo-dg-rule" />
-      <Row n="Home" pct={100} v={fSmart(2800)} />
-      <Row n="Food" pct={100} v={fSmart(1150)} />
-      <Row n="Savings" pct={100} v={fSmart(900)} />
+      <Row
+        n={formatMessage({ id: 'plan.home', defaultMessage: 'Home' })}
+        pct={100}
+        v={fSmart(2800)}
+      />
+      <Row
+        n={formatMessage({ id: 'plan.food', defaultMessage: 'Food' })}
+        pct={100}
+        v={fSmart(1150)}
+      />
+      <Row
+        n={formatMessage({ id: 'plan.savings', defaultMessage: 'Savings' })}
+        pct={100}
+        v={fSmart(900)}
+      />
     </div>
   )
 }
 
 /** 50/30/20: one bar, three shares, targets as ticks. */
 function ProportionDiagram({ needs = 52, wants = 22, tNeeds = 50, tWants = 30 }) {
+  const { formatMessage } = useAppIntl()
   const save = Math.max(0, 100 - needs - wants)
   return (
-    <div aria-label={`50/30/20: ${needs}% needs, ${wants}% wants, ${save}% savings`}>
+    <div
+      aria-label={formatMessage(
+        {
+          id: 'plan.proportionAria',
+          defaultMessage: '50/30/20: {needs}% needs, {wants}% wants, {save}% savings',
+        },
+        { needs, wants, save },
+      )}
+    >
       <div className="bo-barwrap">
         <div className="bo-bar">
           <span className="bo-bar-seg needs" style={{ flexBasis: needs + '%' }}>
@@ -162,15 +197,15 @@ function ProportionDiagram({ needs = 52, wants = 22, tNeeds = 50, tWants = 30 })
       <div className="bo-legend">
         <span>
           <i style={{ background: 'var(--bk-needs)' }} />
-          Needs
+          {formatMessage({ id: 'plan.needs', defaultMessage: 'Needs' })}
         </span>
         <span>
           <i style={{ background: 'var(--bk-wants)' }} />
-          Wants
+          {formatMessage({ id: 'plan.wants', defaultMessage: 'Wants' })}
         </span>
         <span>
           <i style={{ background: 'var(--bk-save)' }} />
-          Savings
+          {formatMessage({ id: 'plan.savings', defaultMessage: 'Savings' })}
         </span>
       </div>
     </div>
@@ -184,49 +219,67 @@ const DIAGRAM: Record<MethodMeta['id'], () => ReactElement> = {
 
 // ── Facts ───────────────────────────────────────────────────────────────────────────────
 
-const Dots = ({ n }: { n: number }) => (
-  <span className="bo-dots" aria-label={n + ' of 3'}>
-    {[1, 2, 3].map((i) => (
-      <i key={i} className={i <= n ? 'on' : ''} />
-    ))}
-  </span>
-)
+const Dots = ({ n }: { n: number }) => {
+  const { formatMessage } = useAppIntl()
+  return (
+    <span
+      className="bo-dots"
+      aria-label={formatMessage({ id: 'plan.effortDots', defaultMessage: '{n} of 3' }, { n })}
+    >
+      {[1, 2, 3].map((i) => (
+        <i key={i} className={i <= n ? 'on' : ''} />
+      ))}
+    </span>
+  )
+}
 
 function Facts({ m }: { m: MethodMeta }) {
+  const { formatMessage } = useAppIntl()
   return (
     <dl className="bo-facts">
-      <dt>Effort</dt>
+      <dt>{formatMessage({ id: 'plan.effort', defaultMessage: 'Effort' })}</dt>
       <dd>
         <Dots n={m.effort} />
-        <span className="dim">{['', 'Low', 'Medium', 'High'][m.effort]}</span>
+        <span className="dim">
+          {
+            [
+              '',
+              formatMessage({ id: 'plan.low', defaultMessage: 'Low' }),
+              formatMessage({ id: 'plan.medium', defaultMessage: 'Medium' }),
+              formatMessage({ id: 'plan.high', defaultMessage: 'High' }),
+            ][m.effort]
+          }
+        </span>
       </dd>
-      <dt>If I overspend</dt>
+      <dt>{formatMessage({ id: 'plan.overspend', defaultMessage: 'If I overspend' })}</dt>
       <dd className={m.stops === 'reports' ? 'dim' : ''}>
         {m.stops === 'must-resolve' ? (
           <>
             <span className="bo-ok">
               <Check size={11} />
             </span>
-            You move money to cover it
+            {formatMessage({ id: 'plan.cover', defaultMessage: 'You move money to cover it' })}
           </>
         ) : (
           <>
-            <span className="bo-no">—</span>You see it at month end
+            <span className="bo-no">—</span>
+            {formatMessage({ id: 'plan.monthEnd', defaultMessage: 'You see it at month end' })}
           </>
         )}
       </dd>
-      <dt>Leftover money</dt>
+      <dt>{formatMessage({ id: 'plan.leftover', defaultMessage: 'Leftover money' })}</dt>
       <dd className={m.carry ? '' : 'dim'}>
         {m.carry === true ? (
           <>
             <span className="bo-ok">
               <Check size={11} />
             </span>
-            Stays in its envelope
+            {formatMessage({ id: 'plan.staysEnvelope', defaultMessage: 'Stays in its envelope' })}
           </>
         ) : (
           <>
-            <span className="bo-no">—</span>Not tracked
+            <span className="bo-no">—</span>
+            {formatMessage({ id: 'plan.notTracked', defaultMessage: 'Not tracked' })}
           </>
         )}
       </dd>
@@ -258,6 +311,7 @@ export function MethodCard({
   onSelect?: () => void
   onMore: () => void
 }) {
+  const { formatMessage } = useAppIntl()
   const pick = mode === 'pick'
   const Diagram = DIAGRAM[m.id]
   return (
@@ -279,15 +333,45 @@ export function MethodCard({
       }
     >
       <div className="bo-card-head">
-        <span className="bo-card-name">{m.name}</span>
-        {current && <span className="bo-tag bo-tag--cur">Current</span>}
-        {fit && !current && <span className="bo-tag bo-tag--fit">Fits you</span>}
+        <span className="bo-card-name">
+          {m.id === 'zero_based'
+            ? formatMessage({ id: 'plan.zeroBased', defaultMessage: 'Zero-Based' })
+            : m.name}
+        </span>
+        {current && (
+          <span className="bo-tag bo-tag--cur">
+            {formatMessage({ id: 'plan.current', defaultMessage: 'Current' })}
+          </span>
+        )}
+        {fit && !current && (
+          <span className="bo-tag bo-tag--fit">
+            {formatMessage({ id: 'plan.fitsYou', defaultMessage: 'Fits you' })}
+          </span>
+        )}
         {!fit && !current && m.id === 'proportional' && pick && (
-          <span className="bo-tag bo-tag--fit">Easiest start</span>
+          <span className="bo-tag bo-tag--fit">
+            {formatMessage({ id: 'plan.easyStart', defaultMessage: 'Easiest start' })}
+          </span>
         )}
         {pick && <span className="bo-radio" aria-hidden="true" />}
       </div>
-      <p className="bo-card-hook">{m.hook}</p>
+      <p className="bo-card-hook">
+        {m.id === 'proportional'
+          ? formatMessage(
+              {
+                id: 'plan.proportionalHook',
+                defaultMessage: 'Income split into <b>Needs, Wants, Savings</b>.',
+              },
+              { b: (chunks) => <b>{chunks}</b> },
+            )
+          : formatMessage(
+              {
+                id: 'plan.zeroHook',
+                defaultMessage: 'Every dollar gets a job. <b>Assign to zero.</b>',
+              },
+              { b: (chunks) => <b>{chunks}</b> },
+            )}
+      </p>
       <div className="bo-card-diagram">
         <Diagram />
       </div>
@@ -301,14 +385,37 @@ export function MethodCard({
             onMore()
           }}
         >
-          {more ? 'Less' : 'Is this for me?'}
+          {more
+            ? formatMessage({ id: 'plan.less', defaultMessage: 'Less' })
+            : formatMessage({ id: 'plan.forMe', defaultMessage: 'Is this for me?' })}
         </button>
         {more && (
           <dl className="bo-card-detail">
-            <dt>Best if</dt>
-            <dd>{m.forWhom}</dd>
-            <dt>Effort</dt>
-            <dd>{m.cost}</dd>
+            <dt>{formatMessage({ id: 'plan.bestIf', defaultMessage: 'Best if' })}</dt>
+            <dd>
+              {m.id === 'proportional'
+                ? formatMessage({
+                    id: 'plan.proportionalFit',
+                    defaultMessage: 'You want a quick health check without managing categories.',
+                  })
+                : formatMessage({
+                    id: 'plan.zeroFit',
+                    defaultMessage: 'You want every dollar accounted for and will keep it up.',
+                  })}
+            </dd>
+            <dt>{formatMessage({ id: 'plan.effort', defaultMessage: 'Effort' })}</dt>
+            <dd>
+              {m.id === 'proportional'
+                ? formatMessage({
+                    id: 'plan.proportionalCost',
+                    defaultMessage: 'Glance at the split once a month. Nothing to maintain.',
+                  })
+                : formatMessage({
+                    id: 'plan.zeroCost',
+                    defaultMessage:
+                      'Assign each paycheck, then check in weekly and move money when a category runs over.',
+                  })}
+            </dd>
           </dl>
         )}
       </div>
@@ -324,8 +431,16 @@ export function FitPicker({
   value: FitId | null
   onChange: (f: FitId | null) => void
 }) {
+  const { formatMessage } = useAppIntl()
   return (
-    <div className="bo-fit" role="group" aria-label="What do you want from a budget?">
+    <div
+      className="bo-fit"
+      role="group"
+      aria-label={formatMessage({
+        id: 'plan.budgetGoal',
+        defaultMessage: 'What do you want from a budget?',
+      })}
+    >
       {FITS.map((f) => (
         <button
           key={f.id}
@@ -335,7 +450,9 @@ export function FitPicker({
           onClick={() => onChange(value === f.id ? null : f.id)}
         >
           <span className="bo-fit-ic">{FIT_ICON[f.id]}</span>
-          {f.label}
+          {f.id === 'shape'
+            ? formatMessage({ id: 'plan.fitShape', defaultMessage: 'Just check my shape' })
+            : formatMessage({ id: 'plan.fitEvery', defaultMessage: 'Account for every dollar' })}
         </button>
       ))}
     </div>

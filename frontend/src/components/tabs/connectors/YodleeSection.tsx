@@ -1,3 +1,5 @@
+import { useConnectorRelativeTime } from './useConnectorRelativeTime'
+import { useAppIntl } from '../../../i18n/useAppIntl'
 import { useCallback, useEffect, useState } from 'react'
 import { authFetch } from '../../../api/client'
 import { Stack, Text, FormField, TextField, PasswordField, Select, useSecretReveal } from '../../ui'
@@ -29,23 +31,6 @@ interface YodleeStatus {
   last_error: string | null
 }
 
-function timeAgo(iso: string | null): string {
-  if (!iso) return 'never'
-  const ms = Date.now() - new Date(iso).getTime()
-  if (Number.isNaN(ms)) return 'never'
-  const mins = Math.floor(ms / 60000)
-  if (mins < 1) return 'just now'
-  if (mins < 60) return `${mins}m ago`
-  const hrs = Math.floor(mins / 60)
-  if (hrs < 24) return `${hrs}h ago`
-  return `${Math.floor(hrs / 24)}d ago`
-}
-
-const ENDPOINT_OPTIONS = [
-  { value: 'sandbox', label: 'Sandbox (developer testing)' },
-  { value: 'production', label: 'Production (live data)' },
-]
-
 interface YodleeForm {
   client_id: string
   secret: string
@@ -67,6 +52,8 @@ function yodleeFormOf(c: YodleeStatus): YodleeForm {
 }
 
 export function YodleeSection() {
+  const { formatMessage } = useAppIntl()
+  const relativeTime = useConnectorRelativeTime()
   const [cfg, setCfg] = useState<YodleeStatus | null>(null)
   const [form, setForm] = useState<YodleeForm | null>(null)
   const [error, setError] = useState(false)
@@ -108,14 +95,14 @@ export function YodleeSection() {
       })
       if (!r.ok) {
         const d = await r.json().catch(() => ({}))
-        setSaveErr(d.detail || 'Could not save the credentials.')
+        setSaveErr(d.detail || formatMessage({ id: 'connectors.alpaca.save', defaultMessage: 'Could not save the credentials.' }))
         return false
       }
       setForm((f) => f && { ...f, secret: '', password: '' })
       load()
       return true
     } catch {
-      setSaveErr('Could not save — could not reach the server.')
+      setSaveErr(formatMessage({ id: 'connectors.email.serverFailed', defaultMessage: 'Could not save — could not reach the server.' }))
       return false
     } finally {
       setSaving(false)
@@ -168,14 +155,14 @@ export function YodleeSection() {
   if (error) {
     return (
       <Text size="sm" tone="bad">
-        Could not load the Yodlee connector status.
+        {formatMessage({ id: 'connectors.yodlee.load', defaultMessage: 'Could not load the Yodlee connector status.' })}
       </Text>
     )
   }
   if (!cfg || !form) {
     return (
       <Text size="sm" tone="faint">
-        Loading…
+        {formatMessage({ id: 'connectors.email.loading', defaultMessage: 'Loading…' })}
       </Text>
     )
   }
@@ -186,42 +173,36 @@ export function YodleeSection() {
   return (
     <Stack gap="--space-4">
       <Text size="sm" tone="faint">
-        Enter your{' '}
-        <a href="https://developer.envestnet.com/yodlee" target="_blank" rel="noreferrer">
-          Yodlee
-        </a>{' '}
-        cobrand API credentials and the Yodlee user account that holds the bank logins. Fetching and
-        booking transactions is Lucius's job.
+        {formatMessage({ id: 'connectors.yodlee.intro', defaultMessage: "Enter your <link>Yodlee</link> cobrand API credentials and the Yodlee user account that holds the bank logins. Fetching and booking transactions is Lucius's job." }, { link: (chunks) => <a href="https://developer.envestnet.com/yodlee" target="_blank" rel="noreferrer">{chunks}</a> })}
       </Text>
 
       {cfg.configured && !cfg.enabled && (
         <Text size="xs" tone="warn">
-          Currently paused — saving here won&apos;t resume it. Use Resume on the connector card to
-          turn it back on.
+          {formatMessage({ id: 'connectors.alpaca.paused', defaultMessage: "Currently paused — saving here won't resume it. Use Resume on the connector card to turn it back on." })}
         </Text>
       )}
 
       {cfg.configured && (
         <Text size="xs" tone="faint">
-          Last synced {timeAgo(cfg.last_synced_at)}
+          {formatMessage({ id: 'connectors.yodlee.synced', defaultMessage: 'Last synced {time}' }, { time: relativeTime(cfg.last_synced_at) })}
         </Text>
       )}
       {cfg.configured && cfg.last_error && (
         <Text size="xs" tone="bad">
-          Last error: {cfg.last_error}
+          {formatMessage({ id: 'connectors.email.lastError', defaultMessage: 'Last error: {error}' }, { error: cfg.last_error })}
         </Text>
       )}
 
       <Text size="sm" tone="ink" weight={600}>
-        Cobrand API credentials
+        {formatMessage({ id: 'connectors.yodlee.cobrand', defaultMessage: 'Cobrand API credentials' })}
       </Text>
 
       <FormField
-        label="Client ID"
+        label={formatMessage({ id: 'connectors.oauth.clientId', defaultMessage: 'Client ID' })}
         htmlFor="conn-yodlee-id"
         required
-        help="Your Yodlee cobrand client ID (from the Yodlee developer portal)."
-        error={clientIdTouched.touched && !clientIdValid ? 'A client ID is required.' : undefined}
+        help={formatMessage({ id: 'connectors.yodlee.idHelp', defaultMessage: 'Your Yodlee cobrand client ID (from the Yodlee developer portal).' })}
+        error={clientIdTouched.touched && !clientIdValid ? formatMessage({ id: 'connectors.yodlee.idRequired', defaultMessage: "A client ID is required." }) : undefined}
       >
         <TextField
           id="conn-yodlee-id"
@@ -233,19 +214,19 @@ export function YodleeSection() {
       </FormField>
 
       <FormField
-        label="Client secret (cobrand password)"
+        label={formatMessage({ id: 'connectors.yodlee.secret', defaultMessage: 'Client secret (cobrand password)' })}
         htmlFor="conn-yodlee-secret"
         required
-        help={secretReveal.caption || 'Your Yodlee cobrand password.'}
+        help={secretReveal.caption || formatMessage({ id: 'connectors.yodlee.secretHelp', defaultMessage: "Your Yodlee cobrand password." })}
         error={
           secretReveal.error ||
-          (secretTouched.touched && !secretValid ? 'A cobrand secret is required.' : undefined)
+          (secretTouched.touched && !secretValid ? formatMessage({ id: 'connectors.yodlee.secretRequired', defaultMessage: "A cobrand secret is required." }) : undefined)
         }
       >
         <PasswordField
           id="conn-yodlee-secret"
           value={form.secret}
-          placeholder={cfg.has_secret ? '••••••••' : 'cobrand password'}
+          placeholder={cfg.has_secret ? '••••••••' : formatMessage({ id: 'connectors.yodlee.secretPlaceholder', defaultMessage: "cobrand password" })}
           onChange={(e) => set('secret', e.target.value)}
           onBlur={secretTouched.onBlur}
           {...secretReveal.fieldProps}
@@ -253,17 +234,17 @@ export function YodleeSection() {
       </FormField>
 
       <Text size="sm" tone="ink" weight={600}>
-        User account credentials
+        {formatMessage({ id: 'connectors.yodlee.userCredentials', defaultMessage: 'User account credentials' })}
       </Text>
 
       <FormField
-        label="Username (loginName)"
+        label={formatMessage({ id: 'connectors.yodlee.username', defaultMessage: 'Username (loginName)' })}
         htmlFor="conn-yodlee-user"
         required
-        help="The Yodlee loginName for the linked user account (not secret)."
+        help={formatMessage({ id: 'connectors.yodlee.usernameHelp', defaultMessage: 'The Yodlee loginName for the linked user account (not secret).' })}
         error={
           usernameTouched.touched && !usernameValid
-            ? 'A username (loginName) is required.'
+            ? formatMessage({ id: 'connectors.yodlee.usernameRequired', defaultMessage: "A username (loginName) is required." })
             : undefined
         }
       >
@@ -277,19 +258,19 @@ export function YodleeSection() {
       </FormField>
 
       <FormField
-        label="Password"
+        label={formatMessage({ id: 'connectors.yodlee.password', defaultMessage: 'Password' })}
         htmlFor="conn-yodlee-pass"
         required
-        help={passwordReveal.caption || 'The password for the Yodlee user account.'}
+        help={passwordReveal.caption || formatMessage({ id: 'connectors.yodlee.passwordHelp', defaultMessage: "The password for the Yodlee user account." })}
         error={
           passwordReveal.error ||
-          (passwordTouched.touched && !passwordValid ? 'A password is required.' : undefined)
+          (passwordTouched.touched && !passwordValid ? formatMessage({ id: 'connectors.yodlee.passwordRequired', defaultMessage: "A password is required." }) : undefined)
         }
       >
         <PasswordField
           id="conn-yodlee-pass"
           value={form.password}
-          placeholder={cfg.has_user_credentials ? '••••••••' : 'user password'}
+          placeholder={cfg.has_user_credentials ? '••••••••' : formatMessage({ id: 'connectors.yodlee.passwordPlaceholder', defaultMessage: "user password" })}
           onChange={(e) => set('password', e.target.value)}
           onBlur={passwordTouched.onBlur}
           {...passwordReveal.fieldProps}
@@ -297,15 +278,15 @@ export function YodleeSection() {
       </FormField>
 
       <FormField
-        label="API endpoint"
+        label={formatMessage({ id: 'connectors.yodlee.endpoint', defaultMessage: 'API endpoint' })}
         htmlFor="conn-yodlee-endpoint"
-        help="Use Sandbox for development/testing; Production for live bank data."
+        help={formatMessage({ id: 'connectors.yodlee.endpointHelp', defaultMessage: 'Use Sandbox for development/testing; Production for live bank data.' })}
       >
         <Select
           id="conn-yodlee-endpoint"
           value={form.api_endpoint}
           onChange={(e) => set('api_endpoint', e.target.value)}
-          options={ENDPOINT_OPTIONS}
+          options={[{ value: 'sandbox', label: formatMessage({ id: 'connectors.yodlee.sandbox', defaultMessage: 'Sandbox (developer testing)' }) }, { value: 'production', label: formatMessage({ id: 'connectors.yodlee.production', defaultMessage: 'Production (live data)' }) }]}
         />
       </FormField>
 

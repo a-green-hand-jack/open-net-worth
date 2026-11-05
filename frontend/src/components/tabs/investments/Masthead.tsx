@@ -1,3 +1,4 @@
+import { getNumberLocale } from '../../../utils/format'
 // Masthead — portfolio summary bar with sparkline.
 // Verbatim port of prototype Masthead({ d, variant='desk' }) — the "desk" variant.
 // Layout: Market value (+ % of net worth) | Today | YTD vs benchmark | Unrealized P&L.
@@ -12,6 +13,7 @@ import { useIsMobile } from '../../../hooks/useIsMobile'
 import { useYtdStat } from '../../../hooks/useYtdStat'
 import type { DerivedBook } from './useInvestmentsBook'
 import { Sparkline } from '../../ui/Sparkline'
+import { useAppIntl } from '../../../i18n/useAppIntl'
 
 interface Props {
   d: DerivedBook
@@ -33,6 +35,7 @@ function signed(v: number, f: (n: number) => string): string {
 }
 
 export function Masthead({ d, sparkValues, totalDay, totalPL }: Props) {
+  const { formatMessage } = useAppIntl()
   const up = totalDay >= 0
   const hasSpark = sparkValues && sparkValues.length >= 2
   // Both percentages are the server's (backend/services/investments_book.py): the book's share
@@ -54,7 +57,7 @@ export function Masthead({ d, sparkValues, totalDay, totalPL }: Props) {
       >
         {signed(totalDay, fBase)} {fPct(d.todayPct)}
       </span>{' '}
-      today
+      {formatMessage({ id: 'investments.masthead.todayLower', defaultMessage: 'today' })}
     </div>
   )
 
@@ -66,7 +69,12 @@ export function Masthead({ d, sparkValues, totalDay, totalPL }: Props) {
               whitespace. Owner rejected giving YTD a line of its own (2026-07-30). */}
           <div className="mk-sum-solo-top">
             <div className="mk-sum-solo-main">
-              <div className="mk-sum-label">Market value</div>
+              <div className="mk-sum-label">
+                {formatMessage({
+                  id: 'investments.masthead.marketValue',
+                  defaultMessage: 'Market value',
+                })}
+              </div>
               <div className="mk-sum-val mk-sum-hero mask" data-ctx-fact="Market value">
                 {fBase(d.grand)}
               </div>
@@ -75,15 +83,20 @@ export function Masthead({ d, sparkValues, totalDay, totalPL }: Props) {
             {ytd && (
               <div className="mk-sum-ytd" data-ctx-fact="YTD return">
                 <div className="mk-sum-label">
-                  {ytd.benchYtd != null ? `YTD vs ${ytd.benchSym}` : 'YTD'}
+                  {ytd.benchYtd != null
+                    ? formatMessage(
+                        { id: 'investments.masthead.ytdVs', defaultMessage: 'YTD vs {benchmark}' },
+                        { benchmark: ytd.benchSym },
+                      )
+                    : formatMessage({ id: 'investments.masthead.ytd', defaultMessage: 'YTD' })}
                 </div>
                 <div className="mk-sum-ytd-pair">
                   <span className="mk-sum-ytd-val" style={{ color: tone(ytd.portYtd) }}>
-                    {(ytd.portYtd >= 0 ? '+' : '') + (ytd.portYtd * 100).toFixed(1) + '%'}
+                    {(ytd.portYtd >= 0 ? '+' : '') + (ytd.portYtd * 100).toLocaleString(getNumberLocale(), { minimumFractionDigits: 1, maximumFractionDigits: 1 }) + '%'}
                   </span>
                   {ytd.benchYtd != null && (
                     <span className="mk-sum-ytd-bench">
-                      {(ytd.benchYtd >= 0 ? '+' : '') + (ytd.benchYtd * 100).toFixed(1) + '%'}
+                      {(ytd.benchYtd >= 0 ? '+' : '') + (ytd.benchYtd * 100).toLocaleString(getNumberLocale(), { minimumFractionDigits: 1, maximumFractionDigits: 1 }) + '%'}
                     </span>
                   )}
                 </div>
@@ -92,8 +105,17 @@ export function Masthead({ d, sparkValues, totalDay, totalPL }: Props) {
                     className="mk-sum-ytd-sub"
                     style={{ color: ytd.ahead >= 0 ? 'var(--good)' : 'var(--bad)' }}
                   >
-                    {(ytd.ahead >= 0 ? '+' : '−') + Math.abs(ytd.ahead).toFixed(1)} pts{' '}
-                    {ytd.ahead >= 0 ? 'ahead' : 'behind'}
+                    {formatMessage(
+                      {
+                        id: 'investments.masthead.aheadBehind',
+                        defaultMessage:
+                          '{points} pts {direction, select, ahead {ahead} other {behind}}',
+                      },
+                      {
+                        points: (ytd.ahead >= 0 ? '+' : '−') + Math.abs(ytd.ahead).toLocaleString(getNumberLocale(), { minimumFractionDigits: 1, maximumFractionDigits: 1 }),
+                        direction: ytd.ahead >= 0 ? 'ahead' : 'behind',
+                      },
+                    )}
                   </div>
                 )}
               </div>
@@ -103,7 +125,9 @@ export function Masthead({ d, sparkValues, totalDay, totalPL }: Props) {
             <div className="mk-sum-meta">
               {totalPL !== 0 && (
                 <span className="mk-sum-meta-item">
-                  <span className="mk-sum-meta-k">P&amp;L</span>
+                  <span className="mk-sum-meta-k">
+                    {formatMessage({ id: 'investments.masthead.pnl', defaultMessage: 'P&L' })}
+                  </span>
                   <span
                     className="mask"
                     style={{ color: tone(totalPL), fontWeight: 600 }}
@@ -112,13 +136,19 @@ export function Masthead({ d, sparkValues, totalDay, totalPL }: Props) {
                     {signed(totalPL, fBase)}
                   </span>
                   <span style={{ color: tone(totalPL) }}>
-                    {signed(uplPct, (n) => n.toFixed(1) + '%')}
+                    {signed(uplPct, (n) => n.toLocaleString(getNumberLocale(), { minimumFractionDigits: 1, maximumFractionDigits: 1 }) + '%')}
                   </span>
                 </span>
               )}
               {portfolioTotal > 0 && (
                 <span className="mk-sum-meta-item" data-ctx-fact="% of net worth">
-                  {pctNW.toFixed(1)}% of net worth
+                  {formatMessage(
+                    {
+                      id: 'investments.masthead.netWorth',
+                      defaultMessage: '{percent}% of net worth',
+                    },
+                    { percent: pctNW.toLocaleString(getNumberLocale(), { minimumFractionDigits: 1, maximumFractionDigits: 1 }) },
+                  )}
                 </span>
               )}
             </div>
@@ -132,7 +162,12 @@ export function Masthead({ d, sparkValues, totalDay, totalPL }: Props) {
     <div className="mk-sum mk-sum--4">
       {/* Hero cell — Market value + sparkline */}
       <div className="mk-sum-cell">
-        <div className="mk-sum-label">Market value</div>
+        <div className="mk-sum-label">
+          {formatMessage({
+            id: 'investments.masthead.marketValue',
+            defaultMessage: 'Market value',
+          })}
+        </div>
         <div className="mk-sum-c1">
           <div>
             <div className="mk-sum-val mk-sum-hero mask" data-ctx-fact="Market value">
@@ -140,14 +175,22 @@ export function Masthead({ d, sparkValues, totalDay, totalPL }: Props) {
             </div>
             {portfolioTotal > 0 && (
               <div className="mk-sum-sub" data-ctx-fact="% of net worth">
-                {pctNW.toFixed(1)}% of net worth
+                {formatMessage(
+                  {
+                    id: 'investments.masthead.netWorth',
+                    defaultMessage: '{percent}% of net worth',
+                  },
+                  { percent: pctNW.toLocaleString(getNumberLocale(), { minimumFractionDigits: 1, maximumFractionDigits: 1 }) },
+                )}
               </div>
             )}
           </div>
           {hasSpark && (
             <div className="mk-spark-wrap">
               <Sparkline values={sparkValues!} up={up} width={150} height={38} />
-              <span className="mk-spark-cap">30D</span>
+              <span className="mk-spark-cap">
+                {formatMessage({ id: 'investments.masthead.thirtyDays', defaultMessage: '30D' })}
+              </span>
             </div>
           )}
         </div>
@@ -155,7 +198,9 @@ export function Masthead({ d, sparkValues, totalDay, totalPL }: Props) {
 
       {/* Today — unique here; Portfolio brief is insights-only. */}
       <div className="mk-sum-cell">
-        <div className="mk-sum-label">Today</div>
+        <div className="mk-sum-label">
+          {formatMessage({ id: 'investments.masthead.today', defaultMessage: 'Today' })}
+        </div>
         <div className="mk-sum-val mask" style={{ color: tone(totalDay) }} data-ctx-fact="Today">
           {signed(totalDay, fBase)}
         </div>
@@ -167,24 +212,38 @@ export function Masthead({ d, sparkValues, totalDay, totalPL }: Props) {
       {/* YTD vs benchmark */}
       <div className="mk-sum-cell">
         <div className="mk-sum-label">
-          {ytd?.benchYtd != null ? `YTD vs ${ytd.benchSym}` : 'YTD return'}
+          {ytd?.benchYtd != null
+            ? formatMessage(
+                { id: 'investments.masthead.ytdVs', defaultMessage: 'YTD vs {benchmark}' },
+                { benchmark: ytd.benchSym },
+              )
+            : formatMessage({ id: 'investments.masthead.ytdReturn', defaultMessage: 'YTD return' })}
         </div>
         {ytd ? (
           <>
             <div className="mk-sum-val mk-sum-val-pair" data-ctx-fact="YTD return">
               <span style={{ color: tone(ytd.portYtd) }}>
-                {(ytd.portYtd >= 0 ? '+' : '') + (ytd.portYtd * 100).toFixed(1) + '%'}
+                {(ytd.portYtd >= 0 ? '+' : '') + (ytd.portYtd * 100).toLocaleString(getNumberLocale(), { minimumFractionDigits: 1, maximumFractionDigits: 1 }) + '%'}
               </span>
               {ytd.benchYtd != null && (
                 <span className="mk-sum-bench">
-                  {(ytd.benchYtd >= 0 ? '+' : '') + (ytd.benchYtd * 100).toFixed(1) + '%'}
+                  {(ytd.benchYtd >= 0 ? '+' : '') + (ytd.benchYtd * 100).toLocaleString(getNumberLocale(), { minimumFractionDigits: 1, maximumFractionDigits: 1 }) + '%'}
                 </span>
               )}
             </div>
             {ytd.ahead != null && (
               <div className="mk-sum-sub" style={{ color: tone(ytd.ahead) }}>
-                {(ytd.ahead >= 0 ? '+' : '−') + Math.abs(ytd.ahead).toFixed(1)} pts{' '}
-                {ytd.ahead >= 0 ? 'ahead' : 'behind'}
+                {formatMessage(
+                  {
+                    id: 'investments.masthead.aheadBehind',
+                    defaultMessage:
+                      '{points} pts {direction, select, ahead {ahead} other {behind}}',
+                  },
+                  {
+                    points: (ytd.ahead >= 0 ? '+' : '−') + Math.abs(ytd.ahead).toLocaleString(getNumberLocale(), { minimumFractionDigits: 1, maximumFractionDigits: 1 }),
+                    direction: ytd.ahead >= 0 ? 'ahead' : 'behind',
+                  },
+                )}
               </div>
             )}
           </>
@@ -197,7 +256,12 @@ export function Masthead({ d, sparkValues, totalDay, totalPL }: Props) {
 
       {/* Unrealized P&L */}
       <div className="mk-sum-cell">
-        <div className="mk-sum-label">Unrealized P&amp;L</div>
+        <div className="mk-sum-label">
+          {formatMessage({
+            id: 'investments.masthead.unrealized',
+            defaultMessage: 'Unrealized P&L',
+          })}
+        </div>
         <div
           className="mk-sum-val mask"
           style={{ color: tone(totalPL) }}
@@ -207,7 +271,7 @@ export function Masthead({ d, sparkValues, totalDay, totalPL }: Props) {
         </div>
         {totalPL !== 0 && (
           <div className="mk-sum-sub" style={{ color: tone(totalPL) }}>
-            {signed(uplPct, (n) => n.toFixed(1) + '%')}
+            {signed(uplPct, (n) => n.toLocaleString(getNumberLocale(), { minimumFractionDigits: 1, maximumFractionDigits: 1 }) + '%')}
           </div>
         )}
       </div>

@@ -63,6 +63,10 @@ def test_a_category_matches_by_name_ignoring_emoji_and_nothing_is_moved_or_renam
     row = rows(run("preview"))["🛒 Groceries"]
     assert row["link"] == {"ref": f"cat:{groceries['id']}", "name": "Groceries", "kind": "category"}
     assert row["note"] == "Budget syncs with envelope Groceries" and not row["chosen"]
+    assert row["note_message"] == {
+        "message_id": "ynab.import.category.syncEnvelope",
+        "params": {"name": "Groceries"},
+    }
     assert run()["status"] == "done"
     assert cat("Groceries") == groceries and env("Groceries") == home  # same names, same place
     assert not any(c["label"] == "🛒 Groceries" for c in categories_service.all_category_rows())

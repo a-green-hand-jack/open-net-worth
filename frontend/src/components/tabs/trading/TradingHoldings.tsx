@@ -1,26 +1,44 @@
 import type { TradingAccount } from '../../../types/trading'
 import { Panel, EmptyState, Badge, Stack, Text } from '../../ui'
 import { tradingMoney } from './presentation'
+import { useAppIntl } from '../../../i18n/useAppIntl'
+import { useTradingLabel } from './useTradingLabel'
 
 export function TradingAccounts({ accounts }: { accounts: TradingAccount[] }) {
+  const { formatMessage } = useAppIntl()
+  const label = useTradingLabel()
   return (
-    <Panel title="Accounts">
+    <Panel title={formatMessage({ id: 'trading.accounts', defaultMessage: 'Accounts' })}>
       {!accounts.length ? (
         <EmptyState
-          title="No eligible account linked"
-          body="Create a run with an allocation. Broker connections are configured in Connectors."
+          title={formatMessage({
+            id: 'trading.noEligibleAccount',
+            defaultMessage: 'No eligible account linked',
+          })}
+          body={formatMessage({
+            id: 'trading.noEligibleAccountBody',
+            defaultMessage:
+              'Create a run with an allocation. Broker connections are configured in Connectors.',
+          })}
         />
       ) : (
         <div className="trading-table-wrap">
           <table className="trading-table">
             <thead>
               <tr>
-                <th>Account / venue</th>
-                <th>Allocated</th>
-                <th>Cash</th>
-                <th>Available</th>
-                <th>Reserved</th>
-                <th>Reconciliation</th>
+                <th>
+                  {formatMessage({ id: 'trading.accountVenue', defaultMessage: 'Account / venue' })}
+                </th>
+                <th>{formatMessage({ id: 'trading.allocated', defaultMessage: 'Allocated' })}</th>
+                <th>{formatMessage({ id: 'trading.cash', defaultMessage: 'Cash' })}</th>
+                <th>{formatMessage({ id: 'trading.available', defaultMessage: 'Available' })}</th>
+                <th>{formatMessage({ id: 'trading.reserved', defaultMessage: 'Reserved' })}</th>
+                <th>
+                  {formatMessage({
+                    id: 'trading.reconciliation',
+                    defaultMessage: 'Reconciliation',
+                  })}
+                </th>
               </tr>
             </thead>
             <tbody>
@@ -46,7 +64,7 @@ export function TradingAccounts({ accounts }: { accounts: TradingAccount[] }) {
                     <Badge
                       tone={account.reconciliation_status === 'unverified' ? 'warn' : 'neutral'}
                     >
-                      {account.reconciliation_status}
+                      {label(account.reconciliation_status)}
                     </Badge>
                   </td>
                 </tr>
@@ -59,6 +77,7 @@ export function TradingAccounts({ accounts }: { accounts: TradingAccount[] }) {
   )
 }
 export function TradingHoldings({ accounts }: { accounts: TradingAccount[] }) {
+  const { formatMessage } = useAppIntl()
   const positions = accounts
     .flatMap((account) =>
       Object.entries(account.positions).map(([key, position]) => ({
@@ -70,23 +89,38 @@ export function TradingHoldings({ accounts }: { accounts: TradingAccount[] }) {
     .filter(({ position }) => Number(position.quantity) !== 0)
   return (
     <Stack gap="--space-6">
-      <Panel title="Holdings">
+      <Panel title={formatMessage({ id: 'trading.holdings', defaultMessage: 'Holdings' })}>
         {!positions.length ? (
           <EmptyState
-            title="No positions yet"
-            body="Filled trades will appear here, separately from your personal book."
+            title={formatMessage({ id: 'trading.noPositions', defaultMessage: 'No positions yet' })}
+            body={formatMessage({
+              id: 'trading.noPositionsBody',
+              defaultMessage: 'Filled trades will appear here, separately from your personal book.',
+            })}
           />
         ) : (
           <div className="trading-table-wrap">
             <table className="trading-table">
               <thead>
                 <tr>
-                  <th>Instrument / account</th>
-                  <th>Quantity</th>
-                  <th>Mark</th>
-                  <th>Value</th>
-                  <th>Cost basis</th>
-                  <th>Unrealized P&amp;L</th>
+                  <th>
+                    {formatMessage({
+                      id: 'trading.instrumentAccount',
+                      defaultMessage: 'Instrument / account',
+                    })}
+                  </th>
+                  <th>{formatMessage({ id: 'trading.quantity', defaultMessage: 'Quantity' })}</th>
+                  <th>{formatMessage({ id: 'trading.mark', defaultMessage: 'Mark' })}</th>
+                  <th>{formatMessage({ id: 'trading.value', defaultMessage: 'Value' })}</th>
+                  <th>
+                    {formatMessage({ id: 'trading.costBasis', defaultMessage: 'Cost basis' })}
+                  </th>
+                  <th>
+                    {formatMessage({
+                      id: 'trading.unrealizedPnl',
+                      defaultMessage: 'Unrealized P&L',
+                    })}
+                  </th>
                 </tr>
               </thead>
               <tbody>

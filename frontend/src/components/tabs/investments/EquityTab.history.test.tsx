@@ -1,3 +1,5 @@
+import { IntlProvider } from 'react-intl'
+import messages from '../equity/zh-CN.messages.json'
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
@@ -61,6 +63,15 @@ describe('EquityTab vest history', () => {
   afterEach(() => {
     cleanup()
     vi.clearAllMocks()
+  })
+
+  it('shows Chinese release status while preserving the instrument symbol', () => {
+    useEquityView.mockReturnValue({ loading: false, error: false, summaryCards: [], grants: [], rawGrants: [], upcoming: [], vestHistory: [historyItem()], refetch })
+    render(<IntlProvider locale="zh-CN" messages={messages} onError={() => {}}><EquityTab /></IntlProvider>)
+    expect(screen.getByText('归属历史')).toBeTruthy()
+    expect(screen.getByText('等待释放')).toBeTruthy()
+    expect(screen.getByText('ONWAI')).toBeTruthy()
+    expect(screen.getByRole('button', { name: '标记已释放' })).toBeTruthy()
   })
 
   it('keeps recorded vests visible with released versus awaiting-release status', () => {

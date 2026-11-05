@@ -1,3 +1,4 @@
+import { message as t } from './native-messages';
 import { BrowserWindow, session } from 'electron';
 import { join } from 'node:path';
 import { createHash } from 'node:crypto';
@@ -27,7 +28,7 @@ export class AgentSession {
       if (new URL(contents.getURL()).origin !== origin) throw new Error();
     } catch {
       window.destroy();
-      throw new Error('Signing in to your Private Cloud did not finish. Start again from File → Move my book to Private Cloud.');
+      throw new Error(t("Signing in to your Private Cloud did not finish. Start again from File \u2192 Move my book to Private Cloud."));
     }
     const client = new HostedPageClient(contents, origin);
     return new AgentSession(window, client, trackPageClient(client));

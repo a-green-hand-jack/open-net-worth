@@ -1,6 +1,16 @@
 import { useCallback } from 'react'
+import { useAppIntl } from '../i18n/useAppIntl'
 import { authFetch } from '../api/client'
 import { setCachedQueryData, useQueryCache } from '../state/queryCache'
+import type { InboxMessage } from '../components/tabs/inboxMessages'
+
+class InboxHttpError extends Error {
+  readonly status: number
+  constructor(status: number) {
+    super(`Failed to load inbox (${status})`)
+    this.status = status
+  }
+}
 
 const INBOX_CACHE_KEYS = ['inbox:unread', 'inbox:all'] as const
 
@@ -12,6 +22,8 @@ export interface InboxItem {
   kind: 'intel' | 'signal'
   title: string
   summary: string
+  title_message?: InboxMessage
+  summary_message?: InboxMessage
   /** Full markdown report body, when the source has one; rendered with a markdown
    * renderer (not as raw text). Other kinds leave this undefined. */
   detail?: string
@@ -45,12 +57,13 @@ function dismissRequest(item: InboxItem): Promise<Response> {
  * `includeRead` flips (Unread ↔ All filter).
  */
 export function useInbox(includeRead: boolean) {
+  const intl = useAppIntl()
   const cacheKey = `inbox:${includeRead ? 'all' : 'unread'}`
   const fetchInbox = useCallback(async () => {
     // ONE read: the aggregator orders the whole feed (actionable first). A failing
     // source degrades to empty server-side, never 500.
     const res = await authFetch(`/api/inbox?include_read=${includeRead}`)
-    if (!res.ok) throw new Error(`Failed to load inbox (${res.status})`)
+    if (!res.ok) throw new InboxHttpError(res.status)
     const data = await res.json()
     return (data.items ?? []) as InboxItem[]
   }, [includeRead])
@@ -114,9 +127,14 @@ export function useInbox(includeRead: boolean) {
 
   const error =
     query.data === undefined && query.error
-      ? query.error instanceof Error
-        ? query.error.message
-        : 'Failed to load inbox'
+      ? query.error instanceof InboxHttpError
+        ? intl.formatMessage(
+            { id: 'inbox.httpError', defaultMessage: 'Failed to load inbox ({status})' },
+            { status: query.error.status },
+          )
+        : query.error instanceof Error
+          ? query.error.message
+          : intl.formatMessage({ id: 'inbox.loadError', defaultMessage: 'Failed to load inbox' })
       : null
   return {
     items,

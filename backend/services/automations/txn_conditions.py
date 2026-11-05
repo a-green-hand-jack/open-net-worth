@@ -29,6 +29,8 @@ from __future__ import annotations
 import re
 from typing import Callable
 
+from backend.services.automations.trigger_errors import TriggerValidationError
+
 FIELDS = ("account", "kind", "amount", "payee", "description", "memo")
 KINDS = (
     "expense",
@@ -62,25 +64,42 @@ AmountOn = Callable[[str | None], "float | None"]
 
 def validate_conditions(raw: object) -> list[dict]:
     if not isinstance(raw, list):
-        raise ValueError("transaction event conditions must be a list")
+        raise TriggerValidationError(
+            "transaction event conditions must be a list", "automation.error.conditionsList"
+        )
     if len(raw) > MAX_CONDITIONS:
-        raise ValueError(f"transaction event allows at most {MAX_CONDITIONS} conditions")
+        raise TriggerValidationError(
+            f"transaction event allows at most {MAX_CONDITIONS} conditions",
+            "automation.error.conditionsMaximum",
+            maximum=str(MAX_CONDITIONS),
+        )
     conditions = [_validate_condition(item) for item in raw]
     conflict = _conflict(conditions)
     if conflict:
-        raise ValueError(conflict)
+        raise conflict
     return conditions
 
 
 def _validate_condition(item: object) -> dict:
     if not isinstance(item, dict) or set(item) - {"field", "op", "value"}:
-        raise ValueError("a condition is {field, op, value}")
+        raise TriggerValidationError(
+            "a condition is {field, op, value}", "automation.error.conditionShape"
+        )
     field, op, value = item.get("field"), item.get("op"), item.get("value")
     if field not in _OPS:
-        raise ValueError(f"condition field must be one of {', '.join(FIELDS)}")
+        raise TriggerValidationError(
+            f"condition field must be one of {', '.join(FIELDS)}",
+            "automation.error.conditionFields",
+            fields=", ".join(FIELDS),
+        )
     if op not in _OPS[field]:
         allowed = ", ".join(sorted(_OPS[field]))
-        raise ValueError(f"{field} condition op must be one of {allowed}")
+        raise TriggerValidationError(
+            f"{field} condition op must be one of {allowed}",
+            "automation.error.conditionOperation",
+            field=field,
+            choices=allowed,
+        )
     if field == "amount":
         return {"field": field, "op": op, "value": _amount_value(value)}
     if op in _IS_OPS:
@@ -88,18 +107,37 @@ def _validate_condition(item: object) -> dict:
     if op in _LIST_OPS:
         phrases = _phrases(value)
         if not phrases:
-            raise ValueError(f"{field} {op} needs at least one phrase")
+            raise TriggerValidationError(
+                f"{field} {op} needs at least one phrase",
+                "automation.error.conditionPhrase",
+                field=field,
+                operation=op,
+            )
         return {"field": field, "op": op, "value": phrases}
     if not isinstance(value, str) or not value.strip():
-        raise ValueError(f"{field} {op} needs a value")
+        raise TriggerValidationError(
+            f"{field} {op} needs a value",
+            "automation.error.conditionValue",
+            field=field,
+            operation=op,
+        )
     value = value.strip()
     if op == "regex":
         if len(value) > MAX_PATTERN_LENGTH:
-            raise ValueError(f"a pattern is at most {MAX_PATTERN_LENGTH} characters")
+            raise TriggerValidationError(
+                f"a pattern is at most {MAX_PATTERN_LENGTH} characters",
+                "automation.error.patternMaximum",
+                maximum=str(MAX_PATTERN_LENGTH),
+            )
         try:
             re.compile(value)
         except re.error as exc:
-            raise ValueError(f"invalid {field} pattern: {exc}") from exc
+            raise TriggerValidationError(
+                f"invalid {field} pattern: {exc}",
+                "automation.error.patternInvalid",
+                field=field,
+                reason=str(exc),
+            ) from exc
     return {"field": field, "op": op, "value": value}
 
 
@@ -109,16 +147,32 @@ def _is_value(field: str, value: object) -> str | list[str]:
     items = value if isinstance(value, list) else [value]
     strings = [item.strip() for item in items if isinstance(item, str)]
     if len(strings) != len(items):
-        raise ValueError(f"{field} condition needs a value or a list of values")
+        raise TriggerValidationError(
+            f"{field} condition needs a value or a list of values",
+            "automation.error.conditionValueList",
+            field=field,
+        )
     values = list(dict.fromkeys(item for item in strings if item))
     if not values:
-        raise ValueError(f"{field} condition needs a value")
+        raise TriggerValidationError(
+            f"{field} condition needs a value", "automation.error.fieldRequired", field=field
+        )
     if len(values) > MAX_VALUES:
-        raise ValueError(f"a {field} condition takes at most {MAX_VALUES} values")
+        raise TriggerValidationError(
+            f"a {field} condition takes at most {MAX_VALUES} values",
+            "automation.error.conditionMaximum",
+            field=field,
+            maximum=str(MAX_VALUES),
+        )
     if field == "kind":
         unknown = [v for v in values if v not in KINDS]
         if unknown:
-            raise ValueError(f"kind must be one of {', '.join(KINDS)}")
+            raise TriggerValidationError(
+                f"kind must be one of {', '.join(KINDS)}",
+                "automation.error.fieldChoices",
+                field="kind",
+                choices=", ".join(KINDS),
+            )
     return values[0] if len(values) == 1 else values
 
 
@@ -126,7 +180,7 @@ def _is_value(field: str, value: object) -> str | list[str]:
 _KIND_ATOMS = {"investment": ("investment_buy", "investment_sale")}
 
 
-def _conflict(conditions: list[dict]) -> str | None:
+def _conflict(conditions: list[dict]) -> TriggerValidationError | None:
     """Why these conditions can never all hold, or None. Mirrors txnConditionConflicts.ts —
     the same rules in the same words, so Lucius reads what the editor shows."""
     for field in ("payee", "kind"):
@@ -143,7 +197,7 @@ def _atoms(condition: dict) -> set[str]:
     return set(values)
 
 
-def _one_value_conflict(conditions: list[dict], field: str) -> str | None:
+def _one_value_conflict(conditions: list[dict], field: str) -> TriggerValidationError | None:
     is_rows = [c for c in conditions if c["field"] == field and c["op"] == "is"]
     if not is_rows:
         return None
@@ -151,32 +205,45 @@ def _one_value_conflict(conditions: list[dict], field: str) -> str | None:
     for row in is_rows[1:]:
         allowed &= _atoms(row)
         if not allowed:
-            return (
+            return TriggerValidationError(
                 f"A transaction has one {field}, so these can’t both be true — pick both in one "
-                "condition instead."
+                "condition instead.",
+                "automation.error.conditionOneValue",
+                field=field,
             )
     not_rows = [c for c in conditions if c["field"] == field and c["op"] == "is_not"]
     excluded = set().union(*(_atoms(c) for c in not_rows))
     if not_rows and allowed <= excluded:
-        return f"“Is” and “is not” rule out every {field} here, so this can never match."
+        return TriggerValidationError(
+            f"“Is” and “is not” rule out every {field} here, so this can never match.",
+            "automation.error.conditionExcluded",
+            field=field,
+        )
     return None
 
 
-def _account_conflict(conditions: list[dict]) -> str | None:
+def _account_conflict(conditions: list[dict]) -> TriggerValidationError | None:
     accounts = [c for c in conditions if c["field"] == "account"]
     excluded = {v for c in accounts if c["op"] == "is_not" for v in _values(c["value"])}
     if any(c["op"] == "is" and set(_values(c["value"])) <= excluded for c in accounts):
-        return "“Is” and “is not” rule out every account here, so this can never match."
+        return TriggerValidationError(
+            "“Is” and “is not” rule out every account here, so this can never match.",
+            "automation.error.conditionExcluded",
+            field="account",
+        )
     return None
 
 
-def _amount_conflict(conditions: list[dict]) -> str | None:
+def _amount_conflict(conditions: list[dict]) -> TriggerValidationError | None:
     over = [c["value"] for c in conditions if c["field"] == "amount" and c["op"] == "over"]
     under = [c["value"] for c in conditions if c["field"] == "amount" and c["op"] == "under"]
     if over and under and max(over) >= min(under):
-        return (
+        return TriggerValidationError(
             f"An amount can’t be over {max(over):,.12g} and under {min(under):,.12g} at once, "
-            "so this can never match."
+            "so this can never match.",
+            "automation.error.amountConflict",
+            lower=f"{max(over):,.12g}",
+            upper=f"{min(under):,.12g}",
         )
     return None
 
@@ -185,9 +252,13 @@ def _amount_value(value: object) -> float:
     try:
         number = float(value)  # type: ignore[arg-type]
     except (TypeError, ValueError):
-        raise ValueError("amount condition needs a number") from None
+        raise TriggerValidationError(
+            "amount condition needs a number", "automation.error.amountNumber"
+        ) from None
     if number != number or number < 0 or number in (float("inf"), float("-inf")):
-        raise ValueError("amount condition needs a non-negative number")
+        raise TriggerValidationError(
+            "amount condition needs a non-negative number", "automation.error.amountNonnegative"
+        )
     return number
 
 

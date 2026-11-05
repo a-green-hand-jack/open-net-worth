@@ -1,3 +1,6 @@
+import { getNumberLocale } from '../../utils/format'
+import { FormattedMessage } from './FormattedMessage'
+import { useAppIntl } from '../../i18n/useAppIntl'
 import { Panel, Skeleton } from '../ui'
 import { fCurrency, plClass } from '../../utils/format'
 import type { PeerItem } from '../../types/assetDetail'
@@ -13,6 +16,7 @@ interface Props {
 }
 
 export function PeersCard({ peers, generating }: Props) {
+  const intl = useAppIntl()
   if (!peers.length) {
     // A completed pass can legitimately land zero peers (only comparables actually
     // mentioned in real news coverage are ever shown — see asset_brief.py's own peers
@@ -21,16 +25,16 @@ export function PeersCard({ peers, generating }: Props) {
     if (!generating) return null
     return (
       <Panel
-        title="Peers"
+        title={intl.formatMessage({ id: "intel.field.68d00dde", defaultMessage: "Peers" })}
         className="asd-rail-panel"
         actions={
-          <span className="asd-pi-updating" role="status" aria-label="Peers are generating">
+          <span className="asd-pi-updating" role="status" aria-label={intl.formatMessage({ id: "intel.field.ef43f7b9", defaultMessage: "Peers are generating" })}>
             <span className="ui-btn__spinner" aria-hidden="true" />
-            Generating
+            {<FormattedMessage id="intel.extra.fcbce60e" defaultMessage={"Generating"} />}
           </span>
         }
       >
-        <div className="asd-skel-stack" role="status" aria-label="Generating">
+        <div className="asd-skel-stack" role="status" aria-label={intl.formatMessage({ id: "intel.field.fcbce60e", defaultMessage: "Generating" })}>
           <Skeleton height={13} width="80%" />
           <Skeleton height={13} width="65%" />
         </div>
@@ -39,7 +43,7 @@ export function PeersCard({ peers, generating }: Props) {
   }
 
   return (
-    <Panel title="Peers" className="asd-rail-panel">
+    <Panel title={intl.formatMessage({ id: "intel.field.68d00dde", defaultMessage: "Peers" })} className="asd-rail-panel">
       <div className="asd-peers-list">
         {peers.map((peer, i) => (
           <AssetLink
@@ -64,7 +68,7 @@ export function PeersCard({ peers, generating }: Props) {
                         minimumFractionDigits: 2,
                         maximumFractionDigits: 2,
                       })
-                    : peer.price.toLocaleString(undefined, {
+                    : peer.price.toLocaleString(getNumberLocale(), {
                         minimumFractionDigits: 2,
                         maximumFractionDigits: 2,
                       })}
@@ -72,7 +76,7 @@ export function PeersCard({ peers, generating }: Props) {
                 {peer.change_pct != null && (
                   <span className={`asd-peer-change ${plClass(peer.change_pct)}`}>
                     {peer.change_pct >= 0 ? '+' : ''}
-                    {peer.change_pct.toFixed(2)}%
+                    {peer.change_pct.toLocaleString(getNumberLocale(), { minimumFractionDigits: 2, maximumFractionDigits: 2, useGrouping: false })}%
                   </span>
                 )}
               </div>

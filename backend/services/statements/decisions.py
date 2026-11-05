@@ -829,7 +829,15 @@ def _offer_rows(
     results: list[RowResult] = []
     for i, row in enumerate(result.rows, start=1):
         if row.skip:
-            results.append(RowResult(line=i, skip_reason=row.skip_reason or "unreadable row"))
+            results.append(
+                RowResult(
+                    line=i,
+                    skip_reason=row.skip_reason or "unreadable row",
+                    skip_message=row.skip_message
+                    if row.skip_reason
+                    else {"id": "statement.skip.unreadable", "params": {}},
+                )
+            )
             continue
         target = ctx.target_for(row)
         row_ccy = ctx.row_currency(row)
@@ -1779,6 +1787,7 @@ def decision_preview(
             "notes": row.notes,
             "skip": r.draft is None,
             "skip_reason": r.skip_reason,
+            "skip_reason_message": r.skip_message,
             "duplicate": bool(r.duplicate),
             "duplicate_of": r.duplicate_of,
             "external_refs": (r.draft or {}).get("external_refs") or [],

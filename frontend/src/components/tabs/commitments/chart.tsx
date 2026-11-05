@@ -1,3 +1,4 @@
+import { useAppIntl } from '../../../i18n/useAppIntl'
 // Cushion chart — ported verbatim from the design handoff's masthead.jsx `Chart`: cushion
 // line + area, payments-out/funding-in bars, a $0 line, a dashed cash-floor line, and a
 // per-month hover tooltip. The one series the server doesn't provide per-item detail for
@@ -36,6 +37,7 @@ export function tipStyle(index: number, count: number): CSSProperties {
 }
 
 export function Chart({ timeline, floor, gapIdx }: ChartProps) {
+  const { formatMessage } = useAppIntl()
   const [hover, setHover] = useState<number | null>(null)
   const cells = timeline
   const n = cells.length || 1
@@ -119,7 +121,10 @@ export function Chart({ timeline, floor, gapIdx }: ChartProps) {
           viewBox={`0 0 ${W} ${H}`}
           preserveAspectRatio="none"
           role="img"
-          aria-label="Projected cash cushion against committed payments"
+          aria-label={formatMessage({
+            id: 'commitments.chartLabel',
+            defaultMessage: 'Projected cash cushion against committed payments',
+          })}
           onMouseLeave={() => setHover(null)}
         >
           {/* The at-risk region: everything from the gap month to the end of the horizon.
@@ -245,14 +250,14 @@ export function Chart({ timeline, floor, gapIdx }: ChartProps) {
         </svg>
 
         <span className="c2-chart-zero" style={{ bottom: `calc(${(1 - zeroY / H) * 100}% + 6px)` }}>
-          $0 cash
+          {formatMessage({ id: 'visible2.zeroCash', defaultMessage: '$0 cash' })}
         </span>
         {floor > 0 && (
           <span
             className="c2-chart-floor"
             style={{ bottom: `calc(${(1 - balY(floor) / H) * 100}% + 6px)` }}
           >
-            cash floor {fCompact(floor)}
+            {formatMessage({ id: 'visible2.cashFloor', defaultMessage: 'cash floor {amount}' }, { amount: fCompact(floor) })}
           </span>
         )}
 
@@ -262,22 +267,36 @@ export function Chart({ timeline, floor, gapIdx }: ChartProps) {
             {hc.total_out > 0 && (
               <div className="c2-tip-row">
                 <i className="out" />
-                <span className="n">Payments due</span>
+                <span className="n">
+                  {formatMessage({ id: 'commitments.paymentsDue', defaultMessage: 'Payments due' })}
+                </span>
                 <span className="a neg">−{fCompact(hc.total_out)}</span>
               </div>
             )}
             {hc.total_in > 0 && (
               <div className="c2-tip-row">
                 <i className="in" />
-                <span className="n">Funding in</span>
+                <span className="n">
+                  {formatMessage({ id: 'commitments.fundingIn', defaultMessage: 'Funding in' })}
+                </span>
                 <span className="a pos">+{fCompact(hc.total_in)}</span>
               </div>
             )}
             {hc.total_out <= 0 && hc.total_in <= 0 && (
-              <div className="c2-tip-none">No committed payments or draws</div>
+              <div className="c2-tip-none">
+                {formatMessage({
+                  id: 'commitments.noPayments',
+                  defaultMessage: 'No committed payments or draws',
+                })}
+              </div>
             )}
             <div className="c2-tip-foot">
-              <span>Cushion, end of month</span>
+              <span>
+                {formatMessage({
+                  id: 'commitments.monthCushion',
+                  defaultMessage: 'Cushion, end of month',
+                })}
+              </span>
               <b className={hc.balance < 0 ? 'neg' : ''}>{fBase(hc.balance)}</b>
             </div>
           </div>

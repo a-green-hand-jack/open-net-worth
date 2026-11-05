@@ -20,17 +20,50 @@ from typing import Any
 
 from fastapi import APIRouter, HTTPException, Request, Response
 from fastapi.responses import JSONResponse
+from fastapi.routing import APIRoute
 from pydantic import BaseModel
 
 from backend.ai import checkpoint as ckpt
 from backend.api._deps import _SESSION_COOKIE, _bearer_token
 from backend.core.errors import ConflictError, OpenNetWorthError, to_http_status
+from backend.core.move_messages import valid_move_message
 from backend.core.security import verify_session
 from backend.db.auth_store import AuthStore
 from backend.services import move, move_secrets, portability, terminal
 
 logger = logging.getLogger(__name__)
-router = APIRouter()
+
+
+class MovePresentationError(HTTPException):
+    def __init__(self, status_code: int, detail: object, message_id: str, params: dict):
+        if not valid_move_message(message_id, params):
+            raise ValueError("unregistered move message or invalid public parameters")
+        super().__init__(status_code, detail)
+        self.message_id = message_id
+        self.message_params = params
+
+
+class MoveRoute(APIRoute):
+    def get_route_handler(self):
+        handler = super().get_route_handler()
+
+        async def mapped(request):
+            try:
+                return await handler(request)
+            except MovePresentationError as exc:
+                return JSONResponse(
+                    status_code=exc.status_code,
+                    content={
+                        "detail": exc.detail,
+                        "message_id": exc.message_id,
+                        "message_params": exc.message_params,
+                    },
+                )
+
+        return mapped
+
+
+router = APIRouter(route_class=MoveRoute)
 
 _NO_STORE = {"Cache-Control": "no-store"}
 _MAX_SECRETS_BYTES = 2 * 1024 * 1024
@@ -65,10 +98,16 @@ def _owner(request: Request) -> str:
 
 def _fail(exc: OpenNetWorthError) -> HTTPException:
     if isinstance(exc, move.MoveTooLarge):
-        return HTTPException(413, {"message": exc.message, "max_size": exc.max_size})
-    if isinstance(exc, move.MoveNotEmpty):
-        return HTTPException(409, {"message": exc.message, "code": "not_empty"})
-    return HTTPException(to_http_status(exc), exc.message or str(exc))
+        status, detail = 413, {"message": exc.message, "max_size": exc.max_size}
+    elif isinstance(exc, move.MoveNotEmpty):
+        status, detail = 409, {"message": exc.message, "code": "not_empty"}
+    else:
+        status, detail = to_http_status(exc), exc.message or str(exc)
+    message_id = exc.context.get("message_id")
+    params = exc.context.get("message_params", {})
+    if not valid_move_message(message_id, params):
+        return HTTPException(status, detail)
+    return MovePresentationError(status, detail, message_id, params)
 
 
 def _require_intent(request: Request) -> None:
@@ -164,7 +203,9 @@ async def put_part(move_id: str, n: int, request: Request) -> Response:
     _require_intent(request)
     declared = request.headers.get("content-length")
     if declared is not None and declared.isdigit() and int(declared) > move.PART_SIZE:
-        raise HTTPException(413, "part is larger than the part size")
+        raise MovePresentationError(
+            413, "part is larger than the part size", "move.part_exceeds_size", {}
+        )
     try:
         await move.put_part(
             move_id, _owner(request), n, request.headers.get("x-part-sha256", ""), request.stream()
@@ -173,7 +214,12 @@ async def put_part(move_id: str, n: int, request: Request) -> Response:
         raise _fail(exc) from exc
     except OSError as exc:
         logger.error("move part %s/%d could not be written: %s", move_id, n, type(exc).__name__)
-        raise HTTPException(507, "the server could not store the upload (disk full?)") from exc
+        raise MovePresentationError(
+            507,
+            "the server could not store the upload (disk full?)",
+            "move.upload_storage_failed",
+            {},
+        ) from exc
     return Response(status_code=204)
 
 
@@ -199,19 +245,23 @@ async def apply_secrets(move_id: str, request: Request) -> JSONResponse:
     _require_intent(request)
     declared = request.headers.get("content-length")
     if declared is not None and declared.isdigit() and int(declared) > _MAX_SECRETS_BYTES:
-        raise HTTPException(413, "secrets payload too large")
+        raise MovePresentationError(413, "secrets payload too large", "move.secrets_too_large", {})
     chunks: list[bytes] = []
     received = 0
     async for chunk in request.stream():
         received += len(chunk)
         if received > _MAX_SECRETS_BYTES:
-            raise HTTPException(413, "secrets payload too large")
+            raise MovePresentationError(
+                413, "secrets payload too large", "move.secrets_too_large", {}
+            )
         chunks.append(chunk)
     raw = b"".join(chunks)
     try:
         payload: Any = json.loads(raw)
     except ValueError as exc:
-        raise HTTPException(422, "secrets payload must be JSON") from exc
+        raise MovePresentationError(
+            422, "secrets payload must be JSON", "move.secrets_json_invalid", {}
+        ) from exc
     try:
         result = move.apply_secrets(move_id, _owner(request), payload)
     except OpenNetWorthError as exc:

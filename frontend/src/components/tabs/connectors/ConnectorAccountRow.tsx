@@ -1,3 +1,4 @@
+import { useAppIntl } from '../../../i18n/useAppIntl'
 // One provider account in the connector "Accounts" list: what it is (type icon, name, last four,
 // balance) and its next step — Add it as a new account or Link… it to an existing one, or, once
 // linked, show where it lands with a quiet Unlink.
@@ -33,6 +34,7 @@ export function ConnectorAccountRow({
   onLink,
   onUnlink,
 }: Props) {
+  const { formatMessage } = useAppIntl()
   const [picking, setPicking] = useState(false)
   const type = row.account_type
   const linked = !!row.linked_account_id
@@ -53,7 +55,7 @@ export function ConnectorAccountRow({
           {linked && (row.mask || row.institution) ? ' · ' : ''}
           {linked && (
             <span className={live ? 'conn-acct-linked' : 'conn-acct-linked conn-acct-linked--off'}>
-              Linked to “{linkedName}”
+              {formatMessage({ id: 'connectors.account.linked', defaultMessage: 'Linked to “{name}”' }, { name: linkedName })}
             </span>
           )}
         </div>
@@ -61,20 +63,20 @@ export function ConnectorAccountRow({
       {row.balance != null && (
         <div className="conn-acct-bal">
           {fCur(row.balance, row.currency, { cents: true })}
-          {isOwed(row) && <span className="conn-acct-owed"> owed</span>}
+          {isOwed(row) && <span className="conn-acct-owed">{formatMessage({ id: 'connectors.account.owed', defaultMessage: ' owed' })}</span>}
         </div>
       )}
       <div className="conn-acct-actions">
         {linked ? (
           <Button size="sm" variant="ghost" loading={busy} onClick={onUnlink}>
-            Unlink
+            {formatMessage({ id: 'connectors.account.unlink', defaultMessage: 'Unlink' })}
           </Button>
         ) : picking ? (
           <>
             <div
               className="conn-acct-pick"
               role="group"
-              aria-label={`Link ${row.name} to an account`}
+              aria-label={formatMessage({ id: 'connectors.account.linkPicker', defaultMessage: 'Link {name} to an account' }, { name: row.name })}
             >
               <AddAccountSelect
                 accounts={accounts}
@@ -88,22 +90,22 @@ export function ConnectorAccountRow({
               />
             </div>
             <Button size="sm" variant="ghost" onClick={() => setPicking(false)}>
-              Cancel
+              {formatMessage({ id: 'connectors.action.cancel', defaultMessage: 'Cancel' })}
             </Button>
           </>
         ) : (
           <>
             <Button size="sm" loading={busy} onClick={onAdd}>
-              Add
+              {formatMessage({ id: 'connectors.add', defaultMessage: 'Add' })}
             </Button>
             {accounts.length > 0 && (
               <Button
                 size="sm"
                 variant="ghost"
-                aria-label={`Link ${row.name} to an existing account`}
+                aria-label={formatMessage({ id: 'connectors.account.linkExisting', defaultMessage: 'Link {name} to an existing account' }, { name: row.name })}
                 onClick={() => setPicking(true)}
               >
-                Link…
+                {formatMessage({ id: 'connectors.account.link', defaultMessage: 'Link…' })}
               </Button>
             )}
           </>

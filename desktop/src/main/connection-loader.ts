@@ -6,6 +6,8 @@ import { setTimeout as delay } from 'node:timers/promises';
 import { validateServer, waitForServer, type ConnectionTarget } from './connections';
 import type { Preferences } from './preferences';
 import type { DesktopWindow } from './window';
+import { message as t } from './native-messages';
+import { getDesktopLocale } from './desktop-locale';
 
 interface ConnectionContext {
   backend: BackendSupervisor;
@@ -89,7 +91,7 @@ export class ConnectionLoader {
     const remembered = this.context.preferences.current.selectedBookFolder;
     const fromServer = Boolean(this.context.window().serverOrigin);
     const pickFolder = async () => {
-      const selected = await dialog.showOpenDialog(this.context.dialogParent(), { title: 'Choose a folder for your book', properties: ['openDirectory', 'createDirectory'] });
+      const selected = await dialog.showOpenDialog(this.context.dialogParent(), { title: t('Choose a folder for your book'), properties: ['openDirectory', 'createDirectory'] });
       return selected.canceled ? null : selected.filePaths[0] ?? null;
     };
     const result = await chooseBookFolder({
@@ -97,14 +99,15 @@ export class ConnectionLoader {
         // Already on this computer: reopening the same book is pointless, so go straight to the
         // picker. From a server: offer the last book, or another folder (an empty one = new book).
         if (!remembered || alternate || !fromServer) return pickFolder();
-        const choice = await dialog.showMessageBox(this.context.dialogParent(), { type: 'question', title: 'Use on this computer', message: 'Which book?', detail: `Your last book on this computer:\n${remembered}\n\nOr choose another folder.`, buttons: ['Open last book', 'Choose another folder…', 'Cancel'], defaultId: 0, cancelId: 2 });
+        const choice = await dialog.showMessageBox(this.context.dialogParent(), { type: 'question', title: t('Use on this computer'), message: t('Which book?'), detail: t('Your last book on this computer:\n{path}\n\nOr choose another folder.', getDesktopLocale(), { path: remembered }), buttons: [t('Open last book'), t('Choose another folder…'), t('Cancel')], defaultId: 0, cancelId: 2 });
         if (choice.response === 0) return remembered;
         return choice.response === 1 ? pickFolder() : null;
       },
       confirm: async (folder, nested) => {
-        const inside = nested ? 'The folder you chose has other files, so your book lives in its own "Open Net Worth" folder inside it.\n\n' : '';
-        const away = fromServer ? ' Your server book stays on its server.' : '';
-        const choice = await dialog.showMessageBox(this.context.dialogParent(), { type: 'question', title: 'Use on this computer', message: folder.existing ? 'Open this book?' : 'Start a new book here?', detail: `${folder.root}\n\n${inside}${folder.existing || nested ? '' : 'A new book will be created in this empty folder.\n\n'}The app will reload using this folder.${away} Anything you haven’t saved will be closed.`, buttons: [folder.existing ? 'Open book' : 'Create book', 'Cancel'], defaultId: 0, cancelId: 1 });
+        const inside = nested ? `${t('The folder you chose has other files, so your book lives in its own "Open Net Worth" folder inside it.')}\n\n` : '';
+        const away = fromServer ? ` ${t('Your server book stays on its server.')}` : '';
+        const detail = `${folder.root}\n\n${inside}${folder.existing || nested ? '' : `${t('A new book will be created in this empty folder.')}\n\n`}${t('The app will reload using this folder.')}${away} ${t('Anything you haven’t saved will be closed.')}`;
+        const choice = await dialog.showMessageBox(this.context.dialogParent(), { type: 'question', title: t('Use on this computer'), message: folder.existing ? t('Open this book?') : t('Start a new book here?'), detail, buttons: [folder.existing ? t('Open book') : t('Create book'), t('Cancel')], defaultId: 0, cancelId: 1 });
         return choice.response === 0;
       },
     }, async folder => { await this.context.switch({ mode: 'local', serverUrl: null, bookFolder: folder.root, folder }); return true; }, this.context.qaRoot);

@@ -50,6 +50,7 @@ class MatchReviewStore(BookPayloadTableStore):
             "become_transfer": bool(item.get("become_transfer", False)),
             "signature": item.get("signature"),
             "reasons": list(item.get("reasons") or []),
+            "reason_messages": list(item.get("reason_messages") or []),
             "llm_reason": item.get("llm_reason"),
             "batch_id": item.get("batch_id"),
             "alternatives": list(item.get("alternatives") or []),

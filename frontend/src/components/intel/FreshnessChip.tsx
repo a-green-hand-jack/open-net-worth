@@ -1,3 +1,5 @@
+import { useAppIntl } from '../../i18n/useAppIntl'
+import { intelTimeAgo } from './relativeTime'
 // FreshnessChip — shows a coloured dot + relative-time label for data freshness.
 //
 // Grade priority: when `grade` is provided (from the backend asset-detail response),
@@ -76,23 +78,24 @@ interface Props {
 }
 
 export function FreshnessChip({ label, timestamp, grade, intervalSeconds }: Props) {
+  const intl = useAppIntl()
   const tone: ChipTone = grade
     ? gradeFromBackend(grade)
     : gradeFromTimestamp(timestamp, intervalSeconds)
 
   // "News never" read like a broken feature; before the first run say what is actually true.
-  const relTime = timestamp ? relativeLabel(timestamp) : 'not checked yet'
+  const relTime = timestamp ? (intl.locale.toLowerCase().startsWith('en') ? relativeLabel(timestamp) : intelTimeAgo(timestamp, intl) || intl.formatMessage({ id: 'intel.freshness.never', defaultMessage: 'never' })) : intl.formatMessage({ id: 'intel.freshness.notChecked', defaultMessage: 'not checked yet' })
   const displayText = label ? `${label} ${relTime}` : relTime
-  const what = label ? label.toLowerCase() : 'this'
+  const what = label ? label.toLowerCase() : intl.formatMessage({ id: 'intel.freshness.this', defaultMessage: 'this' })
   const titleAttr = timestamp
-    ? `Last ${what} check: ${fDateTime(timestamp)}`
-    : `No ${what} check has run yet — it runs on its schedule, or press Scan.`
+    ? intl.formatMessage({ id: 'intel.freshness.lastCheck', defaultMessage: 'Last {what} check: {date}' }, { what, date: fDateTime(timestamp) })
+    : intl.formatMessage({ id: 'intel.freshness.noCheck', defaultMessage: 'No {what} check has run yet — it runs on its schedule, or press Scan.' }, { what })
 
   return (
     <span
       className={`freshness-chip freshness-chip--${tone}`}
       title={titleAttr}
-      aria-label={`Freshness: ${displayText}`}
+      aria-label={intl.formatMessage({ id: 'intel.freshness.label', defaultMessage: 'Freshness: {text}' }, { text: displayText })}
     >
       <span className="freshness-chip__dot" aria-hidden="true" />
       <span className="freshness-chip__label">{displayText}</span>

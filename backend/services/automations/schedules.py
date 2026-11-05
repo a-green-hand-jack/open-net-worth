@@ -11,6 +11,7 @@ from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 from dateutil.rrule import rrulestr
 
 from backend.core.user_time import user_zone
+from backend.services.automations.trigger_errors import TriggerValidationError
 from backend.services.automations.txn_conditions import validate_conditions
 
 MIN_INTERVAL_SECONDS = 60
@@ -53,7 +54,7 @@ _CURRENCY_RE = re.compile(r"^[A-Za-z]{3}$")
 def validate_trigger(trigger: dict, now: datetime | None = None) -> dict:
     """Return a validated trigger copy or raise ``ValueError`` before any write."""
     if not isinstance(trigger, dict):
-        raise ValueError("trigger must be an object")
+        raise TriggerValidationError("trigger must be an object", "automation.error.triggerObject")
     kind = trigger.get("kind")
     if kind == "manual":
         _reject_unknown(trigger, {"kind"})
@@ -62,13 +63,21 @@ def validate_trigger(trigger: dict, now: datetime | None = None) -> dict:
         _reject_unknown(trigger, {"kind", "event", "when", "limit", "sequence"})
         event = trigger.get("event")
         if not isinstance(event, str) or event not in _EVENT_TYPES:
-            raise ValueError(f"unknown automation event {event!r}")
+            raise TriggerValidationError(
+                f"unknown automation event {event!r}",
+                "automation.error.unknownEvent",
+                event=str(event),
+            )
         when = trigger.get("when")
         if not isinstance(when, dict):
-            raise ValueError("event trigger requires an object 'when'")
+            raise TriggerValidationError(
+                "event trigger requires an object 'when'", "automation.error.triggerWhen"
+            )
         limit = trigger.get("limit")
         if not isinstance(limit, str) or limit not in _EVENT_LIMITS:
-            raise ValueError("event trigger limit must be each, hour, or day")
+            raise TriggerValidationError(
+                "event trigger limit must be each, hour, or day", "automation.error.triggerLimit"
+            )
         normalized_when = _validate_event_when(event, when)
         result = {
             "kind": "event",
@@ -79,27 +88,40 @@ def validate_trigger(trigger: dict, now: datetime | None = None) -> dict:
         sequence = trigger.get("sequence")
         if sequence is not None:
             if not isinstance(sequence, dict):
-                raise ValueError("event trigger sequence must be an object")
+                raise TriggerValidationError(
+                    "event trigger sequence must be an object", "automation.error.triggerSequence"
+                )
             _reject_unknown(sequence, {"group", "priority", "stop"})
             raw_group = sequence.get("group")
             if not isinstance(raw_group, str):
-                raise ValueError("event trigger sequence requires a group")
+                raise TriggerValidationError(
+                    "event trigger sequence requires a group", "automation.error.triggerGroup"
+                )
             group = raw_group.strip()
             priority = sequence.get("priority", 100)
             stop = sequence.get("stop", False)
             if not group:
-                raise ValueError("event trigger sequence requires a group")
+                raise TriggerValidationError(
+                    "event trigger sequence requires a group", "automation.error.triggerGroup"
+                )
             if isinstance(priority, bool) or not isinstance(priority, int):
-                raise ValueError("event trigger sequence priority must be an integer")
+                raise TriggerValidationError(
+                    "event trigger sequence priority must be an integer",
+                    "automation.error.triggerPriority",
+                )
             if not isinstance(stop, bool):
-                raise ValueError("event trigger sequence stop must be a boolean")
+                raise TriggerValidationError(
+                    "event trigger sequence stop must be a boolean", "automation.error.triggerStop"
+                )
             result["sequence"] = {"group": group, "priority": priority, "stop": stop}
         return result
     if kind != "schedule":
-        raise ValueError(
+        raise TriggerValidationError(
             f"unknown automation trigger kind {kind!r} — 'kind' must be manual, schedule, or "
             "event. A schedule trigger also needs 'type': "
-            '{"kind": "schedule", "type": "once", "at": "2026-08-19T09:00:00+08:00"}'
+            '{"kind": "schedule", "type": "once", "at": "2026-08-19T09:00:00+08:00"}',
+            "automation.error.triggerKind",
+            kind=str(kind),
         )
     return _validate_schedule_trigger(trigger, now=now)
 
@@ -121,9 +143,15 @@ def _validate_transaction_when(when: dict) -> dict:
     elif isinstance(operation, list) and operation:
         operations = operation
     else:
-        raise ValueError("transaction event operation must be create, update, delete, or a list")
+        raise TriggerValidationError(
+            "transaction event operation must be create, update, delete, or a list",
+            "automation.error.transactionOperation",
+        )
     if any(not isinstance(item, str) or item not in _TRANSACTION_OPERATIONS for item in operations):
-        raise ValueError("transaction event operation must be create, update, delete, or a list")
+        raise TriggerValidationError(
+            "transaction event operation must be create, update, delete, or a list",
+            "automation.error.transactionOperation",
+        )
     normalized_operations = list(dict.fromkeys(operations))
     out["operation"] = (
         normalized_operations[0] if len(normalized_operations) == 1 else normalized_operations
@@ -147,7 +175,10 @@ def _validate_transaction_when(when: dict) -> dict:
     if out.get("currency") is not None:
         currency = out["currency"]
         if not isinstance(currency, str) or _CURRENCY_RE.fullmatch(currency) is None:
-            raise ValueError("transaction event currency must be a 3-letter code")
+            raise TriggerValidationError(
+                "transaction event currency must be a 3-letter code",
+                "automation.error.transactionCurrency",
+            )
         out["currency"] = currency.upper()
     for field in ("over", "min_amount", "max_amount"):
         if out.get(field) is not None:
@@ -155,7 +186,10 @@ def _validate_transaction_when(when: dict) -> dict:
     minimum = out.get("min_amount")
     maximum = out.get("max_amount")
     if minimum is not None and maximum is not None and minimum > maximum:
-        raise ValueError("transaction event min_amount cannot be greater than max_amount")
+        raise TriggerValidationError(
+            "transaction event min_amount cannot be greater than max_amount",
+            "automation.error.transactionRange",
+        )
     return out
 
 
@@ -176,7 +210,7 @@ def _validate_price_when(when: dict) -> dict:
     _validate_required_string(out, "symbol", "price event symbol")
     _validate_required_enum(out, "direction", _PRICE_DIRECTIONS, "price event direction")
     if "value" not in out:
-        raise ValueError("price event requires value")
+        raise TriggerValidationError("price event requires value", "automation.error.priceValue")
     out["value"] = _non_negative_number(out["value"], "price event value")
     return out
 
@@ -190,20 +224,30 @@ def _validate_reference_aliases(
             continue
         raw = value[field]
         if not isinstance(raw, str) or not raw.strip():
-            raise ValueError(f"{label} must be a non-empty string")
+            raise TriggerValidationError(
+                f"{label} must be a non-empty string", "automation.error.fieldString", field=label
+            )
         normalized = raw.strip()
         value[field] = normalized
         active.append(normalized)
     if required and not active:
-        raise ValueError(f"{label} is required")
+        raise TriggerValidationError(
+            f"{label} is required", "automation.error.fieldRequired", field=label
+        )
     if len(set(active)) > 1:
-        raise ValueError(f"{label} aliases must refer to the same value")
+        raise TriggerValidationError(
+            f"{label} aliases must refer to the same value",
+            "automation.error.fieldAliases",
+            field=label,
+        )
 
 
 def _validate_required_string(value: dict, field: str, label: str) -> None:
     raw = value.get(field)
     if not isinstance(raw, str) or not raw.strip():
-        raise ValueError(f"{label} must be a non-empty string")
+        raise TriggerValidationError(
+            f"{label} must be a non-empty string", "automation.error.fieldString", field=label
+        )
     value[field] = raw.strip()
 
 
@@ -212,7 +256,11 @@ def _validate_optional_string(value: dict, field: str, label: str) -> None:
         return
     raw = value[field]
     if not isinstance(raw, str) or not raw.strip():
-        raise ValueError(f"{label} must be a non-empty string or null")
+        raise TriggerValidationError(
+            f"{label} must be a non-empty string or null",
+            "automation.error.fieldStringOrNull",
+            field=label,
+        )
 
 
 def _validate_optional_regex(value: dict, field: str, label: str) -> None:
@@ -223,7 +271,9 @@ def _validate_optional_regex(value: dict, field: str, label: str) -> None:
     try:
         re.compile(pattern)
     except re.error as exc:
-        raise ValueError(f"invalid {label}: {exc}") from exc
+        raise TriggerValidationError(
+            f"invalid {label}: {exc}", "automation.error.invalidField", field=label, reason=str(exc)
+        ) from exc
 
 
 def _validate_optional_string_list(value: dict, field: str, label: str) -> None:
@@ -233,7 +283,11 @@ def _validate_optional_string_list(value: dict, field: str, label: str) -> None:
     if not isinstance(items, list) or any(
         not isinstance(item, str) or not item.strip() for item in items
     ):
-        raise ValueError(f"{label} must be a list of non-empty strings or null")
+        raise TriggerValidationError(
+            f"{label} must be a list of non-empty strings or null",
+            "automation.error.fieldStringList",
+            field=label,
+        )
 
 
 def _validate_optional_enum(value: dict, field: str, allowed: frozenset[str], label: str) -> None:
@@ -241,13 +295,23 @@ def _validate_optional_enum(value: dict, field: str, allowed: frozenset[str], la
         return
     raw = value[field]
     if not isinstance(raw, str) or raw not in allowed:
-        raise ValueError(f"{label} must be one of: {', '.join(sorted(allowed))}")
+        raise TriggerValidationError(
+            f"{label} must be one of: {', '.join(sorted(allowed))}",
+            "automation.error.fieldChoices",
+            field=label,
+            choices=", ".join(sorted(allowed)),
+        )
 
 
 def _validate_required_enum(value: dict, field: str, allowed: frozenset[str], label: str) -> None:
     raw = value.get(field)
     if not isinstance(raw, str) or raw not in allowed:
-        raise ValueError(f"{label} must be one of: {', '.join(sorted(allowed))}")
+        raise TriggerValidationError(
+            f"{label} must be one of: {', '.join(sorted(allowed))}",
+            "automation.error.fieldChoices",
+            field=label,
+            choices=", ".join(sorted(allowed)),
+        )
 
 
 def _validate_required_number_aliases(value: dict, fields: tuple[str, ...], label: str) -> None:
@@ -259,43 +323,76 @@ def _validate_required_number_aliases(value: dict, fields: tuple[str, ...], labe
         value[field] = normalized
         active.append(normalized)
     if not active:
-        raise ValueError(f"{label} is required")
+        raise TriggerValidationError(
+            f"{label} is required", "automation.error.fieldRequired", field=label
+        )
     if len(set(active)) > 1:
-        raise ValueError(f"{label} aliases must have the same value")
+        raise TriggerValidationError(
+            f"{label} aliases must have the same value",
+            "automation.error.fieldAliases",
+            field=label,
+        )
 
 
 def _finite_number(value: object, label: str) -> float:
     if isinstance(value, bool) or not isinstance(value, (int, float, str)):
-        raise ValueError(f"{label} must be a finite number")
+        raise TriggerValidationError(
+            f"{label} must be a finite number", "automation.error.fieldFinite", field=label
+        )
     try:
         normalized = float(value)
     except (OverflowError, TypeError, ValueError) as exc:
-        raise ValueError(f"{label} must be a finite number") from exc
+        raise TriggerValidationError(
+            f"{label} must be a finite number", "automation.error.fieldFinite", field=label
+        ) from exc
     if not math.isfinite(normalized):
-        raise ValueError(f"{label} must be a finite number")
+        raise TriggerValidationError(
+            f"{label} must be a finite number", "automation.error.fieldFinite", field=label
+        )
     return normalized
 
 
 def _non_negative_number(value: object, label: str) -> float:
     normalized = _finite_number(value, label)
     if normalized < 0:
-        raise ValueError(f"{label} must be a non-negative number")
+        raise TriggerValidationError(
+            f"{label} must be a non-negative number",
+            "automation.error.fieldNonnegative",
+            field=label,
+        )
     return normalized
 
 
 def _non_negative_integer(value: object, label: str, *, maximum: int | None = None) -> int:
     if isinstance(value, bool):
-        raise ValueError(f"{label} must be a non-negative integer")
+        raise TriggerValidationError(
+            f"{label} must be a non-negative integer",
+            "automation.error.fieldNonnegativeInteger",
+            field=label,
+        )
     if isinstance(value, int):
         normalized = value
     elif isinstance(value, str) and re.fullmatch(r"[+-]?\d+", value.strip()):
         normalized = int(value)
     else:
-        raise ValueError(f"{label} must be a non-negative integer")
+        raise TriggerValidationError(
+            f"{label} must be a non-negative integer",
+            "automation.error.fieldNonnegativeInteger",
+            field=label,
+        )
     if normalized < 0:
-        raise ValueError(f"{label} must be a non-negative integer")
+        raise TriggerValidationError(
+            f"{label} must be a non-negative integer",
+            "automation.error.fieldNonnegativeInteger",
+            field=label,
+        )
     if maximum is not None and normalized > maximum:
-        raise ValueError(f"{label} must be no greater than {maximum}")
+        raise TriggerValidationError(
+            f"{label} must be no greater than {maximum}",
+            "automation.error.fieldMaximum",
+            field=label,
+            maximum=str(maximum),
+        )
     return normalized
 
 
@@ -426,13 +523,15 @@ def describe_trigger(trigger: dict) -> str:
 def _validate_schedule_trigger(trigger: dict, now: datetime | None) -> dict:
     schedule_type = trigger.get("type")
     if schedule_type not in _SCHEDULE_TYPES:
-        raise ValueError(
+        raise TriggerValidationError(
             f"unknown automation schedule type {schedule_type!r} — a schedule trigger needs a "
             "'type' key, one of: "
             'once {"at": ISO-8601}, daily/weekdays {"time": "HH:MM", "tzid"?}, '
             'weekly {"time", "day": mon..sun, "tzid"?}, '
             'monthly {"time", "day": 1-31, "tzid"?}, '
-            'interval {"seconds": >=60}, rrule {"rrule", "tzid"?}'
+            'interval {"seconds": >=60}, rrule {"rrule", "tzid"?}',
+            "automation.error.scheduleType",
+            kind=str(schedule_type),
         )
     allowed = {"kind", "type"}
     if schedule_type == "once":
@@ -459,7 +558,9 @@ def _validate_schedule_trigger(trigger: dict, now: datetime | None) -> dict:
         out["time"] = _validate_time(trigger.get("time"))
         day = str(trigger.get("day") or "").strip().lower()[:3]
         if day not in _WEEKDAYS:
-            raise ValueError("weekly schedule day must be mon through sun")
+            raise TriggerValidationError(
+                "weekly schedule day must be mon through sun", "automation.error.weeklyDay"
+            )
         out["day"] = day
         out.update(_timezone_field(trigger, now))
     elif schedule_type == "monthly":
@@ -467,27 +568,44 @@ def _validate_schedule_trigger(trigger: dict, now: datetime | None) -> dict:
         try:
             day = int(trigger.get("day"))
         except (TypeError, ValueError) as exc:
-            raise ValueError("monthly schedule day must be 1 through 31") from exc
+            raise TriggerValidationError(
+                "monthly schedule day must be 1 through 31", "automation.error.monthlyDay"
+            ) from exc
         if not 1 <= day <= 31:
-            raise ValueError("monthly schedule day must be 1 through 31")
+            raise TriggerValidationError(
+                "monthly schedule day must be 1 through 31", "automation.error.monthlyDay"
+            )
         out["day"] = day
         out.update(_timezone_field(trigger, now))
     elif schedule_type == "interval":
         try:
             seconds = int(trigger.get("seconds"))
         except (TypeError, ValueError) as exc:
-            raise ValueError("interval schedule requires integer seconds") from exc
+            raise TriggerValidationError(
+                "interval schedule requires integer seconds", "automation.error.intervalInteger"
+            ) from exc
         if seconds < MIN_INTERVAL_SECONDS:
-            raise ValueError(f"interval seconds must be >= {MIN_INTERVAL_SECONDS}")
+            raise TriggerValidationError(
+                f"interval seconds must be >= {MIN_INTERVAL_SECONDS}",
+                "automation.error.intervalMinimum",
+                minimum=str(MIN_INTERVAL_SECONDS),
+            )
         out["seconds"] = seconds
     else:
         body = str(trigger.get("rrule") or "").strip()
         if not body or body.upper().startswith("RRULE:"):
-            raise ValueError("rrule must be a non-empty body without a leading RRULE:")
+            raise TriggerValidationError(
+                "rrule must be a non-empty body without a leading RRULE:",
+                "automation.error.rruleBody",
+            )
         if not any(part.strip().upper().startswith("FREQ=") for part in body.split(";")):
-            raise ValueError("rrule requires FREQ")
+            raise TriggerValidationError(
+                "rrule requires FREQ", "automation.error.rruleFrequencyRequired"
+            )
         if "FREQ=SECONDLY" in body.upper() or "FREQ=MINUTELY" in body.upper():
-            raise ValueError("rrule frequency must not be sub-minute")
+            raise TriggerValidationError(
+                "rrule frequency must not be sub-minute", "automation.error.rruleFrequency"
+            )
         out["rrule"] = body
         if trigger.get("dtstart") is not None:
             out["dtstart"] = _parse_datetime(trigger["dtstart"], "rrule dtstart").isoformat()
@@ -501,7 +619,9 @@ def _validate_schedule_trigger(trigger: dict, now: datetime | None) -> dict:
                 ),
             )
         except Exception as exc:
-            raise ValueError(f"invalid rrule: {exc}") from exc
+            raise TriggerValidationError(
+                f"invalid rrule: {exc}", "automation.error.invalidRrule", reason=str(exc)
+            ) from exc
     return out
 
 
@@ -509,7 +629,9 @@ def _reject_unknown(value: dict, allowed: set[str] | frozenset[str]) -> None:
     unknown = set(value) - allowed
     if unknown:
         rendered = ", ".join(sorted(str(key) for key in unknown))
-        raise ValueError(f"unknown trigger keys: {rendered}")
+        raise TriggerValidationError(
+            f"unknown trigger keys: {rendered}", "automation.error.triggerKeys", keys=rendered
+        )
 
 
 def _timezone_field(trigger: dict, now: datetime | None) -> dict:
@@ -517,7 +639,9 @@ def _timezone_field(trigger: dict, now: datetime | None) -> dict:
         return {}
     tzid = trigger["tzid"]
     if not isinstance(tzid, str) or not tzid.strip():
-        raise ValueError("tzid must be a non-empty IANA timezone name")
+        raise TriggerValidationError(
+            "tzid must be a non-empty IANA timezone name", "automation.error.timezoneRequired"
+        )
     normalized = tzid.strip()
     _timezone(normalized)
     return {"tzid": normalized}
@@ -533,7 +657,9 @@ def _timezone(tzid: str | None) -> tzinfo:
         try:
             return ZoneInfo(tzid)
         except (ZoneInfoNotFoundError, ValueError, KeyError) as exc:
-            raise ValueError(f"unknown timezone {tzid!r}") from exc
+            raise TriggerValidationError(
+                f"unknown timezone {tzid!r}", "automation.error.timezoneUnknown", timezone=str(tzid)
+            ) from exc
     return _local_tz()
 
 
@@ -541,11 +667,20 @@ def _parse_datetime(value: object, label: str) -> datetime:
     if isinstance(value, datetime):
         return value
     if not isinstance(value, str) or not value:
-        raise ValueError(f"{label} requires an ISO-8601 datetime")
+        raise TriggerValidationError(
+            f"{label} requires an ISO-8601 datetime",
+            "automation.error.datetimeRequired",
+            field=label,
+        )
     try:
         return datetime.fromisoformat(value)
     except ValueError as exc:
-        raise ValueError(f"invalid {label} datetime {value!r}") from exc
+        raise TriggerValidationError(
+            f"invalid {label} datetime {value!r}",
+            "automation.error.datetimeInvalid",
+            field=label,
+            value=str(value),
+        ) from exc
 
 
 def _as_timezone(value: datetime, tz: tzinfo) -> datetime:
@@ -554,7 +689,7 @@ def _as_timezone(value: datetime, tz: tzinfo) -> datetime:
 
 def _validate_time(value: object) -> str:
     if not isinstance(value, str) or not _TIME_RE.fullmatch(value):
-        raise ValueError("schedule time must be HH:MM")
+        raise TriggerValidationError("schedule time must be HH:MM", "automation.error.scheduleTime")
     return value
 
 

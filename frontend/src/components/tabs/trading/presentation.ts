@@ -1,25 +1,26 @@
+import { getDateLocale, getNumberLocale } from '../../../utils/format'
 import type { Amount } from '../../../types/trading'
 import type { BadgeTone } from '../../ui'
 
 export function tradingMoney(value: Amount | null | undefined, currency = 'USD') {
   if (value == null || !Number.isFinite(Number(value))) return '—'
   try {
-    return new Intl.NumberFormat(undefined, {
+    return new Intl.NumberFormat(getNumberLocale(), {
       style: 'currency',
       currency,
       maximumFractionDigits: 2,
     }).format(Number(value))
   } catch {
-    return `${Number(value).toLocaleString()} ${currency}`
+    return `${Number(value).toLocaleString(getNumberLocale())} ${currency}`
   }
 }
 export function tradingPercent(value: Amount | null | undefined) {
   return value == null
     ? '—'
-    : `${Number(value).toLocaleString(undefined, { maximumFractionDigits: 2 })}%`
+    : `${Number(value).toLocaleString(getNumberLocale(), { maximumFractionDigits: 2 })}%`
 }
 export function tradingTime(value?: string | null) {
-  return value ? new Date(value).toLocaleString() : '—'
+  return value ? new Date(value).toLocaleString(getDateLocale()) : '—'
 }
 export function statusTone(value: string): BadgeTone {
   if (['running', 'completed', 'filled'].includes(value)) return 'pos'

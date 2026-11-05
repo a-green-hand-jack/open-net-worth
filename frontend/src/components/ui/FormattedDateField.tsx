@@ -1,4 +1,5 @@
 import { useRef, useState, type ChangeEvent, type InputHTMLAttributes } from 'react'
+import { useAppIntl } from '../../i18n/useAppIntl'
 import {
   fDate,
   numericDatePlaceholder,
@@ -41,6 +42,7 @@ export function FormattedDateField({
   disabled,
   ...rest
 }: FormattedDateFieldProps) {
+  const { formatMessage } = useAppIntl()
   const [own, setOwn] = useState(String(defaultValue ?? ''))
   const [draft, setDraft] = useState<string | null>(null)
   const native = useRef<HTMLInputElement>(null)
@@ -107,7 +109,7 @@ export function FormattedDateField({
       <button
         type="button"
         className="ui-datefield__picker"
-        aria-label="Pick a date"
+        aria-label={formatMessage({ id: 'common.pickDate', defaultMessage: 'Pick a date' })}
         disabled={disabled}
         onClick={openPicker}
       >

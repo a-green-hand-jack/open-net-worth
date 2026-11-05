@@ -298,6 +298,7 @@ def review_created_rows(
                     "become_transfer": synthetic.become_transfer,
                     "signature": signature,
                     "reasons": synthetic.reasons,
+                    "reason_messages": rm.assigned.reason_messages,
                     "batch_id": batch_id,
                     "alternatives": rm.alternatives,
                     # The engine's OWN confidence band ("strong"|"review") — exposed so
@@ -449,6 +450,7 @@ def scan_duplicates(date_from: str | None = None, date_to: str | None = None) ->
                 "score": cand.score,
                 "become_transfer": cand.become_transfer,
                 "reasons": _result_reasons(cand),
+                "reason_messages": cand.reason_messages,
                 "incoming_id": rid,
                 "canonical_id": canonical_id,
                 "incoming": row,

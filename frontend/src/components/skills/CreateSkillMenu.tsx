@@ -1,3 +1,4 @@
+import { useAppIntl } from '../../i18n/useAppIntl'
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { Button } from '../ui'
 import { Plus } from '../../ui/icons'
@@ -29,6 +30,7 @@ export function CreateSkillMenu({
   onUpload,
   onBrowseStarters,
 }: CreateSkillMenuProps) {
+  const { formatMessage } = useAppIntl()
   const [open, setOpen] = useState(false)
   const [dropUp, setDropUp] = useState(false)
   const wrapRef = useRef<HTMLDivElement>(null)
@@ -67,23 +69,38 @@ export function CreateSkillMenu({
 
   const items: { label: string; sub: string; onClick: () => void }[] = [
     {
-      label: 'Create with Lucius',
-      sub: 'Chat with Lucius to design a new skill',
+      label: formatMessage({
+        id: 'skills.menu.createLucius',
+        defaultMessage: 'Create with Lucius',
+      }),
+      sub: formatMessage({
+        id: 'skills.menu.createLuciusHelp',
+        defaultMessage: 'Chat with Lucius to design a new skill',
+      }),
       onClick: () => pick(onCreateWithLucius),
     },
     {
-      label: 'Write skill instructions',
-      sub: 'Author the name, body, and tools yourself',
+      label: formatMessage({ id: 'skills.menu.write', defaultMessage: 'Write skill instructions' }),
+      sub: formatMessage({
+        id: 'skills.menu.writeHelp',
+        defaultMessage: 'Author the name, body, and tools yourself',
+      }),
       onClick: () => pick(onWriteInstructions),
     },
     {
-      label: 'Upload a skill',
-      sub: 'Install a .zip bundle from disk',
+      label: formatMessage({ id: 'skills.menu.upload', defaultMessage: 'Upload a skill' }),
+      sub: formatMessage({
+        id: 'skills.menu.uploadHelp',
+        defaultMessage: 'Install a .zip bundle from disk',
+      }),
       onClick: () => pick(onUpload),
     },
     {
-      label: 'Browse starter skills',
-      sub: 'Add a built-in starter to your library',
+      label: formatMessage({ id: 'skills.menu.browse', defaultMessage: 'Browse starter skills' }),
+      sub: formatMessage({
+        id: 'skills.menu.browseHelp',
+        defaultMessage: 'Add a built-in starter to your library',
+      }),
       onClick: () => pick(onBrowseStarters),
     },
   ]
@@ -98,7 +115,7 @@ export function CreateSkillMenu({
         aria-haspopup="menu"
         aria-expanded={open}
       >
-        New skill
+        {formatMessage({ id: 'skills.new', defaultMessage: 'New skill' })}
       </Button>
 
       {open && (

@@ -1,3 +1,4 @@
+import { useAppIntl } from '../../../i18n/useAppIntl'
 // `run_code`'s own expanded view — moved verbatim out of `MessageBubble.tsx`, restyled onto
 // the shared boxes.
 //
@@ -13,6 +14,7 @@ export function RunCodeDetail({
   input?: Record<string, unknown>
   result?: string
 }) {
+  const intl = useAppIntl()
   const inp = (input || {}) as { source?: string; input?: unknown; purpose?: string }
   const source = typeof inp.source === 'string' ? inp.source : ''
   const scriptInput = inp.input
@@ -48,7 +50,7 @@ export function RunCodeDetail({
       {inp.purpose && (
         <div className="msg-toolact__box">
           <div className="msg-toolact__box-head">
-            <span className="msg-toolact__box-title">Purpose</span>
+            <span className="msg-toolact__box-title">{intl.formatMessage({ id: 'chat.tool.purpose', defaultMessage: 'Purpose' })}</span>
           </div>
           <div className="msg-toolact__purpose">{inp.purpose}</div>
         </div>
@@ -56,7 +58,7 @@ export function RunCodeDetail({
       {source && (
         <div className="msg-toolact__box">
           <div className="msg-toolact__box-head">
-            <span className="msg-toolact__box-title">Script</span>
+            <span className="msg-toolact__box-title">{intl.formatMessage({ id: 'chat.tool.script', defaultMessage: 'Script' })}</span>
             <span className="msg-toolact__box-meta">python</span>
           </div>
           <pre className="msg-toolact__code">{source}</pre>
@@ -65,7 +67,7 @@ export function RunCodeDetail({
       {scriptInput != null && JSON.stringify(scriptInput) !== '{}' && (
         <div className="msg-toolact__box">
           <div className="msg-toolact__box-head">
-            <span className="msg-toolact__box-title">Input</span>
+            <span className="msg-toolact__box-title">{intl.formatMessage({ id: 'chat.tool.input', defaultMessage: 'Input' })}</span>
           </div>
           <pre className="msg-toolact__code">{JSON.stringify(scriptInput, null, 2)}</pre>
         </div>
@@ -73,7 +75,7 @@ export function RunCodeDetail({
       {resultBody !== null && (
         <div className="msg-toolact__box">
           <div className="msg-toolact__box-head">
-            <span className="msg-toolact__box-title">Result</span>
+            <span className="msg-toolact__box-title">{intl.formatMessage({ id: 'chat.tool.result', defaultMessage: 'Result' })}</span>
             {durationMs != null && <span className="msg-toolact__box-meta">{durationMs}ms</span>}
           </div>
           <pre className={`msg-toolact__code${resultIsError ? ' msg-toolact__code--error' : ''}`}>

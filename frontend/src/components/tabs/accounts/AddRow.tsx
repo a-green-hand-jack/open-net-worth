@@ -7,6 +7,7 @@
  */
 
 import { useState, useEffect, useRef } from 'react'
+import { useAppIntl } from '../../../i18n/useAppIntl'
 import type { Account, Category } from './types'
 import { catOptionsFor } from './categories'
 import {
@@ -81,6 +82,7 @@ export function AddRow({
   categories,
   onCreateCategory,
 }: AddRowProps) {
+  const { formatMessage } = useAppIntl()
   const today = localIso()
   const defAcct = () => selectedId || accounts[0]?.id || ''
   const blank = (keep?: FormState): FormState => ({
@@ -212,7 +214,14 @@ export function AddRow({
         {has('payee') && (
           <span className="acct-addrow-cell">
             <AddPayeeField
-              value={f.transferTo ? 'To/From ' + (xferAcct?.name || '') : f.payee}
+              value={
+                f.transferTo
+                  ? formatMessage(
+                      { id: 'accounts.toFromAccount', defaultMessage: 'To/From {name}' },
+                      { name: xferAcct?.name || '' },
+                    )
+                  : f.payee
+              }
               onChange={(v, defCat) =>
                 setF((s) => {
                   const next = { ...s, payee: v, transferTo: '' }
@@ -258,7 +267,10 @@ export function AddRow({
             <input
               className="acct-addin"
               data-addfield
-              placeholder="Description"
+              placeholder={formatMessage({
+                id: 'accounts.column.description',
+                defaultMessage: 'Description',
+              })}
               value={f.description}
               onChange={(e) => set('description', e.target.value)}
               onKeyDown={keyAdvance}
@@ -270,7 +282,7 @@ export function AddRow({
             <input
               className="acct-addin"
               data-addfield
-              placeholder="Memo"
+              placeholder={formatMessage({ id: 'accounts.column.memo', defaultMessage: 'Memo' })}
               value={f.memo}
               onChange={(e) => set('memo', e.target.value)}
               onKeyDown={keyAdvance}
@@ -282,7 +294,17 @@ export function AddRow({
           <button
             type="button"
             className={'acct-addrow-sign ' + (f.inflow ? 'in' : 'out')}
-            title={f.inflow ? 'Inflow — click for outflow' : 'Outflow — click for inflow'}
+            title={
+              f.inflow
+                ? formatMessage({
+                    id: 'accounts.inflowToggle',
+                    defaultMessage: 'Inflow — click for outflow',
+                  })
+                : formatMessage({
+                    id: 'accounts.outflowToggle',
+                    defaultMessage: 'Outflow — click for inflow',
+                  })
+            }
             onClick={() =>
               setF((s) => {
                 const ni = !s.inflow
@@ -324,13 +346,13 @@ export function AddRow({
       <div className="acct-addrow-actions">
         <div className="acct-addrow-actions-inner">
           <Button size="sm" variant="ghost" onClick={cancel}>
-            Cancel
+            {formatMessage({ id: 'accounts.cancel', defaultMessage: 'Cancel' })}
           </Button>
           <Button size="sm" variant="secondary" disabled={!valid} onClick={() => submit(false)}>
-            Save
+            {formatMessage({ id: 'accounts.save', defaultMessage: 'Save' })}
           </Button>
           <Button size="sm" disabled={!valid} onClick={() => submit(true)}>
-            Save and add another
+            {formatMessage({ id: 'accounts.saveAndAdd', defaultMessage: 'Save and add another' })}
           </Button>
         </div>
       </div>

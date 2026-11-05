@@ -19,13 +19,10 @@
 // the same way in the Data rail. Nothing in definitions.tsx needed to change.
 
 import type { ComponentType, ReactNode } from 'react'
-import {
-  ASSET_CLASS_COLOR,
-  ASSET_CLASS_LABEL,
-  ASSET_CLASS_ORDER,
-  paletteAt,
-} from '../../../../utils/constants'
-import { fBase, fDate, fMonth, fPct, moneyClass, parseDate } from '../../../../utils/format'
+import { useAppIntl } from '../../../../i18n/useAppIntl'
+import { assetClassLabel } from '../assetClassMessages'
+import { ASSET_CLASS_COLOR, ASSET_CLASS_ORDER, paletteAt } from '../../../../utils/constants'
+import { fBase, fDate, fMonth, fPct, getDateFormat, moneyClass, parseDate } from '../../../../utils/format'
 import { Money, Skeleton, Text } from '../../../ui'
 import type { WidgetContentProps } from '../types'
 import { WidgetShell } from '../WidgetShell'
@@ -43,17 +40,12 @@ import { vizOf } from '../vizModel'
 // range to read, so a range can never be sliced two different ways.
 const RANGE_KEYS = ['1M', '3M', '6M', '1Y', 'All'] as const
 
-function attribLabel(range: string, spanMonths: number): string {
-  if (range === 'All') return spanMonths <= 0 ? 'tracked' : `${spanMonths}mo`
-  return `${spanMonths}mo`
-}
-
 function fSigned(n: number): string {
   return (n >= 0 ? '+' : '') + fBase(n)
 }
 
-function monthYearLabel(iso: string): string {
-  return fMonth(iso, 'short', 'always')
+function monthYearLabel(iso: string, locale: string): string {
+  return fMonth(iso, 'short', 'always', locale)
 }
 
 /** The server's precomputed stats for a named range — never a client-side slice + subtract. */
@@ -65,13 +57,14 @@ function useRangeStats(range: string): RangeStats | null {
 
 /** The 7-month comparison the composition mode's delta chip shows. */
 function useCompStats(): { delta: number; pct: number; sinceLabel: string } | null {
+  const { locale } = useAppIntl()
   const { stats: networth } = useNetWorthSeries()
   const comparison = networth?.comparison
   if (!comparison) return null
   return {
     delta: comparison.delta,
     pct: Math.abs(comparison.pct ?? 0),
-    sinceLabel: monthYearLabel(comparison.from_date),
+    sinceLabel: monthYearLabel(comparison.from_date, locale),
   }
 }
 
@@ -96,6 +89,8 @@ function Headline({
   range: string
   inline?: boolean
 }) {
+  const intl = useAppIntl()
+  const { formatMessage } = intl
   // The ONE net worth — server-computed (ledger.net_worth()), never a client-side sum of
   // portfolio rows. That duplicate drifted and shipped a S$120,000 headline against a true
   // S$98,000 (ADR 2026-07-31-single-source-net-worth).
@@ -108,7 +103,14 @@ function Headline({
     return inline ? <div className="ov-hero-figure">{skeleton}</div> : skeleton
   }
   if (portfolioError && netWorth == null) {
-    const errorBody = <WidgetPlaceholder detail="Couldn't load your net worth — try reloading." />
+    const errorBody = (
+      <WidgetPlaceholder
+        detail={formatMessage({
+          id: 'overview.netWorth.error',
+          defaultMessage: "Couldn't load your net worth — try reloading.",
+        })}
+      />
+    )
     return inline ? <div className="ov-hero-figure">{errorBody}</div> : errorBody
   }
 
@@ -127,7 +129,13 @@ function Headline({
           {pos ? '↑' : '↓'} {fPct(comp.pct)}
         </span>
         <span className="ov-hero-attrib">
-          since {comp.sinceLabel} — assets by class, net worth is the line
+          {formatMessage(
+            {
+              id: 'overview.netWorth.since',
+              defaultMessage: 'since {date} — assets by class, net worth is the line',
+            },
+            { date: comp.sinceLabel },
+          )}
         </span>
       </>
     )
@@ -138,7 +146,14 @@ function Headline({
         <span className={'ov-delta-chip' + (pos ? ' pos' : ' neg')}>
           {pos ? '↑' : '↓'} {fPct(trend.pct != null ? Math.abs(trend.pct) : 0)}
         </span>
-        <span className="ov-hero-attrib">{attribLabel(range, trend.span_months)}</span>
+        <span className="ov-hero-attrib">
+          {range === 'All' && trend.span_months <= 0
+            ? formatMessage({ id: 'overview.netWorth.tracked', defaultMessage: 'tracked' })
+            : formatMessage(
+                { id: 'overview.netWorth.months', defaultMessage: '{count}mo' },
+                { count: trend.span_months },
+              )}
+        </span>
       </>
     )
   }
@@ -162,23 +177,25 @@ function Headline({
 // ── composition legend (item 4) ─────────────────────────────────────────────
 
 function CompLegend({ present, hasLiab }: { present: string[]; hasLiab: boolean }) {
+  const intl = useAppIntl()
+  const { formatMessage } = intl
   return (
     <div className="ov-bars-legend">
       {present.map((c) => (
         <span key={c} className="ov-leg-item">
           <i style={{ background: ASSET_CLASS_COLOR[c] }} />
-          {ASSET_CLASS_LABEL[c] || c}
+          {assetClassLabel(intl, c)}
         </span>
       ))}
       {hasLiab && (
         <span className="ov-leg-item">
           <i style={{ background: 'var(--bad)' }} />
-          Liabilities
+          {formatMessage({ id: 'overview.netWorth.liabilities', defaultMessage: 'Liabilities' })}
         </span>
       )}
       <span className="ov-leg-item">
         <i className="ov-leg-line" />
-        Net worth
+        {formatMessage({ id: 'overview.netWorth.title', defaultMessage: 'Net worth' })}
       </span>
     </div>
   )
@@ -205,8 +222,6 @@ const EMPTY_KPIS = {
 }
 
 // Cash on hand is bank and wallet cash by design; a new investor's broker cash is not in it.
-const CASH_HINT = 'Bank and wallet cash. Cash in investment accounts is under Investments.'
-
 function useKpiFigures() {
   const { analytics: portfolio, netWorth, loading } = useAnalytics()
   const k = portfolio?.kpis ?? EMPTY_KPIS
@@ -253,6 +268,7 @@ function Kpi({
 }
 
 function KpiStrip({ onNavigate }: { onNavigate?: (tab: string) => void }) {
+  const { formatMessage } = useAppIntl()
   const k = useKpiFigures()
   // Zeros under the headline while the figures load would read as real values.
   if (k.loading) return null
@@ -261,7 +277,7 @@ function KpiStrip({ onNavigate }: { onNavigate?: (tab: string) => void }) {
     <div className="ov-kpis">
       {k.has_market && (
         <Kpi
-          label="Today"
+          label={formatMessage({ id: 'overview.today', defaultMessage: 'Today' })}
           value={fSigned(k.today)}
           tone={k.today >= 0 ? 'pos' : 'neg'}
           onClick={onNavigate ? () => onNavigate('investments') : undefined}
@@ -269,9 +285,13 @@ function KpiStrip({ onNavigate }: { onNavigate?: (tab: string) => void }) {
       )}
       {k.showCash && (
         <Kpi
-          label="Cash on hand"
+          label={formatMessage({ id: 'overview.asset.cash', defaultMessage: 'Cash on hand' })}
           value={fBase(k.cash)}
-          hint={CASH_HINT}
+          hint={formatMessage({
+            id: 'overview.netWorth.cashHelp',
+            defaultMessage:
+              'Bank and wallet cash. Cash in investment accounts is under Investments.',
+          })}
           onClick={onNavigate ? () => onNavigate('accounts') : undefined}
         />
       )}
@@ -313,6 +333,7 @@ function NumsCell({
 }
 
 function NumsGrid({ onNavigate }: { onNavigate?: (tab: string) => void }) {
+  const { formatMessage } = useAppIntl()
   const k = useKpiFigures()
   // Zeros under the headline while the figures load would read as real values.
   if (k.loading) return null
@@ -321,7 +342,7 @@ function NumsGrid({ onNavigate }: { onNavigate?: (tab: string) => void }) {
     <div className="ov-nums-grid">
       {k.has_market && (
         <NumsCell
-          label="Today"
+          label={formatMessage({ id: 'overview.today', defaultMessage: 'Today' })}
           value={fSigned(k.today)}
           tone={k.today >= 0 ? 'pos' : 'neg'}
           onClick={onNavigate ? () => onNavigate('investments') : undefined}
@@ -329,9 +350,13 @@ function NumsGrid({ onNavigate }: { onNavigate?: (tab: string) => void }) {
       )}
       {k.showCash && (
         <NumsCell
-          label="Cash on hand"
+          label={formatMessage({ id: 'overview.asset.cash', defaultMessage: 'Cash on hand' })}
           value={fBase(k.cash)}
-          hint={CASH_HINT}
+          hint={formatMessage({
+            id: 'overview.netWorth.cashHelp',
+            defaultMessage:
+              'Bank and wallet cash. Cash in investment accounts is under Investments.',
+          })}
           onClick={onNavigate ? () => onNavigate('accounts') : undefined}
         />
       )}
@@ -343,13 +368,19 @@ function NumsGrid({ onNavigate }: { onNavigate?: (tab: string) => void }) {
 // legend), both with index-mode hover + formatted tooltip/axes (item 6). ───
 
 function NetWorthChartBody({ mode, range }: { mode: 'trend' | 'comp'; range: string }) {
+  const intl = useAppIntl()
+  const { formatMessage } = intl
   const { stats: networth, history, loading: historyLoading } = useNetWorthSeries()
   const rangeStats = useRangeStats(range)
   if (historyLoading) return <div className="ov-chart-skeleton" aria-hidden />
   if (history.length < 2) {
     return (
       <Text as="p" size="sm" tone="faint">
-        Net worth history builds up as your account balances are tracked over time.
+        {formatMessage({
+          id: 'overview.netWorth.historyEmpty',
+          defaultMessage:
+            'Net worth history builds up as your account balances are tracked over time.',
+        })}
       </Text>
     )
   }
@@ -362,7 +393,7 @@ function NetWorthChartBody({ mode, range }: { mode: 'trend' | 'comp'; range: str
     const stackOrder = [...present].reverse()
     const datasets: object[] = stackOrder.map((cls) => ({
       type: 'bar' as const,
-      label: ASSET_CLASS_LABEL[cls] || cls,
+      label: assetClassLabel(intl, cls),
       data: history.map((p) => p.classes[cls] || 0),
       // resolveColor, always: canvas cannot read a CSS variable, and one unparseable colour
       // inside Chart's shared animator blanks EVERY chart on the page (see charts.tsx).
@@ -376,7 +407,10 @@ function NetWorthChartBody({ mode, range }: { mode: 'trend' | 'comp'; range: str
     if (hasLiab) {
       datasets.push({
         type: 'bar' as const,
-        label: 'Liabilities',
+        label: formatMessage({
+          id: 'overview.netWorth.liabilities',
+          defaultMessage: 'Liabilities',
+        }),
         data: history.map((p) => Math.abs(p.liabilities || 0)),
         // Softened: at full strength the liabilities stack visually outweighs the asset bars
         // it sits beside, reading as the headline of the chart rather than the counterweight.
@@ -390,7 +424,7 @@ function NetWorthChartBody({ mode, range }: { mode: 'trend' | 'comp'; range: str
     }
     datasets.push({
       type: 'line' as const,
-      label: 'Net worth',
+      label: formatMessage({ id: 'overview.netWorth.title', defaultMessage: 'Net worth' }),
       data: history.map((p) => p.net_worth),
       borderColor: resolveColor('var(--ink)'),
       backgroundColor: 'transparent',
@@ -407,10 +441,10 @@ function NetWorthChartBody({ mode, range }: { mode: 'trend' | 'comp'; range: str
       <>
         <CompLegend present={present} hasLiab={hasLiab} />
         <OvChart
-          sig={'comp|' + history.length + '|' + Math.round(last.net_worth)}
+          sig={'comp|' + intl.locale + '|' + getDateFormat() + '|' + history.length + '|' + Math.round(last.net_worth)}
           config={{
             type: 'bar',
-            data: { labels: history.map((p) => monthYearLabel(p.date)), datasets },
+            data: { labels: history.map((p) => monthYearLabel(p.date, intl.locale)), datasets },
             options: {
               responsive: true,
               maintainAspectRatio: false,
@@ -452,6 +486,7 @@ function NetWorthChartBody({ mode, range }: { mode: 'trend' | 'comp'; range: str
     <OvChart
       sig={
         'trend|' +
+        intl.locale + '|' + getDateFormat() + '|' +
         range +
         '|' +
         slice.length +
@@ -461,10 +496,10 @@ function NetWorthChartBody({ mode, range }: { mode: 'trend' | 'comp'; range: str
       config={{
         type: 'line',
         data: {
-          labels: slice.map((p) => (long ? monthYearLabel(p.date) : fDate(p.date))),
+          labels: slice.map((p) => (long ? monthYearLabel(p.date, intl.locale) : fDate(p.date, 'short', 'auto', intl.locale))),
           datasets: [
             {
-              label: 'Net worth',
+              label: formatMessage({ id: 'overview.netWorth.title', defaultMessage: 'Net worth' }),
               data: slice.map((p) => p.net_worth),
               borderColor: color,
               backgroundColor: areaFill(color, '3a'),
@@ -486,10 +521,10 @@ function NetWorthChartBody({ mode, range }: { mode: 'trend' | 'comp'; range: str
               callbacks: {
                 title: (items: { dataIndex: number }[]) => {
                   const date = slice[items[0]!.dataIndex]!.date
-                  const weekday = parseDate(date)?.toLocaleDateString(undefined, {
+                  const weekday = parseDate(date)?.toLocaleDateString(intl.locale, {
                     weekday: 'short',
                   })
-                  return `${weekday}, ${fDate(date, 'short', 'always')}`
+                  return `${weekday}, ${fDate(date, 'short', 'always', intl.locale)}`
                 },
                 label: (x: { raw: unknown }) => moneyTip(x.raw),
               },
@@ -568,6 +603,7 @@ interface BreakdownRows {
 }
 
 function useAllocRows(): BreakdownRows {
+  const intl = useAppIntl()
   const { analytics: portfolio } = useAnalytics()
   const alloc = portfolio?.allocation ?? { ...EMPTY_BREAKDOWN, owed: 0 }
   const byKey = new Map(alloc.rows.map((r) => [r.key, r]))
@@ -575,7 +611,7 @@ function useAllocRows(): BreakdownRows {
   return {
     rows: ordered.map((c) => ({
       key: c,
-      label: ASSET_CLASS_LABEL[c] ?? c,
+      label: assetClassLabel(intl, c),
       value: byKey.get(c)?.value ?? 0,
       pct: byKey.get(c)?.pct,
       color: ASSET_CLASS_COLOR[c] ?? 'var(--accent)',
@@ -585,25 +621,38 @@ function useAllocRows(): BreakdownRows {
   }
 }
 
-const REACH_META: Record<string, { label: string; color: string; tip: string }> = {
-  liquid: {
-    label: 'Liquid now',
-    color: 'var(--liquid)',
-    tip: 'Cash and freely sellable holdings — reachable this week.',
-  },
-  semi_liquid: {
-    label: 'Delayed',
-    color: 'var(--contingent)',
-    tip: 'Yours, but not reachable yet — e.g. vested shares your employer has not delivered.',
-  },
-  illiquid: {
-    label: 'Illiquid',
-    color: 'var(--locked)',
-    tip: 'Property, CPF, fixed deposits before maturity, money owed to you.',
-  },
+const REACH_COLOR: Record<string, string> = {
+  liquid: 'var(--liquid)',
+  semi_liquid: 'var(--contingent)',
+  illiquid: 'var(--locked)',
 }
 
 function useReachRows(): { rows: BreakdownRow[]; total: number } {
+  const { formatMessage } = useAppIntl()
+  const labels: Record<string, { label: string; tip: string }> = {
+    liquid: {
+      label: formatMessage({ id: 'overview.reach.liquid', defaultMessage: 'Liquid now' }),
+      tip: formatMessage({
+        id: 'overview.reach.liquidHelp',
+        defaultMessage: 'Cash and freely sellable holdings — reachable this week.',
+      }),
+    },
+    semi_liquid: {
+      label: formatMessage({ id: 'overview.reach.delayed', defaultMessage: 'Delayed' }),
+      tip: formatMessage({
+        id: 'overview.reach.delayedHelp',
+        defaultMessage:
+          'Yours, but not reachable yet — e.g. vested shares your employer has not delivered.',
+      }),
+    },
+    illiquid: {
+      label: formatMessage({ id: 'overview.reach.illiquid', defaultMessage: 'Illiquid' }),
+      tip: formatMessage({
+        id: 'overview.reach.illiquidHelp',
+        defaultMessage: 'Property, CPF, fixed deposits before maturity, money owed to you.',
+      }),
+    },
+  }
   const { analytics: portfolio } = useAnalytics()
   const reach = portfolio?.reach ?? EMPTY_BREAKDOWN
   return {
@@ -611,11 +660,11 @@ function useReachRows(): { rows: BreakdownRow[]; total: number } {
       .filter((r) => r.value > 0)
       .map((r) => ({
         key: r.key,
-        label: REACH_META[r.key]?.label ?? r.key,
+        label: labels[r.key]?.label ?? r.key,
         value: r.value,
         pct: r.pct,
-        color: REACH_META[r.key]?.color ?? 'var(--accent)',
-        tip: REACH_META[r.key]?.tip,
+        color: REACH_COLOR[r.key] ?? 'var(--accent)',
+        tip: labels[r.key]?.tip,
       })),
     total: reach.total,
   }
@@ -643,17 +692,27 @@ function useVenueRows(): { rows: BreakdownRow[]; total: number } {
 // What each total ADDS UP, in the reader's words. Three cards that sit side by side quote three
 // different totals (net worth, gross assets, assets by institution); unlabelled they read as
 // three answers to one question.
-const BASIS = {
-  alloc: 'Each class as a share of your assets. Debts are listed apart.',
-  reach: 'Everything you own, before debts, owned assets included.',
-  venues: 'By institution, each net of its own debts. Owned assets are not held at one.',
-}
-
 function makeBreakdownWidget(
   useRows: () => BreakdownRows,
-  basis: string,
+  basis: 'alloc' | 'reach' | 'venues',
 ): ComponentType<WidgetContentProps> {
   return ({ instance, def, onPatch }) => {
+    const { formatMessage } = useAppIntl()
+    const basisLabels = {
+      alloc: formatMessage({
+        id: 'overview.netWorth.allocBasis',
+        defaultMessage: 'Each class as a share of your assets. Debts are listed apart.',
+      }),
+      reach: formatMessage({
+        id: 'overview.netWorth.reachBasis',
+        defaultMessage: 'Everything you own, before debts, owned assets included.',
+      }),
+      venues: formatMessage({
+        id: 'overview.netWorth.venuesBasis',
+        defaultMessage:
+          'By institution, each net of its own debts. Owned assets are not held at one.',
+      }),
+    }
     const { rows, total, owed } = useRows()
     const { loading } = useAnalytics()
     const viz = vizOf(instance, def) || 'list'
@@ -668,7 +727,10 @@ function makeBreakdownWidget(
       return (
         <WidgetShell title={instance.title} base={def.title}>
           <WidgetPlaceholder
-            detail={<>Nothing to show yet — add accounts or holdings and this fills in.</>}
+            detail={formatMessage({
+              id: 'overview.netWorth.breakdownEmpty',
+              defaultMessage: 'Nothing to show yet — add accounts or holdings and this fills in.',
+            })}
           />
         </WidgetShell>
       )
@@ -677,14 +739,23 @@ function makeBreakdownWidget(
       <WidgetShell
         title={instance.title}
         base={def.title}
-        subtitle={basis}
+        subtitle={basisLabels[basis]}
         fill={viz !== 'list'}
         chart={{
           value: viz,
           options: [
-            { value: 'list', label: 'List' },
-            { value: 'bar', label: 'Bar' },
-            { value: 'pie', label: 'Pie' },
+            {
+              value: 'list',
+              label: formatMessage({ id: 'overview.viz.list', defaultMessage: 'List' }),
+            },
+            {
+              value: 'bar',
+              label: formatMessage({ id: 'overview.viz.bar', defaultMessage: 'Bar' }),
+            },
+            {
+              value: 'pie',
+              label: formatMessage({ id: 'overview.viz.pie', defaultMessage: 'Pie' }),
+            },
           ],
           onChange: (v) => onPatch({ config: { ...instance.config, viz: v } }),
         }}
@@ -692,7 +763,9 @@ function makeBreakdownWidget(
         <BreakdownBody rows={rows} total={total} viz={viz} limit={rowCap(instance, def)} />
         {!!owed && (
           <div className="ov-breakdown-owed">
-            <span className="ov-breakdown-label">Debts</span>
+            <span className="ov-breakdown-label">
+              {formatMessage({ id: 'overview.netWorth.debts', defaultMessage: 'Debts' })}
+            </span>
             <span className="ov-breakdown-value money">
               <Money as="span">{fBase(owed)}</Money>
             </span>
@@ -707,7 +780,7 @@ export const netWorthWidgetComponents: Record<string, ComponentType<WidgetConten
   hero: Hero,
   'networth-nums': NetWorthNumbers,
   'networth-chart': NetWorthChart,
-  alloc: makeBreakdownWidget(useAllocRows, BASIS.alloc),
-  reach: makeBreakdownWidget(useReachRows, BASIS.reach),
-  venues: makeBreakdownWidget(useVenueRows, BASIS.venues),
+  alloc: makeBreakdownWidget(useAllocRows, 'alloc'),
+  reach: makeBreakdownWidget(useReachRows, 'reach'),
+  venues: makeBreakdownWidget(useVenueRows, 'venues'),
 }

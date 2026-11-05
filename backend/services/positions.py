@@ -155,10 +155,16 @@ def normalize_cost_currency(value: str) -> str:
     from backend.core.errors import ValidationError
 
     if not isinstance(value, str):
-        raise ValidationError("cost_currency must be a three-letter currency code")
+        raise ValidationError(
+            "cost_currency must be a three-letter currency code",
+            message_id="positions.error.costCurrency",
+        )
     currency = value.strip().upper()
     if len(currency) != 3 or not currency.isascii() or not currency.isalpha():
-        raise ValidationError("cost_currency must be a three-letter currency code")
+        raise ValidationError(
+            "cost_currency must be a three-letter currency code",
+            message_id="positions.error.costCurrency",
+        )
     return currency
 
 
@@ -232,28 +238,37 @@ def _validated_position_update(
         raise ValidationError(
             f"this position is managed by equity grant {grant_id} — its units come from the "
             "grant's vesting schedule and vest records (update the grant, record or undo a "
-            "vest) and can't be edited directly"
+            "vest) and can't be edited directly",
+            message_id="positions.error.grantManaged",
+            message_params={"grant": str(grant_id)},
         )
     if protected & FIGURE_FIELDS:
-        raise ValidationError(_FIGURES_ARE_DERIVED)
+        raise ValidationError(_FIGURES_ARE_DERIVED, message_id="positions.error.figuresDerived")
     if protected:
         raise ValidationError(
             "vesting state is set by the equity grant flow — unvested units belong to a grant "
-            "(create one with its vesting schedule) rather than to a hand-edited position"
+            "(create one with its vesting schedule) rather than to a hand-edited position",
+            message_id="positions.error.vestingManaged",
         )
 
     unknown = set(changes) - _UPDATABLE_FIELDS
     if unknown:
         supported = ", ".join(sorted(_UPDATABLE_FIELDS))
         raise ValidationError(
-            f"unsupported position update field(s): {', '.join(sorted(unknown))} — supported: {supported}"
+            f"unsupported position update field(s): {', '.join(sorted(unknown))} — supported: {supported}",
+            message_id="positions.error.unsupportedFields",
+            message_params={"fields": ", ".join(sorted(unknown)), "supported": supported},
         )
 
     clean = {k: changes[k] for k in _UPDATABLE_FIELDS if k in changes}
     if "account_id" in clean:
         acc = AccountStore().find_by_id(clean["account_id"])
         if not acc:
-            raise NotFoundError("account not found", account_id=clean["account_id"])
+            raise NotFoundError(
+                "account not found",
+                account_id=clean["account_id"],
+                message_id="positions.error.accountNotFound",
+            )
         _refuse_move_onto_a_holding(position_id, acc)
     return clean
 
@@ -280,6 +295,11 @@ def _refuse_move_onto_a_holding(position_id: str, dest: dict) -> None:
             "position naming that account, and a transfer_in lot on the existing holding "
             "with the same cost basis.",
             existing_position_id=existing["id"],
+            message_id="positions.error.moveDuplicate",
+            message_params={
+                "account": str(dest.get("name") or "that account"),
+                "position": str(existing["id"]),
+            },
         )
 
 
@@ -353,7 +373,8 @@ def remove_position(position_id: str) -> bool:
             if 0 < remaining < original:
                 raise ValidationError(
                     "This position still holds units from a lot that was partly sold — sell or "
-                    "close the rest first, so removing it doesn't leave them counted as held."
+                    "close the rest first, so removing it doesn't leave them counted as held.",
+                    message_id="positions.error.partlySold",
                 )
             if remaining >= original > 0:
                 unsold.append(lot)
@@ -392,6 +413,7 @@ def _release_grant_links(position_id: str, *, conn) -> None:
                 "This position holds an equity grant's units — cancel the grant (or move it "
                 "to another account) before removing the position.",
                 grant_id=grant.get("id"),
+                message_id="positions.error.grantLinked",
             )
         grants.update_by_id(grant["id"], {k: None for k in keys}, conn=conn)
 
@@ -544,7 +566,11 @@ def _apply_add(change: dict) -> dict:
 
     inst = InstrumentStore().find_by_id(change.get("instrument_id", ""))
     if not inst:
-        return {"error": "unknown instrument_id — resolve_instrument first"}
+        return {
+            "error": "unknown instrument_id — resolve_instrument first",
+            "message_id": "positions.error.unknownInstrument",
+            "message_params": {},
+        }
     grant_managed = bool(change.get("_grant_managed_ok"))
     vesting = change.get("vesting_state") or "vested"
     refused = _refuse_add(change, vesting, grant_managed)
@@ -590,7 +616,11 @@ def _apply_add(change: dict) -> dict:
         book = _book_add_lot if reopened else _book_add_lot_or_undo
         result.update(book(pos, change, quantity, acquired_at, cost_currency))
         if result.get("error"):
-            return {"error": result["error"]}
+            return {
+                key: result[key]
+                for key in ("error", "message_id", "message_params")
+                if key in result
+            }
     _after_add(inst)
     return result
 
@@ -603,14 +633,24 @@ def _refuse_add(change: dict, vesting: str, grant_managed: bool) -> dict | None:
             "error": (
                 "unvested units come from an equity grant's vesting schedule — create the "
                 "grant (with its tranches) instead of an unvested position"
-            )
+            ),
+            "message_id": "positions.error.unvestedGrant",
+            "message_params": {},
         }
     try:
         quantity = float(change.get("quantity") or 0)
     except (TypeError, ValueError):
-        return {"error": "quantity must be a number"}
+        return {
+            "error": "quantity must be a number",
+            "message_id": "positions.error.quantityNumber",
+            "message_params": {},
+        }
     if not grant_managed and (not math.isfinite(quantity) or quantity < 0):
-        return {"error": "quantity must be zero or a positive number of units"}
+        return {
+            "error": "quantity must be zero or a positive number of units",
+            "message_id": "positions.error.quantityNonnegative",
+            "message_params": {},
+        }
     return None
 
 
@@ -647,6 +687,12 @@ def _duplicate_holding(inst: dict, account_id: str) -> dict | None:
                 "create a duplicate position."
             ),
             "position_id": existing["id"],
+            "message_id": "positions.error.duplicateHolding",
+            "message_params": {
+                "symbol": str(inst.get("symbol") or "this instrument"),
+                "position": str(existing["id"]),
+                "quantity": str(existing.get("quantity")),
+            },
         }
     return None
 
@@ -689,7 +735,9 @@ def _book_add_lot(
         }
     )
     if lot_res.get("error"):
-        return {"error": lot_res["error"]}
+        return {
+            key: lot_res[key] for key in ("error", "message_id", "message_params") if key in lot_res
+        }
     out = {"lot_id": lot_res.get("lot_id")}
     if dated:
         out["note"] = "buy lot already recorded for this trade — do NOT call acquire_lots for it"

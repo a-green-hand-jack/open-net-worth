@@ -20,7 +20,13 @@ let posts: { path: string; body: Record<string, unknown> }[] = []
 
 function serve(
   state: PasswordState,
-  refuseWrites?: { status: number; detail: string; retryAfter?: string },
+  refuseWrites?: {
+    status: number
+    detail: string
+    retryAfter?: string
+    message_id?: string
+    message_params?: object
+  },
 ) {
   vi.spyOn(client, 'authFetch').mockImplementation(async (input, init) => {
     const path = String(input)
@@ -33,7 +39,11 @@ function serve(
           headers: new Headers(
             refuseWrites.retryAfter ? { 'Retry-After': refuseWrites.retryAfter } : {},
           ),
-          json: async () => ({ detail: refuseWrites.detail }),
+          json: async () => ({
+            detail: refuseWrites.detail,
+            message_id: refuseWrites.message_id,
+            message_params: refuseWrites.message_params,
+          }),
         } as Response
       }
       return { ok: true, status: 200, json: async () => ({ ok: true }) } as Response
@@ -242,7 +252,12 @@ describe('SecuritySection password panel', () => {
   ])('a wrong current password on %s toasts instead of signing out', async (kind, button) => {
     serve(
       { password_set: true, current_password_required: true },
-      { status: 403, detail: 'current password incorrect' },
+      {
+        status: 403,
+        detail: 'current password incorrect',
+        message_id: 'auth.error.currentPasswordIncorrect',
+        message_params: {},
+      },
     )
     const toast = vi.fn()
     const { container } = render(<SecuritySection toast={toast} />)
@@ -263,5 +278,21 @@ describe('SecuritySection password panel', () => {
     fireEvent.click(screen.getByRole('button', { name: button }))
 
     await waitFor(() => expect(toast).toHaveBeenCalledWith('Current password is wrong'))
+  })
+  it('preserves an unknown server error rather than guessing from its text', async () => {
+    serve(
+      { password_set: true, current_password_required: true },
+      { status: 403, detail: 'current password incorrect' },
+    )
+    const toast = vi.fn()
+    const { container } = render(<SecuritySection toast={toast} />)
+    await screen.findByRole('button', { name: 'Change password' })
+    for (const input of container.querySelectorAll<HTMLInputElement>(
+      'input[autocomplete="new-password"]',
+    )) {
+      fireEvent.change(input, { target: { value: 'brand-new-pw' } })
+    }
+    fireEvent.click(screen.getByRole('button', { name: 'Change password' }))
+    await waitFor(() => expect(toast).toHaveBeenCalledWith('current password incorrect'))
   })
 })

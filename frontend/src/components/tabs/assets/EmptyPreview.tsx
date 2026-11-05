@@ -3,6 +3,9 @@
 // as they do once filled, because their money arrives from Accounts rather than from here.
 import type { AssetCategory } from '../../../types/assets'
 import { Icons } from './icons'
+import { defineMessages } from 'react-intl'
+import { useAppIntl } from '../../../i18n/useAppIntl'
+import { assetCategoryLabel } from './categoryLabels'
 
 interface Slot {
   key: string
@@ -19,45 +22,51 @@ const ACCOUNT_SLOTS = [
   {
     key: 'cash',
     type: 'cash',
-    name: 'Cash & Savings',
-    hint: 'Bank accounts, fixed deposits',
     color: 'var(--cat-cash)',
-    label: 'Add bank account',
   },
   {
     key: 'investments',
     type: 'investment',
-    name: 'Investments',
-    hint: 'Brokerage, funds, crypto',
     color: 'var(--cat-invest)',
-    label: 'Add brokerage account',
   },
   {
     key: 'retirement',
     type: 'retirement',
-    name: 'Retirement',
-    hint: 'CPF, 401(k), pension',
     color: 'var(--cat-retirement)',
-    label: 'Add retirement account',
   },
   {
     key: 'card',
     type: 'credit',
-    name: 'Credit cards',
-    hint: 'What you owe',
     color: 'var(--contingent)',
-    label: 'Add credit card',
   },
 ]
 
-const ASSET_HINTS: Record<string, string> = {
-  property: 'Home, apartment, land',
-  vehicle: 'Car, motorbike, boat',
-  watch: 'Watches, rings, jewellery',
-  art: 'Paintings, wine, collectibles',
-  metal: 'Gold and silver bars, coins',
-  policy: 'Whole life, endowment, ILP',
-}
+const ASSET_HINTS = defineMessages({
+  property: { id: 'assets.hint.property', defaultMessage: 'Home, apartment, land' },
+  vehicle: { id: 'assets.hint.vehicle', defaultMessage: 'Car, motorbike, boat' },
+  watch: { id: 'assets.hint.watch', defaultMessage: 'Watches, rings, jewellery' },
+  art: { id: 'assets.hint.art', defaultMessage: 'Paintings, wine, collectibles' },
+  metal: { id: 'assets.hint.metal', defaultMessage: 'Gold and silver bars, coins' },
+  policy: { id: 'assets.hint.policy', defaultMessage: 'Whole life, endowment, ILP' },
+})
+
+const ACCOUNT_MESSAGES = defineMessages({
+  cashName: { id: 'assets.slot.cash', defaultMessage: 'Cash & Savings' },
+  cashHint: { id: 'assets.slot.cashHint', defaultMessage: 'Bank accounts, fixed deposits' },
+  cashLabel: { id: 'assets.slot.cashLabel', defaultMessage: 'Add bank account' },
+  investmentsName: { id: 'assets.slot.investments', defaultMessage: 'Investments' },
+  investmentsHint: {
+    id: 'assets.slot.investmentsHint',
+    defaultMessage: 'Brokerage, funds, crypto',
+  },
+  investmentsLabel: { id: 'assets.slot.investmentsLabel', defaultMessage: 'Add brokerage account' },
+  retirementName: { id: 'assets.slot.retirement', defaultMessage: 'Retirement' },
+  retirementHint: { id: 'assets.slot.retirementHint', defaultMessage: 'CPF, 401(k), pension' },
+  retirementLabel: { id: 'assets.slot.retirementLabel', defaultMessage: 'Add retirement account' },
+  cardName: { id: 'assets.slot.card', defaultMessage: 'Credit cards' },
+  cardHint: { id: 'assets.slot.cardHint', defaultMessage: 'What you owe' },
+  cardLabel: { id: 'assets.slot.cardLabel', defaultMessage: 'Add credit card' },
+})
 
 // The tour lights the first slot of each kind.
 const TOUR_TARGETS: Record<string, string> = {
@@ -80,21 +89,32 @@ export function EmptyPreview({
   onAddAsset,
   accounts = true,
 }: EmptyPreviewProps) {
+  const intl = useAppIntl()
   const slots: Slot[] = [
     ...(accounts ? ACCOUNT_SLOTS : []).map((a) => ({
       ...a,
+      name: intl.formatMessage(ACCOUNT_MESSAGES[`${a.key}Name` as keyof typeof ACCOUNT_MESSAGES]),
+      hint: intl.formatMessage(ACCOUNT_MESSAGES[`${a.key}Hint` as keyof typeof ACCOUNT_MESSAGES]),
+      label: intl.formatMessage(ACCOUNT_MESSAGES[`${a.key}Label` as keyof typeof ACCOUNT_MESSAGES]),
       icon: a.key,
       onPick: () => onAddAccount(a.type),
     })),
     ...cats
-      .filter((c) => ASSET_HINTS[c.key])
+      .filter((c) => Object.hasOwn(ASSET_HINTS, c.key))
       .map((c) => ({
         key: c.key,
         icon: c.key,
-        name: c.label,
-        hint: ASSET_HINTS[c.key]!,
+        name: assetCategoryLabel(intl, c),
+        hint: intl.formatMessage(ASSET_HINTS[c.key as keyof typeof ASSET_HINTS]),
         color: c.color,
-        label: `Add ${c.label.toLowerCase()}`,
+        label: intl.formatMessage(
+          { id: 'assets.addCategory', defaultMessage: 'Add {category}' },
+          {
+            category: c.custom
+              ? c.label
+              : assetCategoryLabel(intl, c).toLocaleLowerCase(intl.locale),
+          },
+        ),
         onPick: () => onAddAsset(c.key),
       })),
     // The tiles list the common kinds; this one says the list isn't the limit. It opens the
@@ -102,10 +122,13 @@ export function EmptyPreview({
     {
       key: 'other',
       icon: 'other',
-      name: 'Other',
-      hint: 'Custom',
+      name: intl.formatMessage({ id: 'assets.other', defaultMessage: 'Other' }),
+      hint: intl.formatMessage({ id: 'assets.custom', defaultMessage: 'Custom' }),
       color: 'var(--faint)',
-      label: 'Add another kind of asset',
+      label: intl.formatMessage({
+        id: 'assets.addOther',
+        defaultMessage: 'Add another kind of asset',
+      }),
       onPick: () => onAddAsset(null),
     },
   ]

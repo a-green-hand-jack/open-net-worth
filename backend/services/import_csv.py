@@ -470,12 +470,19 @@ def _resolve_account_id(account_id: str | None, account_name_col: str | None, ro
         return account_id
     name = _clean(row.get(account_name_col)) if account_name_col else ""
     if not name:
-        raise CsvImportError("No account chosen and the row has no account name.")
+        raise CsvImportError(
+            "No account chosen and the row has no account name.",
+            message_id="statement.skip.account_missing",
+        )
     want = name.lower()
     for acct in ledger_service.accounts.all():
         if (acct.get("name") or "").strip().lower() == want:
             return acct["id"]
-    raise CsvImportError(f"No account named '{name}'.")
+    raise CsvImportError(
+        f"No account named '{name}'.",
+        message_id="statement.skip.account_named",
+        params={"name": name},
+    )
 
 
 # ── row → draft ──────────────────────────────────────────────────────────────────
@@ -496,29 +503,31 @@ def _row_to_draft(
     the CSV path keeps its identical default."""
     date_raw = _clean(row.get(mapping["date"]))
     if not date_raw:
-        raise CsvImportError("missing date")
+        raise CsvImportError("missing date", message_id="statement.skip.missing_date")
     # Normalize the date: extract the first date token and convert dd/mm/yyyy → ISO.
     date_raw = _extract_date(date_raw)
     if not date_raw:
-        raise CsvImportError("missing date")
+        raise CsvImportError("missing date", message_id="statement.skip.missing_date")
     description = _clean(row.get(mapping["description"])) or "Imported transaction"
 
     if "amount" in mapping:
         amount = _parse_amount(row.get(mapping["amount"]))
         if amount is None:
-            raise CsvImportError("unparseable amount")
+            raise CsvImportError(
+                "unparseable amount", message_id="statement.skip.unparseable_amount"
+            )
     else:
         inflow = _parse_amount(row.get(mapping["inflow"])) if "inflow" in mapping else None
         outflow = _parse_amount(row.get(mapping["outflow"])) if "outflow" in mapping else None
         # Magnitudes; a sign on either column is respected via abs()/-abs().
         amount = (abs(inflow) if inflow else 0.0) - (abs(outflow) if outflow else 0.0)
     if amount == 0:
-        raise CsvImportError("zero amount")
+        raise CsvImportError("zero amount", message_id="statement.skip.zero_amount")
 
     resolved_account = _resolve_account_id(account_id, mapping.get("account"), row)
     acct = ledger_service.accounts.find_by_id(resolved_account)
     if acct is None:
-        raise CsvImportError("account not found")
+        raise CsvImportError("account not found", message_id="statement.skip.account_not_found")
     currency = (acct.get("currency") or ledger_service.base_currency()).upper()
     magnitude = abs(amount)
 
@@ -592,7 +601,7 @@ def _map_rows(
         try:
             draft = _row_to_draft(row, mapping, account_id, category_rows, prefix)
         except CsvImportError as exc:
-            results.append(RowResult(line=i, skip_reason=str(exc)))
+            results.append(RowResult(line=i, skip_reason=str(exc), skip_message=exc.skip_message))
             continue
         results.append(RowResult(line=i, draft=draft))
     # Distinguish genuinely-identical rows (two same-day $5 coffees) BEFORE dedup so the second

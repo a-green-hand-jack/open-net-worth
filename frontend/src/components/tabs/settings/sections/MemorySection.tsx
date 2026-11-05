@@ -13,10 +13,12 @@ import { Btn, Panel, Toggle, row, useSectionBack, useSectionBusy } from '../ds'
 import { MemoryBrowser } from '../MemoryBrowser'
 import { MemoryImport } from '../MemoryImport'
 import type { SectionProps } from '../ds'
+import { useAppIntl } from '../../../../i18n/useAppIntl'
 
 type Key = keyof MemorySettings
 
 export function MemorySection({ toast }: SectionProps) {
+  const { formatMessage } = useAppIntl()
   const memory = useCachedFetchState(MEMORY_SETTINGS_KEY, getMemorySettings, { staleTime: 0 })
   const settings = memory.data
   const [importing, setImporting] = useState(false)
@@ -33,13 +35,23 @@ export function MemorySection({ toast }: SectionProps) {
         body: JSON.stringify({ [key]: value }),
       })
       if (!r.ok) {
-        toast(`Could not save (HTTP ${r.status})`)
+        toast(
+          formatMessage(
+            { id: 'settings.chat.saveHttp', defaultMessage: 'Could not save (HTTP {status})' },
+            { status: r.status },
+          ),
+        )
         return
       }
       void memory.refresh()
       toast(done)
     } catch {
-      toast('Could not reach the server. Try again.')
+      toast(
+        formatMessage({
+          id: 'settings.chat.serverError',
+          defaultMessage: 'Could not reach the server. Try again.',
+        }),
+      )
     }
   }
 
@@ -47,9 +59,16 @@ export function MemorySection({ toast }: SectionProps) {
     setExporting(true)
     try {
       await downloadMemoryExport()
-      toast('Memory exported')
+      toast(formatMessage({ id: 'settings.memory.exported', defaultMessage: 'Memory exported' }))
     } catch (e) {
-      toast(e instanceof Error ? e.message : 'Could not export. Try again.')
+      toast(
+        e instanceof Error
+          ? e.message
+          : formatMessage({
+              id: 'settings.memory.exportError',
+              defaultMessage: 'Could not export. Try again.',
+            }),
+      )
     } finally {
       setExporting(false)
     }
@@ -72,40 +91,120 @@ export function MemorySection({ toast }: SectionProps) {
         placeBack={placeBack}
         disabled={settings?.enabled === false}
         header={
-          <Panel sub="What Lucius remembers about you between conversations">
+          <Panel
+            sub={formatMessage({
+              id: 'settings.memory.subtitle',
+              defaultMessage: 'What Lucius remembers about you between conversations',
+            })}
+          >
             {row(
-              'Search and reference chats',
-              'Let Lucius search your past conversations for relevant details. Even when this is off, he can still read them with a SQL query.',
-              toggle('search_chats', 'Search and reference chats', (on) =>
-                on ? 'Lucius can search your past chats' : 'Lucius won’t search your past chats',
+              formatMessage({
+                id: 'settings.memory.search',
+                defaultMessage: 'Search and reference chats',
+              }),
+              formatMessage({
+                id: 'settings.memory.searchHelp',
+                defaultMessage:
+                  'Let Lucius search your past conversations for relevant details. Even when this is off, he can still read them with a SQL query.',
+              }),
+              toggle(
+                'search_chats',
+                formatMessage({
+                  id: 'settings.memory.search',
+                  defaultMessage: 'Search and reference chats',
+                }),
+                (on) =>
+                  on
+                    ? formatMessage({
+                        id: 'settings.memory.searchOn',
+                        defaultMessage: 'Lucius can search your past chats',
+                      })
+                    : formatMessage({
+                        id: 'settings.memory.searchOff',
+                        defaultMessage: 'Lucius won’t search your past chats',
+                      }),
               ),
             )}
             {row(
-              'Generate memory from chats',
-              'Let Lucius remember useful details from your conversations and automations, and use them in replies.',
-              toggle('enabled', 'Generate memory from chats', (on) =>
-                on ? 'Memory on' : 'Memory off — nothing is extracted or recalled',
+              formatMessage({
+                id: 'settings.memory.generate',
+                defaultMessage: 'Generate memory from chats',
+              }),
+              formatMessage({
+                id: 'settings.memory.generateHelp',
+                defaultMessage:
+                  'Let Lucius remember useful details from your conversations and automations, and use them in replies.',
+              }),
+              toggle(
+                'enabled',
+                formatMessage({
+                  id: 'settings.memory.generate',
+                  defaultMessage: 'Generate memory from chats',
+                }),
+                (on) =>
+                  on
+                    ? formatMessage({ id: 'settings.memory.on', defaultMessage: 'Memory on' })
+                    : formatMessage({
+                        id: 'settings.memory.off',
+                        defaultMessage: 'Memory off — nothing is extracted or recalled',
+                      }),
               ),
             )}
             {row(
-              'Include sensitive topics in memory',
-              'Let Lucius save details about sensitive topics like health conditions or religious beliefs.',
-              toggle('sensitive_topics', 'Include sensitive topics in memory', (on) =>
-                on ? 'Sensitive topics can be remembered' : 'Sensitive topics won’t be remembered',
+              formatMessage({
+                id: 'settings.memory.sensitive',
+                defaultMessage: 'Include sensitive topics in memory',
+              }),
+              formatMessage({
+                id: 'settings.memory.sensitiveHelp',
+                defaultMessage:
+                  'Let Lucius save details about sensitive topics like health conditions or religious beliefs.',
+              }),
+              toggle(
+                'sensitive_topics',
+                formatMessage({
+                  id: 'settings.memory.sensitive',
+                  defaultMessage: 'Include sensitive topics in memory',
+                }),
+                (on) =>
+                  on
+                    ? formatMessage({
+                        id: 'settings.memory.sensitiveOn',
+                        defaultMessage: 'Sensitive topics can be remembered',
+                      })
+                    : formatMessage({
+                        id: 'settings.memory.sensitiveOff',
+                        defaultMessage: 'Sensitive topics won’t be remembered',
+                      }),
               ),
             )}
             {row(
-              'Import memory from other AI providers',
-              'Bring relevant context and data from another AI provider to Lucius. We’ll provide a prompt you can use to fetch the memory from your other account.',
+              formatMessage({
+                id: 'settings.memory.import',
+                defaultMessage: 'Import memory from other AI providers',
+              }),
+              formatMessage({
+                id: 'settings.memory.importHelp',
+                defaultMessage:
+                  'Bring relevant context and data from another AI provider to Lucius. We’ll provide a prompt you can use to fetch the memory from your other account.',
+              }),
               <Btn size="xs" onClick={() => setImporting(true)}>
-                Start import
+                {formatMessage({
+                  id: 'settings.memory.startImport',
+                  defaultMessage: 'Start import',
+                })}
               </Btn>,
             )}
             {row(
-              'Export memory',
-              'Download your memory as a .zip of Markdown files.',
+              formatMessage({ id: 'settings.memory.export', defaultMessage: 'Export memory' }),
+              formatMessage({
+                id: 'settings.memory.exportHelp',
+                defaultMessage: 'Download your memory as a .zip of Markdown files.',
+              }),
               <Btn size="xs" disabled={exporting} onClick={() => void exportMemory()}>
-                {exporting ? 'Exporting…' : 'Export'}
+                {exporting
+                  ? formatMessage({ id: 'settings.memory.exporting', defaultMessage: 'Exporting…' })
+                  : formatMessage({ id: 'settings.memory.exportAction', defaultMessage: 'Export' })}
               </Btn>,
             )}
           </Panel>

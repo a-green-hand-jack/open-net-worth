@@ -1,3 +1,5 @@
+import { createIntl } from 'react-intl'
+import messages from './zh-CN.messages.json'
 import { describe, expect, it } from 'vitest'
 import { watchBrief } from './watchBrief'
 import type { WatchPulseRow } from '../../types/watchPulse'
@@ -167,4 +169,11 @@ describe('watchBrief — verbosity levels', () => {
   it('level 5 renders as level 4 (the template under Lucius’s narrative)', () => {
     expect(watchBrief(rows, '1M', null, 'Semis', 5)).toBe(watchBrief(rows, '1M', null, 'Semis', 4))
   })
+})
+
+const chineseIntl = createIntl({ locale: 'zh-CN', messages })
+it('renders the direction and upcoming event in Chinese', () => {
+  const text = watchBrief([row({ ticker: 'ACME', day_pct: -9, move: move(-10.9, 'company'), next_event: { kind: 'earnings', at: '2026-10-01', in_days: 1 } })], '1M', null, null, 2, chineseIntl)
+  expect(text).toContain('下跌 9.0%')
+  expect(text).toContain('明天公布财报')
 })

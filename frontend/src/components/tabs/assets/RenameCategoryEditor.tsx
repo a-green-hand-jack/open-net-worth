@@ -8,23 +8,33 @@ import * as api from './api'
 import { BUILTIN_CATS, catOf } from './assetsData'
 import { EditorFooter, SaveError, useEditorSave } from './editorKit'
 import { Icons } from './icons'
+import { useAppIntl } from '../../../i18n/useAppIntl'
+import { assetCategoryLabel } from './categoryLabels'
+import type { IntlShape } from 'react-intl'
 
 const FIELDS = ['name', 'description', 'category'] as const
 
 /** Every category to move to — the asset's own too, even if it is no longer listed. */
-function categoryOptions(list: AssetCategory[], current: string) {
-  const options = list.map((c) => ({ value: c.key, label: c.label }))
+function categoryOptions(list: AssetCategory[], current: string, intl: IntlShape) {
+  const options = list.map((c) => ({ value: c.key, label: assetCategoryLabel(intl, c) }))
   if (!list.some((c) => c.key === current)) options.push({ value: current, label: current })
   return options
 }
 
 function MoveHint({ label }: { label: string }) {
+  const { formatMessage } = useAppIntl()
   return (
     <div className="as-hint">
       {Icons.clock!({ width: 14, height: 14 })}
       <span>
-        Moving this to <b>{label}</b> changes the suggested details. Its values and documents stay
-        with it.
+        {formatMessage(
+          {
+            id: 'assets.rename.moveHint',
+            defaultMessage:
+              'Moving this to {category} changes the suggested details. Its values and documents stay with it.',
+          },
+          { category: label },
+        )}
       </span>
     </div>
   )
@@ -38,6 +48,8 @@ export interface RenameCategoryEditorProps {
 }
 
 export function RenameCategoryEditor({ a, cats, onClose, onSaved }: RenameCategoryEditorProps) {
+  const intl = useAppIntl()
+  const { formatMessage } = intl
   const id = useId()
   const [name, setName] = useState(a.name)
   const [description, setDescription] = useState(a.description)
@@ -46,9 +58,19 @@ export function RenameCategoryEditor({ a, cats, onClose, onSaved }: RenameCatego
   const list = cats.length ? cats : BUILTIN_CATS
 
   async function onSave() {
-    if (!check({ name: name.trim() ? undefined : 'Enter a name.' })) return
+    if (
+      !check({
+        name: name.trim()
+          ? undefined
+          : formatMessage({ id: 'assets.docs.enterName', defaultMessage: 'Enter a name.' }),
+      })
+    )
+      return
     const changes = { name: name.trim(), description: description.trim(), category }
-    if (await save(() => api.updateAsset(a.id, changes))) onSaved('Name and category saved.')
+    if (await save(() => api.updateAsset(a.id, changes)))
+      onSaved(
+        formatMessage({ id: 'assets.rename.saved', defaultMessage: 'Name and category saved.' }),
+      )
   }
 
   return (
@@ -56,15 +78,28 @@ export function RenameCategoryEditor({ a, cats, onClose, onSaved }: RenameCatego
       className="as-modal"
       open
       onClose={onClose}
-      title="Rename or change category"
+      title={formatMessage({
+        id: 'assets.detail.rename',
+        defaultMessage: 'Rename or change category',
+      })}
       subtitle={a.name}
       size="md"
       footer={
-        <EditorFooter saving={saving} label="Save changes" onCancel={onClose} onSave={onSave} />
+        <EditorFooter
+          saving={saving}
+          label={formatMessage({ id: 'assets.details.save', defaultMessage: 'Save changes' })}
+          onCancel={onClose}
+          onSave={onSave}
+        />
       }
     >
       <Stack gap="--space-6">
-        <FormField label="Name" htmlFor={`${id}-name`} required error={errorFor('name')}>
+        <FormField
+          label={formatMessage({ id: 'assets.docs.name', defaultMessage: 'Name' })}
+          htmlFor={`${id}-name`}
+          required
+          error={errorFor('name')}
+        >
           <TextField
             id={`${id}-name`}
             autoFocus
@@ -78,7 +113,10 @@ export function RenameCategoryEditor({ a, cats, onClose, onSaved }: RenameCatego
           />
         </FormField>
         <FormField
-          label="Short description"
+          label={formatMessage({
+            id: 'assets.rename.description',
+            defaultMessage: 'Short description',
+          })}
           htmlFor={`${id}-description`}
           error={errorFor('description')}
         >
@@ -93,19 +131,25 @@ export function RenameCategoryEditor({ a, cats, onClose, onSaved }: RenameCatego
             }}
           />
         </FormField>
-        <FormField label="Category" htmlFor={`${id}-category`} error={errorFor('category')}>
+        <FormField
+          label={formatMessage({ id: 'assets.rename.category', defaultMessage: 'Category' })}
+          htmlFor={`${id}-category`}
+          error={errorFor('category')}
+        >
           <Select
             id={`${id}-category`}
             invalid={!!errorFor('category')}
             value={category}
-            options={categoryOptions(list, a.category)}
+            options={categoryOptions(list, a.category, intl)}
             onChange={(e) => {
               setCategory(e.target.value)
               edited('category')
             }}
           />
         </FormField>
-        {category !== a.category && <MoveHint label={catOf(list, category).label} />}
+        {category !== a.category && (
+          <MoveHint label={assetCategoryLabel(intl, catOf(list, category))} />
+        )}
         <SaveError message={dialogError(FIELDS)} />
       </Stack>
     </Modal>

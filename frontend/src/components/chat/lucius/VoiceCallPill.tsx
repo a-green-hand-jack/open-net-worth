@@ -1,3 +1,5 @@
+import { defineMessages, type MessageDescriptor } from 'react-intl'
+import { useAppIntl } from '../../../i18n/useAppIntl'
 import { useEffect, useRef } from 'react'
 import { AlertCircle, ChevronUp, Mic, MicOff, PhoneOff, X } from 'lucide-react'
 import { Spark } from '../../../lucius/identity'
@@ -11,7 +13,7 @@ import {
   startCall,
   toggleMute,
   useVoiceCall,
-  type CallProblemKind,
+
 } from './voiceCall'
 import { callStatus, orbState, pillMode, useCallClock } from './voiceCallStatus'
 import { VoiceCallButton } from './VoiceCallButton'
@@ -24,14 +26,22 @@ import { VoiceOrb } from './VoiceOrb'
 
 const HOVER_DWELL_MS = 200
 
-const PROBLEM: Record<CallProblemKind, { label: string; action: string }> = {
-  mic: { label: "Can't use the microphone", action: 'Try again' },
-  dropped: { label: 'Call dropped', action: 'Call again' },
-  setup: { label: "Call couldn't start", action: 'Set up' },
-  service: { label: 'LiveKit refused the call', action: 'Try again' },
-  insecure: { label: "Call couldn't start", action: 'Try again' },
-  other: { label: "Call couldn't start", action: 'Try again' },
-}
+const problemLabels = defineMessages({
+  mic: { id: 'chat.voice.problemMic', defaultMessage: "Can't use the microphone" },
+  dropped: { id: 'chat.voice.problemDropped', defaultMessage: 'Call dropped' },
+  setup: { id: 'chat.voice.problemStart', defaultMessage: "Call couldn't start" },
+  service: { id: 'chat.voice.problemService', defaultMessage: 'LiveKit refused the call' },
+  insecure: { id: 'chat.voice.problemStart', defaultMessage: "Call couldn't start" },
+  other: { id: 'chat.voice.problemStart', defaultMessage: "Call couldn't start" },
+})
+const problemActions = defineMessages({
+  mic: { id: 'chat.voice.tryAgain', defaultMessage: 'Try again' },
+  dropped: { id: 'chat.voice.callAgain', defaultMessage: 'Call again' },
+  setup: { id: 'chat.voice.setup', defaultMessage: 'Set up' },
+  service: { id: 'chat.voice.tryAgain', defaultMessage: 'Try again' },
+  insecure: { id: 'chat.voice.tryAgain', defaultMessage: 'Try again' },
+  other: { id: 'chat.voice.tryAgain', defaultMessage: 'Try again' },
+})
 
 export function VoiceCallPill({
   sessionId,
@@ -52,10 +62,11 @@ export function VoiceCallPill({
   onHoverOpen: () => void
   onOpenDock: () => void
 }) {
+  const intl = useAppIntl()
   const call = useVoiceCall()
   const now = useCallClock(call)
   const mode = pillMode(call, needsApproval)
-  const status = callStatus(call, now, busy)
+  const status = callStatus(call, now, busy, intl)
   const root = useRef<HTMLDivElement>(null)
   const dwell = useRef<number | undefined>(undefined)
   const lastMode = useRef(mode)
@@ -80,8 +91,8 @@ export function VoiceCallPill({
     mode === 'rest'
       ? 'Lucius'
       : mode === 'problem'
-        ? 'Voice call problem'
-        : 'Voice call with Lucius'
+        ? intl.formatMessage({ id: 'chat.voice.problem', defaultMessage: 'Voice call problem' })
+        : intl.formatMessage({ id: 'chat.voice.withLucius', defaultMessage: 'Voice call with Lucius' })
   return (
     <div
       ref={root}
@@ -109,7 +120,7 @@ export function VoiceCallPill({
             }}
           >
             <Spark size={13} />
-            Ask Lucius
+            {intl.formatMessage({ id: 'chat.dock.ask', defaultMessage: 'Ask Lucius' })}
           </button>
         </>
       )}
@@ -121,7 +132,7 @@ export function VoiceCallPill({
           </span>
           <button type="button" className="lx-dock-pill-open" onClick={onOpenDock}>
             <span className="lx-dock-pill-time" role="alert">
-              {PROBLEM[call.problem.kind].label}
+              {intl.formatMessage(problemLabels[call.problem.kind] as MessageDescriptor)}
             </span>
           </button>
           {(() => {
@@ -143,14 +154,14 @@ export function VoiceCallPill({
                       : void startCall(sessionId)
                 }
               >
-                {micSettings ? 'Open Settings' : PROBLEM[call.problem.kind].action}
+                {micSettings ? intl.formatMessage({ id: 'chat.voice.openSettings', defaultMessage: 'Open Settings' }) : intl.formatMessage(problemActions[call.problem.kind] as MessageDescriptor)}
               </button>
             )
           })()}
           <button
             type="button"
             className="lx-dock-pill-btn"
-            aria-label="Dismiss"
+            aria-label={intl.formatMessage({ id: 'chat.voice.dismiss', defaultMessage: 'Dismiss' })}
             onClick={dismissProblem}
           >
             <X size={14} />
@@ -172,7 +183,7 @@ export function VoiceCallPill({
           <button
             type="button"
             className="lx-dock-pill-open"
-            aria-label="Open call"
+            aria-label={intl.formatMessage({ id: 'chat.voice.open', defaultMessage: 'Open call' })}
             onClick={() => {
               expandCall()
               onOpenDock()
@@ -184,7 +195,7 @@ export function VoiceCallPill({
               role="status"
               aria-live={mode === 'attention' ? 'assertive' : 'polite'}
             >
-              {mode === 'attention' ? 'Needs approval' : status.short}
+              {mode === 'attention' ? intl.formatMessage({ id: 'chat.voice.needsApproval', defaultMessage: 'Needs approval' }) : status.short}
             </span>
             {mode === 'live' && <ChevronUp size={14} aria-hidden="true" />}
           </button>
@@ -197,14 +208,14 @@ export function VoiceCallPill({
                 onOpenDock()
               }}
             >
-              Review
+              {intl.formatMessage({ id: 'chat.voice.review', defaultMessage: 'Review' })}
             </button>
           )}
           <button
             type="button"
             className="lx-dock-pill-btn"
             aria-pressed={call.muted}
-            aria-label={call.muted ? 'Unmute' : 'Mute'}
+            aria-label={call.muted ? intl.formatMessage({ id: 'chat.voice.unmute', defaultMessage: 'Unmute' }) : intl.formatMessage({ id: 'chat.voice.mute', defaultMessage: 'Mute' })}
             disabled={call.phase !== 'live'}
             onClick={() => void toggleMute()}
           >
@@ -213,7 +224,7 @@ export function VoiceCallPill({
           <button
             type="button"
             className="lx-dock-pill-btn lx-dock-pill-btn--end"
-            aria-label="End call"
+            aria-label={intl.formatMessage({ id: 'chat.voice.endCall', defaultMessage: 'End call' })}
             onClick={() => void hangUp()}
           >
             <PhoneOff size={14} />

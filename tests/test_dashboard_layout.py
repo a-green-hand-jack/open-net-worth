@@ -47,6 +47,49 @@ def _widget(def_id="hero", **overrides):
     return base
 
 
+def test_demo_seed_writes_explicit_preset_sources(client):
+    from backend.scripts.demo.dashboard import seed_views
+
+    assert seed_views() == 5
+    views = client.get("/api/dashboard/layout").json()["views"]
+    assert [(view["name"], view["nameSource"]) for view in views] == [
+        ("Overview", "preset_overview"),
+        ("Investing", "preset_investing"),
+        ("Cash flow", "preset_cash_flow"),
+        ("Plan", "preset_plan"),
+        ("Reports", "preset_reports"),
+    ]
+    assert client.put("/api/dashboard/layout", json={"views": views}).status_code == 200
+
+
+def test_default_title_sources_round_trip_without_inferring_user_names(client):
+    section = {
+        "kind": "section",
+        "title": "Section",
+        "titleSource": "default_section",
+        "x": 0,
+        "y": 0,
+        "w": 12,
+        "h": 30,
+    }
+    views = [
+        {"name": "Overview", "nameSource": "preset_overview", "widgets": [section]},
+        {"name": "Overview", "widgets": []},
+    ]
+    assert client.put("/api/dashboard/layout", json={"views": views}).status_code == 200
+    stored = client.get("/api/dashboard/layout").json()["views"]
+    assert stored[0]["nameSource"] == "preset_overview"
+    assert stored[0]["widgets"][0]["titleSource"] == "default_section"
+    assert "nameSource" not in stored[1]
+    stored[0]["name"] = "Custom"
+    assert client.put("/api/dashboard/layout", json={"views": stored}).status_code == 422
+    del stored[0]["nameSource"]
+    stored[0]["widgets"][0]["title"] = "Custom section"
+    assert client.put("/api/dashboard/layout", json={"views": stored}).status_code == 422
+    del stored[0]["widgets"][0]["titleSource"]
+    assert client.put("/api/dashboard/layout", json={"views": stored}).status_code == 200
+
+
 # ─────────────────────────────────────────────────────────────────────────────
 # 1. Store CRUD tests
 # ─────────────────────────────────────────────────────────────────────────────

@@ -3,19 +3,33 @@ import { Panel, EmptyState, Text, Stack } from '../../ui'
 import { OvChart } from '../overview/charts'
 import { cssToken } from '../../../utils/chartTheme'
 import { tradingMoney, tradingTime } from './presentation'
+import { useAppIntl } from '../../../i18n/useAppIntl'
 
 export function TradingPerformance({ performance }: { performance: Performance }) {
+  const { formatMessage } = useAppIntl()
   const history = performance.history ?? []
   return (
-    <Panel title="Performance">
+    <Panel title={formatMessage({ id: 'trading.performance', defaultMessage: 'Performance' })}>
       <Stack gap="--space-4">
         <Text tone="muted">
-          Started at {tradingMoney(performance.initial_equity, performance.base_currency)} · Current
-          equity {tradingMoney(performance.equity, performance.base_currency)}
+          {formatMessage(
+            {
+              id: 'trading.performanceSummary',
+              defaultMessage: 'Started at {initial} · Current equity {current}',
+            },
+            {
+              initial: tradingMoney(performance.initial_equity, performance.base_currency),
+              current: tradingMoney(performance.equity, performance.base_currency),
+            },
+          )}
         </Text>
         {!performance.valuation_complete && (
           <Text tone="warn">
-            Awaiting complete valuation. Missing or stale prices and FX are not treated as zero.
+            {formatMessage({
+              id: 'trading.incompleteValuation',
+              defaultMessage:
+                'Awaiting complete valuation. Missing or stale prices and FX are not treated as zero.',
+            })}
           </Text>
         )}
         {history.length ? (
@@ -27,7 +41,10 @@ export function TradingPerformance({ performance }: { performance: Performance }
                 labels: history.map((point) => tradingTime(point.timestamp)),
                 datasets: [
                   {
-                    label: `Equity (${performance.base_currency})`,
+                    label: formatMessage(
+                      { id: 'trading.equityCurrency', defaultMessage: 'Equity ({currency})' },
+                      { currency: performance.base_currency },
+                    ),
                     data: history.map((point) =>
                       point.equity == null ? null : Number(point.equity),
                     ),
@@ -47,8 +64,14 @@ export function TradingPerformance({ performance }: { performance: Performance }
           />
         ) : (
           <EmptyState
-            title="No performance history yet"
-            body="History appears as the environment advances and records valuations."
+            title={formatMessage({
+              id: 'trading.noPerformanceHistory',
+              defaultMessage: 'No performance history yet',
+            })}
+            body={formatMessage({
+              id: 'trading.noPerformanceHistoryBody',
+              defaultMessage: 'History appears as the environment advances and records valuations.',
+            })}
           />
         )}
       </Stack>

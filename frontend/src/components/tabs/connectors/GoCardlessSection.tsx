@@ -1,3 +1,5 @@
+import { formatConnectorBody } from './connectorServerMessages'
+import { useAppIntl } from '../../../i18n/useAppIntl'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { authFetch } from '../../../api/client'
 import {
@@ -54,6 +56,8 @@ function goCardlessFormOf(c: GoCardlessStatus): GoCardlessForm {
 }
 
 export function GoCardlessSection({ initialCountry }: { initialCountry?: string }) {
+  const intl = useAppIntl()
+  const { formatMessage } = intl
   const [cfg, setCfg] = useState<GoCardlessStatus | null>(null)
   const [form, setForm] = useState<GoCardlessForm | null>(null)
   const [error, setError] = useState(false)
@@ -81,16 +85,16 @@ export function GoCardlessSection({ initialCountry }: { initialCountry?: string 
       const r = await authFetch('/api/gocardless/check-link', { method: 'POST' })
       const d = await r.json().catch(() => ({}))
       if (!r.ok) {
-        setLinkErr(d.detail || 'Could not check the bank links.')
+        setLinkErr(formatConnectorBody(intl, d, formatMessage({ id: 'connectors.gocardless.checkError', defaultMessage: "Could not check the bank links." })))
         return
       }
       apply(d as GoCardlessStatus)
     } catch {
-      setLinkErr('Could not check the bank links — could not reach the server.')
+      setLinkErr(formatMessage({ id: 'connectors.gocardless.checkNetwork', defaultMessage: "Could not check the bank links — could not reach the server." }))
     } finally {
       setChecking(false)
     }
-  }, [apply])
+  }, [apply, formatMessage, intl])
 
   const load = useCallback(() => {
     authFetch('/api/gocardless/status')
@@ -126,13 +130,13 @@ export function GoCardlessSection({ initialCountry }: { initialCountry?: string 
       })
       if (!r.ok) {
         const d = await r.json().catch(() => ({}))
-        setSaveErr(d.detail || 'Could not save the credentials.')
+        setSaveErr(formatConnectorBody(intl, d, formatMessage({ id: 'connectors.gocardless.save', defaultMessage: "Could not save the credentials." })))
         return false
       }
       apply((await r.json()) as GoCardlessStatus)
       return true
     } catch {
-      setSaveErr('Could not save — could not reach the server.')
+      setSaveErr(formatMessage({ id: 'connectors.email.serverFailed', defaultMessage: 'Could not save — could not reach the server.' }))
       return false
     } finally {
       setSaving(false)
@@ -149,14 +153,14 @@ export function GoCardlessSection({ initialCountry }: { initialCountry?: string 
       )
       if (!r.ok) {
         const d = await r.json().catch(() => ({}))
-        setLinkErr(d.detail || 'Could not list banks. Save your credentials first.')
+        setLinkErr(formatConnectorBody(intl, d, formatMessage({ id: 'connectors.gocardless.listError', defaultMessage: "Could not list banks. Save your credentials first." })))
         return
       }
       const data = (await r.json()) as { institutions: Institution[] }
       setInstitutions(data.institutions || [])
       setInstitutionId(data.institutions?.[0]?.id ?? '')
     } catch {
-      setLinkErr('Could not list banks — could not reach the server.')
+      setLinkErr(formatMessage({ id: 'connectors.gocardless.listNetwork', defaultMessage: "Could not list banks — could not reach the server." }))
     } finally {
       setLoadingBanks(false)
     }
@@ -178,14 +182,14 @@ export function GoCardlessSection({ initialCountry }: { initialCountry?: string 
       })
       const d = await r.json().catch(() => ({}))
       if (!r.ok) {
-        setLinkErr(d.detail || 'Could not start the bank link.')
+        setLinkErr(formatConnectorBody(intl, d, formatMessage({ id: 'connectors.gocardless.linkError', defaultMessage: "Could not start the bank link." })))
         return
       }
       if (d.link) window.open(d.link, '_blank', 'noopener,noreferrer')
       autoChecked.current = true
       load()
     } catch {
-      setLinkErr('Could not start the bank link — could not reach the server.')
+      setLinkErr(formatMessage({ id: 'connectors.gocardless.linkNetwork', defaultMessage: "Could not start the bank link — could not reach the server." }))
     } finally {
       setLinking(false)
     }
@@ -216,14 +220,14 @@ export function GoCardlessSection({ initialCountry }: { initialCountry?: string 
   if (error) {
     return (
       <Text size="sm" tone="bad">
-        Could not load the GoCardless connector status.
+        {formatMessage({ id: 'connectors.gocardless.load', defaultMessage: 'Could not load the GoCardless connector status.' })}
       </Text>
     )
   }
   if (!cfg || !form) {
     return (
       <Text size="sm" tone="faint">
-        Loading…
+        {formatMessage({ id: 'connectors.email.loading', defaultMessage: 'Loading…' })}
       </Text>
     )
   }
@@ -241,34 +245,27 @@ export function GoCardlessSection({ initialCountry }: { initialCountry?: string 
   return (
     <Stack gap="--space-4" className="gc-form">
       <Text size="sm" tone="faint">
-        For an existing{' '}
-        <a href="https://bankaccountdata.gocardless.com" target="_blank" rel="noreferrer">
-          GoCardless Bank Account Data
-        </a>{' '}
-        account — GoCardless stopped taking new signups in 2025. Create a secret under User secrets,
-        paste it here, then link each of your banks and authorise access at the bank&apos;s own
-        site. Banks allow only a few reads a day per account.
+        {formatMessage({ id: 'connectors.gocardless.intro', defaultMessage: "For an existing <link>GoCardless Bank Account Data</link> account — GoCardless stopped taking new signups in 2025. Create a secret under User secrets, paste it here, then link each of your banks and authorise access at the bank's own site. Banks allow only a few reads a day per account." }, { link: (chunks) => <a href="https://bankaccountdata.gocardless.com" target="_blank" rel="noreferrer">{chunks}</a> })}
       </Text>
 
       {cfg.configured && !cfg.enabled && (
         <Text size="xs" tone="warn">
-          Currently paused — saving here won&apos;t resume it. Use Resume on the connector card to
-          turn it back on.
+          {formatMessage({ id: 'connectors.alpaca.paused', defaultMessage: "Currently paused — saving here won't resume it. Use Resume on the connector card to turn it back on." })}
         </Text>
       )}
 
       <ConnectorStatusLine lastSyncedAt={cfg.last_synced_at} lastStatus={cfg.last_status} />
       {cfg.last_error && (
         <Text size="xs" tone="bad">
-          Last error: {cfg.last_error}
+          {formatMessage({ id: 'connectors.email.lastError', defaultMessage: 'Last error: {error}' }, { error: cfg.last_error })}
         </Text>
       )}
 
       <FormField
-        label="Secret ID"
+        label={formatMessage({ id: 'connectors.gocardless.secretId', defaultMessage: 'Secret ID' })}
         htmlFor="conn-gc-id"
         required
-        error={secretIdTouched.touched && !secretIdValid ? 'A secret ID is required.' : undefined}
+        error={secretIdTouched.touched && !secretIdValid ? formatMessage({ id: 'connectors.gocardless.idRequired', defaultMessage: "A secret ID is required." }) : undefined}
       >
         <TextField
           id="conn-gc-id"
@@ -280,13 +277,13 @@ export function GoCardlessSection({ initialCountry }: { initialCountry?: string 
       </FormField>
 
       <FormField
-        label="Secret key"
+        label={formatMessage({ id: 'connectors.gocardless.secretKey', defaultMessage: 'Secret key' })}
         htmlFor="conn-gc-key"
         required
         help={secretKeyReveal.caption || undefined}
         error={
           secretKeyReveal.error ||
-          (secretKeyTouched.touched && !secretKeyValid ? 'A secret key is required.' : undefined)
+          (secretKeyTouched.touched && !secretKeyValid ? formatMessage({ id: 'connectors.gocardless.keyRequired', defaultMessage: "A secret key is required." }) : undefined)
         }
       >
         <PasswordField
@@ -308,18 +305,18 @@ export function GoCardlessSection({ initialCountry }: { initialCountry?: string 
       {banks.length > 0 && (
         <Stack gap="--space-2" className="gc-section">
           <Text size="sm" tone="ink" weight={600}>
-            Your banks
+            {formatMessage({ id: 'connectors.gocardless.banks', defaultMessage: 'Your banks' })}
           </Text>
           <GoCardlessBanks banks={banks} onChanged={load} />
           {caution && (
             <Text size="xs" tone="warn">
-              Last fetch couldn&apos;t read everything — {caution}
+              {formatMessage({ id: 'connectors.gocardless.caution', defaultMessage: "Last fetch couldn't read everything — {caution}" }, { caution })}
             </Text>
           )}
           {banks.some(isPending) && (
             <Cluster gap="--space-3" align="center">
               <Button size="sm" variant="secondary" loading={checking} onClick={checkLink}>
-                Check links
+                {formatMessage({ id: 'connectors.gocardless.checkLinks', defaultMessage: 'Check links' })}
               </Button>
             </Cluster>
           )}
@@ -328,10 +325,10 @@ export function GoCardlessSection({ initialCountry }: { initialCountry?: string 
 
       <Stack gap="--space-2" className="gc-section">
         <Text size="sm" tone="ink" weight={600}>
-          {banks.length ? 'Add a bank' : 'Link a bank'}
+          {banks.length ? formatMessage({ id: 'connectors.gocardless.addBank', defaultMessage: "Add a bank" }) : formatMessage({ id: 'connectors.gocardless.linkBank', defaultMessage: "Link a bank" })}
         </Text>
         <Cluster gap="--space-2" align="end" wrap className="gc-pick-row">
-          <FormField label="Country" htmlFor="conn-gc-country">
+          <FormField label={formatMessage({ id: 'connectors.gocardless.country', defaultMessage: 'Country' })} htmlFor="conn-gc-country">
             <TextField
               id="conn-gc-country"
               value={country}
@@ -348,19 +345,19 @@ export function GoCardlessSection({ initialCountry }: { initialCountry?: string 
             disabled={!cfg.has_credentials}
             onClick={loadBanks}
           >
-            List banks
+            {formatMessage({ id: 'connectors.gocardless.listBanks', defaultMessage: 'List banks' })}
           </Button>
         </Cluster>
         {!cfg.has_credentials && (
           <Text size="xs" tone="faint">
-            Save your secret ID and key first.
+            {formatMessage({ id: 'connectors.gocardless.saveFirst', defaultMessage: 'Save your secret ID and key first.' })}
           </Text>
         )}
 
         {institutions.length > 0 && (
           <Cluster gap="--space-2" align="end" wrap className="gc-pick-row">
             <div className="gc-bank-pick">
-              <FormField label="Bank" htmlFor="conn-gc-bank">
+              <FormField label={formatMessage({ id: 'connectors.gocardless.bank', defaultMessage: 'Bank' })} htmlFor="conn-gc-bank">
                 <Select
                   id="conn-gc-bank"
                   value={institutionId}
@@ -376,7 +373,7 @@ export function GoCardlessSection({ initialCountry }: { initialCountry?: string 
               disabled={!institutionId}
               onClick={linkBank}
             >
-              {banks.length ? 'Link this bank' : 'Link bank'}
+              {banks.length ? formatMessage({ id: 'connectors.gocardless.linkThis', defaultMessage: "Link this bank" }) : formatMessage({ id: 'connectors.gocardless.linkButton', defaultMessage: "Link bank" })}
             </Button>
           </Cluster>
         )}

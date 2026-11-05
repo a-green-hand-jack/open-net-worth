@@ -1,3 +1,4 @@
+import { getNumberLocale } from '../../../utils/format'
 // watchColumns — the Watchlist table's column registry. One entry per column the owner can show
 // or hide from Manage Columns; the choice (and its order) persists per browser.
 
@@ -5,6 +6,7 @@ import type { ReactNode } from 'react'
 import type { WatchQuoteRow } from '../../../types/watchlistQuotes'
 import type { WatchSortKey } from './useWatchlistBoard'
 import { fBase, fCompact, fDate, fPct, fPrice, fUnitPrice } from '../../../utils/format'
+import { useAppIntl } from '../../../i18n/useAppIntl'
 
 export type WatchColumnGroup = 'Prices' | 'High / Low / Volume' | 'Fundamentals' | 'Position & P&L'
 
@@ -33,7 +35,7 @@ export function quoteDigits(r: Pick<WatchQuoteRow, 'asset_class'>): number | und
 /** Signed per-share change ("+3.81", "−0.24"), to the quote's own precision. */
 export function fChange(v: number | null, digits?: number): string {
   if (v == null) return '—'
-  if (v === 0) return '0.00'
+  if (v === 0) return (0).toLocaleString(getNumberLocale(), { minimumFractionDigits: digits ?? 2, maximumFractionDigits: digits ?? 2 })
   const abs = Math.abs(v)
   return (v > 0 ? '+' : '−') + fPrice(abs, digits ?? (abs >= 1 ? 2 : 4))
 }
@@ -48,13 +50,20 @@ export function fSignedBase(v: number | null | undefined): string {
 const num = (v: number | null, frac = 2) => (v == null ? '—' : fCompact(v, frac))
 const colored = (v: number | null, text: string) => <span style={{ color: tone(v) }}>{text}</span>
 
-function rangeBar(r: WatchQuoteRow): ReactNode {
+function RangeBar({ r }: { r: WatchQuoteRow }): ReactNode {
+  const { formatMessage } = useAppIntl()
   if (r.range_pos == null) return <>—</>
   return (
     <span
       className="mk-wrange"
-      title={`52w ${px(r, r.week52_low)} – ${px(r, r.week52_high)}`}
-      aria-label={`${Math.round(r.range_pos * 100)}% of the 52-week range`}
+      title={formatMessage(
+        { id: 'watchColumns.rangeTitle', defaultMessage: '52w {low} – {high}' },
+        { low: px(r, r.week52_low), high: px(r, r.week52_high) },
+      )}
+      aria-label={formatMessage(
+        { id: 'watchColumns.rangePosition', defaultMessage: '{value}% of the 52-week range' },
+        { value: Math.round(r.range_pos * 100) },
+      )}
     >
       <span className="mk-wrange-track">
         <span className="mk-wrange-dot" style={{ left: `${r.range_pos * 100}%` }} />
@@ -130,7 +139,7 @@ export const WATCH_COLUMNS: WatchColumn[] = [
     label: 'Vol / avg',
     group: 'High / Low / Volume',
     width: 76,
-    cell: (r) => (r.volume_ratio == null ? '—' : `${r.volume_ratio.toFixed(2)}×`),
+    cell: (r) => (r.volume_ratio == null ? '—' : `${r.volume_ratio.toLocaleString(getNumberLocale(), { minimumFractionDigits: 2, maximumFractionDigits: 2 })}×`),
   },
   {
     key: 'day_range',
@@ -146,7 +155,7 @@ export const WATCH_COLUMNS: WatchColumn[] = [
     group: 'High / Low / Volume',
     width: 110,
     sortKey: 'range_pos',
-    cell: rangeBar,
+    cell: (r) => <RangeBar r={r} />,
   },
   {
     key: 'week52_low',
@@ -176,7 +185,7 @@ export const WATCH_COLUMNS: WatchColumn[] = [
     group: 'Fundamentals',
     width: 64,
     sortKey: 'trailing_pe',
-    cell: (r) => (r.trailing_pe == null ? '—' : r.trailing_pe.toFixed(1)),
+    cell: (r) => (r.trailing_pe == null ? '—' : r.trailing_pe.toLocaleString(getNumberLocale(), { minimumFractionDigits: 1, maximumFractionDigits: 1 })),
   },
   {
     key: 'earnings',
@@ -191,7 +200,7 @@ export const WATCH_COLUMNS: WatchColumn[] = [
     group: 'Position & P&L',
     width: 84,
     mask: true,
-    cell: (r) => (r.position ? r.position.quantity.toLocaleString() : ''),
+    cell: (r) => (r.position ? r.position.quantity.toLocaleString(getNumberLocale()) : ''),
   },
   {
     key: 'value',

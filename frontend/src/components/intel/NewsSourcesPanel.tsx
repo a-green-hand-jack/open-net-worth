@@ -1,3 +1,5 @@
+import { useAppIntl } from '../../i18n/useAppIntl'
+import { FormattedMessage } from './FormattedMessage'
 import { useCallback, useEffect, useState } from 'react'
 import { useDataVersion } from '../../hooks/useDataVersion'
 import { authFetch } from '../../api/client'
@@ -37,6 +39,7 @@ interface Props {
 }
 
 export function NewsSourcesPanel({ embedded = false }: Props) {
+  const intl = useAppIntl()
   const [sources, setSources] = useState<NewsSource[]>([])
   const [state, setState] = useState<LoadState>('loading')
   const [banner, setBanner] = useState<string | null>(null)
@@ -75,49 +78,49 @@ export function NewsSourcesPanel({ embedded = false }: Props) {
       })
       if (!res.ok) {
         setSources((cur) => cur.map((s) => (s.id === row.id ? row : s)))
-        setBanner('Could not update — try again.')
+        setBanner(intl.formatMessage({ id: 'intel.source.updateError', defaultMessage: 'Could not update — try again.' }))
         return
       }
       const updated: NewsSource = await res.json()
       setSources((cur) => cur.map((s) => (s.id === row.id ? updated : s)))
     } catch {
       setSources((cur) => cur.map((s) => (s.id === row.id ? row : s)))
-      setBanner('Could not update — try again.')
+      setBanner(intl.formatMessage({ id: 'intel.source.updateError', defaultMessage: 'Could not update — try again.' }))
     }
   }
 
   function requestDelete(row: NewsSource) {
     setConfirm({
-      title: `Delete "${row.label}"?`,
-      body: "Lucius stops fetching this feed immediately. This can't be undone — you'll need to re-add the URL to bring it back.",
-      confirmLabel: 'Delete feed',
+      title: intl.formatMessage({ id: 'intel.source.deleteTitle', defaultMessage: 'Delete "{name}"?' }, { name: row.label }),
+      body: intl.formatMessage({ id: 'intel.source.deleteBody', defaultMessage: "Lucius stops fetching this feed immediately. This can't be undone — you'll need to re-add the URL to bring it back." }),
+      confirmLabel: intl.formatMessage({ id: 'intel.source.deleteFeed', defaultMessage: 'Delete feed' }),
       onConfirm: async () => {
         setConfirm(null)
         try {
           const res = await authFetch(`/api/intel/sources/${row.id}`, { method: 'DELETE' })
           if (!res.ok) {
-            setBanner('Could not update — try again.')
+            setBanner(intl.formatMessage({ id: 'intel.source.updateError', defaultMessage: 'Could not update — try again.' }))
             return
           }
           setSources((cur) => cur.filter((s) => s.id !== row.id))
         } catch {
-          setBanner('Could not update — try again.')
+          setBanner(intl.formatMessage({ id: 'intel.source.updateError', defaultMessage: 'Could not update — try again.' }))
         }
       },
     })
   }
 
-  if (state === 'loading') return <Loading label="Loading news sources…" />
-  if (state === 'error') return <ErrorState message="Could not load news sources." onRetry={load} />
+  if (state === 'loading') return <Loading label={intl.formatMessage({ id: "intel.field.c7c82f50", defaultMessage: "Loading news sources…" })} />
+  if (state === 'error') return <ErrorState message={intl.formatMessage({ id: 'intel.sources.loadFailed', defaultMessage: 'Could not load news sources.' })} onRetry={load} />
 
   if (sources.length === 0) {
     return (
       <EmptyState
-        title="No sources found"
-        body="Lucius couldn't find its source registry — this usually means the built-in seed didn't run. Try reloading, or check the server logs."
+        title={intl.formatMessage({ id: "intel.field.a8c10dd0", defaultMessage: "No sources found" })}
+        body={intl.formatMessage({ id: 'intel.sources.missingRegistry', defaultMessage: "Lucius couldn't find its source registry — this usually means the built-in seed didn't run. Try reloading, or check the server logs." })}
         action={
           <Button variant="secondary" size="sm" onClick={() => load()}>
-            Retry
+            {<FormattedMessage id="intel.extra.ef217ee7" defaultMessage={"Retry"} />}
           </Button>
         }
       />
@@ -130,29 +133,26 @@ export function NewsSourcesPanel({ embedded = false }: Props) {
   const body = (
     <>
       <p className="intel-mon-hint">
-        Latency is measured from when a story is published to when Lucius first sees it — median and
-        p75 over the last 7 days. This is about how fast a source arrives, not how often Lucius
-        checks it.
+        {intl.formatMessage({ id: 'intel.sources.latencyHelp', defaultMessage: 'Latency is measured from when a story is published to when Lucius first sees it — median and p75 over the last 7 days. This is about how fast a source arrives, not how often Lucius checks it.' })}
       </p>
       <p className="intel-mon-hint">
-        Cadence is the fastest Lucius will check a source: Hot ≈ 90 seconds, Fast ≈ 5 minutes, Slow
-        ≈ 30 minutes. Changing it here only affects this one source.
+        {intl.formatMessage({ id: 'intel.sources.cadenceHelp', defaultMessage: 'Cadence is the fastest Lucius will check a source: Hot ≈ 90 seconds, Fast ≈ 5 minutes, Slow ≈ 30 minutes. Changing it here only affects this one source.' })}
       </p>
       {banner && <div className="intel-wlc-add-err">{banner}</div>}
       <div className="intel-src-table-scroll">
         <table>
           <thead>
             <tr>
-              <th>Source</th>
-              <th>Kind</th>
-              <th>Cadence</th>
-              <th>Health</th>
-              <th>On</th>
+              <th>{<FormattedMessage id="intel.static.source_58267a45" defaultMessage={"Source"} />}</th>
+              <th>{<FormattedMessage id="intel.static.kind_9bf613e7" defaultMessage={"Kind"} />}</th>
+              <th>{<FormattedMessage id="intel.static.cadence_7a2cf140" defaultMessage={"Cadence"} />}</th>
+              <th>{<FormattedMessage id="intel.static.health_c9762625" defaultMessage={"Health"} />}</th>
+              <th>{<FormattedMessage id="intel.static.on_9c320d6a" defaultMessage={"On"} />}</th>
               <th aria-hidden="true" />
             </tr>
           </thead>
           <tbody>
-            <SectionDivider label={`Built-in sources • ${builtin.length}`} />
+            <SectionDivider label={intl.formatMessage({ id: 'intel.source.builtInCount', defaultMessage: 'Built-in sources • {count}' }, { count: builtin.length })} />
             {builtin.map((s) => (
               <NewsSourceRow
                 key={s.id}
@@ -162,12 +162,12 @@ export function NewsSourcesPanel({ embedded = false }: Props) {
                 onDeleteRequest={requestDelete}
               />
             ))}
-            <SectionDivider label={`Your feeds • ${user.length}`} />
+            <SectionDivider label={intl.formatMessage({ id: 'intel.source.userCount', defaultMessage: 'Your feeds • {count}' }, { count: user.length })} />
             {user.length === 0 && (
               <tr>
                 <td colSpan={COL_COUNT}>
                   <Text size="sm" tone="muted">
-                    You haven&rsquo;t added any feeds yet.
+                    {<FormattedMessage id="intel.extra.a6c9d12d" defaultMessage={"You haven’t added any feeds yet."} />}
                   </Text>
                 </td>
               </tr>
@@ -193,7 +193,7 @@ export function NewsSourcesPanel({ embedded = false }: Props) {
 
   return (
     <div className="intel-mm-sources">
-      <h3 className="intel-mm-list-title">News sources</h3>
+      <h3 className="intel-mm-list-title">{<FormattedMessage id="intel.static.news_sources_e8f821d0" defaultMessage={"News sources"} />}</h3>
       <p className="intel-mm-settings-sub">{NEWS_SOURCES_SUBTITLE}</p>
       {body}
     </div>

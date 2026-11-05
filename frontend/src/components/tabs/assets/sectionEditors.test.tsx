@@ -14,6 +14,8 @@ import { OwnershipEditor } from './OwnershipEditor'
 import { PurchaseEditor } from './PurchaseEditor'
 import { RenameCategoryEditor } from './RenameCategoryEditor'
 import { NotesEditor } from './sections'
+import { IntlProvider } from 'react-intl'
+import zh from '../../../i18n/zh-CN.json'
 
 const { authFetch } = vi.hoisted(() => ({ authFetch: vi.fn() }))
 vi.mock('../../../api/client', () => ({ authFetch }))
@@ -376,6 +378,45 @@ describe('PurchaseEditor', () => {
 })
 
 describe('DetailsEditor', () => {
+  it('creates a guided fact in Chinese while saving its canonical label', async () => {
+    serve({ [PATCH]: [ok(asset())] })
+    const h = handlers()
+    render(
+      <IntlProvider locale="zh-CN" defaultLocale="en" messages={zh}>
+        <DetailsEditor a={asset({ facts: [] })} {...h} />
+      </IntlProvider>,
+    )
+    type('产权年限', '永久产权')
+    click('保存更改')
+    await waitFor(() => expect(h.onSaved).toHaveBeenCalled())
+    expect(changes()[0]?.facts).toEqual([['Tenure', '永久产权']])
+  })
+
+  it('edits a historic guided fact without rewriting its label or custom facts', async () => {
+    const a = asset({
+      facts: [
+        ['  tEnUrE  ', 'Freehold'],
+        [' 自定义 ', ' 原文 '],
+      ],
+    })
+    serve({ [PATCH]: [ok(a)] })
+    const h = handlers()
+    render(
+      <IntlProvider locale="zh-CN" defaultLocale="en" messages={zh}>
+        <DetailsEditor a={a} {...h} />
+      </IntlProvider>,
+    )
+    expect((screen.getByRole('textbox', { name: '产权年限' }) as HTMLInputElement).value).toBe(
+      'Freehold',
+    )
+    type('产权年限', '99 年')
+    click('保存更改')
+    await waitFor(() => expect(h.onSaved).toHaveBeenCalled())
+    expect(changes()[0]?.facts).toEqual([
+      ['  tEnUrE  ', '99 年'],
+      [' 自定义 ', ' 原文 '],
+    ])
+  })
   it('guided fields first, other details after; sends exactly facts, insured and maturity_date', async () => {
     serve({ [PATCH]: [ok(asset())] })
     const h = handlers()

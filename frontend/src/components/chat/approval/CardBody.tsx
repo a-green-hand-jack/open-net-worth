@@ -1,3 +1,4 @@
+import { useAppIntl } from '../../../i18n/useAppIntl'
 import type { ProposedChange } from '../../../types/chat'
 import { ApprovalNote } from './ApprovalCard'
 import { BudgetChangePreview, BudgetOperationChangePreview } from './bodies/BudgetBodies'
@@ -32,6 +33,7 @@ import {
  * keep two copies of every body. A type without a bespoke body falls to the generic one, so a
  * card is never a blind header + buttons. */
 export function CardBody({ change }: { change: ProposedChange }) {
+  const intl = useAppIntl()
   const d = change.display || {}
   const preview = previewFromDisplay(change.display)
   const isExternalMcp = change.type === 'external_mcp_call'
@@ -63,7 +65,7 @@ export function CardBody({ change }: { change: ProposedChange }) {
       {!HANDLED_TYPES.includes(change.type) &&
         !isBatch &&
         (preview ? (
-          <ToolPreviewBody preview={preview} />
+          <ToolPreviewBody preview={preview} change={change} />
         ) : isBudgetOperationGrant(change) ? (
           <BudgetOperationChangePreview change={change} />
         ) : change.grant_tool && permissionTextEdits(change).length > 0 ? (
@@ -76,7 +78,7 @@ export function CardBody({ change }: { change: ProposedChange }) {
           card itself already says; any other reason (why a lot is being deleted) is real
           context, and goes last so the lead stays the card's first line. */}
       {change.reason && !isExternalMcp && change.type !== 'tool_permission' && (
-        <ApprovalNote>Reason: {change.reason}</ApprovalNote>
+        <ApprovalNote>{intl.formatMessage({ id: 'chat.approval.reason', defaultMessage: 'Reason: {reason}' }, { reason: change.reason })}</ApprovalNote>
       )}
     </>
   )

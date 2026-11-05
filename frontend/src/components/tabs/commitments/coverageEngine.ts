@@ -145,6 +145,10 @@ export interface Proposal {
   body: string
   /** Plain-language summary for the ribbon, one or two full sentences. */
   ribbonHint: string
+  display?:
+    | { kind: 'move'; label: string; date: string; weeks: number; isSale: boolean }
+    | { kind: 'topup'; amount: number }
+    | { kind: 'defer'; label: string; nextLabel: string; date: string }
   /** Prefilled prompt for the REAL Lucius dock's "Fix with Lucius" action. */
   luciusPrompt: string
   afterMin: number
@@ -209,6 +213,7 @@ export function buildProposals(ctx: ProposalCtx): Proposal[] {
         title: isSale ? `Sell earlier: bring "${f.label}" forward` : `Bring "${f.label}" forward`,
         body: `It's dated ${fmtDate(f.available_date)}, about ${weeksPhrase(w)} after the ${cov.riskDate ? fmtDate(cov.riskDate) : ''} payment it should cover. Move it to ${fmtDate(newDate)}. No new borrowing, no new cash.`,
         ribbonHint: lateFundingHint(f.label, f.available_date, w, isSale),
+        display: { kind: 'move', label: f.label, date: f.available_date, weeks: w, isSale },
         luciusPrompt: `Pull the "${f.label}" funding source on my "${c.name}" commitment forward from ${fmtDate(f.available_date)} to ${fmtDay(newDate)} — it currently lands after a projected cash-floor gap around ${cov.riskDate ? fmtDate(cov.riskDate) : ''}.`,
         afterMin,
         closes,
@@ -234,6 +239,7 @@ export function buildProposals(ctx: ProposalCtx): Proposal[] {
       title: `Set aside ${fBase(topUp)} now`,
       body: `A one-time transfer from savings, available this week — covers the ${monthLong(gapYm)} dip and keeps you above your ${fBase(cov.floor)} cash floor.`,
       ribbonHint: `A one-time ${fBase(topUp)} transfer this week would cover the dip.`,
+      display: { kind: 'topup', amount: topUp },
       luciusPrompt: `Add a one-time cash top-up of ${fBase(topUp)}, available ${fmtDay(topUpDate)}, to my "${riskC.name}" commitment's funding plan — it closes a projected cash-floor gap around ${monthLong(gapYm)}.`,
       afterMin,
       closes,
@@ -278,6 +284,7 @@ export function buildProposals(ctx: ProposalCtx): Proposal[] {
         title: `Push the ${trigger.label} to ${fmtDay(newDue)}`,
         body: `Ask ${cp} to move the ${fmtDate(cov.riskDate)} payment until after your ${nextIn.label} lands. I'll add the follow-up action to the checklist.`,
         ribbonHint: `Pushing "${trigger.label}" back until after "${nextIn.label}" arrives would also close it.`,
+        display: { kind: 'defer', label: trigger.label, nextLabel: nextIn.label, date: newDue },
         luciusPrompt: `Push my "${riskC.name}" commitment's "${trigger.label}" installment (currently due ${fmtDate(cov.riskDate)}) to ${fmtDay(newDue)}, and add a follow-up action to agree the new date with ${cp === 'the counterparty' ? 'the counterparty' : cp}.`,
         afterMin,
         closes,

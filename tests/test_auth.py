@@ -742,6 +742,8 @@ def test_wrong_old_password_is_403_with_a_detail_never_401(auth_env):
         res = c.post(path, json=body)
         assert res.status_code == 403
         assert res.json()["detail"] == "current password incorrect"
+        assert res.json()["message_id"] == "auth.error.currentPasswordIncorrect"
+        assert res.json()["message_params"] == {}
 
 
 def test_change_password_requires_old_even_on_trusted_loopback(auth_env):

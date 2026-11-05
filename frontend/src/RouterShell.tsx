@@ -3,6 +3,7 @@
 // Reads auth/logout/authChanged from router context via useRouteContext.
 
 import { useGatewayIdentity } from './hooks/useGatewayIdentity'
+import { syncDesktopProfileSnapshot } from './platform/desktopDateFormat'
 import {
   Fragment,
   Suspense,
@@ -100,7 +101,7 @@ import { DockArtifactPanel } from './components/tabs/lucius/DockArtifactPanel'
 import type { ArtifactRef } from './types/chat'
 import {
   MobileTabBar,
-  PRICE_STATUS_LABEL,
+  priceStatusLabel,
   type PriceStatus,
 } from './components/mobile/MobileTabBar'
 import { useIsMobile } from './hooks/useIsMobile'
@@ -123,6 +124,9 @@ import { ErrorBoundary } from './components/ErrorBoundary'
 import { BootUnreachable } from './components/BootUnreachable'
 import { useBrand } from './brand-context'
 import { fDateTime, setBaseCurrency, setDisplayFormats } from './utils/format'
+import { useSetLocalePreference } from './i18n/localeContext'
+import { useAppIntl } from './i18n/useAppIntl'
+import { tabLabel } from './i18n/navigation'
 import {
   TABS,
   type TabId,
@@ -130,10 +134,8 @@ import {
   PRIMARY_TABS,
   CONFIG_TABS,
   TAB_LABELS,
-  TAB_DISPLAY_NAMES,
   NARROW_TABS,
   SELF_HEADER_TABS,
-  TAB_SUBTITLES,
 } from './tabs'
 import { lazyChunk } from './lazyChunk'
 import { tabToSlug, slugToTab } from './routeSlug'
@@ -326,6 +328,7 @@ export function RouterShell() {
 }
 
 function RouterShellInner() {
+  const intl = useAppIntl()
   useWarmLazyTabs()
   const { auth, onLogout, onAuthChanged } = useRouteContext({ from: '__root__' })
   const gatewayIdentity = useGatewayIdentity(auth.mode === 'gateway')
@@ -857,6 +860,18 @@ function RouterShellInner() {
   // targetAllocation / risk knobs is untouched — only the fetch is consolidated.
   const profileQuery = useProfile()
   const profileData = profileQuery.data
+  const setLocalePreference = useSetLocalePreference()
+  useEffect(() => {
+    if (profileData) {
+      setLocalePreference(profileData.language)
+    }
+    syncDesktopProfileSnapshot(profileData, profileQuery.error)
+  }, [profileData, profileQuery.error, setLocalePreference])
+  useEffect(() => {
+    return window.onwDesktopClient?.onRequestProfileDisplay?.(() => {
+      syncDesktopProfileSnapshot(profileData, profileQuery.error)
+    })
+  }, [profileData, profileQuery.error])
   useTimezoneCapture(profileData)
   useEffect(() => {
     if (!profileData) return
@@ -1184,7 +1199,7 @@ function RouterShellInner() {
     )
 
   const renderNavItem = (t: TabId) => (
-    <Fragment key={t}>{railTip(navItemButton(t), TAB_LABELS[t])}</Fragment>
+    <Fragment key={t}>{railTip(navItemButton(t), tabLabel(intl, t))}</Fragment>
   )
 
   const navItemButton = (t: TabId) => (
@@ -1213,11 +1228,14 @@ function RouterShellInner() {
           <span
             className="sidebar-attention-dot"
             role="img"
-            aria-label="A connector needs attention"
+            aria-label={intl.formatMessage({
+              id: 'shell.connectorAttention',
+              defaultMessage: 'A connector needs attention',
+            })}
           />
         )}
       </span>
-      <span className="sidebar-label">{TAB_LABELS[t]}</span>
+      <span className="sidebar-label">{tabLabel(intl, t)}</span>
     </button>
   )
 
@@ -1274,7 +1292,11 @@ function RouterShellInner() {
             onClick={pinSidebar}
             onMouseEnter={peek.enter}
             onMouseLeave={peek.leave}
-            title={sidebarExpanded ? 'Collapse' : 'Expand'}
+            title={
+              sidebarExpanded
+                ? intl.formatMessage({ id: 'shell.collapse', defaultMessage: 'Collapse' })
+                : intl.formatMessage({ id: 'shell.expand', defaultMessage: 'Expand' })
+            }
           >
             {sidebarExpanded ? (
               <ChevronLeft size={16} strokeWidth={1.5} aria-hidden="true" />
@@ -1303,24 +1325,33 @@ function RouterShellInner() {
             <button
               className="sidebar-item"
               onClick={() => setPaletteOpen(true)}
-              aria-label="Open command palette"
+              aria-label={intl.formatMessage({
+                id: 'shell.openSearch',
+                defaultMessage: 'Open command palette',
+              })}
             >
               <span className="sidebar-icon">
                 <Search size={16} strokeWidth={1.6} aria-hidden="true" />
               </span>
-              <span className="sidebar-label">Search</span>
+              <span className="sidebar-label">
+                {intl.formatMessage({ id: 'shell.search', defaultMessage: 'Search' })}
+              </span>
               {/* The shortcut hint used to live on the topbar Search button; it moved
                 here with the control so the binding stays discoverable. */}
               <kbd className="sidebar-kbd">⌘K</kbd>
             </button>,
-            'Search',
+            intl.formatMessage({ id: 'shell.search', defaultMessage: 'Search' }),
             ['Mod', 'K'],
           )}
           {railTip(
             <button
               className="sidebar-item"
               onClick={togglePrivacy}
-              aria-label={hidden ? 'Show amounts' : 'Hide amounts'}
+              aria-label={
+                hidden
+                  ? intl.formatMessage({ id: 'shell.showAmounts', defaultMessage: 'Show amounts' })
+                  : intl.formatMessage({ id: 'shell.hideAmounts', defaultMessage: 'Hide amounts' })
+              }
             >
               <span className="sidebar-icon">
                 {/* The icon is the current STATE (the collapsed rail has no label to say
@@ -1331,26 +1362,37 @@ function RouterShellInner() {
                   <Eye size={16} strokeWidth={1.6} aria-hidden="true" />
                 )}
               </span>
-              <span className="sidebar-label">{hidden ? 'Show amounts' : 'Hide amounts'}</span>
+              <span className="sidebar-label">
+                {hidden
+                  ? intl.formatMessage({ id: 'shell.showAmounts', defaultMessage: 'Show amounts' })
+                  : intl.formatMessage({ id: 'shell.hideAmounts', defaultMessage: 'Hide amounts' })}
+              </span>
               {/* Bare `h` toggles privacy (see the keydown handler above) — advertise
                 it the same way Search advertises ⌘K. */}
               <kbd className="sidebar-kbd">H</kbd>
             </button>,
-            hidden ? 'Show amounts' : 'Hide amounts',
+            hidden
+              ? intl.formatMessage({ id: 'shell.showAmounts', defaultMessage: 'Show amounts' })
+              : intl.formatMessage({ id: 'shell.hideAmounts', defaultMessage: 'Hide amounts' }),
             ['H'],
           )}
           {railTip(
             <button
               className="sidebar-item"
               onClick={() => openReportProblem()}
-              aria-label="Send feedback"
+              aria-label={intl.formatMessage({
+                id: 'shell.feedback',
+                defaultMessage: 'Send feedback',
+              })}
             >
               <span className="sidebar-icon">
                 <Bug size={16} strokeWidth={1.6} aria-hidden="true" />
               </span>
-              <span className="sidebar-label">Send feedback</span>
+              <span className="sidebar-label">
+                {intl.formatMessage({ id: 'shell.feedback', defaultMessage: 'Send feedback' })}
+              </span>
             </button>,
-            'Send feedback',
+            intl.formatMessage({ id: 'shell.feedback', defaultMessage: 'Send feedback' }),
           )}
         </div>
       )}
@@ -1442,8 +1484,11 @@ function RouterShellInner() {
                     <button
                       className="topbar-hamburger"
                       onClick={() => setDrawerOpen(true)}
-                      title="Menu"
-                      aria-label="Open navigation menu"
+                      title={intl.formatMessage({ id: 'shell.menu', defaultMessage: 'Menu' })}
+                      aria-label={intl.formatMessage({
+                        id: 'shell.openMenu',
+                        defaultMessage: 'Open navigation menu',
+                      })}
                     >
                       <Menu size={18} strokeWidth={1.6} aria-hidden="true" />
                     </button>
@@ -1453,17 +1498,17 @@ function RouterShellInner() {
                           rows={positionRows}
                           priceStatus={priceStatus}
                           asOf={nowShort}
-                          asOfLong={`As of ${now} • ${PRICE_STATUS_LABEL[priceStatus]}`}
+                          asOfLong={`${intl.formatMessage({ id: 'prices.asOf', defaultMessage: 'As of {time}' }, { time: now })} • ${priceStatusLabel(priceStatus, intl)}`}
                         />
                       ) : (
                         <div className="stamp">
-                          As of {now} •{' '}
+                          {intl.formatMessage({ id: 'prices.asOf', defaultMessage: 'As of {time}' }, { time: now })} •{' '}
                           <span
                             style={{
                               color: priceStatus === 'live' ? 'var(--good)' : 'var(--faint)',
                             }}
                           >
-                            {PRICE_STATUS_LABEL[priceStatus]}
+                            {priceStatusLabel(priceStatus, intl)}
                           </span>
                         </div>
                       ))}
@@ -1502,8 +1547,8 @@ function RouterShellInner() {
                   >
                     {!SELF_HEADER_TABS.has(tabToRender) && !isSingleAssetRoute && !phoneLucius && (
                       <div className="tab-header">
-                        <h1 className="tab-title">{TAB_DISPLAY_NAMES[tabToRender]}</h1>
-                        <div className="tab-subtitle">{TAB_SUBTITLES[tabToRender]}</div>
+                        <h1 className="tab-title">{tabLabel(intl, tabToRender)}</h1>
+                        <div className="tab-subtitle">{tabToRender === 'investments' ? intl.formatMessage({ id: 'shell.investmentsSubtitle', defaultMessage: 'Stocks, ETFs, crypto, and commodities across all accounts' }) : intl.formatMessage({ id: 'shell.settingsSubtitle', defaultMessage: 'AI model, appearance, security, and your data — instance-level settings' })}</div>
                       </div>
                     )}
 
@@ -1534,7 +1579,7 @@ function RouterShellInner() {
                                   ? budgetSkeletonVariant()
                                   : TAB_SKELETON_VARIANTS[tabToRender]
                               }
-                              label={`Loading ${TAB_LABELS[tabToRender]}…`}
+                              label={intl.formatMessage({ id: 'shell.loadingTab', defaultMessage: 'Loading {tab}…' }, { tab: tabLabel(intl, tabToRender) })}
                               // Investments keeps the shell-owned title on screen, so its first
                               // paint begins directly with the portfolio masthead rather than a
                               // second title-shaped placeholder.
@@ -1542,7 +1587,7 @@ function RouterShellInner() {
                             />
                           }
                         >
-                          <ErrorBoundary key={tabToRender} label={TAB_LABELS[tabToRender]}>
+                          <ErrorBoundary key={tabToRender} label={tabLabel(intl, tabToRender)}>
                             {tabToRender === 'lucius' && !isMobile && (
                               <LuciusHome
                                 prefill={chatPrefill}
@@ -1732,7 +1777,7 @@ function RouterShellInner() {
                   <nav
                     className="sidebar peek"
                     {...behindFirstRun}
-                    aria-label="Sidebar preview"
+                    aria-label={intl.formatMessage({ id: 'navigation.sidebarPreview', defaultMessage: 'Sidebar preview' })}
                     onMouseEnter={peek.enter}
                     onMouseLeave={peek.leave}
                   >
@@ -1758,7 +1803,7 @@ function RouterShellInner() {
                 )}
 
                 {helpOpen && (
-                  <ErrorBoundary key="help" label="Help">
+                  <ErrorBoundary key="help" label={intl.formatMessage({ id: 'scan2.help', defaultMessage: 'Help' })}>
                     <Modal
                       open
                       onClose={() =>
@@ -1771,7 +1816,7 @@ function RouterShellInner() {
                           search: helpReturnRef.current.search as any,
                         })
                       }
-                      title="Help"
+                      title={tabLabel(intl, 'help')}
                       size="workspace"
                       className="onw-help"
                       overlayClassName="onw-help-overlay"
@@ -1809,7 +1854,7 @@ function RouterShellInner() {
                 )}
 
                 {settingsOpen && (
-                  <ErrorBoundary key="settings" label={TAB_LABELS.settings}>
+                  <ErrorBoundary key="settings" label={tabLabel(intl, 'settings')}>
                     {/* Deliberately NOT keyed on profileVersion. Settings WRITES the profile, and a
                   remount would (a) throw away the open section, the search box and any unsaved
                   edit, and (b) loop: ProfileSection re-reads the profile on mount, which is

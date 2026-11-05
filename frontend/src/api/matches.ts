@@ -44,6 +44,7 @@ export interface MatchReview {
   score: number
   become_transfer: boolean
   reasons: string[]
+  reason_messages?: { id: string; params: Record<string, unknown> }[]
   llm_reason: string | null
   batch_id: string | null
   batch_description: string | null

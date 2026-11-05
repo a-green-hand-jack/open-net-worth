@@ -1,3 +1,4 @@
+import { useAppIntl } from '../../../i18n/useAppIntl'
 import { useEffect, useState } from 'react'
 import { authFetch } from '../../../api/client'
 import { Stack, Text, FormField, PasswordField } from '../../ui'
@@ -41,6 +42,7 @@ function simplefinFormOf(): SimpleFinForm {
 }
 
 export function SimpleFinSection() {
+  const { formatMessage } = useAppIntl()
   const [cfg, setCfg] = useState<SimpleFinStatus | null>(null)
   const [form, setForm] = useState<SimpleFinForm | null>(null)
   const [error, setError] = useState(false)
@@ -74,14 +76,14 @@ export function SimpleFinSection() {
       })
       if (!r.ok) {
         const d = await r.json().catch(() => ({}))
-        setSaveErr(d.detail || 'Could not save. The setup token may be invalid or already used.')
+        setSaveErr(d.detail || formatMessage({ id: 'connectors.simplefin.save', defaultMessage: 'Could not save. The setup token may be invalid or already used.' }))
         return false
       }
       setForm((f) => f && { ...f, setup_token: '' })
       load()
       return true
     } catch {
-      setSaveErr('Could not save — could not reach the server.')
+      setSaveErr(formatMessage({ id: 'connectors.email.serverFailed', defaultMessage: 'Could not save — could not reach the server.' }))
       return false
     } finally {
       setSaving(false)
@@ -103,14 +105,14 @@ export function SimpleFinSection() {
   if (error) {
     return (
       <Text size="sm" tone="bad">
-        Could not load the SimpleFIN connector status.
+        {formatMessage({ id: 'connectors.simplefin.load', defaultMessage: 'Could not load the SimpleFIN connector status.' })}
       </Text>
     )
   }
   if (!cfg || !form) {
     return (
       <Text size="sm" tone="faint">
-        Loading…
+        {formatMessage({ id: 'connectors.email.loading', defaultMessage: 'Loading…' })}
       </Text>
     )
   }
@@ -121,41 +123,34 @@ export function SimpleFinSection() {
   return (
     <Stack gap="--space-4">
       <Text size="sm" tone="faint">
-        Aggregate your bank &amp; card balances and transactions automatically via{' '}
-        <a href="https://www.simplefin.org/" target="_blank" rel="noreferrer">
-          SimpleFIN
-        </a>{' '}
-        (US / Canada, ~$15/yr — no OAuth). Create a SimpleFIN access at your provider, then paste
-        the one-time <strong>setup token</strong> below. Fetching and booking transactions is
-        Lucius's job — automate it with a template below.
+        {formatMessage({ id: 'connectors.simplefin.intro', defaultMessage: "Aggregate your bank & card balances and transactions automatically via <link>SimpleFIN</link> (US / Canada, ~$15/yr — no OAuth). Create a SimpleFIN access at your provider, then paste the one-time <strong>setup token</strong> below. Fetching and booking transactions is Lucius's job — automate it with a template below." }, { link: (chunks) => <a href="https://www.simplefin.org/" target="_blank" rel="noreferrer">{chunks}</a>, strong: (chunks) => <strong>{chunks}</strong> })}
       </Text>
 
       {cfg.configured && !cfg.enabled && (
         <Text size="xs" tone="warn">
-          Currently paused — saving here won&apos;t resume it. Use Resume on the connector card to
-          turn it back on.
+          {formatMessage({ id: 'connectors.alpaca.paused', defaultMessage: "Currently paused — saving here won't resume it. Use Resume on the connector card to turn it back on." })}
         </Text>
       )}
 
       <ConnectorStatusLine lastSyncedAt={cfg.last_synced_at} lastStatus={cfg.last_status} />
       {cfg.last_error && (
         <Text size="xs" tone="bad">
-          Last error: {cfg.last_error}
+          {formatMessage({ id: 'connectors.email.lastError', defaultMessage: 'Last error: {error}' }, { error: cfg.last_error })}
         </Text>
       )}
 
       <FormField
-        label="Setup token"
+        label={formatMessage({ id: 'connectors.simplefin.token', defaultMessage: 'Setup token' })}
         htmlFor="conn-sf-token"
         required
         help={
           cfg.has_access_url
-            ? 'An access token is saved. Leave blank to keep it; paste a new setup token to re-link.'
-            : 'A one-time base64 token from your SimpleFIN provider (e.g. SimpleFIN Bridge).'
+            ? formatMessage({ id: 'connectors.simplefin.saved', defaultMessage: "An access token is saved. Leave blank to keep it; paste a new setup token to re-link." })
+            : formatMessage({ id: 'connectors.simplefin.tokenHelp', defaultMessage: "A one-time base64 token from your SimpleFIN provider (e.g. SimpleFIN Bridge)." })
         }
         error={
           setupTokenTouched.touched && !setupTokenValid
-            ? 'A SimpleFIN setup token is required.'
+            ? formatMessage({ id: 'connectors.simplefin.required', defaultMessage: "A SimpleFIN setup token is required." })
             : undefined
         }
       >

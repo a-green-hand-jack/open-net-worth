@@ -161,6 +161,7 @@ export function renderGenericValue(v: unknown): string {
 
 export interface PermissionTextEdit {
   path: string
+  schemaPathSafe: boolean
   old: string
   new: string
 }
@@ -180,7 +181,7 @@ export function permissionTextEdits(change: ProposedChange): PermissionTextEdit[
     if (value == null || typeof value !== 'object' || Array.isArray(value)) return
     const row = value as Record<string, unknown>
     if (typeof row.old === 'string' && typeof row.new === 'string') {
-      edits.push({ path: path.join('.'), old: row.old, new: row.new })
+      edits.push({ path: path.join('.'), schemaPathSafe: path.every((key) => !/[.*]/.test(key) && !/^\d+$/.test(key)), old: row.old, new: row.new })
       return
     }
     Object.entries(row).forEach(([key, child]) => visit(child, [...path, key]))

@@ -2148,9 +2148,6 @@
 .a3-attention .a3-block-h .count {
   color: var(--warn);
 }
-.a3-schedule-row {
-  max-width: 260px;
-}
 .a3-rules {
   margin: 0;
   padding-left: 18px;

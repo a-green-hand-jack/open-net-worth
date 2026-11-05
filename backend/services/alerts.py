@@ -55,13 +55,21 @@ def apply_alert_change(change: dict) -> dict:
         alert_id = change.get("id") or ""
         updated = store.update(alert_id, change)
         if updated is None:
-            raise NotFoundError(f"alert {alert_id!r} not found")
+            raise NotFoundError(
+                f"alert {alert_id!r} not found",
+                message_id="alert.error.notFound",
+                message_params={"id": alert_id},
+            )
         _record(updated.get("id") or alert_id, "update")
         return updated
     if kind == "delete":
         alert_id = change.get("id") or ""
         if not store.delete(alert_id):
-            raise NotFoundError(f"alert {alert_id!r} not found")
+            raise NotFoundError(
+                f"alert {alert_id!r} not found",
+                message_id="alert.error.notFound",
+                message_params={"id": alert_id},
+            )
         _record(alert_id, "delete")
         return {"id": alert_id, "deleted": True}
     raise ValidationError(f"unknown alert change type {kind!r}")

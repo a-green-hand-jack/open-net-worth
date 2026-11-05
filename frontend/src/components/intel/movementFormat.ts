@@ -1,18 +1,19 @@
+import type { IntlShape } from 'react-intl'
 // Formatters for the Notable Price Movement timeline — kept out of the component file so it
 // exports components only (react-refresh) and so they're unit-testable on their own.
 import { fDate } from '../../utils/format'
 
 /** "12:21 AM ET" — the instant in the venue's own timezone (falls back to the viewer's). */
-export function clockIn(iso: string | null, tz: string | null, tzShort: string | null): string {
+export function clockIn(iso: string | null, tz: string | null, tzShort: string | null, locale = 'en-US'): string {
   if (!iso) return ''
   const d = new Date(iso)
   if (Number.isNaN(d.getTime())) return ''
   const opts: Intl.DateTimeFormatOptions = { hour: 'numeric', minute: '2-digit' }
   let text: string
   try {
-    text = d.toLocaleTimeString('en-US', tz ? { ...opts, timeZone: tz } : opts)
+    text = d.toLocaleTimeString(locale, tz ? { ...opts, timeZone: tz } : opts)
   } catch {
-    text = d.toLocaleTimeString('en-US', opts)
+    text = d.toLocaleTimeString(locale, opts)
   }
   // Non-breaking inside the clock ("10:14 AM" never splits); the ONE breakable space sits
   // before the tz label, so a narrow date column wraps to "10:14 AM" / "CEST" and nothing else.
@@ -31,18 +32,19 @@ export function generatedLabel(
   tz: string | null,
   tzShort: string | null,
   now: number = Date.now(),
+  intl?: IntlShape,
 ): string {
   if (!iso) return ''
   const t = new Date(iso).getTime()
   if (Number.isNaN(t)) return ''
   const ageMin = Math.floor((now - t) / 60_000)
   if (ageMin >= 0 && ageMin < 24 * 60) {
-    if (ageMin < 1) return 'Generated just now'
-    if (ageMin < 60) return `Generated ${ageMin} min ago`
+    if (ageMin < 1) return intl ? intl.formatMessage({ id: 'intel.movement.generatedNow', defaultMessage: 'Generated just now' }) : 'Generated just now'
+    if (ageMin < 60) return intl ? intl.formatMessage({ id: 'intel.movement.generatedMinutes', defaultMessage: 'Generated {minutes} min ago' }, { minutes: ageMin }) : `Generated ${ageMin} min ago`
     const h = Math.floor(ageMin / 60)
-    return `Generated ${h} ${h === 1 ? 'hour' : 'hours'} ago`
+    return intl ? intl.formatMessage({ id: 'intel.movement.generatedHours', defaultMessage: 'Generated {count} {count, plural, one {hour} other {hours}} ago' }, { count: h }) : `Generated ${h} ${h === 1 ? 'hour' : 'hours'} ago`
   }
-  const clock = clockIn(iso, tz, tzShort)
+  const clock = clockIn(iso, tz, tzShort, intl?.locale)
   if (!clock) return ''
   const d = new Date(iso)
   let day: string
@@ -51,5 +53,6 @@ export function generatedLabel(
   } catch {
     day = d.toLocaleDateString('en-CA')
   }
-  return day === sessionDate ? `Generated ${clock}` : `Generated ${fDate(day)}, ${clock}`
+  const when = day === sessionDate ? clock : `${fDate(day)}, ${clock}`
+  return intl ? intl.formatMessage({ id: 'intel.movement.generatedAt', defaultMessage: 'Generated {when}' }, { when }) : `Generated ${when}`
 }

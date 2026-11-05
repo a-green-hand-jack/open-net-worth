@@ -1,3 +1,5 @@
+import { useAppIntl } from '../../i18n/useAppIntl'
+import { FormattedMessage } from './FormattedMessage'
 import { useState } from 'react'
 import {
   Modal,
@@ -26,6 +28,7 @@ interface Props {
 const MAX_LINKED_TICKERS = 10
 
 export function TopicDetailModal({ item, onClose, onSaved, onDelete }: Props) {
+  const intl = useAppIntl()
   const [label, setLabel] = useState(item.label || item.value)
   const [note, setNote] = useState(item.note || '')
   const [muted, setMuted] = useState(item.monitor_news === false)
@@ -58,7 +61,7 @@ export function TopicDetailModal({ item, onClose, onSaved, onDelete }: Props) {
       })
       if (!res.ok) {
         if (res.status === 422) {
-          const detail = await errorDetail(res, 'Could not save — please try again.')
+          const detail = await errorDetail(res, intl.formatMessage({ id: 'intel.error.saveFailed', defaultMessage: 'Could not save — please try again.' }), intl)
           const { field, quoted } = watchlistFieldError(detail)
           if (field) {
             setAdvOpen(true)
@@ -70,13 +73,13 @@ export function TopicDetailModal({ item, onClose, onSaved, onDelete }: Props) {
             return
           }
         }
-        setGenericError('Could not save — please try again.')
+        setGenericError(intl.formatMessage({ id: 'intel.error.saveFailed', defaultMessage: 'Could not save — please try again.' }))
         return
       }
       onSaved()
       onClose()
     } catch {
-      setGenericError('Could not save — please try again.')
+      setGenericError(intl.formatMessage({ id: 'intel.error.saveFailed', defaultMessage: 'Could not save — please try again.' }))
     } finally {
       setSaving(false)
     }
@@ -91,7 +94,7 @@ export function TopicDetailModal({ item, onClose, onSaved, onDelete }: Props) {
       size="lg"
       title={
         <span className="intel-td-title">
-          <span className="intel-wlc-topic-tag">topic</span>
+          <span className="intel-wlc-topic-tag">{<FormattedMessage id="intel.static.topic_9d40de1b" defaultMessage={"topic"} />}</span>
           {item.added_by === 'ai' && (
             <span className="intel-wlc-row-badge intel-wlc-row-badge--ai">AI</span>
           )}
@@ -100,81 +103,81 @@ export function TopicDetailModal({ item, onClose, onSaved, onDelete }: Props) {
       footer={
         <div className="intel-pa-footer">
           <Button variant="ghost" className="intel-pa-remove" onClick={onDelete}>
-            Delete topic
+            {<FormattedMessage id="intel.extra.19468097" defaultMessage={"Delete topic"} />}
           </Button>
           {genericError && <div className="intel-wlc-add-err">{genericError}</div>}
           <div className="intel-pa-footer-right">
             <Button variant="ghost" onClick={onClose}>
-              Cancel
+              {intl.formatMessage({ id: 'intel.topic.cancel', defaultMessage: 'Cancel' })}
             </Button>
             <Button variant="primary" onClick={() => void save()} loading={saving}>
-              Save
+              {intl.formatMessage({ id: 'intel.topic.save', defaultMessage: 'Save' })}
             </Button>
           </div>
         </div>
       }
     >
       <p className="intel-pa-intro">
-        Lucius scans news for this and flags matches in your brief &amp; notifications.
+        {intl.formatMessage({ id: 'intel.topic.intro', defaultMessage: 'Lucius scans news for this and flags matches in your brief & notifications.' })}
       </p>
 
       <div className="intel-pa-mute">
         <div className="intel-pa-mute-body">
           <div className={`intel-pa-mute-title${muted ? ' intel-pa-mute-title--muted' : ''}`}>
-            {muted ? 'Muted' : 'Scanning on'}
+            {muted ? intl.formatMessage({ id: 'intel.topic.muted', defaultMessage: 'Muted' }) : intl.formatMessage({ id: 'intel.topic.scanning', defaultMessage: 'Scanning on' })}
           </div>
           <div className="intel-pa-mute-sub">
             {muted
-              ? "Paused — Lucius won't flag matches for this topic."
-              : 'Mute to stop flagging this topic without deleting it.'}
+              ? intl.formatMessage({ id: 'intel.topic.paused', defaultMessage: "Paused — Lucius won't flag matches for this topic." })
+              : intl.formatMessage({ id: 'intel.topic.muteHelp', defaultMessage: 'Mute to stop flagging this topic without deleting it.' })}
           </div>
         </div>
-        <Switch checked={muted} onChange={(e) => setMuted(e.target.checked)} label="Mute topic" />
+        <Switch checked={muted} onChange={(e) => setMuted(e.target.checked)} label={intl.formatMessage({ id: "intel.field.9fa0b2e4", defaultMessage: "Mute topic" })} />
       </div>
 
       <div className="intel-td-field">
-        <div className="intel-pa-instr-label">Topic name</div>
+        <div className="intel-pa-instr-label">{<FormattedMessage id="intel.static.topic_name_52176b7d" defaultMessage={"Topic name"} />}</div>
         <TextField
           value={label}
           onChange={(e) => setLabel(e.target.value)}
-          placeholder="Topic name"
+          placeholder={intl.formatMessage({ id: "intel.field.52176b7d", defaultMessage: "Topic name" })}
         />
       </div>
 
       <div className="intel-td-field">
         <div className="intel-pa-instr-head">
-          <span className="intel-pa-instr-label">Instructions for Lucius</span>
+          <span className="intel-pa-instr-label">{<FormattedMessage id="intel.static.instructions_for_lucius_b035e6bb" defaultMessage={"Instructions for Lucius"} />}</span>
           <LuciusDraftLink
-            label={note.trim() ? 'Rewrite' : 'Draft from topic name'}
-            onDraft={() => setNote(luciusDraftTopicInstruction(label))}
+            label={note.trim() ? intl.formatMessage({ id: 'intel.topic.rewrite', defaultMessage: 'Rewrite' }) : intl.formatMessage({ id: 'intel.topic.draft', defaultMessage: 'Draft from topic name' })}
+            onDraft={() => setNote(luciusDraftTopicInstruction(label, intl))}
           />
         </div>
         <TextArea
           rows={5}
           value={note}
           onChange={(e) => setNote(e.target.value)}
-          placeholder="What should Lucius watch for and flag? e.g. escalation or ceasefire; gold safe-haven bid; oil spikes; risk-off equity moves — and what it means for my book."
+          placeholder={intl.formatMessage({ id: "intel.field.28d264b8", defaultMessage: "What should Lucius watch for and flag? e.g. escalation or ceasefire; gold safe-haven bid; oil spikes; risk-off equity moves — and what it means for my book." })}
         />
       </div>
 
       <div className="intel-td-field">
         <CollapsibleSection
-          title="Advanced: news sources"
+          title={intl.formatMessage({ id: "intel.field.e7500923", defaultMessage: "Advanced: news sources" })}
           defaultOpen={false}
           open={advOpen}
           onOpenChange={setAdvOpen}
           actions={badge ? <span className="intel-td-adv-count">{badge}</span> : undefined}
         >
           <FormField
-            label="Linked tickers"
+            label={intl.formatMessage({ id: "intel.field.d140f901", defaultMessage: "Linked tickers" })}
             htmlFor="topic-linked-tickers"
             error={linkedTickersError}
             help={
               linkedTickersError
                 ? undefined
                 : linkedTickers.length >= MAX_LINKED_TICKERS
-                  ? 'Maximum 10 tickers.'
-                  : "Get this topic's news from these tickers' fast feeds — minutes instead of hours. Up to 10."
+                  ? intl.formatMessage({ id: 'intel.topic.maxTickers', defaultMessage: 'Maximum 10 tickers.' })
+                  : intl.formatMessage({ id: 'intel.topic.linkHelp', defaultMessage: "Get this topic's news from these tickers' fast feeds — minutes instead of hours. Up to 10." })
             }
           >
             <TagInput
@@ -182,7 +185,7 @@ export function TopicDetailModal({ item, onClose, onSaved, onDelete }: Props) {
               value={linkedTickers}
               onChange={setLinkedTickers}
               max={MAX_LINKED_TICKERS}
-              placeholder="e.g. AAPL"
+              placeholder={intl.formatMessage({ id: "intel.field.39561148", defaultMessage: "e.g. AAPL" })}
             />
           </FormField>
 

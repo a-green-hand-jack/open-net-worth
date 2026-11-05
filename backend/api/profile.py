@@ -5,8 +5,10 @@ not on the profile; the legacy free-text ``profile.goals[]`` was retired in P2-G
 
 from __future__ import annotations
 
+import json
 import logging
 import re
+from pathlib import Path
 from typing import Dict, List, Optional
 
 from fastapi import APIRouter, HTTPException
@@ -15,6 +17,15 @@ from pydantic import BaseModel, Field, field_validator
 from backend.core.errors import ValidationError
 from backend.models.profile import DEFAULT_BRIEFING_FOCUS
 from backend.services.countries import COUNTRY_CODE_SET
+
+_INTERFACE_LOCALES = {
+    entry["id"]
+    for entry in json.loads(
+        (Path(__file__).resolve().parents[1] / "core/interface_locales.json").read_text(
+            encoding="utf-8"
+        )
+    )
+}
 
 logger = logging.getLogger(__name__)
 
@@ -104,6 +115,7 @@ DEFAULT_PROFILE = {
     # browser locale", which is what every screen did before these existed.
     "date_format": None,  # dmy | mdy | iso
     "number_format": None,  # comma | space | dot
+    "language": None,  # None follows the browser
     "week_start": None,  # mon | sun
     # Which sections the daily briefing may include + an optional free-text focus the user gives
     # Lucius. Section flags are advisory toggles consumed by backend/api/briefing.py.
@@ -137,7 +149,7 @@ def _blank_to_none(v):
     return v
 
 
-_CLEARABLE_DISPLAY_FIELDS = frozenset({"date_format", "number_format", "week_start"})
+_CLEARABLE_DISPLAY_FIELDS = frozenset({"date_format", "number_format", "week_start", "language"})
 
 
 class Liability(BaseModel):
@@ -194,6 +206,7 @@ class ProfileBody(BaseModel):
     # Display formats — presentational only, never applied to a stored value.
     date_format: Optional[str] = None
     number_format: Optional[str] = None
+    language: Optional[str] = None
     week_start: Optional[str] = None
     # Human-only UI state — which feature intros this user has already seen (e.g. "assets").
     # Server-side so an intro shown on one device never repeats on another.
@@ -219,6 +232,7 @@ class ProfileBody(BaseModel):
         "import_review_default",
         "date_format",
         "number_format",
+        "language",
         "week_start",
         mode="before",
     )
@@ -254,6 +268,13 @@ class ProfileBody(BaseModel):
     def validate_week_start(cls, v):
         if v is not None and v not in ("mon", "sun"):
             raise ValueError("week_start must be mon or sun")
+        return v
+
+    @field_validator("language")
+    @classmethod
+    def validate_language(cls, v):
+        if v is not None and v not in _INTERFACE_LOCALES:
+            raise ValueError("language must be one of " + ", ".join(sorted(_INTERFACE_LOCALES)))
         return v
 
     @field_validator("target_allocation")

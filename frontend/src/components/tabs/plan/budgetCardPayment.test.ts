@@ -13,42 +13,41 @@ describe('cardPaymentStatus', () => {
       card({ paymentOwed: 500, availableForPayment: 100, paymentUnderfunded: 40 }),
     )
     expect(s.tone).toBe('warn')
-    expect(s.title).toBe('Underfunded')
-    expect(s.text).toContain('more needed for this bill')
+    expect(s.kind).toBe('underfunded')
+    expect(s.toAssign).toBe(40)
   })
   it('spending covered but the balance not fully set aside', () => {
     const s = cardPaymentStatus(
       card({ paymentOwed: 5351.52, availableForPayment: 5.5, paymentUnderfunded: 0 }),
     )
-    expect(s.title).toBe('Spending covered')
+    expect(s.kind).toBe('covered')
+    expect(s.balanceGap).toBe(5346.02)
   })
   it('the whole balance set aside → Funded; nothing owed → Nothing owed', () => {
     expect(
       cardPaymentStatus(card({ paymentOwed: 200, availableForPayment: 200, paymentUnderfunded: 0 }))
-        .title,
-    ).toBe('Funded')
+        .kind,
+    ).toBe('funded')
     expect(
       cardPaymentStatus(card({ paymentOwed: 0, availableForPayment: 0, paymentUnderfunded: 0 }))
-        .title,
-    ).toBe('Nothing owed')
+        .kind,
+    ).toBe('nothingOwed')
   })
   it('underfunded offers to assign the shortfall and explains why', () => {
     const s = cardPaymentStatus(
       card({ paymentOwed: 2000, availableForPayment: 800, paymentUnderfunded: 1200 }),
     )
     expect(s.toAssign).toBe(1200)
-    expect(s.why).toContain('before your budget started')
+    expect(s.kind).toBe('underfunded')
   })
   it('paid past what was set aside: covering it means the whole balance plus the hole', () => {
     // Owes 1,300, payment row at -100 → 1,400 covers both; 100 only clears the red.
     const s = cardPaymentStatus(
       card({ paymentOwed: 1300, availableForPayment: -100, paymentUnderfunded: 1300 }),
     )
-    expect(s.title).toBe('Paid more than set aside')
+    expect(s.kind).toBe('overpaid')
     expect(s.toAssign).toBe(1400)
     expect(s.clearRed).toBe(100)
-    expect(s.text).toContain('covers both')
-    expect(s.why).toContain('next month')
   })
   it('funded or nothing owed offers nothing to assign', () => {
     expect(

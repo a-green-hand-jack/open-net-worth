@@ -1,3 +1,5 @@
+import { vaultError } from './vaultErrors'
+import { useAppIntl } from '../../i18n/useAppIntl'
 import { useRef, useState } from 'react'
 import { setVaultNote, type VaultItem } from '../../api/vault'
 import { useCaretAtEnd } from '../../hooks/useCaretAtEnd'
@@ -10,6 +12,7 @@ const MAX_NOTE = 1000 // services/vault.py MAX_NOTE
 
 /** One note per item, in the user's own words. Saving it empty removes it. */
 export function NoteDialog({ item, onClose }: { item: VaultItem; onClose: () => void }) {
+  const vaultIntl = useAppIntl()
   const [text, setText] = useState(item.note ?? '')
   const [saving, setSaving] = useState<'save' | 'remove' | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -27,7 +30,7 @@ export function NoteDialog({ item, onClose }: { item: VaultItem; onClose: () => 
       refreshVault()
       onClose()
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e))
+      setError(vaultError(e, vaultIntl))
       setSaving(null)
       busy.current = false
     }
@@ -37,7 +40,7 @@ export function NoteDialog({ item, onClose }: { item: VaultItem; onClose: () => 
     <Modal
       open
       onClose={onClose}
-      title={item.note ? 'Edit note' : 'Add a note'}
+      title={item.note ? vaultIntl.formatMessage({ id: "vault.ui.299e604ccff3", defaultMessage: "Edit note" }) : vaultIntl.formatMessage({ id: "vault.ui.322c0e13ef4f", defaultMessage: "Add a note" })}
       size="sm"
       footer={
         <div className="ui-confirm-actions">
@@ -50,11 +53,11 @@ export function NoteDialog({ item, onClose }: { item: VaultItem; onClose: () => 
               disabled={saving === 'save'}
               onClick={() => void write(null, 'remove')}
             >
-              Remove
+              {vaultIntl.formatMessage({ id: "vault.ui.c3812fc4acb8", defaultMessage: "Remove" })}
             </Button>
           )}
           <Button size="sm" variant="ghost" onClick={onClose}>
-            Cancel
+            {vaultIntl.formatMessage({ id: "vault.ui.19766ed6ccb2", defaultMessage: "Cancel" })}
           </Button>
           <Button
             size="sm"
@@ -63,18 +66,18 @@ export function NoteDialog({ item, onClose }: { item: VaultItem; onClose: () => 
             disabled={saving === 'remove'}
             onClick={save}
           >
-            Save
+            {vaultIntl.formatMessage({ id: "vault.ui.1509f561f241", defaultMessage: "Save" })}
           </Button>
         </div>
       }
     >
       <div className="vault-rename">
         <TextArea
-          aria-label="Note"
+          aria-label={vaultIntl.formatMessage({ id: "vault.ui.d8da2c49df39", defaultMessage: "Note" })}
           rows={5}
           value={text}
           maxLength={MAX_NOTE}
-          placeholder="e.g. Signed copy. The original is in the safe."
+          placeholder={vaultIntl.formatMessage({ id: "vault.ui.9d242aa37297", defaultMessage: "e.g. Signed copy. The original is in the safe." })}
           data-autofocus
           onFocus={caretAtEnd}
           onChange={(e) => setText(e.target.value)}
@@ -84,8 +87,8 @@ export function NoteDialog({ item, onClose }: { item: VaultItem; onClose: () => 
         />
         <p className="vault-rename-help">
           {item.private
-            ? 'Lucius can read this note. Private hides only what’s in the file.'
-            : 'Lucius reads your note when you ask about this file.'}
+            ? vaultIntl.formatMessage({ id: "vault.ui.e148ee4b78ce", defaultMessage: "Lucius can read this note. Private hides only what’s in the file." })
+            : vaultIntl.formatMessage({ id: "vault.ui.ddbaa3e2609a", defaultMessage: "Lucius reads your note when you ask about this file." })}
         </p>
         {error && <p className="vault-error">{error}</p>}
       </div>

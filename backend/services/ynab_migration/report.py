@@ -85,10 +85,14 @@ def starter_line(removed: Counter) -> str:
 
 def problem(raw: dict) -> dict:
     """``raw`` is what ``apply`` collected: ``{ref, reason, kind}``."""
+    kind = raw.get("kind", "")
     return {
         "item": raw["ref"],
         "reason": raw.get("reason") or "",
-        "hint": _HINTS.get(raw.get("kind", ""), ""),
+        "hint": _HINTS.get(kind, ""),
+        "hint_message": {"message_id": f"ynab.import.hint.{kind}", "params": {}}
+        if kind in _HINTS
+        else None,
     }
 
 
@@ -97,11 +101,16 @@ def _check(row: dict) -> dict:
     numeric = all(isinstance(v, (int, float)) for v in (expected, actual))
     return {
         "check": row["label"],
+        "check_message": row.get("label_message"),
         "unit": row.get("unit", "money") if numeric else "text",
         "ynab_value": expected,
+        "ynab_value_message": row.get("expected_message"),
         "onw_value": actual,
+        "onw_value_message": row.get("actual_message"),
         "difference": round(actual - expected, 2) if numeric else None,
         "note": row.get("note") or "",
+        "note_message": row.get("note_message"),
+        "note_details": row.get("note_details"),
     }
 
 
@@ -136,3 +145,43 @@ def outcome(kind: str, run: dict) -> str:
         )
     made = f"{counts['accounts']['created']} accounts, {counts['transactions']['created']} transactions"
     return f"Created {made}; {check}" if check else f"Created {made}"
+
+
+def outcome_message(kind: str, run: dict) -> dict | None:
+    ver, preview, counts = run["verification"], run["preview"], run["counts"]
+    if kind == "verify":
+        return (
+            None
+            if ver is None
+            else {
+                "message_id": "ynab.import.outcome.verify",
+                "params": {
+                    "matching": str(ver["checks_matching"]),
+                    "total": str(ver["checks_total"]),
+                },
+            }
+        )
+    if kind == "preview":
+        return (
+            None
+            if preview is None
+            else {
+                "message_id": "ynab.import.outcome.preview",
+                "params": {
+                    "accounts": str(len(preview["accounts"])),
+                    "transactions": str(preview["transactions"]),
+                },
+            }
+        )
+    params = {
+        "accounts": str(counts["accounts"]["created"]),
+        "transactions": str(counts["transactions"]["created"]),
+    }
+    if ver is not None:
+        params.update({"matching": str(ver["checks_matching"]), "total": str(ver["checks_total"])})
+    return {
+        "message_id": "ynab.import.outcome.createdVerified"
+        if ver is not None
+        else "ynab.import.outcome.created",
+        "params": params,
+    }

@@ -197,7 +197,10 @@ def test_stop_never_hides_unreconciled_live_fill_booking():
     assert stopped["state"] == "needs_reconciliation"
     reconciled = asyncio.run(trading.reconcile_run(run["id"]))
     assert reconciled["state"] == "needs_reconciliation"
-    assert trading.list_fills(run["id"])["items"][0]["book_status"] == "needs_reconciliation"
+    fill = trading.list_fills(run["id"])["items"][0]
+    assert fill["book_status"] == "needs_reconciliation"
+    assert fill["book_error_message"]["id"] == "trading.error.book_account_mismatch"
+    assert fill["book_error_message"]["default_message"] == "ConflictError"
 
 
 def test_resume_rejects_unowned_broker_order_even_when_cash_is_unchanged():

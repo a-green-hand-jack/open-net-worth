@@ -13,6 +13,7 @@
 // PRIMARY action alone on its own row (the only genuinely AI-powered path — "Draft a proposal"
 // runs a deterministic backend heuristic, since services/ must not call the model directly),
 // with the two manual paths together beneath it as the fallback.
+import { useAppIntl } from '../../../../i18n/useAppIntl'
 import { Button, Loading } from '../../../ui'
 import { Spark } from '../../../../lucius/identity'
 import { MethodExplainer } from './MethodExplainer'
@@ -40,12 +41,34 @@ export function GenericEngineSetup({
   onStartBlank,
   onAskLucius,
 }: GenericEngineSetupProps) {
-  if (drafting) return <Loading label={`Drafting your ${descriptor.name} setup…`} />
+  const { formatMessage } = useAppIntl()
+  const name =
+    descriptor.id === 'zero_based'
+      ? formatMessage({ id: 'plan.zeroBased', defaultMessage: 'Zero-Based' })
+      : descriptor.name
+  if (drafting)
+    return (
+      <Loading
+        label={formatMessage(
+          { id: 'plan.draftingSetup', defaultMessage: 'Drafting your {name} setup…' },
+          { name },
+        )}
+      />
+    )
   return (
     <div className="bgl-setup">
       <div className="bgl-setup__head">
-        <h2 className="bgl-setup__title">Set up {descriptor.name}</h2>
-        <p className="bgl-setup__sub">{descriptor.description}</p>
+        <h2 className="bgl-setup__title">
+          {formatMessage({ id: 'plan.setupNamed', defaultMessage: 'Set up {name}' }, { name })}
+        </h2>
+        <p className="bgl-setup__sub">
+          {descriptor.id === 'zero_based'
+            ? formatMessage({
+                id: 'plan.zeroBasedDescription',
+                defaultMessage: "Give every dollar a job until nothing's left unassigned.",
+              })
+            : descriptor.description}
+        </p>
       </div>
 
       {/* The best teaching moment in the feature: the user picked this method and nothing else on
@@ -62,21 +85,30 @@ export function GenericEngineSetup({
             iconLeft={<Spark size={15} ariaHidden />}
             onClick={() =>
               onAskLucius(
-                `Help me set up the ${descriptor.name} budget lens — look at my spending ` +
-                  `history, propose a setup, and explain why you chose it.`,
+                formatMessage(
+                  {
+                    id: 'plan.generic.askLucius',
+                    defaultMessage:
+                      'Help me set up the {name} budget lens — look at my spending history, propose a setup, and explain why you chose it.',
+                  },
+                  { name },
+                ),
               )
             }
           >
-            Set up with Lucius
+            {formatMessage({ id: 'plan.setupLucius', defaultMessage: 'Set up with Lucius' })}
           </Button>
         )}
         {canSetUp && (
           <div className="bgl-setup__actions">
             <Button variant="secondary" size="dense" onClick={onDraft}>
-              Suggest from my spending
+              {formatMessage({
+                id: 'plan.suggestSpending',
+                defaultMessage: 'Suggest from my spending',
+              })}
             </Button>
             <Button variant="secondary" size="dense" onClick={onStartBlank}>
-              Set up manually
+              {formatMessage({ id: 'plan.setupManually', defaultMessage: 'Set up manually' })}
             </Button>
           </div>
         )}

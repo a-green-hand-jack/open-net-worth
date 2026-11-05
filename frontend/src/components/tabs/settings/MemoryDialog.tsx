@@ -12,8 +12,10 @@ import { Btn, Modal } from './ds'
 import type { Toast } from './ds'
 import { ForgetConfirm } from './MemoryParts'
 import { MemoryBrowser } from './MemoryBrowser'
+import { useAppIntl } from '../../../i18n/useAppIntl'
 
 export function MemoryDialog({ onClose, toast }: { onClose: () => void; toast: Toast }) {
+  const { formatMessage } = useAppIntl()
   const { facts, forgetAll } = useMemoryFacts(toast)
   const settings = useCachedFetchState(MEMORY_SETTINGS_KEY, getMemorySettings, { staleTime: 0 })
   const off = settings.data?.enabled === false
@@ -31,7 +33,7 @@ export function MemoryDialog({ onClose, toast }: { onClose: () => void; toast: T
   return (
     <>
       <Modal
-        title="Stored memories"
+        title={formatMessage({ id: 'memoryDialog.title', defaultMessage: 'Stored memories' })}
         size="lg"
         // A fixed height: sized to its content, the dialog shrank with every keystroke of a
         // search and all but vanished on a phone when nothing matched.
@@ -46,10 +48,15 @@ export function MemoryDialog({ onClose, toast }: { onClose: () => void; toast: T
                 disabled={!facts.length}
                 onClick={() => setForgetEverything(true)}
               >
-                Forget everything
+                {formatMessage({
+                  id: 'memoryDialog.forgetAll',
+                  defaultMessage: 'Forget everything',
+                })}
               </Btn>
             )}
-            <Btn onClick={onClose}>Done</Btn>
+            <Btn onClick={onClose}>
+              {formatMessage({ id: 'memoryDialog.done', defaultMessage: 'Done' })}
+            </Btn>
           </div>
         }
       >
@@ -63,16 +70,28 @@ export function MemoryDialog({ onClose, toast }: { onClose: () => void; toast: T
             <div className="rd-mem-head">
               <span className="rd-help">
                 {off
-                  ? 'Memory is off — Lucius is not learning new facts or using these. Turn it on in ' +
-                    'Settings → Memory.'
-                  : 'Durable facts Lucius carries between conversations. Editing or forgetting one takes ' +
-                    'effect on the next turn.'}
+                  ? formatMessage({
+                      id: 'memoryDialog.off',
+                      defaultMessage:
+                        'Memory is off — Lucius is not learning new facts or using these. Turn it on in Settings → Memory.',
+                    })
+                  : formatMessage({
+                      id: 'memoryDialog.description',
+                      defaultMessage:
+                        'Durable facts Lucius carries between conversations. Editing or forgetting one takes effect on the next turn.',
+                    })}
               </span>
               <input
                 className="rd-input"
                 value={q}
-                placeholder="Search memories…"
-                aria-label="Search memories"
+                placeholder={formatMessage({
+                  id: 'memoryDialog.searchPlaceholder',
+                  defaultMessage: 'Search memories…',
+                })}
+                aria-label={formatMessage({
+                  id: 'memoryDialog.search',
+                  defaultMessage: 'Search memories',
+                })}
                 onChange={(e) => setQ(e.target.value)}
               />
             </div>

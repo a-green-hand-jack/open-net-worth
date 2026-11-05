@@ -1,3 +1,6 @@
+import { IntlProvider } from 'react-intl'
+import { setDisplayFormats } from '../../../utils/format'
+import messages from './zh-CN.messages.json'
 // @vitest-environment jsdom
 
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
@@ -47,4 +50,16 @@ it('describes a modern release without claiming cash income was recorded at vest
   fireEvent.click(screen.getByRole('button', { name: 'Confirm release' }))
   expect(await screen.findByText(/No cash transaction was written/)).toBeTruthy()
   expect(screen.queryByText(/income was already recorded at vest/)).toBeNull()
+})
+
+
+it('renders Chinese release terms and profile number formatting without altering the symbol', () => {
+  setDisplayFormats({ number_format: 'dot' })
+  try {
+    render(<IntlProvider locale="zh-CN" messages={{ ...messages, 'common.close': '关闭' }}><MarkReleasedModal item={{ ...item, units: 1234.5, symbol: 'USER-TICKER' }} onClose={vi.fn()} onDone={vi.fn()} /></IntlProvider>)
+    expect(screen.getByText(/USER-TICKER/)).toBeTruthy()
+    expect(screen.getByText(/1.234,5/)).toBeTruthy()
+    expect(screen.getByText(/资金不发生变化/)).toBeTruthy()
+    expect(screen.getByRole('button', { name: '确认释放' })).toBeTruthy()
+  } finally { setDisplayFormats({ number_format: null }) }
 })

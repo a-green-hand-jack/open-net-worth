@@ -1,3 +1,6 @@
+import type { IntlShape } from 'react-intl'
+import { useAppIntl } from '../../../../i18n/useAppIntl'
+import { FormattedMessage } from '../FormattedMessage'
 import type { DisposalConsumption, ProposedChange } from '../../../../types/chat'
 import { fAmountNative, fBase, fCurrency, fDate, fQty, plClass } from '../../../../utils/format'
 import {
@@ -13,6 +16,7 @@ import {
  * per-lot breakdown a tap away — its term mix stays in the summary line, since short vs
  * long is the tax fact a user approves on. */
 export function DisposalPreview({ change }: { change: ProposedChange }) {
+  const intl = useAppIntl()
   const d = change.display || {}
   const ccy = d.proceeds_currency || ''
   const transfer = d.is_taxable === false
@@ -35,39 +39,39 @@ export function DisposalPreview({ change }: { change: ProposedChange }) {
     <>
       <ApprovalLead figure={!transfer && total != null ? fCurrency(total, ccy) : undefined}>
         {transfer
-          ? `${movedTo ? 'Move' : 'Transfer out'} ${fQty(qty)}${movedTo ? ` → ${movedTo}` : ''}`
-          : `Sell ${fQty(qty)} @ ${fCurrency(perUnit ?? 0, ccy)}`}
+          ? movedTo ? intl.formatMessage({ id: 'chat.approval.moveTo', defaultMessage: 'Move {quantity} → {account}' }, { quantity: fQty(qty), account: movedTo }) : intl.formatMessage({ id: 'chat.approval.transferOut', defaultMessage: 'Transfer out {quantity}' }, { quantity: fQty(qty) })
+          : intl.formatMessage({ id: 'chat.approval.sellAt', defaultMessage: 'Sell {quantity} @ {price}' }, { quantity: fQty(qty), price: fCurrency(perUnit ?? 0, ccy) })}
       </ApprovalLead>
       <ApprovalMeta
         items={[
           disposedAt && fDate(disposedAt, 'short', 'always'),
-          d.method === 'specific_id' ? 'Specific lots' : 'FIFO',
-          fees > 0 && `${fCurrency(fees, ccy)} fees`,
-          transfer && 'basis carries over, no gain',
+          d.method === 'specific_id' ? intl.formatMessage({ id: 'chat.approval.specificLots', defaultMessage: 'Specific lots' }) : 'FIFO',
+          fees > 0 && intl.formatMessage({ id: 'chat.approval.fees', defaultMessage: '{amount} fees' }, { amount: fCurrency(fees, ccy) }),
+          transfer && intl.formatMessage({ id: 'chat.approval.basisCarries', defaultMessage: 'basis carries over, no gain' }),
         ]}
       />
 
       {!transfer && (
         <ApprovalFacts>
           <ApprovalFact
-            label="Realized gain"
+            label={<FormattedMessage id="chat.approval.field.realized_gain" defaultMessage="Realized gain" />}
             tone={gain == null ? 'muted' : gain >= 0 ? 'good' : 'bad'}
           >
             {gain == null
-              ? 'unknown — no cost basis'
+              ? intl.formatMessage({ id: 'chat.approval.unknownGain', defaultMessage: 'unknown — no cost basis' })
               : (gain >= 0 ? '+' : '') + fCurrency(gain, ccy)}
             {gain != null && showBase && ` (${(gainBase >= 0 ? '+' : '') + fBase(gainBase)})`}
           </ApprovalFact>
           <ApprovalFact
-            label="Cash"
+            label={<FormattedMessage id="chat.approval.field.cash" defaultMessage="Cash" />}
             tone={d.proceeds_account_name ? undefined : 'warn'}
             title={
               d.proceeds_account_name || total == null
                 ? undefined
-                : `No cash account named. Fine if the money is already in an account; otherwise net worth drops ${fCurrency(total - fees, ccy)}.`
+                : intl.formatMessage({ id: 'chat.approval.noCashInHint', defaultMessage: 'No cash account named. Fine if the money is already in an account; otherwise net worth drops {amount}.' }, { amount: fCurrency(total - fees, ccy) })
             }
           >
-            {d.proceeds_account_name || 'not booked'}
+            {d.proceeds_account_name || intl.formatMessage({ id: 'chat.approval.notBooked', defaultMessage: 'not booked' })}
           </ApprovalFact>
         </ApprovalFacts>
       )}
@@ -77,17 +81,18 @@ export function DisposalPreview({ change }: { change: ProposedChange }) {
   )
 }
 
-function termSummary(consumptions: DisposalConsumption[]): string {
+function termSummary(consumptions: DisposalConsumption[], intl: IntlShape): string {
   const n = consumptions.length
-  const lots = `${n} lot${n === 1 ? '' : 's'}`
+  const lots = intl.formatMessage({ id: 'chat.approval.lots', defaultMessage: '{count, plural, one {# lot} other {# lots}}' }, { count: n })
   const count = (t: string) => consumptions.filter((c) => (c.term || 'unknown') === t).length
   const known = (['long', 'short'] as const).filter((t) => count(t) > 0)
   if (known.length === 0) return lots
+  const term = (t: 'long' | 'short') => t === 'long' ? intl.formatMessage({ id: 'chat.approval.longTerm', defaultMessage: 'long-term' }) : intl.formatMessage({ id: 'chat.approval.shortTerm', defaultMessage: 'short-term' })
   const only = known[0]
   if (known.length === 1 && only && count(only) === n) {
-    return `${lots} · ${n === 1 ? '' : 'all '}${only}-term`
+    return intl.formatMessage({ id: 'chat.approval.lotsSameTerm', defaultMessage: '{lots} · {prefix}{term}' }, { lots, prefix: n === 1 ? '' : intl.formatMessage({ id: 'chat.approval.allPrefix', defaultMessage: 'all ' }), term: term(only) })
   }
-  return `${lots} · ${known.map((t) => `${count(t)} ${t}-term`).join(', ')}`
+  return `${lots} · ${known.map((t) => `${count(t)} ${term(t)}`).join(', ')}`
 }
 
 function LotsConsumed({
@@ -99,17 +104,18 @@ function LotsConsumed({
   ccy: string
   transfer: boolean
 }) {
+  const intl = useAppIntl()
   if (consumptions.length === 0) return null
   return (
-    <ApprovalDetails summary={termSummary(consumptions)}>
+    <ApprovalDetails summary={termSummary(consumptions, intl)}>
       <table>
         <thead>
           <tr>
-            <th>Acquired</th>
-            <th>Qty</th>
-            <th>Cost</th>
-            <th>Term</th>
-            {!transfer && <th>Gain{ccy ? ` (${ccy})` : ''}</th>}
+            <th>{<FormattedMessage id="chat.approval.field.acquired" defaultMessage="Acquired" />}</th>
+            <th>{<FormattedMessage id="chat.approval.field.qty" defaultMessage="Qty" />}</th>
+            <th>{<FormattedMessage id="chat.approval.field.cost" defaultMessage="Cost" />}</th>
+            <th>{<FormattedMessage id="chat.approval.field.term" defaultMessage="Term" />}</th>
+            {!transfer && <th>{intl.formatMessage({ id: 'chat.approval.gain', defaultMessage: 'Gain' })}{ccy ? ` (${ccy})` : ''}</th>}
           </tr>
         </thead>
         <tbody>
@@ -122,7 +128,7 @@ function LotsConsumed({
               </td>
               <td>
                 <span className={`term-badge term-${c.term || 'unknown'}`}>
-                  {c.term || 'unknown'}
+                  {c.term === 'long' ? intl.formatMessage({ id: 'chat.approval.termLong', defaultMessage: 'long' }) : c.term === 'short' ? intl.formatMessage({ id: 'chat.approval.termShort', defaultMessage: 'short' }) : c.term || intl.formatMessage({ id: 'chat.approval.unknown', defaultMessage: 'unknown' })}
                 </span>
               </td>
               {!transfer && (

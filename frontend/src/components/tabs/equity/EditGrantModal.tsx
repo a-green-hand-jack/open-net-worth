@@ -1,3 +1,5 @@
+import { equityError } from './equityErrors'
+import { useAppIntl } from '../../../i18n/useAppIntl'
 import { useEffect, useState } from 'react'
 import type { Grant, GrantUpdate, TaxEvent } from '../../../types/equity'
 import { Modal, FormField, TextField, Select, Stack, Cluster, Button, ErrorState } from '../../ui'
@@ -23,6 +25,7 @@ const NEW_ACCOUNT_SENTINEL = '__new__'
  *  fixed at create time). Mirrors AddGrantModal's Advanced-section fields — everything
  *  the PATCH /api/equity/grants/{id} choke accepts. */
 export function EditGrantModal({ grant, onClose, onDone }: Props) {
+  const intl = useAppIntl()
   const [grantDate, setGrantDate] = useState(grant.grant_date)
   const [grantPricePerUnit, setGrantPricePerUnit] = useState<number | null>(
     grant.grant_price_per_unit,
@@ -85,11 +88,11 @@ export function EditGrantModal({ grant, onClose, onDone }: Props) {
       })
       if (!res.ok) {
         const detail = await res.json().catch(() => ({}))
-        throw new Error((detail as { detail?: string }).detail || `HTTP ${res.status}`)
+        throw new Error(equityError(intl, detail, (detail as { detail?: string }).detail || `HTTP ${res.status}`))
       }
       onDone()
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to save grant.')
+      setError(err instanceof Error ? err.message : intl.formatMessage({ id: 'equity.saveFailed', defaultMessage: "Failed to save grant." }))
       setSubmitting(false)
     }
   }
@@ -97,18 +100,18 @@ export function EditGrantModal({ grant, onClose, onDone }: Props) {
   const footer = (
     <Cluster gap="--space-3" justify="between">
       <Button variant="secondary" onClick={onClose} disabled={submitting}>
-        Cancel
+        {intl.formatMessage({ id: 'equity.cancel', defaultMessage: 'Cancel' })}
       </Button>
       <Button variant="primary" onClick={handleSave} disabled={!isValid || submitting}>
-        {submitting ? 'Saving…' : 'Save changes'}
+        {submitting ? intl.formatMessage({ id: 'equity.saving', defaultMessage: 'Saving…' }) : intl.formatMessage({ id: 'equity.saveChanges', defaultMessage: "Save changes" })}
       </Button>
     </Cluster>
   )
 
   return (
-    <Modal open onClose={onClose} title={`Edit ${grant.symbol} grant`} size="lg" footer={footer}>
+    <Modal open onClose={onClose} title={intl.formatMessage({ id: 'equity.editTitle', defaultMessage: 'Edit {symbol} grant' }, { symbol: grant.symbol })} size="lg" footer={footer}>
       <Stack gap="--space-4">
-        <FormField label="Grant date" htmlFor="edit-grant-date" required>
+        <FormField label={intl.formatMessage({ id: 'equity.grantDate', defaultMessage: "Grant date" })} htmlFor="edit-grant-date" required>
           <TextField
             id="edit-grant-date"
             type="date"
@@ -118,9 +121,9 @@ export function EditGrantModal({ grant, onClose, onDone }: Props) {
         </FormField>
 
         <FormField
-          label="Price at grant (per unit)"
+          label={intl.formatMessage({ id: 'equity.grantPrice', defaultMessage: "Price at grant (per unit)" })}
           htmlFor="edit-grant-price-per-unit"
-          help="Optional — for reference and since-grant performance. Not used for tax."
+          help={intl.formatMessage({ id: 'equity.grantPriceHelp', defaultMessage: "Optional — for reference and since-grant performance. Not used for tax." })}
         >
           <TextField
             id="edit-grant-price-per-unit"
@@ -135,39 +138,39 @@ export function EditGrantModal({ grant, onClose, onDone }: Props) {
           />
         </FormField>
 
-        <FormField label="Tax event" htmlFor="edit-grant-tax-event" required>
+        <FormField label={intl.formatMessage({ id: 'equity.taxEvent', defaultMessage: "Tax event" })} htmlFor="edit-grant-tax-event" required>
           <Select
             id="edit-grant-tax-event"
             value={taxEvent}
             onChange={(e) => setTaxEvent(e.target.value as TaxEvent)}
             options={[
-              { value: 'at_vest', label: 'Tax at vest — Singapore / US / Germany' },
-              { value: 'deferred', label: 'Tax deferred — Vietnam and others' },
+              { value: 'at_vest', label: intl.formatMessage({ id: 'equity.taxAtVest', defaultMessage: "Tax at vest — Singapore / US / Germany" }) },
+              { value: 'deferred', label: intl.formatMessage({ id: 'equity.taxDeferred', defaultMessage: "Tax deferred — Vietnam and others" }) },
             ]}
           />
         </FormField>
 
         <FormField
-          label="Share delivery"
+          label={intl.formatMessage({ id: 'equity.shareDelivery', defaultMessage: "Share delivery" })}
           htmlFor="edit-grant-release-required"
-          help="Choose delayed when your plan hands the shares over some time AFTER the vest date — a broker settlement lag, a blackout window, or country delivery rules. Vested units then count in your net worth but stay unsellable until you mark them released. Only affects vests recorded AFTER this change — history already on the books is untouched."
+          help={intl.formatMessage({ id: 'equity.shareDeliveryHelp', defaultMessage: "Choose delayed when your plan hands the shares over some time AFTER the vest date — a broker settlement lag, a blackout window, or country delivery rules. Vested units then count in your net worth but stay unsellable until you mark them released. Only affects vests recorded AFTER this change — history already on the books is untouched." })}
         >
           <Select
             id="edit-grant-release-required"
             value={releaseRequired ? 'delayed' : 'at_vest'}
             onChange={(e) => setReleaseRequired(e.target.value === 'delayed')}
             options={[
-              { value: 'at_vest', label: 'Sellable at vest — the usual case' },
-              { value: 'delayed', label: 'Delivered later — released after vest' },
+              { value: 'at_vest', label: intl.formatMessage({ id: 'equity.sellableAtVest', defaultMessage: "Sellable at vest — the usual case" }) },
+              { value: 'delayed', label: intl.formatMessage({ id: 'equity.deliveredLater', defaultMessage: "Delivered later — released after vest" }) },
             ]}
           />
         </FormField>
 
         <FormField
-          label="Account"
+          label={intl.formatMessage({ id: 'equity.account', defaultMessage: "Account" })}
           htmlFor="edit-grant-account"
           required
-          help="Custodian or brokerage account where unvested units and vest transactions are tracked."
+          help={intl.formatMessage({ id: 'equity.accountHelp', defaultMessage: "Custodian or brokerage account where unvested units and vest transactions are tracked." })}
         >
           <Select
             id="edit-grant-account"
@@ -177,15 +180,15 @@ export function EditGrantModal({ grant, onClose, onDone }: Props) {
               if (e.target.value !== NEW_ACCOUNT_SENTINEL) setNewAccountName('')
             }}
             options={[
-              { value: '', label: 'Select an account…' },
+              { value: '', label: intl.formatMessage({ id: 'equity.selectAccount', defaultMessage: "Select an account…" }) },
               ...accounts.map((a) => ({ value: a.id, label: a.name })),
-              { value: NEW_ACCOUNT_SENTINEL, label: '+ New account…' },
+              { value: NEW_ACCOUNT_SENTINEL, label: intl.formatMessage({ id: 'equity.newAccount', defaultMessage: "+ New account…" }) },
             ]}
           />
           {accountId === NEW_ACCOUNT_SENTINEL && (
             <TextField
               id="edit-grant-new-account-name"
-              placeholder="Account name (e.g. JP Morgan)"
+              placeholder={intl.formatMessage({ id: 'equity.accountName', defaultMessage: "Account name (e.g. JP Morgan)" })}
               value={newAccountName}
               onChange={(e) => setNewAccountName(e.target.value)}
               style={{ marginTop: 'var(--space-2)' }}
@@ -193,7 +196,7 @@ export function EditGrantModal({ grant, onClose, onDone }: Props) {
           )}
         </FormField>
 
-        <FormField label="Note" htmlFor="edit-grant-note">
+        <FormField label={intl.formatMessage({ id: 'equity.note', defaultMessage: "Note" })} htmlFor="edit-grant-note">
           <TextField id="edit-grant-note" value={note} onChange={(e) => setNote(e.target.value)} />
         </FormField>
 

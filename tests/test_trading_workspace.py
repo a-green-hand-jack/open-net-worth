@@ -230,9 +230,14 @@ def test_frozen_run_definition_and_fair_comparison():
     )
     assert compared["comparable"]
     assert len(compared["results"]) == 2
+    assert [message["default_message"] for message in compared["limitation_messages"]] == compared[
+        "limitations"
+    ]
+    assert compared["limitation_messages"][0]["id"] == "trading.notice.model_contamination"
     unequal = make_run(account={"capital": "900"})
-    with pytest.raises(ConflictError, match="different"):
+    with pytest.raises(ConflictError, match="different") as exc:
         trading.create_comparison({"name": "Unfair", "run_ids": [first["id"], unequal["id"]]})
+    assert exc.value.context["message_id"] == "trading.error.comparison_scenario"
 
 
 def test_usage_is_runtime_owned_idempotent_and_agent_lease_is_exclusive():

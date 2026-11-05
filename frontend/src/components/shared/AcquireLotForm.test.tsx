@@ -155,6 +155,51 @@ describe('AcquireLotForm', () => {
     })
   })
 
+  it.each([
+    [{ message_id: 'lots.error.identicalOpen', message_params: {} }, true],
+    [{ message_id: 'lots.error.identicalOpen', message_params: [] }, false],
+    [{}, false],
+  ])(
+    'requires trusted conflict metadata before offering duplicate confirmation',
+    async (metadata, trusted) => {
+      mockAuthFetch.mockImplementation((url: string, init?: { method?: string }) => {
+        if (url === '/api/accounts' || url.startsWith('/api/accounts?'))
+          return Promise.resolve({ ok: true, json: async () => ACCOUNTS })
+        if (url === '/api/instruments/inst-1/lots' && init?.method === 'POST')
+          return Promise.resolve({
+            ok: false,
+            status: 409,
+            json: async () => ({ detail: 'identical existing lot', ...metadata }),
+          })
+        return Promise.resolve({ ok: false, status: 404, json: async () => ({}) })
+      })
+      const { findByLabelText, getByRole, queryByText, findByText } = render(
+        <AcquireLotForm
+          symbol="AAPL"
+          instrumentId="inst-1"
+          costCcy="USD"
+          lockSymbol
+          onDone={() => {}}
+          onClose={() => {}}
+        />,
+      )
+      const account = await findByLabelText(/Account/)
+      await waitFor(() =>
+        expect(
+          Array.from((account as HTMLSelectElement).options).some((o) => o.value === 'acc-1'),
+        ).toBe(true),
+      )
+      fireEvent.change(account, { target: { value: 'acc-1' } })
+      fireEvent.change(await findByLabelText(/Quantity/), { target: { value: '10' } })
+      fireEvent.click(getByRole('button', { name: 'Add lot' }))
+      if (trusted) expect(await findByText('Identical lot already exists')).toBeTruthy()
+      else {
+        expect(await findByText('identical existing lot')).toBeTruthy()
+        expect(queryByText('Identical lot already exists')).toBeNull()
+      }
+    },
+  )
+
   it('posts the lot to the instrument with the chosen account', async () => {
     mockAuthFetch.mockImplementation((url: string, init?: { method?: string; body?: string }) => {
       if (url === '/api/accounts' && init?.method === 'POST')
