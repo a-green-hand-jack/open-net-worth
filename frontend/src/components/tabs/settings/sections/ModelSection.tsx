@@ -10,6 +10,7 @@
 // `ModelOption.vision` is backend-derived and `modelRejectsImages` only reports true when the
 // provider positively said no — so this uses it instead of a hardcoded list.
 import { Fragment, useCallback, useEffect, useMemo, useState } from 'react'
+import { useAppIntl } from '../../../../i18n/useAppIntl'
 import { authFetch } from '../../../../api/client'
 import type { ModelOption } from '../../../../api/models'
 import {
@@ -23,12 +24,13 @@ import { openReportProblem } from '../../../../state/reportProblem'
 import { useCliDetectionPoll } from '../../../../hooks/useCliDetectionPoll'
 import { CliSubscriptionHelp } from '../../../shared/CliSubscriptionHelp'
 import type { CliHostPlatform } from '../../../shared/CliSubscriptionHelp'
-import { NO_LOCAL_MODELS_NOTE, isLocalOnlyProvider } from '../../../shared/privateCloudCopy'
+import { isLocalOnlyProvider } from '../../../shared/privateCloudCopy'
 import { ModelPicker } from '../../../ui'
 import { ChevronRight, Eye, EyeOff, TriangleAlert, Plus } from '../../../../ui/icons'
 import { Badge, Btn, Empty, Field, Modal, Panel, Select, Toggle, useSectionBusy } from '../ds'
 import type { SectionProps } from '../ds'
 import { TurnTimeLimitPanel } from './TurnTimeLimitPanel'
+import { modelError } from './modelError'
 
 // ── shapes ───────────────────────────────────────────────────────────────────
 interface CatalogEntry {
@@ -169,7 +171,6 @@ const TASK_GROUPS: [string, [string, string, string, boolean?][]][] = [
   ],
 ]
 const TASK_ROWS = TASK_GROUPS.flatMap(([, rows]) => rows)
-const VISION_TASKS = TASK_ROWS.filter((r) => r[3])
 
 // permissions_v2 only: the Auto judge's own row, the last of the Assistant group.
 const TASK_GROUPS_V2: typeof TASK_GROUPS = TASK_GROUPS.map(([group, rows]) =>
@@ -187,7 +188,6 @@ const TASK_GROUPS_V2: typeof TASK_GROUPS = TASK_GROUPS.map(([group, rows]) =>
       ]
     : [group, rows],
 )
-const TASK_ROWS_V2 = TASK_GROUPS_V2.flatMap(([, rows]) => rows)
 
 // Two states, plainly named: GREEN = you can use it, RED = you cannot. "Unreachable" was
 // amber, which read as a caution when it is just as broken as a rejected key — neither one
@@ -234,6 +234,7 @@ function ProviderRow({
     terminal?: { onOpen: () => void }
   }
 }) {
+  const { formatMessage } = useAppIntl()
   const isCli = Boolean(entry.cli_binary)
   const enabled = cfg.enabled !== false
 
@@ -251,10 +252,31 @@ function ProviderRow({
     // Binary presence does not prove the CLI's saved login can answer a turn.
     if (isCli)
       return (
-        <Badge tone={detected ? 'good' : 'bad'}>{detected ? 'Installed' : 'Not installed'}</Badge>
+        <Badge tone={detected ? 'good' : 'bad'}>
+          {detected
+            ? formatMessage({ id: 'settings.remaining.modelText0', defaultMessage: 'Installed' })
+            : formatMessage({
+                id: 'settings.remaining.modelText1',
+                defaultMessage: 'Not installed',
+              })}
+        </Badge>
       )
-    const [txt, tone] = STATUS_BADGE[cfg.key_status || 'unchecked'] || STATUS_BADGE.unchecked!
-    return <Badge tone={tone}>{txt}</Badge>
+    const [, tone] = STATUS_BADGE[cfg.key_status || 'unchecked'] || STATUS_BADGE.unchecked!
+    return (
+      <Badge tone={tone}>
+        {cfg.key_status === 'invalid'
+          ? formatMessage({
+              id: 'settings.remaining.modelKeyRejected',
+              defaultMessage: 'Key rejected',
+            })
+          : cfg.key_status === 'unreachable'
+            ? formatMessage({
+                id: 'settings.remaining.modelCantConnect',
+                defaultMessage: "Can't connect",
+              })
+            : formatMessage({ id: 'settings.remaining.modelReady', defaultMessage: 'Ready' })}
+      </Badge>
+    )
   }
 
   return (
@@ -270,7 +292,14 @@ function ProviderRow({
               /* The resolved binary path, shown exactly where a URL provider shows its
                  endpoint — both answer "where does this actually run from". Falls back to
                  the binary name when it is not on this machine (no path to show). */
-              <span className="rd-mono">{detectedPath || entry.cli_binary || 'Local CLI'}</span>
+              <span className="rd-mono">
+                {detectedPath ||
+                  entry.cli_binary ||
+                  formatMessage({
+                    id: 'settings.remaining.modelText2',
+                    defaultMessage: 'Local CLI',
+                  })}
+              </span>
             ) : (
               <span className="rd-mono">
                 {cfg.base_url || entry.base_url || entry.display_base_url}
@@ -285,8 +314,13 @@ function ProviderRow({
           </div>
           {subscription && (
             <div className="rd-help">
-              Use your {entry.key === 'claude_cli' ? 'Claude' : 'ChatGPT'} subscription; no API key
-              needed.
+              {formatMessage(
+                {
+                  id: 'settings.remaining.modelSubscription',
+                  defaultMessage: 'Use your {provider} subscription; no API key needed.',
+                },
+                { provider: entry.key === 'claude_cli' ? 'Claude' : 'ChatGPT' },
+              )}
             </div>
           )}
         </div>
@@ -296,17 +330,38 @@ function ProviderRow({
             <Toggle
               on={enabled}
               disabled={enabled && isDefault}
-              label={(enabled ? 'Disable ' : 'Enable ') + entry.label}
+              label={
+                enabled
+                  ? formatMessage(
+                      {
+                        id: 'settings.remaining.modelDisableFor',
+                        defaultMessage: 'Disable {provider}',
+                      },
+                      { provider: entry.label },
+                    )
+                  : formatMessage(
+                      {
+                        id: 'settings.remaining.modelEnableFor',
+                        defaultMessage: 'Enable {provider}',
+                      },
+                      { provider: entry.label },
+                    )
+              }
               onChange={(v) => {
                 if (enabled && isDefault) {
-                  toast('Choose a default model on another provider first')
+                  toast(
+                    formatMessage({
+                      id: 'settings.remaining.modelText3',
+                      defaultMessage: 'Choose a default model on another provider first',
+                    }),
+                  )
                   return
                 }
                 onToggle(entry.key, v)
               }}
             />
             <Btn size="xs" variant="ghost" onClick={() => onEdit(entry.key)}>
-              Edit
+              {formatMessage({ id: 'settings.remaining.modelUi0', defaultMessage: 'Edit' })}
             </Btn>
           </>
         )}
@@ -362,6 +417,8 @@ function ProviderModal({
   onRemove: (key: string) => void
   toast: SectionProps['toast']
 }) {
+  const intl = useAppIntl()
+  const { formatMessage } = intl
   const available = catalog.filter((e) => e.key === 'custom' || !taken.includes(e.key))
   const [sel, setSel] = useState(
     mode === 'edit' ? editKey || 'custom' : available[0]?.key || 'custom',
@@ -407,19 +464,40 @@ function ProviderModal({
       )
       if (!res.ok) {
         toast(
-          res.status === 404 ? 'No stored key to show' : `Could not read the key (${res.status})`,
+          res.status === 404
+            ? formatMessage({
+                id: 'settings.remaining.modelText4',
+                defaultMessage: 'No stored key to show',
+              })
+            : formatMessage(
+                {
+                  id: 'settings.remaining.modelKeyHttp',
+                  defaultMessage: 'Could not read the key ({status})',
+                },
+                { status: res.status },
+              ),
         )
         return
       }
       const data = (await res.json()) as { api_key?: string }
       if (!data.api_key) {
-        toast('No stored key to show')
+        toast(
+          formatMessage({
+            id: 'settings.remaining.modelText4',
+            defaultMessage: 'No stored key to show',
+          }),
+        )
         return
       }
       set('key', data.api_key)
       setShowKey(true)
     } catch {
-      toast('Could not reach the server. Try again.')
+      toast(
+        formatMessage({
+          id: 'settings.remaining.modelText5',
+          defaultMessage: 'Could not reach the server. Try again.',
+        }),
+      )
     } finally {
       setRevealing(false)
     }
@@ -445,18 +523,46 @@ function ProviderModal({
         detail?: string
       } | null
       const ms = Math.round(performance.now() - started)
-      if (body?.key_status === 'valid') toast(`Tested ok — ${ms}ms`)
+      if (body?.key_status === 'valid')
+        toast(
+          formatMessage(
+            { id: 'settings.remaining.modelTested', defaultMessage: 'Tested ok — {ms}ms' },
+            { ms },
+          ),
+        )
       // `detail` is what a 4xx carries (e.g. the provider is switched off). Without it this
       // asserted "unreachable" for ANY failure — including our own server erroring — and so
       // blamed the network for problems that had nothing to do with it.
       else {
-        const message = body?.error || body?.detail || `Test failed (HTTP ${r.status})`
+        const message =
+          body?.error ||
+          modelError(
+            body,
+            formatMessage(
+              {
+                id: 'settings.remaining.modelTestHttp',
+                defaultMessage: 'Test failed (HTTP {status})',
+              },
+              { status: r.status },
+            ),
+            intl,
+          )
         setTestFailure(message)
         toast(message)
       }
     } catch {
-      setTestFailure('Could not reach the server. Try again.')
-      toast('Could not reach the server. Try again.')
+      setTestFailure(
+        formatMessage({
+          id: 'settings.remaining.modelText5',
+          defaultMessage: 'Could not reach the server. Try again.',
+        }),
+      )
+      toast(
+        formatMessage({
+          id: 'settings.remaining.modelText5',
+          defaultMessage: 'Could not reach the server. Try again.',
+        }),
+      )
     } finally {
       setTesting(false)
     }
@@ -464,7 +570,14 @@ function ProviderModal({
 
   return (
     <Modal
-      title={mode === 'edit' ? 'Edit provider' : 'Add AI provider'}
+      title={
+        mode === 'edit'
+          ? formatMessage({ id: 'settings.remaining.modelText6', defaultMessage: 'Edit provider' })
+          : formatMessage({
+              id: 'settings.remaining.modelText7',
+              defaultMessage: 'Add AI provider',
+            })
+      }
       onClose={onClose}
       footer={
         <>
@@ -482,10 +595,17 @@ function ProviderModal({
                 }
               }}
             >
-              {armed ? 'Confirm remove' : 'Remove'}
+              {armed
+                ? formatMessage({
+                    id: 'settings.remaining.modelText8',
+                    defaultMessage: 'Confirm remove',
+                  })
+                : formatMessage({ id: 'settings.remaining.modelText9', defaultMessage: 'Remove' })}
             </Btn>
           ) : null}
-          <Btn onClick={onClose}>Cancel</Btn>
+          <Btn onClick={onClose}>
+            {formatMessage({ id: 'settings.remaining.modelUi1', defaultMessage: 'Cancel' })}
+          </Btn>
           <Btn
             variant="primary"
             disabled={urlMissing}
@@ -494,7 +614,15 @@ function ProviderModal({
               onClose()
             }}
           >
-            {mode === 'edit' ? 'Save changes' : 'Add provider'}
+            {mode === 'edit'
+              ? formatMessage({
+                  id: 'settings.remaining.modelText10',
+                  defaultMessage: 'Save changes',
+                })
+              : formatMessage({
+                  id: 'settings.remaining.modelText11',
+                  defaultMessage: 'Add provider',
+                })}
           </Btn>
         </>
       }
@@ -502,11 +630,18 @@ function ProviderModal({
       <div className="rd-formgrid">
         {mode === 'add' && (
           <Field
-            label="Provider"
+            label={formatMessage({
+              id: 'settings.remaining.modelAttr0',
+              defaultMessage: 'Provider',
+            })}
             span="full"
             help={
               entry.key === 'custom'
-                ? 'Any endpoint that speaks the OpenAI API — a self-hosted gateway, a proxy, anything'
+                ? formatMessage({
+                    id: 'settings.remaining.modelText12',
+                    defaultMessage:
+                      'Any endpoint that speaks the OpenAI API — a self-hosted gateway, a proxy, anything',
+                  })
                 : undefined
             }
           >
@@ -520,17 +655,40 @@ function ProviderModal({
           </Field>
         )}
         {entry.key === 'custom' && (
-          <Field label="Display name" span="full">
+          <Field
+            label={formatMessage({
+              id: 'settings.remaining.modelAttr1',
+              defaultMessage: 'Display name',
+            })}
+            span="full"
+          >
             <input
               className="rd-input"
               value={f.label}
-              placeholder="e.g. Work gateway"
+              placeholder={formatMessage({
+                id: 'settings.remaining.modelAttr2',
+                defaultMessage: 'e.g. Work gateway',
+              })}
               onChange={(e) => set('label', e.target.value)}
             />
           </Field>
         )}
         {entry.editable_base_url && !isCli && (
-          <Field label="Base URL" span="full" help={urlMissing ? 'Required' : undefined}>
+          <Field
+            label={formatMessage({
+              id: 'settings.remaining.modelAttr3',
+              defaultMessage: 'Base URL',
+            })}
+            span="full"
+            help={
+              urlMissing
+                ? formatMessage({
+                    id: 'settings.remaining.modelText13',
+                    defaultMessage: 'Required',
+                  })
+                : undefined
+            }
+          >
             <input
               className="rd-input"
               value={f.url}
@@ -544,7 +702,17 @@ function ProviderModal({
             display fallback this rendered an empty read-only box that looked like a missing
             setting rather than a fixed one. */}
         {!entry.editable_base_url && !isCli && (entry.base_url || entry.display_base_url) && (
-          <Field label="Endpoint" span="full" help="Fixed by this provider">
+          <Field
+            label={formatMessage({
+              id: 'settings.remaining.modelAttr4',
+              defaultMessage: 'Endpoint',
+            })}
+            span="full"
+            help={formatMessage({
+              id: 'settings.remaining.modelAttr5',
+              defaultMessage: 'Fixed by this provider',
+            })}
+          >
             <input
               className="rd-input rd-mono"
               value={entry.base_url || entry.display_base_url}
@@ -554,12 +722,21 @@ function ProviderModal({
         )}
         {entry.needs_api_key && (
           <Field
-            label="API key"
+            label={formatMessage({
+              id: 'settings.remaining.modelAttr6',
+              defaultMessage: 'API key',
+            })}
             span="full"
             help={
               cfg?.has_api_key
-                ? 'A key is saved — leave blank to keep it'
-                : 'Stored server-side, never shown again'
+                ? formatMessage({
+                    id: 'settings.remaining.modelText14',
+                    defaultMessage: 'A key is saved — leave blank to keep it',
+                  })
+                : formatMessage({
+                    id: 'settings.remaining.modelText15',
+                    defaultMessage: 'Stored server-side, never shown again',
+                  })
             }
           >
             <div className="rd-keyfield">
@@ -568,7 +745,17 @@ function ProviderModal({
                 type={showKey ? 'text' : 'password'}
                 autoComplete="off"
                 value={f.key}
-                placeholder={cfg?.has_api_key ? '•••••••• (saved)' : 'Paste your API key'}
+                placeholder={
+                  cfg?.has_api_key
+                    ? formatMessage({
+                        id: 'settings.remaining.modelText16',
+                        defaultMessage: '•••••••• (saved)',
+                      })
+                    : formatMessage({
+                        id: 'settings.remaining.modelText17',
+                        defaultMessage: 'Paste your API key',
+                      })
+                }
                 onChange={(e) => set('key', e.target.value)}
               />
               {/* Reveal fetches on demand from the human-only reveal-key endpoint — the key is
@@ -581,7 +768,10 @@ function ProviderModal({
                   className="rd-keyeye"
                   onClick={() => void revealKey()}
                   disabled={revealing}
-                  aria-label="Show the saved API key"
+                  aria-label={formatMessage({
+                    id: 'settings.remaining.modelAttr7',
+                    defaultMessage: 'Show the saved API key',
+                  })}
                 >
                   <Eye size={17} strokeWidth={1.8} aria-hidden="true" />
                 </button>
@@ -594,7 +784,10 @@ function ProviderModal({
                     setShowKey(false)
                     set('key', '')
                   }}
-                  aria-label="Hide the API key"
+                  aria-label={formatMessage({
+                    id: 'settings.remaining.modelAttr8',
+                    defaultMessage: 'Hide the API key',
+                  })}
                 >
                   <EyeOff size={17} strokeWidth={1.8} aria-hidden="true" />
                 </button>
@@ -604,9 +797,18 @@ function ProviderModal({
         )}
         {isCli ? (
           <Field
-            label="Binary path"
+            label={formatMessage({
+              id: 'settings.remaining.modelAttr9',
+              defaultMessage: 'Binary path',
+            })}
             span="full"
-            help={'Leave blank to use the ' + entry.cli_binary + ' found on PATH'}
+            help={formatMessage(
+              {
+                id: 'settings.remaining.modelCliPath',
+                defaultMessage: 'Leave blank to use the {binary} found on PATH',
+              },
+              { binary: entry.cli_binary },
+            )}
           >
             <input
               className="rd-input"
@@ -616,12 +818,31 @@ function ProviderModal({
             />
           </Field>
         ) : (
-          <Field label="Default model" span="full" help="Search the list, or type any model ID">
+          <Field
+            label={formatMessage({
+              id: 'settings.remaining.modelAttr10',
+              defaultMessage: 'Default model',
+            })}
+            span="full"
+            help={formatMessage({
+              id: 'settings.remaining.modelAttr11',
+              defaultMessage: 'Search the list, or type any model ID',
+            })}
+          >
             <ModelPicker
-              label={`Default model for ${entry.label}`}
+              label={formatMessage(
+                {
+                  id: 'settings.remaining.modelDefaultFor',
+                  defaultMessage: 'Default model for {provider}',
+                },
+                { provider: entry.label },
+              )}
               models={providerModels}
               value={f.model ? `${entry.key}:${f.model}` : ''}
-              placeholder="Choose a model…"
+              placeholder={formatMessage({
+                id: 'settings.remaining.modelAttr12',
+                defaultMessage: 'Choose a model…',
+              })}
               customProviderKey={entry.key}
               onChange={(ref) =>
                 set(
@@ -646,13 +867,28 @@ function ProviderModal({
       </div>
       {mode === 'edit' ? (
         <Btn size="xs" disabled={testing} onClick={() => void testConnection()}>
-          {testing ? 'Testing…' : 'Test connection'}
+          {testing
+            ? formatMessage({ id: 'settings.remaining.modelText18', defaultMessage: 'Testing…' })
+            : formatMessage({
+                id: 'settings.remaining.modelText19',
+                defaultMessage: 'Test connection',
+              })}
         </Btn>
       ) : null}
       {testFailure ? (
-        <Field label="The connection test failed" span="full" help={testFailure}>
+        <Field
+          label={formatMessage({
+            id: 'settings.remaining.modelAttr13',
+            defaultMessage: 'The connection test failed',
+          })}
+          span="full"
+          help={testFailure}
+        >
           <Btn size="xs" onClick={() => openReportProblem({ error: testFailure })}>
-            Report this problem
+            {formatMessage({
+              id: 'settings.remaining.modelUi2',
+              defaultMessage: 'Report this problem',
+            })}
           </Btn>
         </Field>
       ) : null}
@@ -674,12 +910,150 @@ function TaskModels({
   taskModels: Record<string, string | null>
   onSave: (next: Record<string, string | null>) => void
 }) {
+  const { formatMessage } = useAppIntl()
+  const localTask = (key: string, original: string, originalHelp: string): [string, string] => {
+    switch (key) {
+      case 'memory':
+        return [
+          formatMessage({ id: 'settings.remaining.modelTaskLabel0', defaultMessage: 'Memory' }),
+          formatMessage({
+            id: 'settings.remaining.modelTaskHelp0',
+            defaultMessage: 'Writes memory when a conversation goes quiet, and tidies it daily',
+          }),
+        ]
+      case 'suggestions':
+        return [
+          formatMessage({
+            id: 'settings.remaining.modelTaskLabel1',
+            defaultMessage: 'Chat suggestions',
+          }),
+          formatMessage({
+            id: 'settings.remaining.modelTaskHelp1',
+            defaultMessage: 'Generates follow-up suggestions in the chat panel',
+          }),
+        ]
+      case 'title':
+        return [
+          formatMessage({
+            id: 'settings.remaining.modelTaskLabel2',
+            defaultMessage: 'Conversation titles',
+          }),
+          formatMessage({
+            id: 'settings.remaining.modelTaskHelp2',
+            defaultMessage:
+              'Names each new conversation from its first message — a tiny call, so a fast model is best',
+          }),
+        ]
+      case 'chat_vision':
+        return [
+          formatMessage({
+            id: 'settings.remaining.modelTaskLabel3',
+            defaultMessage: 'Image reading',
+          }),
+          formatMessage({
+            id: 'settings.remaining.modelTaskHelp3',
+            defaultMessage: 'Reads images you paste into chat — needs a vision model',
+          }),
+        ]
+      case 'intel':
+        return [
+          formatMessage({
+            id: 'settings.remaining.modelTaskLabel4',
+            defaultMessage: 'Intel & watchlist',
+          }),
+          formatMessage({
+            id: 'settings.remaining.modelTaskHelp4',
+            defaultMessage: 'Scans market signals and watchlist alerts',
+          }),
+        ]
+      case 'briefing':
+        return [
+          formatMessage({
+            id: 'settings.remaining.modelTaskLabel5',
+            defaultMessage: 'Daily briefing',
+          }),
+          formatMessage({
+            id: 'settings.remaining.modelTaskHelp5',
+            defaultMessage: 'Composes the morning wealth briefing',
+          }),
+        ]
+      case 'news_screen':
+        return [
+          formatMessage({
+            id: 'settings.remaining.modelTaskLabel6',
+            defaultMessage: 'News screening',
+          }),
+          formatMessage({
+            id: 'settings.remaining.modelTaskHelp6',
+            defaultMessage: 'Filters incoming headlines down to what touches your holdings',
+          }),
+        ]
+      case 'analysis':
+        return [
+          formatMessage({
+            id: 'settings.remaining.modelTaskLabel7',
+            defaultMessage: 'Alert analysis',
+          }),
+          formatMessage({
+            id: 'settings.remaining.modelTaskHelp7',
+            defaultMessage:
+              'Writes the why/impact/action behind each pushed Intel alert — the highest-stakes step, so reliability matters more than cost here',
+          }),
+        ]
+      case 'price_monitor':
+        return [
+          formatMessage({
+            id: 'settings.remaining.modelTaskLabel8',
+            defaultMessage: 'Price alerts',
+          }),
+          formatMessage({
+            id: 'settings.remaining.modelTaskHelp8',
+            defaultMessage:
+              'Writes up a price alert whose trigger was already decided by a threshold check',
+          }),
+        ]
+      case 'statement_import':
+        return [
+          formatMessage({
+            id: 'settings.remaining.modelTaskLabel9',
+            defaultMessage: 'Statement import',
+          }),
+          formatMessage({
+            id: 'settings.remaining.modelTaskHelp9',
+            defaultMessage:
+              'Reads statements end to end — columns, rows, details, and your written instructions. Scanned pages fall back to your default image model.',
+          }),
+        ]
+      case 'approval':
+        return [
+          formatMessage({
+            id: 'settings.remaining.modelTaskLabel10',
+            defaultMessage: 'Auto-approval judge',
+          }),
+          formatMessage({
+            id: 'settings.remaining.modelTaskHelp10',
+            defaultMessage:
+              'Decides whether Auto mode must ask before a call. Unset uses the model your conversation is running on — pin a fast, non-reasoning model for snappier Auto. The pending call and your last few messages are sent to it.',
+          }),
+        ]
+      default:
+        return [original, originalHelp]
+    }
+  }
   const over = taskModels
   // The ONE switch point for permissions_v2 here: the judge picker exists only while it is on
   // (and not before the flag list has loaded).
   const judgePicker = useFlag('permissions_v2') === true
-  const taskGroups = judgePicker ? TASK_GROUPS_V2 : TASK_GROUPS
-  const taskRows = judgePicker ? TASK_ROWS_V2 : TASK_ROWS
+  const taskGroups = (judgePicker ? TASK_GROUPS_V2 : TASK_GROUPS).map(
+    ([group, rows]): (typeof TASK_GROUPS)[number] => [
+      group,
+      rows.map(([key, label, help, vision]) => {
+        const [translated, translatedHelp] = localTask(key, label, help)
+        return [key, translated, translatedHelp, vision]
+      }),
+    ],
+  )
+  const taskRows = taskGroups.flatMap(([, rows]) => rows)
   // A judge model pinned while the flag was on is kept, but it is not a task of this screen while
   // the flag is off: it neither counts nor shows.
   const keys = Object.keys(over).filter((k) => over[k] && (judgePicker || k !== 'approval'))
@@ -688,9 +1062,9 @@ function TaskModels({
   // Only a positively-declared text-only model warns. An unknown model id is UNKNOWN, not
   // incapable — the model field takes free text, so warning on anything unrecognised would
   // cry wolf on every custom gateway.
-  const blind = VISION_TASKS.filter(([k]) =>
-    modelRejectsImages(resolved(k) || '', models, defaultModel),
-  )
+  const blind = taskRows
+    .filter(([, , , vision]) => vision)
+    .filter(([k]) => modelRejectsImages(resolved(k) || '', models, defaultModel))
 
   const set = (k: string, v: string) => {
     const next = { ...over }
@@ -701,8 +1075,12 @@ function TaskModels({
 
   return (
     <Panel
-      title="Task models"
-      sub="Background chores can run on cheaper models — chat itself always uses your default provider"
+      title={formatMessage({ id: 'settings.remaining.modelAttr14', defaultMessage: 'Task models' })}
+      sub={formatMessage({
+        id: 'settings.remaining.modelAttr15',
+        defaultMessage:
+          'Background chores can run on cheaper models — chat itself always uses your default provider',
+      })}
     >
       {blind.length ? (
         <div className="rd-banner">
@@ -712,12 +1090,30 @@ function TaskModels({
           <div style={{ flex: 1 }}>
             <div className="rd-banner-title">
               {blind.length === 1
-                ? blind[0]![1] + ' can’t read images'
-                : blind.length + ' image tasks can’t read images'}
+                ? formatMessage(
+                    {
+                      id: 'settings.remaining.modelBlindOne',
+                      defaultMessage: '{task} can’t read images',
+                    },
+                    { task: blind[0]![1] },
+                  )
+                : formatMessage(
+                    {
+                      id: 'settings.remaining.modelBlindMany',
+                      defaultMessage: '{count} image tasks can’t read images',
+                    },
+                    { count: blind.length },
+                  )}
             </div>
             <div className="rd-banner-sub">
-              {blind.map(([k, l]) => l + ' → ' + resolved(k)).join(' • ')} — text-only. These runs
-              will fail until you route them to a vision model.
+              {formatMessage(
+                {
+                  id: 'settings.remaining.modelBlindDescription',
+                  defaultMessage:
+                    '{tasks} — text-only. These runs will fail until you route them to a vision model.',
+                },
+                { tasks: blind.map(([k, l]) => l + ' → ' + resolved(k)).join(' • ') },
+              )}
             </div>
           </div>
         </div>
@@ -726,13 +1122,29 @@ function TaskModels({
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ fontSize: 12.5, fontWeight: 600 }}>
             {keys.length
-              ? keys.length + ' of ' + taskRows.length + ' tasks overridden'
-              : 'All tasks use your default model'}
+              ? formatMessage(
+                  {
+                    id: 'settings.remaining.modelOverrideCount',
+                    defaultMessage: '{count} of {total} tasks overridden',
+                  },
+                  { count: keys.length, total: taskRows.length },
+                )
+              : formatMessage({
+                  id: 'settings.remaining.modelAllDefault',
+                  defaultMessage: 'All tasks use your default model',
+                })}
           </div>
           <div className="rd-help" style={{ marginTop: 3, display: 'block', lineHeight: 1.5 }}>
             {keys.length
               ? keys.map(label).join(' • ')
-              : taskRows.length + ' routable tasks — override only the ones you care about.'}
+              : formatMessage(
+                  {
+                    id: 'settings.remaining.modelRoutable',
+                    defaultMessage:
+                      '{count} routable tasks — override only the ones you care about.',
+                  },
+                  { count: taskRows.length },
+                )}
           </div>
         </div>
         {keys.length ? (
@@ -741,10 +1153,15 @@ function TaskModels({
             variant="ghost"
             onClick={() => {
               onSave({})
-              toast('Task overrides cleared')
+              toast(
+                formatMessage({
+                  id: 'settings.remaining.modelText20',
+                  defaultMessage: 'Task overrides cleared',
+                }),
+              )
             }}
           >
-            Reset
+            {formatMessage({ id: 'settings.remaining.modelUi3', defaultMessage: 'Reset' })}
           </Btn>
         ) : null}
       </div>
@@ -754,7 +1171,22 @@ function TaskModels({
         // `.rd-panel-body > .rd-subhead` rule (its padding and background band) stopped
         // matching, and the group headings rendered flush against the card edge.
         <Fragment key={group}>
-          <div className="rd-subhead">{group}</div>
+          <div className="rd-subhead">
+            {group === 'Assistant'
+              ? formatMessage({
+                  id: 'settings.remaining.modelGroupAssistant',
+                  defaultMessage: 'Assistant',
+                })
+              : group === 'Insights'
+                ? formatMessage({
+                    id: 'settings.remaining.modelGroupInsights',
+                    defaultMessage: 'Insights',
+                  })
+                : formatMessage({
+                    id: 'settings.remaining.modelGroupStatements',
+                    defaultMessage: 'Statement import',
+                  })}
+          </div>
           <div className="rd-formgrid">
             {rows.map(([k, l, help, vision]) => {
               const bad =
@@ -767,17 +1199,34 @@ function TaskModels({
                     value={over[k] || ''}
                     defaultLabel={
                       k === 'approval'
-                        ? 'Same as chat model'
-                        : 'Default' +
+                        ? formatMessage({
+                            id: 'settings.remaining.modelText21',
+                            defaultMessage: 'Same as chat model',
+                          })
+                        : formatMessage({
+                            id: 'settings.remaining.modelText22',
+                            defaultMessage: 'Default',
+                          }) +
                           (vision && modelRejectsImages(defaultModel, models, defaultModel)
-                            ? ' (no vision)'
+                            ? formatMessage({
+                                id: 'settings.remaining.modelText23',
+                                defaultMessage: ' (no vision)',
+                              })
                             : '')
                     }
                     // The judge, unset, follows the CONVERSATION's model, not the instance
                     // default — naming the default here would be wrong whenever they differ.
                     defaultModelId={k === 'approval' ? undefined : defaultModel}
                     annotate={
-                      vision ? (m) => (m.vision === false ? '— no vision' : undefined) : undefined
+                      vision
+                        ? (m) =>
+                            m.vision === false
+                              ? formatMessage({
+                                  id: 'settings.remaining.modelText24',
+                                  defaultMessage: '— no vision',
+                                })
+                              : undefined
+                        : undefined
                     }
                     onChange={(next) => set(k, next)}
                   />
@@ -791,7 +1240,14 @@ function TaskModels({
                         lineHeight: 1.5,
                       }}
                     >
-                      {resolved(k)} is text-only — pick a vision model or this task will fail.
+                      {formatMessage(
+                        {
+                          id: 'settings.remaining.modelBlindWarning',
+                          defaultMessage:
+                            '{model} is text-only — pick a vision model or this task will fail.',
+                        },
+                        { model: resolved(k) },
+                      )}
                     </span>
                   ) : null}
                 </Field>
@@ -816,6 +1272,7 @@ export function PreferredModels({
   saved: string[]
   onSave: (next: string[]) => void
 }) {
+  const { formatMessage } = useAppIntl()
   const [sel, setSel] = useState<string[]>(saved)
   const dirty = sel.length !== saved.length || saved.some((r) => !sel.includes(r))
 
@@ -831,26 +1288,42 @@ export function PreferredModels({
   return (
     <>
       <span className="rd-help">
-        Your picks become a “Preferred” group at the top of every model picker. Leave empty to show
-        the full list.
+        {formatMessage({
+          id: 'settings.remaining.modelPreferredHelp',
+          defaultMessage:
+            'Your picks become a “Preferred” group at the top of every model picker. Leave empty to show the full list.',
+        })}
       </span>
       <ModelPicker
         multiple
-        label="Preferred models"
+        label={formatMessage({
+          id: 'settings.remaining.modelAttr16',
+          defaultMessage: 'Preferred models',
+        })}
         models={models}
         value={sel}
         emptyHint={
           <span className="rd-help">
-            Nothing picked — every available model shows in the picker.
+            {formatMessage({
+              id: 'settings.remaining.modelPreferredEmpty',
+              defaultMessage: 'Nothing picked — every available model shows in the picker.',
+            })}
           </span>
         }
         onChange={setSel}
       />
       <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
         <Btn size="xs" variant="primary" disabled={!dirty} onClick={() => onSave(sel)}>
-          Save preferred models
+          {formatMessage({
+            id: 'settings.remaining.modelUi4',
+            defaultMessage: 'Save preferred models',
+          })}
         </Btn>
-        {dirty ? <span className="rd-help">Unsaved</span> : null}
+        {dirty ? (
+          <span className="rd-help">
+            {formatMessage({ id: 'settings.remaining.modelUi5', defaultMessage: 'Unsaved' })}
+          </span>
+        ) : null}
       </div>
     </>
   )
@@ -858,6 +1331,8 @@ export function PreferredModels({
 
 // ── the section ──────────────────────────────────────────────────────────────
 export function ModelSection({ toast, gatewayMode = false, openSection }: SectionProps) {
+  const { formatMessage } = useAppIntl()
+  const intl = useAppIntl()
   const [subscriptionKeys, setSubscriptionKeys] = useState<string[]>([])
   const providers = useCachedFetchState<ProvidersResponse>(
     '/api/model-config/providers',
@@ -983,14 +1458,31 @@ export function ModelSection({ toast, gatewayMode = false, openSection }: Sectio
       })
       if (!r.ok) {
         const b = (await r.json().catch(() => null)) as { detail?: string } | null
-        toast(b?.detail || `Could not save (HTTP ${r.status})`)
+        toast(
+          modelError(
+            b,
+            formatMessage(
+              {
+                id: 'settings.remaining.modelSaveHttp',
+                defaultMessage: 'Could not save (HTTP {status})',
+              },
+              { status: r.status },
+            ),
+            intl,
+          ),
+        )
         return
       }
       void providers.refresh()
       announceModelConfigChanged()
       toast(message)
     } catch {
-      toast('Could not reach the server. Try again.')
+      toast(
+        formatMessage({
+          id: 'settings.remaining.modelText5',
+          defaultMessage: 'Could not reach the server. Try again.',
+        }),
+      )
     }
   }
 
@@ -1004,14 +1496,33 @@ export function ModelSection({ toast, gatewayMode = false, openSection }: Sectio
       })
       if (!r.ok) {
         const b = (await r.json().catch(() => null)) as { detail?: string } | null
-        toast(b?.detail || `Could not remove (HTTP ${r.status})`)
+        toast(
+          modelError(
+            b,
+            formatMessage(
+              {
+                id: 'settings.remaining.modelRemoveHttp',
+                defaultMessage: 'Could not remove (HTTP {status})',
+              },
+              { status: r.status },
+            ),
+            intl,
+          ),
+        )
         return
       }
       void providers.refresh()
       announceModelConfigChanged()
-      toast('Provider removed')
+      toast(
+        formatMessage({ id: 'settings.remaining.modelText25', defaultMessage: 'Provider removed' }),
+      )
     } catch {
-      toast('Could not reach the server. Try again.')
+      toast(
+        formatMessage({
+          id: 'settings.remaining.modelText5',
+          defaultMessage: 'Could not reach the server. Try again.',
+        }),
+      )
     }
   }
 
@@ -1024,14 +1535,36 @@ export function ModelSection({ toast, gatewayMode = false, openSection }: Sectio
       })
       if (!r.ok) {
         const b = (await r.json().catch(() => null)) as { detail?: string } | null
-        toast(b?.detail || `Could not set the default model (HTTP ${r.status})`)
+        toast(
+          modelError(
+            b,
+            formatMessage(
+              {
+                id: 'settings.remaining.modelDefaultHttp',
+                defaultMessage: 'Could not set the default model (HTTP {status})',
+              },
+              { status: r.status },
+            ),
+            intl,
+          ),
+        )
         return
       }
       void modelConfig.refresh()
       announceModelConfigChanged()
-      toast('Default model set')
+      toast(
+        formatMessage({
+          id: 'settings.remaining.modelText26',
+          defaultMessage: 'Default model set',
+        }),
+      )
     } catch {
-      toast('Could not reach the server. Try again.')
+      toast(
+        formatMessage({
+          id: 'settings.remaining.modelText5',
+          defaultMessage: 'Could not reach the server. Try again.',
+        }),
+      )
     }
   }
 
@@ -1043,7 +1576,15 @@ export function ModelSection({ toast, gatewayMode = false, openSection }: Sectio
         body: JSON.stringify({ models }),
       })
       if (!r.ok) {
-        toast(`Could not save (HTTP ${r.status})`)
+        toast(
+          formatMessage(
+            {
+              id: 'settings.remaining.modelSaveHttp',
+              defaultMessage: 'Could not save (HTTP {status})',
+            },
+            { status: r.status },
+          ),
+        )
         return
       }
       void preferred.refresh()
@@ -1054,7 +1595,12 @@ export function ModelSection({ toast, gatewayMode = false, openSection }: Sectio
       announceModelConfigChanged()
       toast(message)
     } catch {
-      toast('Could not reach the server. Try again.')
+      toast(
+        formatMessage({
+          id: 'settings.remaining.modelText5',
+          defaultMessage: 'Could not reach the server. Try again.',
+        }),
+      )
     }
   }
 
@@ -1070,29 +1616,63 @@ export function ModelSection({ toast, gatewayMode = false, openSection }: Sectio
       })
       if (!r.ok) {
         const b = (await r.json().catch(() => null)) as { detail?: string } | null
-        toast(b?.detail || `Could not save (HTTP ${r.status})`)
+        toast(
+          modelError(
+            b,
+            formatMessage(
+              {
+                id: 'settings.remaining.modelSaveHttp',
+                defaultMessage: 'Could not save (HTTP {status})',
+              },
+              { status: r.status },
+            ),
+            intl,
+          ),
+        )
         return
       }
       void modelConfig.refresh()
       announceModelConfigChanged()
     } catch {
-      toast('Could not reach the server. Try again.')
+      toast(
+        formatMessage({
+          id: 'settings.remaining.modelText5',
+          defaultMessage: 'Could not reach the server. Try again.',
+        }),
+      )
     }
   }
 
   return (
     <>
       <Panel
-        title="AI providers"
-        sub="Credentials and endpoints, and the model Lucius runs by default"
+        title={formatMessage({
+          id: 'settings.remaining.modelAttr17',
+          defaultMessage: 'AI providers',
+        })}
+        sub={formatMessage({
+          id: 'settings.remaining.modelAttr18',
+          defaultMessage: 'Credentials and endpoints, and the model Lucius runs by default',
+        })}
         actions={
           <Btn size="xs" onClick={() => setEditor({ mode: 'add' })}>
-            <Plus size={12} aria-hidden="true" /> Add provider
+            <Plus size={12} aria-hidden="true" />{' '}
+            {formatMessage({
+              id: 'settings.remaining.modelAddButton',
+              defaultMessage: 'Add provider',
+            })}
           </Btn>
         }
       >
         {rows.length ? (
-          <div className="rd-provlist" role="radiogroup" aria-label="Default provider">
+          <div
+            className="rd-provlist"
+            role="radiogroup"
+            aria-label={formatMessage({
+              id: 'settings.remaining.modelAttr19',
+              defaultMessage: 'Default provider',
+            })}
+          >
             {(() => {
               const row = (entry: (typeof rows)[number]) => (
                 <ProviderRow
@@ -1105,7 +1685,19 @@ export function ModelSection({ toast, gatewayMode = false, openSection }: Sectio
                   toast={toast}
                   onEdit={(k) => setEditor({ mode: 'edit', key: k })}
                   onToggle={(k, v) =>
-                    void putProvider(k, { enabled: v }, v ? 'Enabled' : 'Disabled')
+                    void putProvider(
+                      k,
+                      { enabled: v },
+                      v
+                        ? formatMessage({
+                            id: 'settings.remaining.modelText27',
+                            defaultMessage: 'Enabled',
+                          })
+                        : formatMessage({
+                            id: 'settings.remaining.modelText28',
+                            defaultMessage: 'Disabled',
+                          }),
+                    )
                   }
                 />
               )
@@ -1115,7 +1707,10 @@ export function ModelSection({ toast, gatewayMode = false, openSection }: Sectio
                       distinguish it from — otherwise it labels the entire list and says nothing. */}
                   {enabledRows.length && disabledRows.length ? (
                     <div className="rd-provgroup">
-                      Enabled
+                      {formatMessage({
+                        id: 'settings.remaining.modelEnabledGroup',
+                        defaultMessage: 'Enabled',
+                      })}
                       <span>{enabledRows.length}</span>
                     </div>
                   ) : null}
@@ -1139,7 +1734,10 @@ export function ModelSection({ toast, gatewayMode = false, openSection }: Sectio
                             transition: 'transform .15s ease',
                           }}
                         />
-                        Disabled
+                        {formatMessage({
+                          id: 'settings.remaining.modelDisabledGroup',
+                          defaultMessage: 'Disabled',
+                        })}
                         <span>{disabledRows.length}</span>
                       </button>
                       {showDisabled ? disabledRows.map(row) : null}
@@ -1150,11 +1748,31 @@ export function ModelSection({ toast, gatewayMode = false, openSection }: Sectio
             })()}
           </div>
         ) : (
-          <Empty title="No providers yet" body="Add one to give Lucius a model to think with." />
+          <Empty
+            title={formatMessage({
+              id: 'settings.remaining.modelAttr20',
+              defaultMessage: 'No providers yet',
+            })}
+            body={formatMessage({
+              id: 'settings.remaining.modelAttr21',
+              defaultMessage: 'Add one to give Lucius a model to think with.',
+            })}
+          />
         )}
         {subscriptions.length > 0 && (
-          <div role="group" aria-label="Connect a subscription">
-            <div className="rd-provgroup">Connect a subscription</div>
+          <div
+            role="group"
+            aria-label={formatMessage({
+              id: 'settings.remaining.modelAttr22',
+              defaultMessage: 'Connect a subscription',
+            })}
+          >
+            <div className="rd-provgroup">
+              {formatMessage({
+                id: 'settings.remaining.modelUi6',
+                defaultMessage: 'Connect a subscription',
+              })}
+            </div>
             <div className="rd-provlist">
               {subscriptions.map((entry) => (
                 <ProviderRow
@@ -1167,7 +1785,19 @@ export function ModelSection({ toast, gatewayMode = false, openSection }: Sectio
                   toast={toast}
                   onEdit={(key) => setEditor({ mode: 'edit', key })}
                   onToggle={(key, enabled) =>
-                    void putProvider(key, { enabled }, enabled ? 'Enabled' : 'Disabled')
+                    void putProvider(
+                      key,
+                      { enabled },
+                      enabled
+                        ? formatMessage({
+                            id: 'settings.remaining.modelText27',
+                            defaultMessage: 'Enabled',
+                          })
+                        : formatMessage({
+                            id: 'settings.remaining.modelText28',
+                            defaultMessage: 'Disabled',
+                          }),
+                    )
                   }
                   subscription={{
                     platform: providers.data?.cli_host_platform,
@@ -1181,36 +1811,80 @@ export function ModelSection({ toast, gatewayMode = false, openSection }: Sectio
         )}
         {gatewayMode && (
           <div className="rd-help" role="note">
-            {NO_LOCAL_MODELS_NOTE}
+            {formatMessage({
+              id: 'settings.remaining.modelLocalOnly',
+              defaultMessage:
+                "Local models (Ollama, LM Studio) aren't offered here: this app runs on your Private Cloud server, which can't reach a model running on your own computer.",
+            })}
           </div>
         )}
         {cliDetectionError && (
           <div className="rd-help" role="status">
-            {cliDetectionError}
+            {formatMessage({
+              id: 'settings.remaining.modelCliDetectionError',
+              defaultMessage: 'Could not check installations. Check again.',
+            })}
           </div>
         )}
         <Field
-          label="Default model"
-          help="What Lucius runs unless a chat or automation picks something else"
+          label={formatMessage({
+            id: 'settings.remaining.modelAttr10',
+            defaultMessage: 'Default model',
+          })}
+          help={formatMessage({
+            id: 'settings.remaining.modelAttr23',
+            defaultMessage: 'What Lucius runs unless a chat or automation picks something else',
+          })}
         >
           <ModelPicker
-            label="Default model"
+            label={formatMessage({
+              id: 'settings.remaining.modelAttr10',
+              defaultMessage: 'Default model',
+            })}
             models={models}
             value={defaultModelRef}
-            annotate={(m) => cliDefaultNote(m, providers.data?.cli_default_models)}
+            annotate={(m) => {
+              const note = cliDefaultNote(m, providers.data?.cli_default_models)
+              return !note
+                ? undefined
+                : m.provider_key === 'claude_cli'
+                  ? formatMessage({
+                      id: 'settings.remaining.modelClaudeDefault',
+                      defaultMessage: 'Claude Code default',
+                    })
+                  : formatMessage({
+                      id: 'settings.remaining.modelCodexDefault',
+                      defaultMessage: 'Default in Codex',
+                    })
+            }}
             onChange={(next) => void putDefaultModel(next)}
           />
         </Field>
       </Panel>
 
       <Panel
-        title="Preferred models"
-        sub="Your shortlist — pinned to the top of every model picker so the ones you actually use are one click away"
+        title={formatMessage({
+          id: 'settings.remaining.modelAttr24',
+          defaultMessage: 'Preferred models',
+        })}
+        sub={formatMessage({
+          id: 'settings.remaining.modelAttr25',
+          defaultMessage:
+            'Your shortlist — pinned to the top of every model picker so the ones you actually use are one click away',
+        })}
       >
         <PreferredModels
           models={models}
           saved={preferred.data?.models ?? []}
-          onSave={(next) => void putPreferred(next, 'Preferred models saved')}
+          onSave={(next) =>
+            void putPreferred(
+              next,
+              formatMessage({
+                id: 'settings.remaining.modelText29',
+                defaultMessage: 'Preferred models saved',
+              }),
+            )
+          }
         />
       </Panel>
 
@@ -1246,7 +1920,19 @@ export function ModelSection({ toast, gatewayMode = false, openSection }: Sectio
             else body.base_url = patch.url
             if (patch.model) body.model = patch.model
             if (patch.key) body.api_key = patch.key
-            void putProvider(key, body, configured[key] ? 'Provider updated' : 'Provider added')
+            void putProvider(
+              key,
+              body,
+              configured[key]
+                ? formatMessage({
+                    id: 'settings.remaining.modelText30',
+                    defaultMessage: 'Provider updated',
+                  })
+                : formatMessage({
+                    id: 'settings.remaining.modelText31',
+                    defaultMessage: 'Provider added',
+                  }),
+            )
           }}
           onRemove={(key) => void removeProvider(key)}
         />

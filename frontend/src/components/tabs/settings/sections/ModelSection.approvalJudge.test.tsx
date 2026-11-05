@@ -24,6 +24,8 @@ vi.mock('../../../../hooks/useModels', () => ({
 }))
 
 import { ModelSection } from './ModelSection'
+import { IntlProvider } from 'react-intl'
+import { catalogs } from '../../../../i18n/catalogs'
 import { authFetch } from '../../../../api/client'
 import { invalidateQueryCache } from '../../../../state/queryCache'
 import { overrideFlagsForTests } from '../../../../hooks/useFlag'
@@ -90,6 +92,18 @@ describe('ModelSection — the Auto-approval judge row (permissions_v2=true)', (
   let restore: () => void
   beforeEach(() => (restore = overrideFlagsForTests({ permissions_v2: true })))
   afterEach(() => restore())
+
+  it('localizes task routing without changing the provider name', async () => {
+    mockAuthFetch.mockImplementation(async (url: string) => route(String(url), {}))
+    render(
+      <IntlProvider locale="zh-CN" messages={catalogs['zh-CN']}>
+        <ModelSection toast={vi.fn()} />
+      </IntlProvider>,
+    )
+    expect(await screen.findByRole('button', { name: '自动批准判断器' })).toBeTruthy()
+    expect(screen.getByRole('button', { name: '记忆' })).toBeTruthy()
+    expect(screen.getByText('Anthropic')).toBeTruthy()
+  })
 
   it('is listed, and unpinned says "Same as chat model" while other rows do not', async () => {
     mockAuthFetch.mockImplementation(async (url: string) => route(String(url), {}))
