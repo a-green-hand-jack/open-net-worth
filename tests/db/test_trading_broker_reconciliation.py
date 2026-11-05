@@ -7,7 +7,7 @@ from datetime import datetime, timedelta, timezone
 import pytest
 
 from backend.core.errors import ConflictError
-from backend.db.trading_store import TradingStore
+from backend.db.trading_store import TradingStore, trading_transaction
 from backend.services.trading import execution, lifecycle, performance, reconciliation, workspaces
 from backend.services.trading.providers import register_live_adapter
 
@@ -165,6 +165,61 @@ def test_same_broker_account_cannot_be_managed_by_two_running_workspaces():
     second = live_run(broker)
     with pytest.raises(ConflictError, match="already managed"):
         call(lifecycle.apply_run_action(second["id"], {"action": "start"}))
+
+
+def test_stop_preserves_unreconciled_fill_when_book_projection_fails():
+    broker = FakeBroker()
+    run = live_run(broker)
+    call(lifecycle.apply_run_action(run["id"], {"action": "start"}))
+    submitted = call(execution.submit_order(run["id"], order(run["id"])))
+    receipt = broker.orders[submitted["id"]]
+    receipt.update(
+        status="filled",
+        fills=[
+            {
+                "execution_id": "unmapped-fill",
+                "quantity": "1",
+                "price": "100",
+                "fees": "0",
+                "side": "buy",
+                "instrument": INSTRUMENT,
+                "timestamp": datetime.now(timezone.utc).isoformat(),
+                "broker_order_id": receipt["broker_order_id"],
+            }
+        ],
+    )
+    broker.account.update(
+        cash="900",
+        positions={
+            "simulation:stock:ACME:USD": {
+                "instrument": INSTRUMENT,
+                "quantity": "1",
+                "cost_basis": "100",
+            },
+        },
+    )
+    account = performance.get_account(run["id"])["items"][0]
+    with trading_transaction() as conn:
+        TradingStore("accounts").update_by_id(
+            account["id"], {"book_account_id": "missing-synthetic-book-account"}, conn=conn
+        )
+    stopped = call(lifecycle.apply_run_action(run["id"], {"action": "stop"}))
+    assert stopped["state"] == "needs_reconciliation"
+    assert call(reconciliation.reconcile_run(run["id"]))["state"] == "needs_reconciliation"
+    assert execution.list_fills(run["id"])["items"][0]["book_status"] == "needs_reconciliation"
+
+
+def test_resume_rejects_external_open_order_even_if_cash_is_unchanged():
+    broker = FakeBroker()
+    run = live_run(broker)
+    call(lifecycle.apply_run_action(run["id"], {"action": "start"}))
+    call(lifecycle.apply_run_action(run["id"], {"action": "pause"}))
+    broker.account["open_orders"] = [
+        {"client_order_id": "outside-synthetic-order", "broker_order_id": "outside-1"}
+    ]
+    with pytest.raises(ConflictError, match="outside this managed"):
+        call(lifecycle.apply_run_action(run["id"], {"action": "resume"}))
+    assert workspaces.get_run(run["id"])["state"] == "paused"
 
 
 def test_replayed_fill_is_idempotent_and_outside_activity_blocks_run():
