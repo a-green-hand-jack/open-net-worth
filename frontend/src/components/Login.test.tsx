@@ -1,6 +1,8 @@
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { IntlProvider } from 'react-intl'
+import { catalogs } from '../i18n/catalogs'
 import { Login } from './Login'
 
 const authFetch = vi.hoisted(() => vi.fn())
@@ -20,6 +22,17 @@ async function submitWith(res: { status: number; headers?: Headers }) {
 }
 
 describe('Login', () => {
+  it('shows Chinese login errors without calling the success handler', async () => {
+    const success = vi.fn()
+    authFetch.mockResolvedValue({ ok: false, status: 401 })
+    render(<IntlProvider locale="zh-CN" messages={catalogs['zh-CN']}><Login onAuthenticated={success} /></IntlProvider>)
+    fireEvent.change(screen.getByLabelText('密码'), { target: { value: 'synthetic-password' } })
+    fireEvent.click(screen.getByRole('button', { name: '登录' }))
+    expect(await screen.findByText('密码错误')).toBeTruthy()
+    expect(success).not.toHaveBeenCalled()
+    expect(screen.getByText('onw reset-password')).toBeTruthy()
+  })
+
   it('says how long to wait on a 429, from Retry-After', async () => {
     await submitWith({ status: 429, headers: new Headers({ 'Retry-After': '601' }) })
     expect(await screen.findByText('Too many attempts. Try again in 11 minutes.')).toBeTruthy()
