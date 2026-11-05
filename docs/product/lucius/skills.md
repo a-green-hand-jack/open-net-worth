@@ -29,6 +29,8 @@ himself. To run one deliberately:
 ## Built-in skills
 
 A new install comes with these. Find them in **Skills** in the sidebar.
+In the Simplified Chinese interface, the managed statement-import skill is displayed as
+**导入账单**; its command, identifier and instructions remain unchanged.
 
 | Skill | Ask for it like |
 |---|---|

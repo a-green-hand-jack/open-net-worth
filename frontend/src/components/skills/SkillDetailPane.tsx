@@ -9,6 +9,8 @@ import { fDate } from '../../utils/format'
 import { getBundleFileContent, isCodeOnlyFile } from './fileTreeUtils'
 import type { SelectedFile, Skill, SkillBundle } from '../../types/skills'
 import { ArrowLeft } from '../../ui/icons'
+import { useAppIntl } from '../../i18n/useAppIntl'
+import { managedSkillName } from './managedSkillName'
 
 interface SkillDetailPaneProps {
   skill: Skill | null
@@ -113,6 +115,8 @@ function SkillDetailContent({
 }: Omit<SkillDetailPaneProps, 'mobileActive' | 'onBack' | 'skill' | 'onChanged'> & {
   skill: Skill
 }) {
+  const { locale } = useAppIntl()
+  const displayName = managedSkillName(locale, skill)
   const userInvocable = skill.claude?.user_invocable !== false
   const modelInvocable =
     skill.claude?.disable_model_invocation !== true &&
@@ -177,8 +181,8 @@ function SkillDetailContent({
         {/* ── Header: title + enable toggle + kebab ── */}
         <div className="skill-detail-header">
           <div className="skill-detail-header__title">
-            <Text as="h2" size="lg" weight={700} truncate title={skill.name || '(unnamed)'}>
-              {skill.name || '(unnamed)'}
+            <Text as="h2" size="lg" weight={700} truncate title={displayName || '(unnamed)'}>
+              {displayName || '(unnamed)'}
             </Text>
           </div>
           <div className="skill-detail-header__controls">
@@ -188,7 +192,7 @@ function SkillDetailContent({
               onChange={() => onToggleEnabled(skill)}
             />
             {kebabItems.length > 0 && (
-              <KebabMenu items={kebabItems} label={`${skill.name} actions`} />
+              <KebabMenu items={kebabItems} label={`${displayName} actions`} />
             )}
           </div>
         </div>

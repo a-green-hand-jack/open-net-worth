@@ -3,6 +3,8 @@ import type { SelectedFile, Skill, SkillBundle } from '../../types/skills'
 import { FileTree } from './FileTree'
 import { EntityRow } from '../../lucius/EntityRow'
 import { ChevronRight } from '../../ui/icons'
+import { useAppIntl } from '../../i18n/useAppIntl'
+import { managedSkillName } from './managedSkillName'
 
 interface SkillsTreeProps {
   skills: Skill[]
@@ -40,11 +42,13 @@ export function SkillsTree({
   onExpandSkill,
   expandedSkills,
 }: SkillsTreeProps) {
+  const { locale } = useAppIntl()
   const query = searchQuery.trim().toLowerCase()
   const filtered = query
     ? skills.filter(
         (s) =>
           s.name.toLowerCase().includes(query) ||
+          managedSkillName(locale, s).toLowerCase().includes(query) ||
           (s.description || '').toLowerCase().includes(query),
       )
     : skills
@@ -127,6 +131,8 @@ function SkillTreeRow({
   onToggleExpand: () => void
   onSelectFile: (f: SelectedFile) => void
 }) {
+  const { locale } = useAppIntl()
+  const displayName = managedSkillName(locale, skill)
   // EVERY skill shows a file tree — consistency over the old single-file vs bundled split.
   // The minimum tree is just SKILL.md; script skills add scripts/ (manifest is derived server-side).
   // Optional agents/openai.yaml metadata is shown when the portable bundle contains it.
@@ -169,10 +175,10 @@ function SkillTreeRow({
         className={`skill-tree-row${isSelected ? ' skill-tree-row--selected' : ''}`}
         onClick={handleClick}
         onKeyDown={handleKeyDown}
-        title={skill.description || skill.name}
+        title={skill.description || displayName}
         type="skill"
         id={skill.id}
-        label={skill.name || '(unnamed)'}
+        label={displayName || '(unnamed)'}
         item={skill}
         toFields={(it) => ({
           name: it.name,
@@ -202,7 +208,7 @@ function SkillTreeRow({
           </span>
         )}
 
-        <span className="skill-tree-row__name">{skill.name || '(unnamed)'}</span>
+        <span className="skill-tree-row__name">{displayName || '(unnamed)'}</span>
 
         {/* Status badges */}
         <span className="skill-tree-row__badge">
