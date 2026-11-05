@@ -18,6 +18,8 @@ An authenticated owner can review a proposed delegation at
 `POST /api/trading/delegations/review` before creating it with `POST /api/trading/delegations`.
 The workspace endpoints provide an overview, pause or resume actions, and reviewed mandate
 amendments. A participant grant does not authorize those owner controls.
+Lucius can prepare an unsaved delegation for the owner's review, but cannot grant live trading
+authority through that preview. Funding must be supplied explicitly in the reviewed draft.
 The owner API also exposes the run's accounts, market observations, orders, fills and performance;
 simulated and live orders both pass through the trading service's existing execution checks.
 The run's statement and linked evidence endpoints show recorded order, fill and decision links;
