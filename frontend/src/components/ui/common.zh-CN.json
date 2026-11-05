@@ -1,0 +1,16 @@
+{
+  "boot.retry": "重试",
+  "common.cancel": "取消",
+  "common.close": "关闭",
+  "common.confirm": "确认",
+  "common.dialog": "对话框",
+  "common.errorTitle": "出现问题",
+  "common.loading": "正在加载…",
+  "common.moreActions": "更多操作",
+  "shared.infoPopover.moreInformation": "更多信息",
+  "shared.password.hide": "隐藏",
+  "shared.password.hideSecret": "隐藏密钥",
+  "shared.password.revealing": "正在显示…",
+  "shared.password.show": "显示",
+  "shared.password.showSecret": "显示密钥"
+}

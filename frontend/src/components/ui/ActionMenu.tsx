@@ -4,6 +4,7 @@ import { useIsMobile } from '../../hooks/useIsMobile'
 import { useSheetDragToDismiss } from '../../hooks/useSheetDragToDismiss'
 import { X, MoreHorizontal } from '../../ui/icons'
 import { swallowNextClick } from '../../utils/swallowNextClick'
+import { useAppIntl } from '../../i18n/useAppIntl'
 
 export interface ActionMenuItem {
   label: string
@@ -31,12 +32,15 @@ export interface ActionMenuProps {
 
 export function ActionMenu({
   items,
-  label = 'More actions',
+  label: providedLabel,
   title,
   trigger = <MoreHorizontal size={16} aria-hidden="true" />,
   className,
   onOpenChange,
 }: ActionMenuProps) {
+  const { formatMessage } = useAppIntl()
+  const label =
+    providedLabel ?? formatMessage({ id: 'common.moreActions', defaultMessage: 'More actions' })
   const [open, setOpen] = useState(false)
   const [position, setPosition] = useState<{ top: number; left: number } | null>(null)
   const triggerRef = useRef<HTMLButtonElement>(null)
@@ -181,7 +185,7 @@ export function ActionMenu({
             <button
               type="button"
               className="kebab-sheet-x"
-              aria-label="Close"
+              aria-label={formatMessage({ id: 'common.close', defaultMessage: 'Close' })}
               onClick={() => close(true)}
             >
               <X size={18} strokeWidth={1.6} aria-hidden="true" />

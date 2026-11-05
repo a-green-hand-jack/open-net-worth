@@ -6,6 +6,7 @@
 
 import { Modal } from './Modal'
 import { Button } from './Button'
+import { useAppIntl } from '../../i18n/useAppIntl'
 
 export interface ConfirmDialogData {
   title: string
@@ -29,6 +30,7 @@ export function ConfirmDialog({
   onConfirm: () => void
   onCancel: () => void
 }) {
+  const { formatMessage } = useAppIntl()
   if (!data) return null
   return (
     <Modal
@@ -40,7 +42,7 @@ export function ConfirmDialog({
         <div className="ui-confirm-actions">
           {/* Opens on the safe choice — never the ✕, never the destructive button. */}
           <Button size="sm" variant="ghost" data-autofocus onClick={onCancel}>
-            {data.cancelLabel ?? 'Cancel'}
+            {data.cancelLabel ?? formatMessage({ id: 'common.cancel', defaultMessage: 'Cancel' })}
           </Button>
           <Button
             size="sm"
@@ -48,7 +50,7 @@ export function ConfirmDialog({
             disabled={data.confirmDisabled}
             onClick={onConfirm}
           >
-            {data.confirmLabel ?? 'Confirm'}
+            {data.confirmLabel ?? formatMessage({ id: 'common.confirm', defaultMessage: 'Confirm' })}
           </Button>
         </div>
       }

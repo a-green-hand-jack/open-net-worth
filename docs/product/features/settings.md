@@ -40,6 +40,7 @@ Before a profile is available at sign-in, the sign-in screen follows the browser
 The first-run greeting, currency selection and password steps also follow the browser language.
 The first-run backup restore controls follow the browser language; unknown server diagnostics are preserved.
 First-run AI provider configuration controls also follow the browser language.
+Shared dialog, menu and password visibility controls follow the interface language.
 
 ## Common tasks
 

@@ -4,6 +4,7 @@ import type { ReactNode } from 'react'
 import { X } from '../../ui/icons'
 import { useIsMobile } from '../../hooks/useIsMobile'
 import { useSheetDragToDismiss } from '../../hooks/useSheetDragToDismiss'
+import { useAppIntl } from '../../i18n/useAppIntl'
 
 export type ModalSize = 'sm' | 'md' | 'lg' | 'xl' | 'workspace'
 
@@ -109,6 +110,7 @@ export function Modal({
   overlayClassName,
   mobileDockedSheet = false,
 }: ModalProps) {
+  const intl = useAppIntl()
   const cardRef = useRef<HTMLDivElement>(null)
   const overlayRef = useRef<HTMLDivElement>(null)
   const triggerRef = useRef<HTMLElement | null>(null)
@@ -288,7 +290,9 @@ export function Modal({
                     <h3 className="ui-modal__title">{title}</h3>
                   </Dialog.Title>
                 ) : (
-                  <Dialog.Title className="ui-visually-hidden">Dialog</Dialog.Title>
+                  <Dialog.Title className="ui-visually-hidden">
+                    {intl.formatMessage({ id: 'common.dialog', defaultMessage: 'Dialog' })}
+                  </Dialog.Title>
                 )}
                 {subtitle ? (
                   <Dialog.Description asChild>
@@ -298,7 +302,11 @@ export function Modal({
               </div>
               {headerActions && <div className="ui-modal__actions">{headerActions}</div>}
               <Dialog.Close asChild>
-                <button type="button" className="ui-modal__close" aria-label="Close">
+                <button
+                  type="button"
+                  className="ui-modal__close"
+                  aria-label={intl.formatMessage({ id: 'common.close', defaultMessage: 'Close' })}
+                >
                   <X size={18} strokeWidth={1.6} aria-hidden="true" />
                 </button>
               </Dialog.Close>
