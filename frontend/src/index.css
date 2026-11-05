@@ -20348,3 +20348,9 @@ body.hide-amounts .mf-lbl-amt {
   background: color-mix(in srgb, var(--primary) 12%, transparent);
   border-radius: var(--radius-sm);
 }
+.trading-definition-fields {
+  border: 0;
+  padding: 0;
+  margin: 0;
+  min-width: 0;
+}
