@@ -66,6 +66,18 @@ describe('MemoryBrowser', () => {
     expect(screen.getByText('Housing')).toBeTruthy()
   })
 
+  it('shows a Chinese confirmation before deleting a named topic', async () => {
+    render(<IntlProvider locale="zh-CN" messages={catalogs['zh-CN']}><MemoryBrowser toast={vi.fn()} /></IntlProvider>)
+    await screen.findByText('Rent is paid on the 1st')
+    fireEvent.click(screen.getByRole('button', { name: '删除Housing' }))
+    const dialog = screen.getByRole('alertdialog', { name: '忘记Housing？' })
+    expect(dialog.textContent).toContain('4 条信息')
+    expect(authFetch).not.toHaveBeenCalledWith(expect.anything(), { method: 'DELETE' })
+    fireEvent.click(within(dialog).getByRole('button', { name: '取消' }))
+    expect(screen.queryByRole('alertdialog')).toBeNull()
+    expect(authFetch).not.toHaveBeenCalledWith(expect.anything(), { method: 'DELETE' })
+  })
+
   it('shows a topic as name, first fact and updated date, with no fact count', async () => {
     await renderBrowser()
     const money = screen.getByRole('region', { name: 'Money' })

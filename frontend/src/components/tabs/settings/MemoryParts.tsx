@@ -10,6 +10,8 @@ import { SwipeActions } from '../../ui/SwipeActions'
 import { useSwipeRows } from '../../ui/useSwipeRows'
 import { Btn } from './ds'
 import type { MemoryFact } from '../../../hooks/useMemoryFacts'
+import { useAppIntl } from '../../../i18n/useAppIntl'
+import type { IntlShape } from 'react-intl'
 
 /** A fact being edited: a box that grows to show the whole fact (facts run to several lines),
  *  Save and Cancel under it. Enter saves, Shift+Enter breaks a line; Esc is the dialog's. */
@@ -22,6 +24,7 @@ function MemoryFactEditor({
   onCancel: () => void
   onSave: (content: string) => Promise<boolean>
 }) {
+  const { formatMessage } = useAppIntl()
   const [draft, setDraft] = useState(fact.content)
   const [saving, setSaving] = useState(false)
   const box = useRef<HTMLTextAreaElement>(null)
@@ -64,7 +67,10 @@ function MemoryFactEditor({
         value={draft}
         maxLength={1000}
         disabled={saving}
-        aria-label={'Edit: ' + fact.content}
+        aria-label={formatMessage(
+          { id: 'memory.editFact', defaultMessage: 'Edit: {content}' },
+          { content: fact.content },
+        )}
         onChange={(e) => setDraft(e.target.value)}
         onKeyDown={(e) => {
           if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) {
@@ -75,10 +81,12 @@ function MemoryFactEditor({
       />
       <div className="rd-fact-edit-acts">
         <Btn size="xs" variant="ghost" onClick={onCancel} disabled={saving}>
-          Cancel
+          {formatMessage({ id: 'common.cancel', defaultMessage: 'Cancel' })}
         </Btn>
         <Btn size="xs" type="submit" variant="primary" disabled={saving || !draft.trim()}>
-          {saving ? 'Saving…' : 'Save'}
+          {saving
+            ? formatMessage({ id: 'assets.editor.saving', defaultMessage: 'Saving…' })
+            : formatMessage({ id: 'assets.docs.save', defaultMessage: 'Save' })}
         </Btn>
       </div>
     </form>
@@ -89,18 +97,19 @@ function MemoryFactEditor({
 export type RowActs = {
   editLabel: string
   forgetLabel: string
-  word: 'Delete' | 'Forget'
+  word: string
   onEdit: () => void
   onForget: () => void
 }
 
 /** A row that, where rows swipe, slides left onto Edit and Delete/Forget. */
 export function MemorySwipeRow({ acts, children }: { acts: RowActs; children: ReactNode }) {
+  const { formatMessage } = useAppIntl()
   return (
     <SwipeActions
       actions={[
         {
-          label: 'Edit',
+          label: formatMessage({ id: 'assets.sections.edit', defaultMessage: 'Edit' }),
           ariaLabel: acts.editLabel,
           onClick: acts.onEdit,
           icon: <Pencil size={20} strokeWidth={1.8} aria-hidden="true" />,
@@ -130,13 +139,14 @@ export function MemoryHoverActs({
   className: string
   size: number
 }) {
+  const { formatMessage } = useAppIntl()
   if (useSwipeRows()) return null
   return (
     <span className={className}>
       <button
         type="button"
         className="rd-fact-ibtn"
-        title="Edit"
+        title={formatMessage({ id: 'assets.sections.edit', defaultMessage: 'Edit' })}
         aria-label={acts.editLabel}
         onClick={acts.onEdit}
       >
@@ -168,11 +178,18 @@ function factActs(
   f: MemoryFact,
   onEdit: (id: string) => void,
   onForget: (f: MemoryFact) => void,
+  intl: IntlShape,
 ): RowActs {
   return {
-    editLabel: 'Edit: ' + f.content,
-    forgetLabel: 'Forget: ' + f.content,
-    word: 'Forget',
+    editLabel: intl.formatMessage(
+      { id: 'memory.editFact', defaultMessage: 'Edit: {content}' },
+      { content: f.content },
+    ),
+    forgetLabel: intl.formatMessage(
+      { id: 'memory.forgetFact', defaultMessage: 'Forget: {content}' },
+      { content: f.content },
+    ),
+    word: intl.formatMessage({ id: 'memory.forget', defaultMessage: 'Forget' }),
     onEdit: () => onEdit(f.id),
     onForget: () => onForget(f),
   }
@@ -188,6 +205,7 @@ export function MemoryBullets({
   onSave,
   onForget,
 }: FactListProps) {
+  const intl = useAppIntl()
   const swipe = useSwipeRows()
   return (
     <List>
@@ -202,14 +220,19 @@ export function MemoryBullets({
               />
             </li>
           )
-        const acts = factActs(f, onEdit, onForget)
+        const acts = factActs(f, onEdit, onForget, intl)
         return (
           <li key={f.id} className={swipe ? 'rd-mem-bullet rd-mem-bullet--swipe' : 'rd-mem-bullet'}>
             <MemorySwipeRow acts={acts}>
               <span className="rd-mem-bullet-t">
                 {f.content}
                 {f.section === 'open_items' && f.expires_at && (
-                  <span className="rd-mem-bullet-until"> · until {fDate(f.expires_at)}</span>
+                  <span className="rd-mem-bullet-until">
+                    {intl.formatMessage(
+                      { id: 'memory.untilInline', defaultMessage: ' · until {date}' },
+                      { date: fDate(f.expires_at) },
+                    )}
+                  </span>
                 )}
               </span>
               <MemoryHoverActs acts={acts} className="rd-mem-bullet-acts" size={14} />
@@ -232,6 +255,7 @@ export function MemoryFactRows({
   onSave,
   onForget,
 }: FactListProps) {
+  const intl = useAppIntl()
   return facts.map((f) => {
     if (editingId === f.id)
       return (
@@ -242,13 +266,20 @@ export function MemoryFactRows({
           onSave={(content) => onSave(f.id, content)}
         />
       )
-    const acts = factActs(f, onEdit, onForget)
+    const acts = factActs(f, onEdit, onForget, intl)
     return (
       <MemorySwipeRow key={f.id} acts={acts}>
         <div className="rd-mem-topic">
           <div className="rd-mem-topic-open rd-mem-fact-body">
             <span className="rd-mem-fact-t">{f.content}</span>
-            {f.expires_at && <span className="rd-mem-topic-date">Until {fDate(f.expires_at)}</span>}
+            {f.expires_at && (
+              <span className="rd-mem-topic-date">
+                {intl.formatMessage(
+                  { id: 'memory.until', defaultMessage: 'Until {date}' },
+                  { date: fDate(f.expires_at) },
+                )}
+              </span>
+            )}
           </div>
           <MemoryHoverActs acts={acts} className="rd-mem-topic-acts" size={16} />
         </div>
@@ -274,18 +305,42 @@ export function ForgetConfirm({
   onCancel: () => void
   onConfirm: () => void
 }) {
+  const { formatMessage } = useAppIntl()
   const title =
     pending.kind === 'one'
-      ? 'Forget this memory?'
+      ? formatMessage({ id: 'memory.forgetOneTitle', defaultMessage: 'Forget this memory?' })
       : pending.kind === 'topic'
-        ? `Forget ${pending.name}?`
-        : `Forget all ${pending.count} memories?`
+        ? formatMessage(
+            { id: 'memory.forgetTopicTitle', defaultMessage: 'Forget {name}?' },
+            {
+              name: pending.named
+                ? pending.name
+                : formatMessage({ id: 'memory.general', defaultMessage: 'General' }),
+            },
+          )
+        : formatMessage(
+            { id: 'memory.forgetAllTitle', defaultMessage: 'Forget all {count} memories?' },
+            { count: pending.count },
+          )
   const body =
     pending.kind === 'one'
-      ? 'Lucius will no longer remember this. This can’t be undone.'
+      ? formatMessage({
+          id: 'memory.forgetOneBody',
+          defaultMessage: 'Lucius will no longer remember this. This can’t be undone.',
+        })
       : pending.kind === 'topic'
-        ? `Lucius will forget its ${pending.ids.length} ${pending.ids.length === 1 ? 'fact' : 'facts'}. This can’t be undone.`
-        : 'Lucius will start again with an empty memory. This can’t be undone.'
+        ? formatMessage(
+            {
+              id: 'memory.forgetTopicBody',
+              defaultMessage:
+                'Lucius will forget its {count, plural, one {# fact} other {# facts}}. This can’t be undone.',
+            },
+            { count: pending.ids.length },
+          )
+        : formatMessage({
+            id: 'memory.forgetAllBody',
+            defaultMessage: 'Lucius will start again with an empty memory. This can’t be undone.',
+          })
   return (
     <div
       className="rd-confirm-scrim"
@@ -308,10 +363,12 @@ export function ForgetConfirm({
         </p>
         <div className="rd-confirm-acts">
           <Btn autoFocus onClick={onCancel}>
-            Cancel
+            {formatMessage({ id: 'common.cancel', defaultMessage: 'Cancel' })}
           </Btn>
           <Btn variant="danger" onClick={onConfirm}>
-            {pending.kind === 'all' ? 'Forget all' : 'Forget'}
+            {pending.kind === 'all'
+              ? formatMessage({ id: 'memory.forgetAll', defaultMessage: 'Forget all' })
+              : formatMessage({ id: 'memory.forget', defaultMessage: 'Forget' })}
           </Btn>
         </div>
       </div>
