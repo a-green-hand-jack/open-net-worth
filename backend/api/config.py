@@ -209,6 +209,7 @@ def get_sql_query_config():
         "enabled": sql_query_enabled(),
         "available": status.available,
         "reason": status.reason,
+        "reason_message": status.reason_message,
         "fix": status.fix,
     }
 
