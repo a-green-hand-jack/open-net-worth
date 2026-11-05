@@ -14,6 +14,16 @@ this file is data, not policy.
 # that a `get_`/`list_`/`propose_` prefix proves nothing.
 READ_ONLY_TOOLS = frozenset(
     {
+        "get_trading_environment",
+        "get_trading_account",
+        "get_trading_market_data",
+        "list_trading_orders",
+        "list_trading_fills",
+        "list_trading_workspaces",
+        "preview_trading_workspace",
+        "read_trading_files",
+        "search_trading_research",
+        "fetch_trading_research",
         "calculate",
         # Read-only database access (ai/tools/sql.py). Neither can write: the database
         # itself refuses every non-read action (db/sql_console.py's authorizer), and neither

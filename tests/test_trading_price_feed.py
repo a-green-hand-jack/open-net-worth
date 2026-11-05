@@ -1,0 +1,345 @@
+import pytest
+
+from backend.core.errors import ConflictError
+from backend.services.trading import price_feed
+
+
+@pytest.fixture(autouse=True)
+def no_market_network(monkeypatch):
+    monkeypatch.setattr(price_feed.prices, "fetch_history_result", lambda *_: {"points": []})
+    monkeypatch.setattr(price_feed, "record_quote_authority", lambda *_: {})
+
+
+def configured_run(mode="paper"):
+    return {
+        "mode": mode,
+        "observations": [],
+        "accounts": [{"venue": "simulation", "currency": "USD"}],
+        "workspace_snapshot": {
+            "mandate": {
+                "market_data_source": "yahoo",
+                "allowed_asset_classes": ["stock", "crypto"],
+                "instruments": [
+                    {
+                        "symbol": "EXAMPLE/USD",
+                        "venue": "simulation",
+                        "asset_class": "crypto",
+                        "currency": "USD",
+                    },
+                ],
+            }
+        },
+    }
+
+
+def test_backtest_never_reaches_current_price_provider(monkeypatch):
+    monkeypatch.setattr(price_feed, "_feed_snapshot", lambda _: configured_run("backtest"))
+    monkeypatch.setattr(
+        price_feed.prices, "fetch_yahoo_quotes", lambda *_: pytest.fail("future-data leak")
+    )
+    with pytest.raises(ConflictError, match="Historical"):
+        price_feed.refresh_run_market_data("synthetic")
+
+
+def test_feed_preserves_provider_quote_time_instead_of_making_it_fresh(monkeypatch):
+    captured = []
+    monkeypatch.setattr(price_feed, "_feed_snapshot", lambda _: configured_run())
+    monkeypatch.setattr(price_feed, "record_activity", lambda *_: None)
+    monkeypatch.setattr(
+        price_feed,
+        "ingest_observations",
+        lambda _, rows: captured.extend(rows) or {"received": len(rows)},
+    )
+    monkeypatch.setattr(
+        price_feed.prices,
+        "fetch_yahoo_quotes",
+        lambda symbols: {
+            "prices": {symbols[0]: 10},
+            "as_of": {symbols[0]: "2026-01-05T15:00:00Z"},
+            "currencies": {symbols[0]: "USD"},
+            "timestamp_verified": {symbols[0]: True},
+        },
+    )
+    assert price_feed.refresh_run_market_data("synthetic")["received"] == 1
+    assert captured[0]["timestamp"] == "2026-01-05T15:00:00Z"
+    assert captured[0]["available_at"] != captured[0]["timestamp"]
+
+
+def test_missing_provider_timestamp_does_not_create_a_tradeable_observation(monkeypatch):
+    monkeypatch.setattr(price_feed, "_feed_snapshot", lambda _: configured_run())
+    monkeypatch.setattr(price_feed, "record_activity", lambda *_: None)
+    monkeypatch.setattr(
+        price_feed, "ingest_observations", lambda *_: pytest.fail("invented timestamp")
+    )
+    monkeypatch.setattr(
+        price_feed.prices, "fetch_yahoo_quotes", lambda symbols: {"prices": {symbols[0]: 10}}
+    )
+    result = price_feed.refresh_run_market_data("synthetic")
+    assert result["received"] == 0
+    assert result["missing"] == ["EXAMPLE-USD"]
+
+
+def test_current_feed_reads_persisted_private_dataset_and_repeated_quote_is_idempotent(
+    db_isolated, monkeypatch
+):
+    from datetime import datetime, timezone
+
+    from backend.services import trading
+    from tests.test_trading_workspace import make_run
+
+    run = make_run(mode="paper", mandate=configured_run()["workspace_snapshot"]["mandate"])
+    assert "observations" not in trading.get_run(run["id"])
+    stamp = datetime.now(timezone.utc).isoformat()
+    monkeypatch.setattr(
+        price_feed.prices,
+        "fetch_yahoo_quotes",
+        lambda symbols: {
+            "prices": {symbols[0]: 10},
+            "as_of": {symbols[0]: stamp},
+            "currencies": {symbols[0]: "USD"},
+            "timestamp_verified": {symbols[0]: True},
+        },
+    )
+    assert price_feed.refresh_run_market_data(run["id"])["received"] == 1
+    assert price_feed.refresh_run_market_data(run["id"])["received"] == 1
+    items = trading.get_market_data(run["id"])["items"]
+    assert sum(row["instrument"]["symbol"] == "EXAMPLE/USD" for row in items) == 1
+
+
+def test_legacy_repeated_quote_preserves_first_metadata_and_still_detects_price_changes(
+    db_isolated, monkeypatch
+):
+    from datetime import datetime, timezone
+
+    from backend.services import trading
+    from tests.test_trading_workspace import make_run
+
+    stamp = datetime.now(timezone.utc).isoformat()
+    instrument = configured_run()["workspace_snapshot"]["mandate"]["instruments"][0]
+    run = make_run(
+        mode="paper",
+        mandate=configured_run()["workspace_snapshot"]["mandate"],
+        observations=[{"instrument": instrument, "timestamp": stamp, "price": "10"}],
+    )
+    quotes = {
+        "prices": {"EXAMPLE-USD": 10},
+        "as_of": {"EXAMPLE-USD": stamp},
+        "currencies": {"EXAMPLE-USD": "USD"},
+        "timestamp_verified": {"EXAMPLE-USD": True},
+    }
+    monkeypatch.setattr(price_feed.prices, "fetch_yahoo_quotes", lambda _: quotes)
+    assert price_feed.refresh_run_market_data(run["id"])["received"] == 1
+    row = trading.get_market_data(run["id"])["items"][0]
+    assert row["source"] == "supplied"
+    assert row["received_at"] is None
+    quotes["prices"]["EXAMPLE-USD"] = 11
+    with pytest.raises(ConflictError, match="rewritten"):
+        price_feed.refresh_run_market_data(run["id"])
+
+
+def test_feed_captures_actual_provider_bars_but_not_incomplete_or_naive_time_bars(monkeypatch):
+    from datetime import datetime, timedelta, timezone
+
+    captured = []
+    current = datetime.now(timezone.utc)
+    monkeypatch.setattr(price_feed, "_feed_snapshot", lambda _: configured_run())
+    monkeypatch.setattr(price_feed, "record_activity", lambda *_: None)
+    monkeypatch.setattr(
+        price_feed,
+        "ingest_observations",
+        lambda _, rows: captured.extend(rows) or {"received": len(rows)},
+    )
+    monkeypatch.setattr(
+        price_feed.prices, "fetch_yahoo_quotes", lambda _: {"currencies": {"EXAMPLE-USD": "USD"}}
+    )
+    monkeypatch.setattr(
+        price_feed.prices,
+        "fetch_history_result",
+        lambda *_: {
+            "points": [
+                {"date": date, "open": 9, "high": 11, "low": 8, "close": 10, "volume": 100}
+                for date in (
+                    (current - timedelta(minutes=10)).isoformat(),
+                    current.isoformat(),
+                    "2026-01-01",
+                )
+            ]
+        },
+    )
+    assert price_feed.refresh_run_market_data("synthetic")["received"] == 1
+    assert captured[0]["source"] == "yahoo"
+    assert captured[0]["open"] == "9"
+    assert captured[0]["price"] == captured[0]["close"] == "10"
+    assert captured[0]["available_at"] == captured[0]["received_at"]
+
+
+def test_provider_bar_correction_does_not_rewrite_first_recorded_evidence(db_isolated, monkeypatch):
+    from datetime import datetime, timedelta, timezone
+
+    from backend.services import trading
+    from tests.test_trading_workspace import make_run
+
+    run = make_run(mode="paper", mandate=configured_run()["workspace_snapshot"]["mandate"])
+    stamp = (datetime.now(timezone.utc) - timedelta(minutes=10)).isoformat()
+    value = {"date": stamp, "open": 9, "high": 12, "low": 8, "close": 10, "volume": 100}
+    monkeypatch.setattr(
+        price_feed.prices, "fetch_yahoo_quotes", lambda _: {"currencies": {"EXAMPLE-USD": "USD"}}
+    )
+    monkeypatch.setattr(price_feed.prices, "fetch_history_result", lambda *_: {"points": [value]})
+    assert price_feed.refresh_run_market_data(run["id"])["received"] == 1
+    first = trading.get_market_data(run["id"])["items"][-1]
+    value["close"] = 11
+    assert price_feed.refresh_run_market_data(run["id"])["received"] == 0
+    assert trading.get_market_data(run["id"])["items"][-1] == first
+    event = trading.list_events(run["id"])["items"][-1]
+    assert event["payload"]["bar_revisions_retained_original"] == 1
+
+
+def test_bar_failure_does_not_discard_a_valid_quote(monkeypatch):
+    captured, events = [], []
+    monkeypatch.setattr(price_feed, "_feed_snapshot", lambda _: configured_run())
+    monkeypatch.setattr(price_feed, "record_activity", lambda *args: events.append(args))
+    monkeypatch.setattr(
+        price_feed,
+        "ingest_observations",
+        lambda _, rows: captured.extend(rows) or {"received": len(rows)},
+    )
+    monkeypatch.setattr(
+        price_feed.prices,
+        "fetch_yahoo_quotes",
+        lambda symbols: {
+            "prices": {symbols[0]: 10},
+            "as_of": {symbols[0]: "2026-01-05T15:00:00Z"},
+            "currencies": {symbols[0]: "USD"},
+            "timestamp_verified": {symbols[0]: True},
+        },
+    )
+
+    def unavailable(*_):
+        raise TimeoutError("synthetic provider failure")
+
+    monkeypatch.setattr(price_feed.prices, "fetch_history_result", unavailable)
+    assert price_feed.refresh_run_market_data("synthetic")["received"] == 1
+    assert captured[0]["source"] == "yahoo"
+    assert captured[0]["received_at"]
+    assert events[0][1] == "market_bars_unavailable"
+
+
+@pytest.mark.parametrize("currency", ["GBP", "GBp", "EUR", "usd", None])
+def test_caller_usd_label_cannot_relabel_foreign_or_unknown_provider_currency(
+    monkeypatch, currency
+):
+    from datetime import datetime, timezone
+
+    captured = []
+    monkeypatch.setattr(price_feed, "_feed_snapshot", lambda _: configured_run())
+    monkeypatch.setattr(price_feed, "record_activity", lambda *_: None)
+    monkeypatch.setattr(
+        price_feed,
+        "ingest_observations",
+        lambda _, rows: captured.extend(rows) or {"received": len(rows)},
+    )
+    monkeypatch.setattr(
+        price_feed.prices,
+        "fetch_yahoo_quotes",
+        lambda symbols: {
+            "prices": {symbols[0]: 75},
+            "as_of": {symbols[0]: datetime.now(timezone.utc).isoformat()},
+            "currencies": {symbols[0]: currency},
+            "timestamp_verified": {symbols[0]: True},
+        },
+    )
+    monkeypatch.setattr(
+        price_feed.prices,
+        "fetch_history_result",
+        lambda *_: pytest.fail("Unproven currency must not reach the historical-price importer"),
+    )
+    result = price_feed.refresh_run_market_data("synthetic")
+    assert result["status"] == "unavailable"
+    assert "currency" in result["rejected"]["EXAMPLE-USD"]
+    assert captured == []
+
+
+@pytest.mark.parametrize("verified", [False, None, "true"])
+def test_retrieval_time_cannot_substitute_for_unverified_observation_time(monkeypatch, verified):
+    from datetime import datetime, timezone
+
+    monkeypatch.setattr(price_feed, "_feed_snapshot", lambda _: configured_run())
+    monkeypatch.setattr(price_feed, "record_activity", lambda *_: None)
+    monkeypatch.setattr(
+        price_feed,
+        "ingest_observations",
+        lambda *_: pytest.fail("An unverified timestamp became tradeable"),
+    )
+    monkeypatch.setattr(
+        price_feed.prices,
+        "fetch_yahoo_quotes",
+        lambda symbols: {
+            "prices": {symbols[0]: 75},
+            "as_of": {symbols[0]: datetime.now(timezone.utc).isoformat()},
+            "currencies": {symbols[0]: "USD"},
+            "timestamp_verified": {symbols[0]: verified},
+        },
+    )
+    result = price_feed.refresh_run_market_data("synthetic")
+    assert result["status"] == "unavailable"
+    assert "observation time is not verified" in result["rejected"]["EXAMPLE-USD"]
+
+
+def test_real_quote_facade_fallback_does_not_enter_trading_feed(monkeypatch):
+    from datetime import datetime, timezone
+
+    monkeypatch.setattr(price_feed, "_feed_snapshot", lambda _: configured_run())
+    monkeypatch.setattr(price_feed, "record_activity", lambda *_: None)
+    monkeypatch.setattr(
+        price_feed,
+        "ingest_observations",
+        lambda *_: pytest.fail("Facade fallback became a tradeable observation"),
+    )
+    monkeypatch.setattr(price_feed.prices, "_cache_market_from_quotes", lambda *_: None)
+    monkeypatch.setattr(price_feed.prices, "_extended_hours_from_quote", lambda *_: {})
+    monkeypatch.setattr(
+        price_feed.prices,
+        "_yf_batch_quote",
+        lambda _: {
+            "EXAMPLE-USD": {
+                "regularMarketPrice": None,
+                "regularMarketTime": int(datetime.now(timezone.utc).timestamp()),
+                "currency": "USD",
+            }
+        },
+    )
+    monkeypatch.setattr(price_feed.prices, "_fetch_one", lambda symbol: (symbol, 75, 74))
+    result = price_feed.refresh_run_market_data("synthetic")
+    assert result["status"] == "unavailable"
+    assert "observation time is not verified" in result["rejected"]["EXAMPLE-USD"]
+
+
+def test_missing_new_currency_proof_preserves_already_recorded_bar(db_isolated, monkeypatch):
+    from datetime import datetime, timedelta, timezone
+
+    from backend.services import trading
+    from tests.test_trading_workspace import make_run
+
+    instrument = configured_run()["workspace_snapshot"]["mandate"]["instruments"][0]
+    stamp = (datetime.now(timezone.utc) - timedelta(minutes=10)).isoformat()
+    bar = {
+        "instrument": instrument,
+        "timestamp": stamp,
+        "price": "10",
+        "open": "9",
+        "high": "11",
+        "low": "8",
+        "close": "10",
+        "source": "yahoo",
+    }
+    run = make_run(
+        mode="paper", mandate=configured_run()["workspace_snapshot"]["mandate"], observations=[bar]
+    )
+    before = trading.get_market_data(run["id"])["items"]
+    monkeypatch.setattr(
+        price_feed.prices, "fetch_yahoo_quotes", lambda _: {"prices": {"EXAMPLE-USD": 75}}
+    )
+    result = price_feed.refresh_run_market_data(run["id"])
+    assert result["status"] == "unavailable"
+    assert trading.get_market_data(run["id"])["items"] == before
