@@ -1,6 +1,8 @@
 // @vitest-environment jsdom
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
+import { IntlProvider } from 'react-intl'
+import { catalogs } from '../../../../i18n/catalogs'
 
 const SETUP_CODE = 'https://box.example.com|tok_secret_value'
 
@@ -66,6 +68,15 @@ beforeEach(() => {
   writeText.mockClear()
 })
 afterEach(cleanup)
+
+it('warns in Chinese and withholds the QR for an unreachable loopback address', async () => {
+  setUA('Mozilla/5.0 (Macintosh; Intel Mac OS X 14_0)')
+  render(<IntlProvider locale="zh-CN" messages={catalogs['zh-CN']}><ShortcutsSection toast={vi.fn()} /></IntlProvider>)
+  const input = await screen.findByLabelText('应用地址')
+  fireEvent.change(input, { target: { value: 'http://localhost:8080' } })
+  expect(await screen.findByText('请添加应用地址')).toBeTruthy()
+  expect(screen.queryByAltText('打开手机设置的二维码')).toBeNull()
+})
 
 it('on a computer, shows the QR straight away instead of downloading anything', async () => {
   setUA('Mozilla/5.0 (Macintosh; Intel Mac OS X 14_0) AppleWebKit/605.1.15')

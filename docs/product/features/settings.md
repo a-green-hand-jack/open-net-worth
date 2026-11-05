@@ -29,6 +29,7 @@ Authentication retry messages use the active interface language when available.
 Cost and performance settings also follow the interface language and saved number format.
 MCP connection instructions and controls follow the interface language.
 Desktop connection and update settings follow the interface language.
+Phone shortcut setup controls and connection warnings follow the interface language.
 Before a profile is available at sign-in, the sign-in screen follows the browser language.
 
 ## Common tasks

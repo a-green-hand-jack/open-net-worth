@@ -8,6 +8,8 @@
 // screen snapshot never reads them.
 import { useEffect, useState } from 'react'
 import type { ReactNode } from 'react'
+import type { IntlShape } from 'react-intl'
+import { useAppIntl } from '../../../../i18n/useAppIntl'
 import { authFetch } from '../../../../api/client'
 import { useCachedFetchState } from '../../../../state/queryCache'
 import { docIdToPath } from '../../../help/docId'
@@ -15,7 +17,7 @@ import { Bell, Wallet } from '../../../../ui/icons'
 import { openShortcutInstall } from '../../../../utils/openShortcutInstall'
 import { Badge, Btn, Field, Panel, SegTabs, useSectionBusy } from '../ds'
 import type { SectionProps } from '../ds'
-import { addressWarning, iosMajor, isOwnComputer, phonePlatform } from './phoneShortcuts'
+import { addressWarningKind, iosMajor, isOwnComputer, phonePlatform } from './phoneShortcuts'
 
 interface ShortcutRow {
   slug: string
@@ -50,7 +52,6 @@ type Toast = SectionProps['toast']
 
 const DOC = docIdToPath('features/phone-shortcuts')
 const MASK = '••••••••••••••••••••'
-const CODE_NOTE = 'Your address and API token. Each shortcut asks for it once.'
 // Re-mint this long before a QR's ticket expires, so the one on screen always scans.
 const QR_REFRESH_MARGIN_S = 30
 // The iPhone tab is split by iOS version: iOS 27 stores the trigger inside the shortcut, iOS 26
@@ -84,14 +85,30 @@ function prepare(base: string, ios: Ios = '27'): Promise<Prepared> {
   })
 }
 
-function copy(text: string, what: string, toast: Toast) {
+function copy(text: string, what: string, toast: Toast, intl: IntlShape) {
+  const { formatMessage } = intl
   void navigator.clipboard
     .writeText(text)
-    .then(() => toast(`Copied ${what}`))
-    .catch(() => toast(`Could not copy ${what}`))
+    .then(() =>
+      toast(
+        formatMessage(
+          { id: 'settings.remaining.shortCopiedWhat', defaultMessage: 'Copied {what}' },
+          { what },
+        ),
+      ),
+    )
+    .catch(() =>
+      toast(
+        formatMessage(
+          { id: 'settings.remaining.shortCopyWhatFailed', defaultMessage: 'Could not copy {what}' },
+          { what },
+        ),
+      ),
+    )
 }
 
 export function ShortcutsSection({ toast, openSection }: SectionProps) {
+  const { formatMessage } = useAppIntl()
   const platform = phonePlatform()
   const { data, initialLoading } = useCachedFetchState<ShortcutCatalog>(
     '/api/shortcuts',
@@ -109,7 +126,7 @@ export function ShortcutsSection({ toast, openSection }: SectionProps) {
   const address = (
     <AddressField
       value={typed}
-      warning={base ? addressWarning(base) : null}
+      warning={base ? addressWarningKind(base) : null}
       onChange={setBaseUrl}
     />
   )
@@ -118,7 +135,25 @@ export function ShortcutsSection({ toast, openSection }: SectionProps) {
   return (
     <>
       <div className="rd-phone-tabs">
-        <SegTabs ariaLabel="Phone" options={TABS} value={tab} onChange={setTab} />
+        <SegTabs
+          ariaLabel={formatMessage({
+            id: 'settings.remaining.shortPhone',
+            defaultMessage: 'Phone',
+          })}
+          options={TABS.map((option) =>
+            option.value === 'ios26'
+              ? {
+                  ...option,
+                  label: formatMessage({
+                    id: 'settings.remaining.shortIosOld',
+                    defaultMessage: 'iOS 26 or earlier',
+                  }),
+                }
+              : option,
+          )}
+          value={tab}
+          onChange={setTab}
+        />
       </div>
       {tab !== 'android' ? (
         platform === 'ios' ? (
@@ -136,10 +171,13 @@ export function ShortcutsSection({ toast, openSection }: SectionProps) {
       )}
       <div className="rd-actions">
         <a className="rd-btn ghost xs" href={DOC}>
-          Setup guide
+          {formatMessage({ id: 'settings.remaining.shortGuide', defaultMessage: 'Setup guide' })}
         </a>
         <Btn size="xs" variant="ghost" onClick={() => openSection?.('security')}>
-          Manage API token
+          {formatMessage({
+            id: 'settings.remaining.shortManage',
+            defaultMessage: 'Manage API token',
+          })}
         </Btn>
       </div>
     </>
@@ -152,25 +190,58 @@ function AddressField({
   onChange,
 }: {
   value: string
-  warning: string | null
+  warning: ReturnType<typeof addressWarningKind>
   onChange: (value: string) => void
 }) {
+  const { formatMessage } = useAppIntl()
+  const warningText =
+    warning === 'invalid'
+      ? formatMessage({
+          id: 'settings.remaining.shortInvalid',
+          defaultMessage: 'Enter a full address, like https://…',
+        })
+      : warning === 'loopback'
+        ? formatMessage({
+            id: 'settings.remaining.shortLoopback',
+            defaultMessage:
+              "Your phone can't open this computer's own address. Use your tunnel, Tailscale or HTTPS address.",
+          })
+        : warning === 'local'
+          ? formatMessage({
+              id: 'settings.remaining.shortLocal',
+              defaultMessage: 'Only works on your home Wi-Fi, not at the shop.',
+            })
+          : warning === 'http'
+            ? formatMessage({
+                id: 'settings.remaining.shortHttp',
+                defaultMessage: 'Use https:// — plain http:// sends your token unencrypted.',
+              })
+            : null
   return (
     <Field
       span="full"
-      label="App address"
+      label={formatMessage({
+        id: 'settings.remaining.shortAddress',
+        defaultMessage: 'App address',
+      })}
       help={
         warning ? (
-          <span className="rd-help--warn">{warning}</span>
+          <span className="rd-help--warn">{warningText}</span>
         ) : (
-          'Where your phone reaches this app'
+          formatMessage({
+            id: 'settings.remaining.shortReach',
+            defaultMessage: 'Where your phone reaches this app',
+          })
         )
       }
     >
       <input
         className="rd-input rd-mono"
         spellCheck={false}
-        aria-label="App address"
+        aria-label={formatMessage({
+          id: 'settings.remaining.shortAddress',
+          defaultMessage: 'App address',
+        })}
         aria-invalid={warning ? true : undefined}
         placeholder="https://your-address"
         value={value}
@@ -193,24 +264,65 @@ function IphoneSetup({
   unsigned: boolean
   toast: Toast
 }) {
+  const { formatMessage } = useAppIntl()
   return (
     <>
-      <Panel title="Scan with your iPhone">
+      <Panel
+        title={formatMessage({
+          id: 'settings.remaining.shortScan',
+          defaultMessage: 'Scan with your iPhone',
+        })}
+      >
         <div className="rd-phone">
           <SetupQr base={base} ios={ios} />
           <ol className="rd-steps">
-            <li>Open the link on your iPhone</li>
-            <li>{ios === '27' ? 'Install the shortcuts you want' : 'Install the shortcut'}</li>
-            <li>Follow their steps below</li>
+            <li>
+              {formatMessage({
+                id: 'settings.remaining.shortOpenLink',
+                defaultMessage: 'Open the link on your iPhone',
+              })}
+            </li>
+            <li>
+              {ios === '27'
+                ? formatMessage({
+                    id: 'settings.remaining.shortInstallMany',
+                    defaultMessage: 'Install the shortcuts you want',
+                  })
+                : formatMessage({
+                    id: 'settings.remaining.shortInstallOne',
+                    defaultMessage: 'Install the shortcut',
+                  })}
+            </li>
+            <li>
+              {formatMessage({
+                id: 'settings.remaining.shortFollow',
+                defaultMessage: 'Follow their steps below',
+              })}
+            </li>
           </ol>
         </div>
         {unsigned ? <UnsignedNote /> : null}
       </Panel>
       <ShortcutsPanel ios={ios} unsigned={unsigned} />
-      <Panel title="Connection">
+      <Panel
+        title={formatMessage({
+          id: 'settings.remaining.shortConnection',
+          defaultMessage: 'Connection',
+        })}
+      >
         <div className="rd-formgrid">
           {address}
-          <Field span="full" label="Setup code" help={CODE_NOTE}>
+          <Field
+            span="full"
+            label={formatMessage({
+              id: 'settings.remaining.shortCode',
+              defaultMessage: 'Setup code',
+            })}
+            help={formatMessage({
+              id: 'settings.remaining.shortCodeHelp',
+              defaultMessage: 'Your address and API token. Each shortcut asks for it once.',
+            })}
+          >
             <SetupCodeField key={base} prefix={base} load={() => loadCode(base)} toast={toast} />
           </Field>
         </div>
@@ -232,6 +344,7 @@ function ThisIphoneSetup({
   unsigned: boolean
   toast: Toast
 }) {
+  const { formatMessage } = useAppIntl()
   // The install links, fetched as soon as the steps show and re-fetched before they expire:
   // a tap must open a link it already has. iOS refuses a window opened after an await, and a
   // blank sheet opened first then pointed at the file stays about:blank (seen on device,
@@ -275,12 +388,25 @@ function ThisIphoneSetup({
   function install(slug: string) {
     const sc = links[slug]
     if (sc?.install_url) openShortcutInstall(sc.install_url)
-    else toast('Still preparing the install link — try again in a moment.')
+    else
+      toast(
+        formatMessage({
+          id: 'settings.remaining.shortPreparing',
+          defaultMessage: 'Still preparing the install link — try again in a moment.',
+        }),
+      )
   }
 
   return (
     <>
-      <Panel title="Setup code" sub={CODE_NOTE} className="rd-panel--roomy">
+      <Panel
+        title={formatMessage({ id: 'settings.remaining.shortCode', defaultMessage: 'Setup code' })}
+        sub={formatMessage({
+          id: 'settings.remaining.shortCodeHelp',
+          defaultMessage: 'Your address and API token. Each shortcut asks for it once.',
+        })}
+        className="rd-panel--roomy"
+      >
         <SetupCodeField key={base} prefix={base} load={() => loadCode(base)} toast={toast} />
       </Panel>
       <ShortcutsPanel ios={ios} unsigned={unsigned} onInstall={install} />
@@ -299,29 +425,73 @@ function ShortcutsPanel({
   unsigned: boolean
   onInstall?: (slug: string) => void
 }) {
-  const paste = 'Open the download, install the shortcut, paste your setup code'
+  const { formatMessage } = useAppIntl()
+  const paste = formatMessage({
+    id: 'settings.remaining.shortPaste',
+    defaultMessage: 'Open the download, install the shortcut, paste your setup code',
+  })
   return (
     <Panel
-      title="Shortcuts"
-      sub={ios === '27' ? 'Install either or both.' : undefined}
+      title={formatMessage({ id: 'settings.remaining.shortTitle', defaultMessage: 'Shortcuts' })}
+      sub={
+        ios === '27'
+          ? formatMessage({
+              id: 'settings.remaining.shortEither',
+              defaultMessage: 'Install either or both.',
+            })
+          : undefined
+      }
       className="rd-panel--roomy"
       flush
     >
       <ShortcutOption
         icon={<Wallet size={16} strokeWidth={1.7} aria-hidden="true" />}
-        title="Apple Pay taps"
-        sub="Amount, merchant and card, as you tap"
+        title={formatMessage({
+          id: 'settings.remaining.shortApple',
+          defaultMessage: 'Apple Pay taps',
+        })}
+        sub={formatMessage({
+          id: 'settings.remaining.shortAppleHelp',
+          defaultMessage: 'Amount, merchant and card, as you tap',
+        })}
         unsigned={unsigned}
         onInstall={onInstall && (() => onInstall(APPLE_PAY[ios]))}
         steps={[
           paste,
           ios === '27' ? (
             <>
-              <b>Search → Automation → Wallet</b> → your cards
+              <b>
+                {formatMessage({
+                  id: 'settings.remaining.shortOsStep0',
+                  defaultMessage: 'Search → Automation → Wallet',
+                })}
+              </b>{' '}
+              →{' '}
+              {formatMessage({
+                id: 'settings.remaining.shortYourCards',
+                defaultMessage: 'your cards',
+              })}
             </>
           ) : (
             <>
-              <b>Automation → + → Wallet</b> → your cards → <b>Run Immediately</b>
+              <b>
+                {formatMessage({
+                  id: 'settings.remaining.shortOsStep1',
+                  defaultMessage: 'Automation → + → Wallet',
+                })}
+              </b>{' '}
+              →{' '}
+              {formatMessage({
+                id: 'settings.remaining.shortYourCards',
+                defaultMessage: 'your cards',
+              })}{' '}
+              →{' '}
+              <b>
+                {formatMessage({
+                  id: 'settings.remaining.shortOsStep2',
+                  defaultMessage: 'Run Immediately',
+                })}
+              </b>
             </>
           ),
         ]}
@@ -329,14 +499,30 @@ function ShortcutsPanel({
       {ios === '27' ? (
         <ShortcutOption
           icon={<Bell size={16} strokeWidth={1.7} aria-hidden="true" />}
-          title="Finance notifications"
-          sub="Bank, wallet, broker and crypto alerts"
+          title={formatMessage({
+            id: 'settings.remaining.shortNotifications',
+            defaultMessage: 'Finance notifications',
+          })}
+          sub={formatMessage({
+            id: 'settings.remaining.shortNotificationsHelp',
+            defaultMessage: 'Bank, wallet, broker and crypto alerts',
+          })}
           unsigned={false}
           onInstall={onInstall && (() => onInstall('log-notifications'))}
           steps={[
             paste,
             <>
-              <b>Search → Automation → Notification → App</b> → your apps
+              <b>
+                {formatMessage({
+                  id: 'settings.remaining.shortOsStep3',
+                  defaultMessage: 'Search → Automation → Notification → App',
+                })}
+              </b>{' '}
+              →{' '}
+              {formatMessage({
+                id: 'settings.remaining.shortYourApps',
+                defaultMessage: 'your apps',
+              })}
             </>,
           ]}
         />
@@ -361,6 +547,7 @@ function ShortcutOption({
   onInstall?: () => void
   steps: ReactNode[]
 }) {
+  const { formatMessage } = useAppIntl()
   return (
     <div className="rd-row rd-row--option">
       <span className="rd-row-ic">{icon}</span>
@@ -369,10 +556,12 @@ function ShortcutOption({
         <div className="rd-row-sub">{sub}</div>
       </div>
       {unsigned ? (
-        <Badge tone="warn">Not signed</Badge>
+        <Badge tone="warn">
+          {formatMessage({ id: 'settings.remaining.shortUnsigned', defaultMessage: 'Not signed' })}
+        </Badge>
       ) : onInstall ? (
         <Btn size="xs" variant="primary" onClick={onInstall}>
-          Install
+          {formatMessage({ id: 'settings.remaining.shortInstall', defaultMessage: 'Install' })}
         </Btn>
       ) : null}
       <ol className="rd-steps">
@@ -385,10 +574,19 @@ function ShortcutOption({
 }
 
 function UnsignedNote() {
+  const { formatMessage } = useAppIntl()
   return (
     <span className="rd-help">
-      <Badge tone="warn">Not signed</Badge> iOS will refuse this build’s shortcut —{' '}
-      <a href={DOC}>build it by hand</a>.
+      <Badge tone="warn">
+        {formatMessage({ id: 'settings.remaining.shortUnsigned', defaultMessage: 'Not signed' })}
+      </Badge>{' '}
+      {formatMessage(
+        {
+          id: 'settings.remaining.shortUnsignedHelp',
+          defaultMessage: 'iOS will refuse this build’s shortcut — <link>build it by hand</link>.',
+        },
+        { link: (chunks) => <a href={DOC}>{chunks}</a> },
+      )}
     </span>
   )
 }
@@ -401,6 +599,7 @@ async function loadCode(base: string): Promise<string> {
 /** The QR a phone scans, shown as soon as the section opens and re-minted before it expires
  *  or when the address changes. Never for this computer's own address — that QR can't work. */
 function SetupQr({ base, ios }: { base: string; ios: Ios }) {
+  const { formatMessage } = useAppIntl()
   const [prepared, setPrepared] = useState<Prepared | null>(null)
   const [failed, setFailed] = useState(false)
   const usable = !!base && !isOwnComputer(base)
@@ -443,13 +642,31 @@ function SetupQr({ base, ios }: { base: string; ios: Ios }) {
           key={prepared.qr_data_uri}
           className="rd-qr"
           src={prepared.qr_data_uri}
-          alt="QR code that opens phone setup"
+          alt={formatMessage({
+            id: 'settings.remaining.shortQrAlt',
+            defaultMessage: 'QR code that opens phone setup',
+          })}
         />
       ) : loading ? (
-        <span className="rd-qr-loading" role="status" aria-label="Generating QR code" />
+        <span
+          className="rd-qr-loading"
+          role="status"
+          aria-label={formatMessage({
+            id: 'settings.remaining.shortQrGenerating',
+            defaultMessage: 'Generating QR code',
+          })}
+        />
       ) : (
         <span className="rd-qr-empty">
-          {failed ? 'Couldn’t make a QR' : 'Add your app address'}
+          {failed
+            ? formatMessage({
+                id: 'settings.remaining.shortQrFailed',
+                defaultMessage: 'Couldn’t make a QR',
+              })
+            : formatMessage({
+                id: 'settings.remaining.shortAddAddress',
+                defaultMessage: 'Add your app address',
+              })}
         </span>
       )}
     </div>
@@ -467,6 +684,7 @@ function SetupCodeField({
   load: () => Promise<string>
   toast: Toast
 }) {
+  const { formatMessage } = useAppIntl()
   const [code, setCode] = useState<string | null>(null)
   const [reveal, setReveal] = useState(false)
   const [copied, setCopied] = useState(false)
@@ -495,7 +713,14 @@ function SetupCodeField({
     void navigator.clipboard
       .writeText(text)
       .then(() => setCopied(true))
-      .catch(() => toast('Could not copy the setup code'))
+      .catch(() =>
+        toast(
+          formatMessage({
+            id: 'settings.remaining.shortCopyCodeFailed',
+            defaultMessage: 'Could not copy the setup code',
+          }),
+        ),
+      )
   }
 
   async function get(): Promise<string | null> {
@@ -505,7 +730,12 @@ function SetupCodeField({
       setCode(loaded)
       return loaded
     } catch {
-      toast('Could not read the setup code')
+      toast(
+        formatMessage({
+          id: 'settings.remaining.shortReadCodeFailed',
+          defaultMessage: 'Could not read the setup code',
+        }),
+      )
       return null
     }
   }
@@ -519,7 +749,10 @@ function SetupCodeField({
           className={'rd-input rd-mono rd-secret-value' + (reveal && code ? ' revealed' : '')}
           role="textbox"
           aria-readonly="true"
-          aria-label="Setup code"
+          aria-label={formatMessage({
+            id: 'settings.remaining.shortCode',
+            defaultMessage: 'Setup code',
+          })}
         >
           {reveal && code ? (
             code
@@ -537,7 +770,9 @@ function SetupCodeField({
             else void get().then((c) => c && setReveal(true))
           }}
         >
-          {reveal ? 'Hide' : 'Reveal'}
+          {reveal
+            ? formatMessage({ id: 'settings.remaining.shortHide', defaultMessage: 'Hide' })
+            : formatMessage({ id: 'settings.remaining.shortReveal', defaultMessage: 'Reveal' })}
         </Btn>
         <Btn
           size="xs"
@@ -546,7 +781,9 @@ function SetupCodeField({
             else void get().then((c) => c && copyCode(c))
           }}
         >
-          {copied ? 'Copied' : 'Copy'}
+          {copied
+            ? formatMessage({ id: 'settings.remaining.shortCopiedLabel', defaultMessage: 'Copied' })
+            : formatMessage({ id: 'settings.remaining.shortCopy', defaultMessage: 'Copy' })}
         </Btn>
       </div>
     </>
@@ -564,6 +801,8 @@ function AndroidSetup({
   capturePath: string
   toast: Toast
 }) {
+  const { formatMessage } = useAppIntl()
+  const intl = useAppIntl()
   const [token, setToken] = useState<string | null>(null)
   const [reveal, setReveal] = useState(false)
   const url = `${base}${capturePath}`
@@ -580,20 +819,33 @@ Content-Type: application/json
       setToken(loaded)
       return loaded
     } catch {
-      toast('Could not read the API token')
+      toast(
+        formatMessage({
+          id: 'settings.remaining.shortTokenFailed',
+          defaultMessage: 'Could not read the API token',
+        }),
+      )
       return null
     }
   }
 
   return (
     <>
-      <Panel title="Connection">
+      <Panel
+        title={formatMessage({
+          id: 'settings.remaining.shortConnection',
+          defaultMessage: 'Connection',
+        })}
+      >
         <div className="rd-formgrid">{address}</div>
       </Panel>
       <Panel
         className="rd-panel--roomy"
-        title="Request"
-        sub="Forward finance notifications here with Tasker or MacroDroid."
+        title={formatMessage({ id: 'settings.remaining.shortRequest', defaultMessage: 'Request' })}
+        sub={formatMessage({
+          id: 'settings.remaining.shortAndroidHelp',
+          defaultMessage: 'Forward finance notifications here with Tasker or MacroDroid.',
+        })}
       >
         <div className="rd-block">
           {/* data-ctx-secret: a revealed token here must never reach the Lucius screen snapshot. */}
@@ -606,11 +858,24 @@ Content-Type: application/json
               variant="primary"
               onClick={() =>
                 void getToken().then(
-                  (t) => t && copy(request(t), 'the request with your API token', toast),
+                  (t) =>
+                    t &&
+                    copy(
+                      request(t),
+                      formatMessage({
+                        id: 'settings.remaining.shortRequestWithToken',
+                        defaultMessage: 'the request with your API token',
+                      }),
+                      toast,
+                      intl,
+                    ),
                 )
               }
             >
-              Copy request
+              {formatMessage({
+                id: 'settings.remaining.shortCopyRequest',
+                defaultMessage: 'Copy request',
+              })}
             </Btn>
             <Btn
               size="xs"
@@ -619,12 +884,26 @@ Content-Type: application/json
                 else void getToken().then((t) => t && setReveal(true))
               }}
             >
-              {reveal ? 'Hide token' : 'Reveal token'}
+              {reveal
+                ? formatMessage({
+                    id: 'settings.remaining.shortHideToken',
+                    defaultMessage: 'Hide token',
+                  })
+                : formatMessage({
+                    id: 'settings.remaining.shortRevealToken',
+                    defaultMessage: 'Reveal token',
+                  })}
             </Btn>
           </div>
         </div>
         <span className="rd-help">
-          Add <code>&quot;ref&quot;: &quot;%TIMEMS&quot;</code> so a retry never logs twice.
+          {formatMessage(
+            {
+              id: 'settings.remaining.shortRetry',
+              defaultMessage: 'Add <code>"ref": "%TIMEMS"</code> so a retry never logs twice.',
+            },
+            { code: (chunks) => <code>{chunks}</code> },
+          )}
         </span>
       </Panel>
     </>
