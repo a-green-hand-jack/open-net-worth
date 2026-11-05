@@ -80,6 +80,8 @@ DEFAULT_PROFILE: dict = {
     # browser while unset, ``user`` = picked in Settings. Unset = the server's own local zone.
     "timezone": None,
     "timezone_source": None,
+    # Interface language is per profile; None follows each browser's language.
+    "language": None,
 }
 
 
