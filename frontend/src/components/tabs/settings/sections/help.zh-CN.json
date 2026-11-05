@@ -1,0 +1,19 @@
+{
+  "settings.help.ask": "询问 Lucius",
+  "settings.help.askBody": "回答应用使用问题前，Lucius 会搜索文档并引用所用页面。",
+  "settings.help.askInstead": "直接提问",
+  "settings.help.askSubtitle": "他会阅读与你相同的文档。",
+  "settings.help.browse": "浏览文档",
+  "settings.help.browseBody": "了解安装、设计理念、各项功能以及 Lucius 能为你做什么。",
+  "settings.help.feedback": "发送反馈",
+  "settings.help.feedbackSubtitle": "遇到问题时请告诉我们。",
+  "settings.help.open": "打开",
+  "settings.help.report": "发送反馈或报告问题",
+  "settings.help.reportBody": "发送前你可以查看和编辑完整报告；报告不包含你的账本或文件。",
+  "settings.help.send": "发送反馈…",
+  "settings.help.subtitle": "指南、概念和答案随应用提供，离线也可使用。",
+  "settings.help.title": "帮助中心",
+  "settings.help.visit": "访问",
+  "settings.help.web": "在线文档",
+  "settings.help.webBody": "相同的文档也发布在网上，便于分享链接。"
+}

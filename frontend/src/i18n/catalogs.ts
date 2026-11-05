@@ -4,6 +4,7 @@ import dedupZh from '../components/tabs/settings/sections/dedup.zh-CN.json'
 import profileZh from '../components/tabs/settings/sections/profile.zh-CN.json'
 import chatZh from '../components/tabs/settings/sections/chat.zh-CN.json'
 import memoryZh from '../components/tabs/settings/memory.zh-CN.json'
+import helpZh from '../components/tabs/settings/sections/help.zh-CN.json'
 
 export const catalogs: Record<Locale, Record<string, string> | undefined> = {
   en: undefined,
@@ -13,6 +14,7 @@ export const catalogs: Record<Locale, Record<string, string> | undefined> = {
     ...profileZh,
     ...chatZh,
     ...memoryZh,
+    ...helpZh,
     'auth.signingBackIn': '正在重新登录…',
     'settings.section.language': '界面语言',
     'settings.section.profile': '个人资料',
