@@ -14,6 +14,7 @@ import usageZh from '../components/tabs/settings/sections/usage.zh-CN.json'
 import mcpZh from '../components/tabs/settings/sections/mcp.zh-CN.json'
 import desktopSettingsZh from '../components/tabs/settings/sections/desktop.zh-CN.json'
 import shortcutsZh from '../components/tabs/settings/sections/shortcuts.zh-CN.json'
+import dataSettingsZh from '../components/tabs/settings/sections/data.zh-CN.json'
 
 export const catalogs: Record<Locale, Record<string, string> | undefined> = {
   en: undefined,
@@ -33,6 +34,7 @@ export const catalogs: Record<Locale, Record<string, string> | undefined> = {
     ...mcpZh,
     ...desktopSettingsZh,
     ...shortcutsZh,
+    ...dataSettingsZh,
     'auth.signingBackIn': '正在重新登录…',
     'auth.rateLimit': '尝试次数过多。请在 {minutes, plural, other {# 分钟}}后重试。',
     'settings.section.language': '界面语言',
