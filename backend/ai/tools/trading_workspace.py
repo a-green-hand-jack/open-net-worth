@@ -3,8 +3,11 @@
 import json
 
 from backend.ai.tools.registry import tool
-from backend.core.errors import ValidationError
+from backend.ai.tools.schema_from_model import schema_of
+from backend.core.errors import ConflictError, ValidationError
 from backend.core.trading_runtime import trading_context
+from backend.models.trading import TradingMarketRequest
+from backend.services import trading
 from backend.services.trading.work_records import record_work, workspace_files, write_workspace_file
 
 
@@ -85,3 +88,56 @@ async def read_trading_files(data):
 )
 async def record_trading_work(data):
     return _result(record_work(_run_id(), data["kind"], data["payload"]))
+
+
+@tool(
+    "search_trading_research",
+    description="Search public current research for this Paper/Live mandate. Historical environments refuse current web research.",
+    input_schema={
+        "type": "object",
+        "properties": {"query": {"type": "string", "minLength": 1, "maxLength": 1000}},
+        "required": ["query"],
+        "additionalProperties": False,
+    },
+    mutates=(),
+    external_effect=True,
+)
+async def search_trading_research(data):
+    if trading.get_run(_run_id())["mode"] == "backtest":
+        raise ConflictError("Current web research is unavailable in a historical environment")
+    from backend.ai.tools.misc import web_search
+
+    return await web_search(data)
+
+
+@tool(
+    "fetch_trading_research",
+    description="Read an explicitly supplied public research URL in Paper/Live. Uses the app's existing pinned public-URL fetcher; no credentials or personal book.",
+    input_schema={
+        "type": "object",
+        "properties": {"url": {"type": "string", "minLength": 1, "maxLength": 2000}},
+        "required": ["url"],
+        "additionalProperties": False,
+    },
+    mutates=(),
+    external_effect=True,
+)
+async def fetch_trading_research(data):
+    if trading.get_run(_run_id())["mode"] == "backtest":
+        raise ConflictError("Current URL research is unavailable in a historical environment")
+    from backend.ai.tools.misc import fetch_page
+
+    return await fetch_page(data)
+
+
+@tool(
+    "request_trading_market_data",
+    description="Choose current instruments for a Paper/Live workspace's reviewed Yahoo feed. Subscribes and fetches quotes/bars within allowed markets and allocated venue/currency; cannot change mandate, funds or clock. Backtest refuses current data.",
+    input_schema=schema_of(TradingMarketRequest, tool_name="request_trading_market_data"),
+    mutates=("trading",),
+    external_effect=True,
+)
+async def request_trading_market_data(data):
+    from backend.services.trading.market_requests import request_market_data
+
+    return _result(await request_market_data(_run_id(), data))

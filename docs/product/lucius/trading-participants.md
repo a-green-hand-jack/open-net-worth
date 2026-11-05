@@ -20,9 +20,14 @@ than host filesystem paths; credential filtering is defensive and cannot detect 
 An allowed participant can run a strategy in the isolated container; its order intents still pass
 through the run's permission and order checks. This requires Docker and the pinned sandbox image.
 
+In Paper or Live runs, permitted participants can search public research, fetch a public research
+page, and request current Yahoo market data within the reviewed mandate and allocated account.
+Historical backtests refuse current research and current market requests to prevent future data
+from entering the simulation. Current quotes require provider-verified currency and time.
+
 An authenticated owner can issue a grant with `POST /api/trading/runs/{run_id}/access` and revoke
 it with `DELETE` at the same path. The issue response contains the grant once and is marked
 `no-store`; rotation invalidates the prior grant. A participant grant cannot issue or revoke grants.
 
-This capability is being built in stages. Workspace controls, current research tools and production
+This capability is being built in stages. Workspace controls and production
 broker integrations are not included in this stage.

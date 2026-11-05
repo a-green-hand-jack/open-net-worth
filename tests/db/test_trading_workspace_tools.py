@@ -2,6 +2,7 @@
 
 import asyncio
 import json
+from datetime import datetime, timedelta, timezone
 
 import pytest
 from fastapi.testclient import TestClient
@@ -113,3 +114,68 @@ def test_gateway_refuses_traversal_rebinding_and_blocked_write(setup_run):
         client, run, token, "write_trading_file", {"name": "safe.md", "content": "Synthetic"}
     )
     assert denied.json()["result"]["isError"] is True
+
+
+@pytest.mark.parametrize(
+    ("name", "arguments"),
+    [
+        ("search_trading_research", {"query": "synthetic research"}),
+        ("fetch_trading_research", {"url": "https://example.com/research"}),
+        ("request_trading_market_data", {"instruments": [{"symbol": "ACME"}]}),
+    ],
+)
+def test_backtest_gateway_refuses_current_research_and_quotes(setup_run, name, arguments):
+    from backend.main import app
+
+    tool_permissions.set_tool_permission("core", name, "always_allow")
+    token = issue_access(setup_run)["token"]
+    response = rpc(TestClient(app), setup_run, token, name, arguments)
+    assert response.status_code == 200
+    result = response.json()["result"]
+    assert result["isError"] is True
+    assert "historical" in result["content"][0]["text"].lower()
+
+
+def test_paper_gateway_subscribes_with_verified_synthetic_quote(db_isolated, monkeypatch):
+    from backend.main import app
+    from backend.services.trading import price_feed
+
+    now = datetime.now(timezone.utc)
+    result = asyncio.run(
+        delegation.create_delegation(
+            {
+                "workspace": {"name": "Synthetic", "mandate": {"market_data_source": "yahoo"}},
+                "environment": {
+                    "mode": "paper",
+                    "start_at": (now - timedelta(minutes=1)).isoformat(),
+                    "end_at": (now + timedelta(days=1)).isoformat(),
+                    "accounts": [{"capital": "1000"}],
+                },
+            }
+        )
+    )
+    monkeypatch.setattr(
+        price_feed.prices,
+        "fetch_yahoo_quotes",
+        lambda symbols: {
+            "prices": {symbol: 75 for symbol in symbols},
+            "as_of": {symbol: now.isoformat() for symbol in symbols},
+            "currencies": {symbol: "USD" for symbol in symbols},
+            "timestamp_verified": {symbol: True for symbol in symbols},
+        },
+    )
+    monkeypatch.setattr(price_feed.prices, "fetch_history_result", lambda *_: {"points": []})
+    name = "request_trading_market_data"
+    tool_permissions.set_tool_permission("core", name, "always_allow")
+    run = result["run"]["id"]
+    response = rpc(
+        TestClient(app),
+        run,
+        issue_access(run)["token"],
+        name,
+        {"instruments": [{"symbol": "ACME"}]},
+    )
+    output = unpack(response)
+    assert output["subscribed"] == 1
+    assert output["refresh"]["received"] == 1
+    assert output["market_data"]["items"][-1]["price"] == "75"

@@ -20,6 +20,8 @@ READ_ONLY_TOOLS = frozenset(
         "list_trading_orders",
         "list_trading_fills",
         "read_trading_files",
+        "search_trading_research",
+        "fetch_trading_research",
         "calculate",
         # Read-only database access (ai/tools/sql.py). Neither can write: the database
         # itself refuses every non-read action (db/sql_console.py's authorizer), and neither

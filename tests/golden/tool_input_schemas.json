@@ -11046,5 +11046,80 @@
       "source"
     ],
     "additionalProperties": false
+  },
+  "search_trading_research": {
+    "type": "object",
+    "properties": {
+      "query": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 1000
+      }
+    },
+    "required": [
+      "query"
+    ],
+    "additionalProperties": false
+  },
+  "fetch_trading_research": {
+    "type": "object",
+    "properties": {
+      "url": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 2000
+      }
+    },
+    "required": [
+      "url"
+    ],
+    "additionalProperties": false
+  },
+  "request_trading_market_data": {
+    "additionalProperties": false,
+    "properties": {
+      "instruments": {
+        "items": {
+          "additionalProperties": false,
+          "properties": {
+            "symbol": {
+              "maxLength": 32,
+              "minLength": 1,
+              "type": "string"
+            },
+            "venue": {
+              "default": "simulation",
+              "maxLength": 80,
+              "minLength": 1,
+              "type": "string"
+            },
+            "asset_class": {
+              "default": "stock",
+              "enum": [
+                "stock",
+                "crypto"
+              ],
+              "type": "string"
+            },
+            "currency": {
+              "default": "USD",
+              "pattern": "^[A-Z]{3,8}$",
+              "type": "string"
+            }
+          },
+          "required": [
+            "symbol"
+          ],
+          "type": "object"
+        },
+        "maxItems": 30,
+        "minItems": 1,
+        "type": "array"
+      }
+    },
+    "required": [
+      "instruments"
+    ],
+    "type": "object"
   }
 }
