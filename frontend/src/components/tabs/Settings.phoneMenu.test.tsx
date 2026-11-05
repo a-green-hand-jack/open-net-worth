@@ -4,7 +4,7 @@
 // @vitest-environment jsdom
 
 import { afterEach, expect, it, vi } from 'vitest'
-import { cleanup, render } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import type { DesktopBridge } from '../../../../desktop/src/contracts'
 import { SECTIONS, Settings } from './Settings'
 
@@ -46,4 +46,10 @@ it('phone: every section is reachable from a menu group', () => {
   expect(labels).toContain('Phone shortcuts')
   expect(labels).toContain('MCP')
   expect(labels).toContain('Help')
+})
+
+it('phone: interface language opens its own settings section', async () => {
+  render(<Settings />)
+  fireEvent.click(screen.getByRole('button', { name: /Interface language/ }))
+  expect(await screen.findByLabelText('Interface language')).toBeTruthy()
 })

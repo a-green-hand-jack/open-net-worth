@@ -18,9 +18,9 @@ of the section list to jump to a setting by name — "password", "backup", "time
 
 On a phone the sections are a grouped list — tap one to open it, and use the back arrow to return.
 
-Interface translations are being added in stages. Until the language selector is available,
-supported translated messages follow the browser language unless a profile language was set
-through the API; other messages continue to display in English.
+Interface translations are being added in stages. Open **Settings → Interface language** to
+choose English, Simplified Chinese, or **Follow browser** for this profile. A saved choice applies
+on other devices. Messages not yet translated continue to display in English.
 
 ## Common tasks
 

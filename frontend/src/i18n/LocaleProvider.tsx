@@ -1,12 +1,8 @@
 import { useEffect, useState, type ReactNode } from 'react'
 import { IntlProvider } from 'react-intl'
 import { LocaleContext } from './localeContext'
-import { resolveLocale, type Locale } from './locale'
-
-const catalogs: Record<Locale, Record<string, string> | undefined> = {
-  en: undefined,
-  'zh-CN': { 'auth.signingBackIn': '正在重新登录…' },
-}
+import { resolveLocale } from './locale'
+import { catalogs } from './catalogs'
 
 export function LocaleProvider({ children }: { children: ReactNode }) {
   const [preference, select] = useState<unknown>(null)

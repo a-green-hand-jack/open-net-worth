@@ -26,6 +26,7 @@ import {
   Copy,
   Database,
   Info,
+  Globe,
   LockKeyhole,
   MessageSquare,
   Brain,
@@ -50,6 +51,8 @@ import { useTerminalAvailable } from '../../hooks/useTerminalAvailable'
 import { useCachedFetchState } from '../../state/queryCache'
 import type { SectionProps } from './settings/ds'
 import { ProfileSection } from './settings/sections/ProfileSection'
+import { LanguageSection } from './settings/sections/LanguageSection'
+import { useAppIntl } from '../../i18n/useAppIntl'
 const loadModelSection = () => import('./settings/sections/ModelSection')
 const ModelSection = lazyChunk(() => loadModelSection().then((m) => ({ default: m.ModelSection })))
 const loadAiUsageSection = () => import('./settings/sections/AiUsageSection')
@@ -108,6 +111,7 @@ import './settings/settings.css'
 
 export const SECTIONS = [
   { key: 'profile', label: 'Profile' },
+  { key: 'language', label: 'Interface language' },
   { key: 'model', label: 'AI' },
   { key: 'chat', label: 'Chat' },
   { key: 'memory', label: 'Memory' },
@@ -136,7 +140,7 @@ export type Section = (typeof SECTIONS)[number]['key']
 const SECTION_GROUPS: { title: string; keys: Section[] }[] = [
   { title: 'Account', keys: ['profile', 'security'] },
   { title: 'Assistant', keys: ['model', 'chat', 'memory', 'permissions'] },
-  { title: 'App', keys: ['appearance', 'desktop', 'currency', 'dedup', 'intel'] },
+  { title: 'App', keys: ['language', 'appearance', 'desktop', 'currency', 'dedup', 'intel'] },
   { title: 'Phone & other apps', keys: ['shortcuts', 'mcp'] },
   { title: 'Advanced', keys: ['data', 'terminal', 'developer', 'aiUsage'] },
   { title: 'Support', keys: ['help'] },
@@ -187,6 +191,7 @@ const SECTION_KEYS: readonly string[] = SECTIONS.map((s) => s.key)
 // Lucide seam so Settings has no remote icon-font dependency.
 const SECTION_ICONS: Record<Exclude<Section, 'model'>, ComponentType<IconProps>> = {
   profile: User,
+  language: Globe,
   aiUsage: ChartBar,
   chat: MessageSquare,
   memory: Brain,
@@ -209,6 +214,7 @@ const SECTION_ICONS: Record<Exclude<Section, 'model'>, ComponentType<IconProps>>
 const SECTION_TERMS: Record<Section, string> = {
   profile:
     'name age income expenses fire retirement notes lucius country nationality residence employment tax',
+  language: 'language locale chinese english 中文 语言 界面语言',
   model: 'ai anthropic openai claude provider api key routing auto local ollama custom endpoint',
   aiUsage: 'ai usage cost spend tokens telemetry performance latency speed retry models providers',
   chat: 'chat suggestions follow-up cost thinking reasoning multi-turn conversation',
@@ -234,6 +240,7 @@ const SECTION_TERMS: Record<Section, string> = {
 }
 
 const BODY: Record<Exclude<Section, 'profile'>, ComponentType<SectionProps>> = {
+  language: LanguageSection,
   model: ModelSection,
   aiUsage: AiUsageSection,
   chat: ChatSection,
@@ -270,6 +277,7 @@ export function Settings({
   onReviewDefaultChange,
   gatewayMode = false,
 }: SettingsProps) {
+  const intl = useAppIntl()
   const terminalAvailable = useTerminalAvailable(gatewayMode)
   const sectionAvailable = (key: string) =>
     key === 'desktop'
@@ -385,10 +393,13 @@ export function Settings({
   const [busyCount, setBusyCount] = useState(0)
   const bumpBusy = useRef((delta: number) => setBusyCount((n) => Math.max(0, n + delta))).current
 
-  const active = SECTIONS.find((s) => s.key === section) || SECTIONS[0]!
+  const sections = SECTIONS.map((s) => s.key === 'language'
+    ? { ...s, label: intl.formatMessage({ id: 'settings.section.language', defaultMessage: 'Interface language' }) }
+    : s)
+  const active = sections.find((s) => s.key === section) || sections[0]!
 
   const needle = q.trim().toLowerCase()
-  const availableSections = SECTIONS.filter((s) => sectionAvailable(s.key))
+  const availableSections = sections.filter((s) => sectionAvailable(s.key))
   const shown = needle
     ? availableSections.filter((s) =>
         (s.label + ' ' + SECTION_TERMS[s.key]).toLowerCase().includes(needle),
