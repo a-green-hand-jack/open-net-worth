@@ -1,6 +1,8 @@
 // @vitest-environment jsdom
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
+import { IntlProvider } from 'react-intl'
+import { catalogs } from '../../../../i18n/catalogs'
 import type {
   DesktopClientBridge,
   DesktopConnection,
@@ -42,6 +44,14 @@ afterEach(() => {
   clearQueryCache()
   delete window.onwDesktop
   delete window.onwDesktopClient
+})
+
+it('changes connection through the native picker from the Chinese interface', async () => {
+  render(<IntlProvider locale="zh-CN" messages={catalogs['zh-CN']}><DesktopSection /></IntlProvider>)
+  expect(await screen.findByText('已连接到服务器')).toBeTruthy()
+  expect(screen.getByText(connection.serverUrl!)).toBeTruthy()
+  fireEvent.click(screen.getByRole('button', { name: '更改连接' }))
+  await waitFor(() => expect(changeConnection).toHaveBeenCalledWith())
 })
 
 it('shows the server connection and work location without local desktop features or polling', async () => {

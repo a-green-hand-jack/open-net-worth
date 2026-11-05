@@ -1,3 +1,4 @@
+import { useAppIntl } from '../../../../i18n/useAppIntl'
 import { useState } from 'react'
 import { desktopClientBridge } from '../../../../platform/desktop'
 import { useQueryCache } from '../../../../state/queryCache'
@@ -13,6 +14,7 @@ const fetchConnection = () => {
 }
 
 export function DesktopConnectionPanel() {
+  const { formatMessage } = useAppIntl()
   const client = desktopClientBridge()
   const connection = useQueryCache(CONNECTION_KEY, fetchConnection, { enabled: !!client })
   const [busy, setBusy] = useState(false)
@@ -33,37 +35,79 @@ export function DesktopConnectionPanel() {
   if (!client) return null
   const data = connection.data
   const displayError =
-    error ?? (connection.error ? 'Could not load the connection. Try again.' : null)
+    error ??
+    (connection.error
+      ? formatMessage({
+          id: 'settings.remaining.connectionLoadError',
+          defaultMessage: 'Could not load the connection. Try again.',
+        })
+      : null)
   const server = data?.mode === 'server'
   return (
     <Panel
-      title="Connection"
+      title={formatMessage({ id: 'settings.remaining.connection', defaultMessage: 'Connection' })}
       sub={
         server
-          ? 'Your book and scheduled work run on this server. Closing this app does not stop the server.'
+          ? formatMessage({
+              id: 'settings.remaining.connectionServerHelp',
+              defaultMessage:
+                'Your book and scheduled work run on this server. Closing this app does not stop the server.',
+            })
           : undefined
       }
     >
-      {connection.initialLoading && !data && <Loading label="Loading connection…" />}
+      {connection.initialLoading && !data && (
+        <Loading
+          label={formatMessage({
+            id: 'settings.remaining.connectionLoading',
+            defaultMessage: 'Loading connection…',
+          })}
+        />
+      )}
       {displayError && (
         <ErrorState
           message={displayError}
-          onRetry={() => void run(connection.refresh, 'Could not load the connection. Try again.')}
+          onRetry={() =>
+            void run(
+              connection.refresh,
+              formatMessage({
+                id: 'settings.remaining.connectionLoadError',
+                defaultMessage: 'Could not load the connection. Try again.',
+              }),
+            )
+          }
         />
       )}
       {data &&
         row(
-          server ? 'Connected to server' : 'This computer',
+          server
+            ? formatMessage({
+                id: 'settings.remaining.connectedServer',
+                defaultMessage: 'Connected to server',
+              })
+            : formatMessage({
+                id: 'settings.remaining.thisComputer',
+                defaultMessage: 'This computer',
+              }),
           server ? <span style={{ overflowWrap: 'anywhere' }}>{data.serverUrl}</span> : null,
           <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
             {server && (
               <Btn
                 disabled={busy || !data.serverUrl}
                 onClick={() =>
-                  void run(() => client.openBrowser(), 'Could not open your browser. Try again.')
+                  void run(
+                    () => client.openBrowser(),
+                    formatMessage({
+                      id: 'settings.remaining.browserError',
+                      defaultMessage: 'Could not open your browser. Try again.',
+                    }),
+                  )
                 }
               >
-                Open in browser
+                {formatMessage({
+                  id: 'settings.remaining.openBrowser',
+                  defaultMessage: 'Open in browser',
+                })}
               </Btn>
             )}
             <Btn
@@ -71,11 +115,17 @@ export function DesktopConnectionPanel() {
               onClick={() =>
                 void run(
                   () => client.changeConnection(),
-                  'Could not change the connection. Try again.',
+                  formatMessage({
+                    id: 'settings.remaining.connectionChangeError',
+                    defaultMessage: 'Could not change the connection. Try again.',
+                  }),
                 )
               }
             >
-              Change connection
+              {formatMessage({
+                id: 'settings.remaining.changeConnection',
+                defaultMessage: 'Change connection',
+              })}
             </Btn>
           </div>,
         )}
