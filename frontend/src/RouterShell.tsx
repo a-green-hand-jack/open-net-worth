@@ -128,6 +128,7 @@ import { ErrorBoundary } from './components/ErrorBoundary'
 import { BootUnreachable } from './components/BootUnreachable'
 import { useBrand } from './brand-context'
 import { fDateTime, setBaseCurrency, setDisplayFormats } from './utils/format'
+import { useSetLocalePreference } from './i18n/localeContext'
 import {
   TABS,
   type TabId,
@@ -857,6 +858,10 @@ function RouterShellInner() {
   // targetAllocation / risk knobs is untouched — only the fetch is consolidated.
   const profileQuery = useProfile()
   const profileData = profileQuery.data
+  const setLocalePreference = useSetLocalePreference()
+  useEffect(() => {
+    if (profileData) setLocalePreference(profileData.language)
+  }, [profileData, setLocalePreference])
   useTimezoneCapture(profileData)
   useEffect(() => {
     if (!profileData) return

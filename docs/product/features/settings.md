@@ -18,6 +18,10 @@ of the section list to jump to a setting by name — "password", "backup", "time
 
 On a phone the sections are a grouped list — tap one to open it, and use the back arrow to return.
 
+Interface translations are being added in stages. Until the language selector is available,
+supported translated messages follow the browser language unless a profile language was set
+through the API; other messages continue to display in English.
+
 ## Common tasks
 
 **Change your base currency**

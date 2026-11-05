@@ -23,6 +23,7 @@ import { onwDataSource, readEmbeddedDescriptors } from './lucius/onwDataSource'
 import { refreshFromAdapter, seedEntityRegistry } from './lucius/entityRegistry'
 import { stampPwaDisplayMode } from './utils/pwa'
 import { watchStatusBarTint } from './utils/statusBarTint'
+import { LocaleProvider } from './i18n/LocaleProvider'
 
 // CSS must know whether browser chrome exists before the mobile shell renders. The iOS
 // navigator.standalone fallback is more reliable than the display-mode query by itself.
@@ -59,6 +60,7 @@ const showPhoneSetup = window.location.pathname === '/phone-setup'
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
+    <LocaleProvider>
     {showGallery ? (
       galleryParam === 'cards' ? (
         <LazyApprovalCardGallery />
@@ -79,5 +81,6 @@ createRoot(document.getElementById('root')!).render(
         <ReportProblemHost />
       </ThemeProvider>
     )}
+    </LocaleProvider>
   </StrictMode>,
 )

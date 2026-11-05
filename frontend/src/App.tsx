@@ -16,6 +16,8 @@ import {
 } from './utils/gatewayReauth'
 import { signOutOfGateway, type SignOutScope } from './utils/gatewaySignOut'
 import { DesktopStartupSplash } from './components/DesktopStartupSplash'
+import { useSetLocalePreference } from './i18n/localeContext'
+import { useAppIntl } from './i18n/useAppIntl'
 import { BootUnreachable } from './components/BootUnreachable'
 
 interface AuthStatus {
@@ -84,7 +86,12 @@ function writeCachedAuth(status: AuthStatus | null): void {
 }
 
 export default function App() {
+  const intl = useAppIntl()
   const [auth, setAuth] = useState<AuthStatus | null>(readCachedAuth)
+  const setLocalePreference = useSetLocalePreference()
+  useEffect(() => {
+    if (auth?.required && !auth.authenticated) setLocalePreference(null)
+  }, [auth, setLocalePreference])
   const [unreachable, setUnreachable] = useState(false)
   const brand = useBrand()
   const reauthing = useSyncExternalStore(subscribeReauthing, isReauthing)
@@ -148,7 +155,9 @@ export default function App() {
       <div className="auth-splash" role="status">
         <div className="auth-splash-brand">{brand.app_name.toUpperCase()}</div>
         <div className="auth-splash-spinner" />
-        <div className="auth-splash-note">Signing you back in…</div>
+        <div className="auth-splash-note">
+          {intl.formatMessage({ id: 'auth.signingBackIn', defaultMessage: 'Signing you back in…' })}
+        </div>
       </div>
     )
   }

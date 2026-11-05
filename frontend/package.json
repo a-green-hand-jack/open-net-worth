@@ -47,6 +47,7 @@
     "prismjs": "^1.30.0",
     "react": "^19.2.6",
     "react-dom": "^19.2.6",
+    "react-intl": "^12.1.6",
     "react-markdown": "^10.1.0",
     "remark-gfm": "^4.0.1",
     "uuid": "^14.0.0"
