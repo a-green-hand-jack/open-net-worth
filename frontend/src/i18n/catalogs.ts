@@ -7,6 +7,7 @@ import memoryZh from '../components/tabs/settings/memory.zh-CN.json'
 import helpZh from '../components/tabs/settings/sections/help.zh-CN.json'
 import currencyZh from '../components/tabs/settings/sections/currency.zh-CN.json'
 import terminalZh from '../components/tabs/settings/sections/terminal.zh-CN.json'
+import intelSettingsZh from '../components/tabs/settings/sections/intel/intel.zh-CN.json'
 
 export const catalogs: Record<Locale, Record<string, string> | undefined> = {
   en: undefined,
@@ -19,6 +20,7 @@ export const catalogs: Record<Locale, Record<string, string> | undefined> = {
     ...helpZh,
     ...currencyZh,
     ...terminalZh,
+    ...intelSettingsZh,
     'auth.signingBackIn': '正在重新登录…',
     'settings.section.language': '界面语言',
     'settings.section.profile': '个人资料',
