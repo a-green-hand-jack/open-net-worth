@@ -1,6 +1,7 @@
 """End-to-end synthetic order accounting through the run's simulated clock."""
 
 import asyncio
+from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 
 import pytest
@@ -90,17 +91,12 @@ def test_pause_cancels_open_orders_and_releases_reservation(db_isolated):
     assert Decimal(performance.get_account(run_id)["items"][0]["available_cash"]) == Decimal("1000")
 
 
-def test_live_run_cannot_be_started_or_dispatched_in_intermediate_branch(db_isolated):
+def test_live_run_without_human_authorization_cannot_start(db_isolated):
     workspace = workspaces.create_workspace({"name": "Synthetic"})
+    start = (datetime.now(timezone.utc) - timedelta(minutes=1)).isoformat()
     run = workspaces.create_run(
-        workspace["id"], {"mode": "live", "start_at": T0, "live_authorized": True}
+        workspace["id"], {"mode": "live", "start_at": start, "live_authorized": False}
     )
-    with pytest.raises(ConflictError):
+    with pytest.raises(ConflictError, match="Human authorization"):
         call(lifecycle.apply_run_action(run["id"], {"action": "start"}))
-    with pytest.raises(ConflictError):
-        call(execution.dispatch_live_order(run["id"], "not-an-order"))
-    TradingStore("runs").update_by_id(run["id"], {"state": "running"})
-    account_id = TradingStore("accounts").list_scope(run["id"])[0]["id"]
-    with pytest.raises(ConflictError):
-        call(execution.submit_order(run["id"], order(account_id)))
     assert TradingStore("orders").all() == []

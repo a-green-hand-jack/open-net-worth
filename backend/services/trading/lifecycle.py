@@ -22,11 +22,11 @@ from backend.services.trading.workspaces import public_run
 
 async def apply_run_action(run_id, data):
     action = validated(RunAction, data)
-    if uses_broker_execution(TradingStore("runs").required(run_id)):
-        raise ConflictError("Broker execution is not available in this intermediate branch")
     name = action["action"]
     if name == "reconcile":
-        raise ConflictError("Reconciliation is not available in this intermediate branch")
+        from backend.services.trading.reconciliation import reconcile_run
+
+        return await reconcile_run(run_id)
     if name in {"start", "resume"}:
         return await _start(run_id, name)
     if name in {"pause", "stop"}:
@@ -36,8 +36,6 @@ async def apply_run_action(run_id, data):
 
 async def _start(run_id, action):
     run = TradingStore("runs").required(run_id)
-    if uses_broker_execution(run):
-        raise ConflictError("Broker execution is not available in this intermediate branch")
     expected = "ready" if action == "start" else "paused"
     if run["state"] != expected:
         raise ConflictError(f"Run must be {expected} to {action}")
@@ -140,8 +138,6 @@ def _assert_exclusive_account(conn, run):
 async def _stop(run_id, action):
     with trading_transaction() as conn:
         run = TradingStore("runs").required(run_id, conn=conn)
-        if uses_broker_execution(run):
-            raise ConflictError("Broker execution is not available in this intermediate branch")
         if run["state"] in {"stopped", "completed"}:
             return public_run(run)
         target = "paused" if action == "pause" else "stopped"
@@ -163,6 +159,13 @@ async def _stop(run_id, action):
         ]
     for order in orders:
         await cancel_order(run_id, order["id"])
+    from backend.services.trading.book_projection import (
+        has_unresolved_book_fills,
+        project_live_fills,
+    )
+
+    if run["mode"] == "live":
+        project_live_fills(run_id)
     with trading_transaction() as conn:
         run = TradingStore("runs").required(run_id, conn=conn)
         outstanding = any(
@@ -171,7 +174,7 @@ async def _stop(run_id, action):
         )
         state = (
             ("needs_reconciliation" if uses_broker_execution(run) else "stopping")
-            if outstanding
+            if outstanding or has_unresolved_book_fills(run_id, conn=conn)
             else target
         )
         run = TradingStore("runs").update_by_id(run_id, {"state": state}, conn=conn)

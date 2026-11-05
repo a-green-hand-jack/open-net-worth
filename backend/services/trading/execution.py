@@ -35,8 +35,6 @@ async def submit_order(run_id, data):
     with trading_transaction() as conn:
         require_bound_run(conn, run_id)
         run = TradingStore("runs").required(run_id, conn=conn)
-        if uses_broker_execution(run):
-            raise ConflictError("Broker execution is not available in this intermediate branch")
         key = identity(run_id, clean["account_id"], clean["request_id"])
         existing = TradingStore("orders").find_by_id(key, conn=conn)
         if existing:
@@ -142,7 +140,33 @@ def _reserve(conn, run, clean):
 
 
 async def dispatch_live_order(run_id, order_id):
-    raise ConflictError("Broker execution is not available in this intermediate branch")
+    with trading_transaction() as conn:
+        require_bound_run(conn, run_id)
+        run = TradingStore("runs").required(run_id, conn=conn)
+        order = _owned_order(conn, run_id, order_id)
+        if order["status"] != "pending":
+            return order
+        assert_running(run)
+        account = TradingStore("accounts").required(order["account_id"], conn=conn)
+        adapter = get_live_adapter(account)
+        order = TradingStore("orders").update_by_id(order_id, {"status": "submitting"}, conn=conn)
+        event(conn, run, "broker_submission_started", {"order_id": order_id})
+    try:
+        receipt = await adapter.submit(account, order)
+        with trading_transaction() as conn:
+            run = TradingStore("runs").required(run_id, conn=conn)
+            order = apply_receipt(conn, run, _owned_order(conn, run_id, order_id), receipt)
+            event(
+                conn, run, "broker_order_updated", {"order_id": order_id, "status": order["status"]}
+            )
+            snapshot_performance(conn, run)
+    except Exception as exc:
+        return _unknown(run_id, order_id, "submission_unknown", type(exc).__name__)
+    from backend.services.trading.book_projection import project_live_fills
+
+    if run["mode"] == "live":
+        project_live_fills(run_id)
+    return order
 
 
 def _unknown(run_id, order_id, state, reason):
@@ -167,8 +191,6 @@ async def cancel_order(run_id, order_id):
     with trading_transaction() as conn:
         require_bound_run(conn, run_id)
         run = TradingStore("runs").required(run_id, conn=conn)
-        if uses_broker_execution(run):
-            raise ConflictError("Broker execution is not available in this intermediate branch")
         order = _owned_order(conn, run_id, order_id)
         if order["status"] not in ACTIVE_ORDER_STATES:
             return order
