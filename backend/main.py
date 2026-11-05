@@ -199,6 +199,7 @@ from backend.api.sql_query import router as sql_query_router
 from backend.api.statement_parse_api import router as statement_parse_router
 from backend.api.terminal import router as terminal_router
 from backend.api.tool_permissions import router as tool_permissions_router
+from backend.api.trading_book_api import router as trading_book_router
 from backend.api.trading_delegation_api import router as trading_delegation_router
 from backend.api.trading_executor_api import router as trading_executor_router
 from backend.api.trading_grants_api import router as trading_grants_router
@@ -1190,6 +1191,7 @@ app.include_router(trading_grants_router)
 app.include_router(binance_router)
 app.include_router(trading_executor_router)
 app.include_router(trading_delegation_router)
+app.include_router(trading_book_router)
 app.include_router(trading_gateway_router)
 app.include_router(ibkr_router)
 app.include_router(yodlee_router)

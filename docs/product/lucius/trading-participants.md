@@ -18,6 +18,8 @@ An authenticated owner can review a proposed delegation at
 `POST /api/trading/delegations/review` before creating it with `POST /api/trading/delegations`.
 The workspace endpoints provide an overview, pause or resume actions, and reviewed mandate
 amendments. A participant grant does not authorize those owner controls.
+The owner API also exposes the run's accounts, market observations, orders, fills and performance;
+simulated and live orders both pass through the trading service's existing execution checks.
 
 When allowed by the owner, a participant can write versioned research or code files, read saved
 versions, and record the work it actually performed. These files are workspace records rather
