@@ -13,6 +13,8 @@
 import { describe, it, expect, vi, afterEach } from 'vitest'
 import { render, screen, cleanup, fireEvent, waitFor, act } from '@testing-library/react'
 import { StepRestore } from './StepRestore'
+import { IntlProvider } from 'react-intl'
+import { catalogs } from '../../i18n/catalogs'
 
 const authFetch = vi.hoisted(() => vi.fn())
 vi.mock('../../api/client', () => ({ authFetch }))
@@ -63,6 +65,26 @@ function bodyOf(url: string) {
 }
 
 describe('StepRestore — preview before it writes anything', () => {
+  it('translates known validation diagnostics while preserving untrusted names and unknown messages', async () => {
+    mockApi({
+      ...GOOD_REPORT,
+      ok: false,
+      errors: ['unsafe original', 'external diagnostic'],
+      error_messages: [
+        { message_id: 'restore.error.unsafeEntry', message_params: { name: '../../外部.json' } },
+        null,
+      ],
+    })
+    render(
+      <IntlProvider locale="zh-CN" messages={catalogs['zh-CN']}>
+        <StepRestore onDone={() => {}} onBack={() => {}} />
+      </IntlProvider>,
+    )
+    pickFile()
+    expect(await screen.findByText('已拒绝不安全或未知的条目：../../外部.json。')).toBeTruthy()
+    expect(screen.getByText('external diagnostic')).toBeTruthy()
+  })
+
   it('locks the selected file while its preview is pending so commit uses the previewed bundle', async () => {
     let finish!: (response: { ok: boolean; json: () => Promise<typeof GOOD_REPORT> }) => void
     mockApi(GOOD_REPORT)

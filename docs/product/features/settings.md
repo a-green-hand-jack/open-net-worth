@@ -38,6 +38,7 @@ Known model configuration errors are displayed in the interface language; other 
 The original and feature-flagged permissions settings controls follow the interface language.
 Before a profile is available at sign-in, the sign-in screen follows the browser language.
 The first-run greeting, currency selection and password steps also follow the browser language.
+The first-run backup restore controls follow the browser language; unknown server diagnostics are preserved.
 
 ## Common tasks
 
