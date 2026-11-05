@@ -1,8 +1,10 @@
 """End-to-end synthetic order accounting through the run's simulated clock."""
 
 import asyncio
+from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timedelta, timezone
 from decimal import Decimal
+from threading import Barrier
 
 import pytest
 
@@ -80,6 +82,45 @@ def test_request_identity_and_reservation_prevent_duplicate_or_overspending(db_i
     with pytest.raises(ConflictError):
         call(execution.submit_order(run_id, order(account_id, request_id="second", quantity="8")))
     assert execution.list_orders(run_id)["total"] == 1
+
+
+@pytest.mark.timeout(30)
+def test_concurrent_identical_requests_create_one_order_and_one_reservation(db_isolated):
+    run_id, account_id = setup_run()
+    start = Barrier(2, timeout=5)
+
+    def submit():
+        start.wait()
+        return call(execution.submit_order(run_id, order(account_id)))
+
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        futures = [pool.submit(submit) for _ in range(2)]
+        results = [future.result(timeout=20) for future in futures]
+    assert results[0]["id"] == results[1]["id"]
+    assert execution.list_orders(run_id)["total"] == 1
+    assert Decimal(performance.get_account(run_id)["items"][0]["available_cash"]) == Decimal("700")
+
+
+@pytest.mark.timeout(30)
+def test_concurrent_distinct_orders_cannot_reserve_more_than_cash(db_isolated):
+    run_id, account_id = setup_run()
+    start = Barrier(2, timeout=5)
+
+    def submit(request_id):
+        start.wait()
+        try:
+            return call(execution.submit_order(run_id, order(account_id, request_id, "8")))
+        except ConflictError as exc:
+            return str(exc)
+
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        futures = [pool.submit(submit, f"request-{i}") for i in range(2)]
+        results = [future.result(timeout=20) for future in futures]
+    rejected = [result for result in results if isinstance(result, str)]
+    assert len(rejected) == 1
+    assert "Insufficient" in rejected[0]
+    assert execution.list_orders(run_id)["total"] == 1
+    assert Decimal(performance.get_account(run_id)["items"][0]["available_cash"]) == Decimal("200")
 
 
 def test_marketable_sell_limit_cannot_understate_order_notional(db_isolated):
