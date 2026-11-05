@@ -8,8 +8,8 @@ import pytest
 
 from backend.core.errors import ConflictError
 from backend.db.account_store import AccountStore
-from backend.db.trading_store import TradingStore
-from backend.services.trading import execution, lifecycle, performance, workspaces
+from backend.db.trading_store import TradingStore, trading_transaction
+from backend.services.trading import execution, lifecycle, market, performance, workspaces
 
 T0 = "2026-01-05T14:30:00+00:00"
 T1 = "2026-01-05T14:31:00+00:00"
@@ -115,6 +115,55 @@ def test_marketable_sell_limit_cannot_understate_order_notional(db_isolated):
     }
     with pytest.raises(ConflictError, match="notional"):
         call(execution.submit_order(run["id"], sell))
+
+
+def test_stopped_paper_run_retains_final_valuation_after_quote_expiry(db_isolated, monkeypatch):
+    stamp = datetime.now(timezone.utc)
+    workspace = workspaces.create_workspace({"name": "Synthetic"})
+    run = workspaces.create_run(
+        workspace["id"],
+        {
+            "mode": "paper",
+            "start_at": (stamp - timedelta(minutes=1)).isoformat(),
+            "end_at": (stamp + timedelta(days=1)).isoformat(),
+            "accounts": [{"capital": "1000"}],
+            "observations": [
+                {"instrument": INSTRUMENT, "timestamp": stamp.isoformat(), "price": "100"}
+            ],
+        },
+    )
+    call(lifecycle.apply_run_action(run["id"], {"action": "start"}))
+    account_id = performance.get_account(run["id"])["items"][0]["id"]
+    call(execution.submit_order(run["id"], order(account_id, quantity="1")))
+    call(lifecycle.apply_run_action(run["id"], {"action": "stop"}))
+    before = performance.get_performance(run["id"])
+    monkeypatch.setattr(market, "now", lambda: (stamp + timedelta(days=1)).isoformat())
+    after = performance.get_performance(run["id"])
+    assert after["valuation_complete"]
+    assert after["equity"] == before["equity"]
+    assert after["as_of"] == before["as_of"]
+
+
+def test_lifetime_drawdown_survives_bounded_valuation_history(db_isolated):
+    run_id, _ = setup_run()
+    run = workspaces.get_run(run_id)
+    with trading_transaction() as conn:
+        TradingStore("runs").update_by_id(
+            run_id,
+            {
+                "lifetime_peak_equity": "1200",
+                "lifetime_max_drawdown_pct": "25",
+                "valuation_history": [{"timestamp": run["current_time"], "equity": 1000}],
+            },
+            conn=conn,
+        )
+    assert performance.get_performance(run_id)["max_drawdown_pct"] == 25
+
+
+def test_day_order_requires_verified_session_calendar(db_isolated):
+    run_id, account_id = setup_run()
+    with pytest.raises(ConflictError, match="verified session calendar"):
+        call(execution.submit_order(run_id, {**order(account_id), "time_in_force": "day"}))
 
 
 def test_pause_cancels_open_orders_and_releases_reservation(db_isolated):
