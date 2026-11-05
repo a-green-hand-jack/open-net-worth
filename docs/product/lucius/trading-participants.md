@@ -64,3 +64,7 @@ An Alpaca MCP adapter is also under review; a configured
 connector alone does not authorize a funded run. Account identity, dedicated allocation, broker
 permissions and complete execution receipts must all pass the run's checks. The adapter has not
 yet been validated against a funded broker account.
+
+IBKR MCP connections currently provide setup guidance only. Managed submission, cancellation and
+reconciliation remain unavailable until the authenticated execution schemas and receipts have been
+reviewed. Check and cancel any existing IBKR order directly with the broker.
