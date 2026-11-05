@@ -77,7 +77,7 @@ class Observation(TradingInput):
 class AccountAllocation(TradingInput):
     name: str = Field(default="Trading account", min_length=1, max_length=120)
     currency: str = Field(default="USD", pattern="^[A-Z]{3,8}$")
-    capital: Decimal = Field(default=Decimal("1000"), gt=0)
+    capital: Decimal = Field(gt=0)
     venue: str = Field(default="simulation", min_length=1, max_length=80)
     connector_id: str | None = None
     broker_account_id: str | None = None
@@ -113,9 +113,7 @@ class RunCreate(TradingInput):
     mode: Literal["backtest", "paper", "live"] = "paper"
     start_at: datetime
     end_at: datetime | None = None
-    accounts: list[AccountAllocation] = Field(
-        default_factory=lambda: [AccountAllocation()], min_length=1, max_length=20
-    )
+    accounts: list[AccountAllocation] = Field(min_length=1, max_length=20)
     observations: list[Observation] = Field(default_factory=list, max_length=20000)
     data_version: str = Field(default="user-supplied", min_length=1, max_length=120)
     agent_version: str = Field(default="unspecified", max_length=120)

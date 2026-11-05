@@ -95,7 +95,13 @@ def test_live_run_without_human_authorization_cannot_start(db_isolated):
     workspace = workspaces.create_workspace({"name": "Synthetic"})
     start = (datetime.now(timezone.utc) - timedelta(minutes=1)).isoformat()
     run = workspaces.create_run(
-        workspace["id"], {"mode": "live", "start_at": start, "live_authorized": False}
+        workspace["id"],
+        {
+            "mode": "live",
+            "start_at": start,
+            "live_authorized": False,
+            "accounts": [{"capital": "1000"}],
+        },
     )
     with pytest.raises(ConflictError, match="Human authorization"):
         call(lifecycle.apply_run_action(run["id"], {"action": "start"}))

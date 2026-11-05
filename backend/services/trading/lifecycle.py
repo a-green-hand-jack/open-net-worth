@@ -39,6 +39,8 @@ async def _start(run_id, action):
     expected = "ready" if action == "start" else "paused"
     if run["state"] != expected:
         raise ConflictError(f"Run must be {expected} to {action}")
+    if run["workspace_snapshot"]["agent_kind"] == "script" and not run.get("agent_script_source"):
+        raise ConflictError("The executor must provide strategy code before starting")
     if run["mode"] != "backtest" and not (
         instant(run["start_at"]) <= instant(now())
         and (run.get("end_at") is None or instant(now()) < instant(run["end_at"]))
@@ -51,6 +53,10 @@ async def _start(run_id, action):
         run = TradingStore("runs").required(run_id, conn=conn)
         if run["state"] != expected:
             raise ConflictError("Run state changed during activation")
+        if run["workspace_snapshot"]["agent_kind"] == "script" and not run.get(
+            "agent_script_source"
+        ):
+            raise ConflictError("The executor must provide strategy code before starting")
         for account_id, actual in verified.items():
             TradingStore("accounts").update_by_id(
                 account_id, {"provider_id": actual["provider_id"]}, conn=conn
