@@ -17,6 +17,7 @@ import shortcutsZh from '../components/tabs/settings/sections/shortcuts.zh-CN.js
 import dataSettingsZh from '../components/tabs/settings/sections/data.zh-CN.json'
 import permissionsLegacyZh from '../components/tabs/settings/sections/permissions-legacy.zh-CN.json'
 import toolTitlesZh from '../components/chat/toolActivity/toolTitles.zh-CN.json'
+import permissionsV2Zh from '../components/tabs/settings/sections/permissions-v2.zh-CN.json'
 
 export const catalogs: Record<Locale, Record<string, string> | undefined> = {
   en: undefined,
@@ -39,6 +40,7 @@ export const catalogs: Record<Locale, Record<string, string> | undefined> = {
     ...dataSettingsZh,
     ...permissionsLegacyZh,
     ...toolTitlesZh,
+    ...permissionsV2Zh,
     'auth.signingBackIn': '正在重新登录…',
     'auth.rateLimit': '尝试次数过多。请在 {minutes, plural, other {# 分钟}}后重试。',
     'settings.section.language': '界面语言',
