@@ -22,6 +22,7 @@ import {
   fDateTime,
   parseNumericDate,
   getDateFormat,
+  fFixed,
   priceDigits,
 } from './format'
 
@@ -32,6 +33,13 @@ describe('fBaseCompact — canonical compact base-currency formatter', () => {
 
     expect(fBaseCompact(2_008_437_944)).toBe('₫2.01B')
   })
+})
+
+it('formats fixed-precision values using the saved number preference', () => {
+  setDisplayFormats({ number_format: 'dot' })
+  expect(fFixed(1234.5, 2)).toBe('1234,50')
+  setDisplayFormats({ number_format: 'comma' })
+  expect(fFixed(1234.5, 2)).toBe('1234.50')
 })
 
 describe('fCompact — B/M/K magnitude suffix (crypto market cap / supply)', () => {

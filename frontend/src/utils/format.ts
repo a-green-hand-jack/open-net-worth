@@ -55,6 +55,13 @@ export function setDisplayFormats(prefs: {
 
 /** The locale numbers and money are formatted in. `undefined` = the browser's. */
 export const getNumberLocale = (): string | undefined => _numberLocale
+export function fFixed(value: number, digits: number): string {
+  return value.toLocaleString(getNumberLocale(), {
+    minimumFractionDigits: digits,
+    maximumFractionDigits: digits,
+    useGrouping: false,
+  })
+}
 /** The locale dates are formatted in. `undefined` = the browser's. */
 export const getDateLocale = (): string | undefined => _dateLocale
 /** The saved numeric-date preference. `undefined` = follow the browser. */
