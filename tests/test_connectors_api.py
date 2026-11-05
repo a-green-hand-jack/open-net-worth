@@ -38,6 +38,8 @@ def test_list_has_builtins_never_500(client):
     web_search_ids = {i for i in ids if i.startswith("web_search:")}
     assert len(web_search_ids) == 6  # one card per web-search provider (incl. key-free DuckDuckGo)
     assert ids - web_search_ids == {
+        "binance",
+        "voice",
         "email",
         "webhook",
         "telegram",

@@ -47,6 +47,10 @@ def register_live_adapter(connector_id: str, adapter: LiveAdapter | None):
 def get_live_adapter(account: dict) -> LiveAdapter:
     connector_id = account.get("connector_id")
     adapter = _adapters.get(connector_id or "")
+    if adapter is None and connector_id == "binance":
+        from backend.services.binance_connector import configured_adapter
+
+        return configured_adapter()
     if adapter is None and (connector_id or "").startswith("mcp:"):
         from backend.services.trading.alpaca_mcp import register_configured_alpaca_adapters
 

@@ -171,9 +171,35 @@ def create_run(workspace_id, data, *, conn=None):
 
 def _execution_source(clean):
     native = [a for a in clean["accounts"] if a.get("connector_id") == "binance"]
-    if native:
-        raise ConflictError("Binance execution is not available until its integration is installed")
-    return None
+    if not native:
+        return None
+    from backend.services.binance_connector import status
+
+    config = status()
+    if not config["configured"] or not config["enabled"]:
+        raise ConflictError("Configure and enable Binance before allocating its wallet")
+    testnet = config["environment"] == "testnet"
+    if clean["mode"] != ("paper" if testnet else "live"):
+        raise ValidationError(
+            "Binance Spot Testnet requires Paper; Binance real funds require Live"
+        )
+    if len(native) != 1 or (testnet and len(clean["accounts"]) != 1):
+        raise ValidationError(
+            "Allocate the entire Binance wallet once; Testnet runs cannot mix execution sources"
+        )
+    for account in native:
+        if testnet and account.get("book_account_id"):
+            raise ValidationError("Binance Spot Testnet cannot be linked to the real book")
+        expected = {
+            "currency": config["quote_currency"],
+            "venue": config["venue"],
+            "broker_account_id": config["broker_account_id"],
+        }
+        if any(account.get(key) != value for key, value in expected.items()):
+            raise ValidationError(
+                "Binance allocation must match the configured wallet, venue and quote currency"
+            )
+    return "binance_testnet" if testnet else None
 
 
 def _validate_observations(data):

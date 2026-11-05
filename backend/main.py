@@ -98,6 +98,7 @@ from backend.api.assets_api import router as assets_router
 from backend.api.auth import router as auth_router
 from backend.api.automations import router as automations_router
 from backend.api.backup import router as backup_router
+from backend.api.binance_api import router as binance_router
 from backend.api.briefing import router as briefing_router
 from backend.api.budgets import router as budgets_router
 from backend.api.builder import router as builder_router
@@ -1185,6 +1186,7 @@ app.include_router(vault_router)
 app.include_router(assets_router)
 app.include_router(automations_router)
 app.include_router(trading_grants_router)
+app.include_router(binance_router)
 app.include_router(trading_executor_router)
 app.include_router(trading_gateway_router)
 app.include_router(ibkr_router)
