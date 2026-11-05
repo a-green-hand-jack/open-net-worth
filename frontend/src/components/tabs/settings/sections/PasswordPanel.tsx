@@ -7,6 +7,7 @@ import { useState } from 'react'
 import { authFetch } from '../../../../api/client'
 import { tooManyAttemptsMessage } from '../../../../api/rateLimit'
 import { Btn, Field, Panel } from '../ds'
+import { useAppIntl } from '../../../../i18n/useAppIntl'
 
 export interface PasswordState {
   password_set: boolean
@@ -16,8 +17,6 @@ export interface PasswordState {
 
 // Matches the first-run step and the server's floor.
 const MIN_PASSWORD_LENGTH = 8
-// The server's `detail` for a wrong current password (backend/api/auth.py).
-const WRONG_CURRENT_DETAIL = 'current password incorrect'
 
 export function PasswordPanel({
   state,
@@ -28,6 +27,8 @@ export function PasswordPanel({
   refresh: () => Promise<unknown> | void
   toast: (message: string) => void
 }) {
+  const intl = useAppIntl()
+  const { formatMessage } = intl
   const [oldPw, setOldPw] = useState('')
   const [newPw, setNewPw] = useState('')
   const [confirmPw, setConfirmPw] = useState('')
@@ -42,7 +43,11 @@ export function PasswordPanel({
   // password: an unconfigured instance opens loopback, which would override that choice.
   const removalBlocked = needsCurrent && state?.trust_loopback === false
   const verb = !isSet ? 'set' : needsCurrent ? 'change' : 'reset'
-  const primaryLabel = `${verb[0]!.toUpperCase()}${verb.slice(1)} password`
+  const primaryLabel = !isSet
+    ? formatMessage({ id: 'settings.remaining.pwSet', defaultMessage: 'Set password' })
+    : needsCurrent
+      ? formatMessage({ id: 'settings.remaining.pwChange', defaultMessage: 'Change password' })
+      : formatMessage({ id: 'settings.remaining.pwReset', defaultMessage: 'Reset password' })
 
   function clearFields() {
     setOldPw('')
@@ -67,20 +72,46 @@ export function PasswordPanel({
           toast(tooManyAttemptsMessage(res))
           return false
         }
-        const detail = (await res.json().catch(() => null))?.detail
+        const problem = await res.json().catch(() => null)
+        const detail = problem?.detail
         // 403, not 401: a 401 would be read by authFetch as an expired session (sign-in screen).
-        if (res.status === 403 && detail === WRONG_CURRENT_DETAIL) {
-          toast('Current password is wrong')
+        if (
+          res.status === 403 &&
+          (detail === 'current password incorrect' ||
+            (problem?.message_id === 'auth.error.currentPasswordIncorrect' &&
+              problem?.message_params &&
+              typeof problem.message_params === 'object' &&
+              !Array.isArray(problem.message_params) &&
+              Object.keys(problem.message_params).length === 0))
+        ) {
+          toast(
+            formatMessage({
+              id: 'settings.remaining.pwWrong',
+              defaultMessage: 'Current password is wrong',
+            }),
+          )
           return false
         }
-        toast(typeof detail === 'string' ? detail : `${failure} (HTTP ${res.status})`)
+        toast(
+          typeof detail === 'string'
+            ? detail
+            : formatMessage(
+                { id: 'settings.remaining.pwHttp', defaultMessage: '{failure} (HTTP {status})' },
+                { failure, status: res.status },
+              ),
+        )
         return false
       }
       clearFields()
       void refresh()
       return true
     } catch {
-      toast('Could not reach the server. Try again.')
+      toast(
+        formatMessage({
+          id: 'settings.remaining.pwNetwork',
+          defaultMessage: 'Could not reach the server. Try again.',
+        }),
+      )
       return false
     } finally {
       setBusy(false)
@@ -90,44 +121,108 @@ export function PasswordPanel({
   async function savePassword() {
     // Passwords are kept exactly as typed, spaces included — but all spaces is no password.
     if (!newPw.trim()) {
-      toast('Enter a new password')
+      toast(
+        formatMessage({
+          id: 'settings.remaining.pwEnterNew',
+          defaultMessage: 'Enter a new password',
+        }),
+      )
       return
     }
     if (newPw.length < MIN_PASSWORD_LENGTH) {
-      toast(`New password must be at least ${MIN_PASSWORD_LENGTH} characters`)
+      toast(
+        formatMessage(
+          {
+            id: 'settings.remaining.pwMin',
+            defaultMessage: 'New password must be at least {count} characters',
+          },
+          { count: MIN_PASSWORD_LENGTH },
+        ),
+      )
       return
     }
     if (newPw !== confirmPw) {
-      toast("New password and confirmation don't match")
+      toast(
+        formatMessage({
+          id: 'settings.remaining.pwMismatch',
+          defaultMessage: "New password and confirmation don't match",
+        }),
+      )
       return
     }
     const ok = await submit(
       '/api/auth/change-password',
       { new_password: newPw },
-      `Could not ${verb} the password`,
+      verb === 'set'
+        ? formatMessage({
+            id: 'settings.remaining.pwSetFailed',
+            defaultMessage: 'Could not set the password',
+          })
+        : verb === 'change'
+          ? formatMessage({
+              id: 'settings.remaining.pwChangeFailed',
+              defaultMessage: 'Could not change the password',
+            })
+          : formatMessage({
+              id: 'settings.remaining.pwResetFailed',
+              defaultMessage: 'Could not reset the password',
+            }),
     )
-    if (ok) toast(isSet ? 'Password changed' : 'Password set')
+    if (ok)
+      toast(
+        isSet
+          ? formatMessage({
+              id: 'settings.remaining.pwChanged',
+              defaultMessage: 'Password changed',
+            })
+          : formatMessage({ id: 'settings.remaining.pwSetDone', defaultMessage: 'Password set' }),
+      )
   }
 
   async function removePassword() {
     if (needsCurrent && !oldPw) {
-      toast('Enter your current password to remove it')
+      toast(
+        formatMessage({
+          id: 'settings.remaining.pwEnterCurrent',
+          defaultMessage: 'Enter your current password to remove it',
+        }),
+      )
       return
     }
-    const ok = await submit('/api/auth/remove-password', {}, 'Could not remove the password')
+    const ok = await submit(
+      '/api/auth/remove-password',
+      {},
+      formatMessage({
+        id: 'settings.remaining.pwRemoveFailed',
+        defaultMessage: 'Could not remove the password',
+      }),
+    )
     if (!ok) return
     setConfirmingRemove(false)
-    toast('Password removed')
+    toast(formatMessage({ id: 'settings.remaining.pwRemoved', defaultMessage: 'Password removed' }))
   }
 
   return (
     <Panel
-      title={isSet ? 'Password' : 'Set a password'}
-      sub="Signs you in to this instance — it is the only account, and it is stored on your own server"
+      title={
+        isSet
+          ? formatMessage({ id: 'settings.remaining.pwTitle', defaultMessage: 'Password' })
+          : formatMessage({ id: 'settings.remaining.pwSetTitle', defaultMessage: 'Set a password' })
+      }
+      sub={formatMessage({
+        id: 'settings.remaining.pwSub',
+        defaultMessage:
+          'Signs you in to this instance — it is the only account, and it is stored on your own server',
+      })}
     >
       <div className="rd-formgrid">
         {needsCurrent && (
-          <Field label="Current password">
+          <Field
+            label={formatMessage({
+              id: 'settings.remaining.pwCurrent',
+              defaultMessage: 'Current password',
+            })}
+          >
             <input
               className="rd-input"
               type="password"
@@ -141,18 +236,37 @@ export function PasswordPanel({
         {!confirmingRemove && (
           <>
             <Field
-              label="New password"
+              label={formatMessage({
+                id: 'settings.remaining.pwNew',
+                defaultMessage: 'New password',
+              })}
               help={
                 <>
-                  At least {MIN_PASSWORD_LENGTH} characters.
-                  {isSet && !needsCurrent && (
-                    <> You're on this computer's own book, so the current password isn't needed.</>
+                  {formatMessage(
+                    {
+                      id: 'settings.remaining.pwMinimumHelp',
+                      defaultMessage: 'At least {count} characters.',
+                    },
+                    { count: MIN_PASSWORD_LENGTH },
                   )}
+                  {isSet &&
+                    !needsCurrent &&
+                    formatMessage({
+                      id: 'settings.remaining.pwLocalHelp',
+                      defaultMessage:
+                        " You're on this computer's own book, so the current password isn't needed.",
+                    })}
                   {isSet && needsCurrent && (
                     <>
                       {' '}
-                      Forgot it? In the desktop app, set a new one here. On a server, run{' '}
-                      <code>onw reset-password</code> on that machine.
+                      {formatMessage(
+                        {
+                          id: 'settings.remaining.pwForgot',
+                          defaultMessage:
+                            'Forgot it? In the desktop app, set a new one here. On a server, run <code>onw reset-password</code> on that machine.',
+                        },
+                        { code: (chunks) => <code>{chunks}</code> },
+                      )}
                     </>
                   )}
                 </>
@@ -166,7 +280,12 @@ export function PasswordPanel({
                 onChange={(e) => setNewPw(e.target.value)}
               />
             </Field>
-            <Field label="Confirm password">
+            <Field
+              label={formatMessage({
+                id: 'settings.remaining.pwConfirm',
+                defaultMessage: 'Confirm password',
+              })}
+            >
               <input
                 className="rd-input"
                 type="password"
@@ -182,13 +301,19 @@ export function PasswordPanel({
         <div className="rd-help">
           {removalBlocked ? (
             <>
-              Turn on "Don't ask for the password on this computer" first, or keep a password:
-              removing it would open this book to every local request.
+              {formatMessage({
+                id: 'settings.remaining.pwRemoveBlocked',
+                defaultMessage:
+                  'Turn on "Don\'t ask for the password on this computer" first, or keep a password: removing it would open this book to every local request.',
+              })}
             </>
           ) : (
             <>
-              Remove the password? Other devices will be signed out and can't open this book until
-              you set a password again. This computer will open it without one.
+              {formatMessage({
+                id: 'settings.remaining.pwRemoveConfirm',
+                defaultMessage:
+                  "Remove the password? Other devices will be signed out and can't open this book until you set a password again. This computer will open it without one.",
+              })}
             </>
           )}
         </div>
@@ -201,10 +326,13 @@ export function PasswordPanel({
               disabled={busy || removalBlocked}
               onClick={() => void removePassword()}
             >
-              Remove password
+              {formatMessage({
+                id: 'settings.remaining.pwRemove',
+                defaultMessage: 'Remove password',
+              })}
             </Btn>
             <Btn disabled={busy} onClick={() => setConfirmingRemove(false)}>
-              Cancel
+              {formatMessage({ id: 'settings.remaining.pwCancel', defaultMessage: 'Cancel' })}
             </Btn>
           </>
         ) : (
@@ -214,7 +342,10 @@ export function PasswordPanel({
             </Btn>
             {isSet && (
               <Btn disabled={busy} onClick={() => setConfirmingRemove(true)}>
-                Remove password
+                {formatMessage({
+                  id: 'settings.remaining.pwRemove',
+                  defaultMessage: 'Remove password',
+                })}
               </Btn>
             )}
           </>
