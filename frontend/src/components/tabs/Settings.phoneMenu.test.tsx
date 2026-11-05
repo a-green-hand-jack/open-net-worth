@@ -5,6 +5,8 @@
 
 import { afterEach, expect, it, vi } from 'vitest'
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { IntlProvider } from 'react-intl'
+import { catalogs } from '../../i18n/catalogs'
 import type { DesktopBridge } from '../../../../desktop/src/contracts'
 import { SECTIONS, Settings } from './Settings'
 
@@ -52,4 +54,16 @@ it('phone: interface language opens its own settings section', async () => {
   render(<Settings />)
   fireEvent.click(screen.getByRole('button', { name: /Interface language/ }))
   expect(await screen.findByLabelText('Interface language')).toBeTruthy()
+})
+
+it('phone: Chinese settings menu retains a reachable language section', async () => {
+  render(
+    <IntlProvider locale="zh-CN" messages={catalogs['zh-CN']}>
+      <Settings />
+    </IntlProvider>,
+  )
+  expect(menuLabels()).toContain('外观')
+  expect(menuLabels()).toContain('货币和格式')
+  fireEvent.click(screen.getByRole('button', { name: /界面语言/ }))
+  expect(await screen.findByLabelText('界面语言')).toBeTruthy()
 })

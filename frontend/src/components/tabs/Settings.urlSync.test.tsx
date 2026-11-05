@@ -16,6 +16,8 @@
 import { describe, it, expect, vi, afterEach } from 'vitest'
 import { render, cleanup, fireEvent } from '@testing-library/react'
 import { Settings } from './Settings'
+import { IntlProvider } from 'react-intl'
+import { catalogs } from '../../i18n/catalogs'
 
 // ok:false (not ok:true+{}) — several Settings sections (e.g. AI spend) treat a shape-less
 // 200 as real empty data and crash reading nested fields; a non-ok response is their designed
@@ -45,6 +47,18 @@ afterEach(() => {
 })
 
 describe('Settings — sub-section URL sync', () => {
+  it('shows and searches translated settings sections in Chinese', () => {
+    render(
+      <IntlProvider locale="zh-CN" messages={catalogs['zh-CN']}>
+        <Settings />
+      </IntlProvider>,
+    )
+    expect(railItem('界面语言')).toBeTruthy()
+    fireEvent.change(document.body.querySelector('[aria-label="搜索设置"]')!, {
+      target: { value: '货币' },
+    })
+    expect(railItem('货币和格式')).toBeTruthy()
+  })
   it('mirrors the default section into the URL on mount', () => {
     render(<Settings />)
     expect(mockNavigate).toHaveBeenCalledWith(
