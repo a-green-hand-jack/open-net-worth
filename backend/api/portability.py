@@ -38,7 +38,8 @@ from datetime import datetime, timezone
 from typing import BinaryIO
 
 from fastapi import APIRouter, Form, HTTPException, Request, UploadFile
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, JSONResponse
+from fastapi.routing import APIRoute
 from starlette.background import BackgroundTask
 
 from backend.ai import checkpoint as ckpt
@@ -47,7 +48,35 @@ from backend.core.errors import OpenNetWorthError, to_http_status
 from backend.core.paths import CACHE_DIR
 from backend.services import portability
 
-router = APIRouter()
+
+class ImportHttpError(HTTPException):
+    def __init__(self, status: int, detail: str, message_id: str, params: dict | None = None):
+        super().__init__(status, detail)
+        self.message_id = message_id
+        self.params = params or {}
+
+
+class PortabilityRoute(APIRoute):
+    def get_route_handler(self):
+        handler = super().get_route_handler()
+
+        async def handle(request: Request):
+            try:
+                return await handler(request)
+            except ImportHttpError as exc:
+                return JSONResponse(
+                    status_code=exc.status_code,
+                    content={
+                        "detail": exc.detail,
+                        "message_id": exc.message_id,
+                        "message_params": exc.params,
+                    },
+                )
+
+        return handle
+
+
+router = APIRouter(route_class=PortabilityRoute)
 
 # An upload is spooled to disk by the multipart parser and read from there, never buffered whole.
 # The bound is the room to unpack it, not a fixed number: free disk, less a safety margin.
@@ -88,11 +117,14 @@ def _read_upload(file: UploadFile) -> BinaryIO:
     size = stream.seek(0, 2)
     stream.seek(0)
     if not size:
-        raise HTTPException(422, "uploaded bundle is empty")
+        raise ImportHttpError(422, "uploaded bundle is empty", "restore.error.emptyUpload")
     free = shutil.disk_usage(CACHE_DIR).free
     if size + _UPLOAD_DISK_MARGIN > free:
-        raise HTTPException(
-            413, f"uploaded bundle too large for the free disk space ({size} bytes, {free} free)"
+        raise ImportHttpError(
+            413,
+            f"uploaded bundle too large for the free disk space ({size} bytes, {free} free)",
+            "restore.error.diskSpace",
+            {"size": str(size), "free": str(free)},
         )
     return stream
 
@@ -122,7 +154,7 @@ def import_data(
 
     # Refuse if a chat turn is mid-write for any session (avoid interleaving).
     if ckpt._session_turn_active("import"):
-        raise HTTPException(409, "an import is already in progress")
+        raise ImportHttpError(409, "an import is already in progress", "restore.error.inProgress")
 
     context, token = ckpt.begin_turn(
         session_id="import",
@@ -142,6 +174,10 @@ def import_data(
     try:
         result = portability.apply_import(bundle)
     except OpenNetWorthError as exc:  # ValidationError → 422
+        if exc.context.get("message_id") == "restore.error.validationFailed":
+            raise ImportHttpError(
+                to_http_status(exc), exc.message or str(exc), "restore.error.validationFailed"
+            ) from exc
         raise HTTPException(to_http_status(exc), exc.message or str(exc)) from exc
     finally:
         entry = ckpt.end_turn(context, token)

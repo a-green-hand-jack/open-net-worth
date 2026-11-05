@@ -136,6 +136,7 @@ from typing import BinaryIO
 
 from backend.core import portable
 from backend.core.errors import ValidationError
+from backend.core.import_message import ImportMessage
 from backend.core.io import atomic_write_text, durable_replace, fire_write_hook
 from backend.db import money_io, portable_bridge, session_io
 from backend.db.engine import get_engine, locked_unit_of_work, unit_of_work
@@ -397,6 +398,27 @@ def _open_zip(source: BundleSource) -> zipfile.ZipFile:
     return zipfile.ZipFile(io.BytesIO(source) if isinstance(source, bytes) else source)
 
 
+class _ImportIssues(list[str]):
+    def __init__(self) -> None:
+        super().__init__()
+        self.messages: list[dict | None] = []
+
+    def append(self, text: str) -> None:
+        super().append(text)
+        self.messages.append(None)
+
+    def extend(self, values) -> None:
+        for text in values:
+            if isinstance(text, ImportMessage):
+                self.add(str(text), text.message_id, **text.message_params)
+            else:
+                self.append(text)
+
+    def add(self, text: str, message_id: str, **params: str) -> None:
+        super().append(text)
+        self.messages.append({"message_id": message_id, "message_params": params})
+
+
 def inspect_bundle(source: BundleSource, *, verify_blobs: bool = True) -> dict:
     """Validate a bundle WITHOUT writing anything. Returns an ImportReport dict:
 
@@ -408,8 +430,8 @@ def inspect_bundle(source: BundleSource, *, verify_blobs: bool = True) -> dict:
     because staging verifies them again as it copies.
     """
     files: list[dict] = []
-    warnings: list[str] = []
-    errors: list[str] = []
+    warnings = _ImportIssues()
+    errors = _ImportIssues()
 
     try:
         zf = _open_zip(source)
@@ -424,6 +446,7 @@ def inspect_bundle(source: BundleSource, *, verify_blobs: bool = True) -> dict:
                 "This file isn't an Open Net Worth backup. Choose the .zip you exported from "
                 "Settings \u2192 Data."
             ],
+            "error_messages": [{"message_id": "restore.error.notBackup", "message_params": {}}],
         }
 
     with zf:
@@ -444,6 +467,15 @@ def inspect_bundle(source: BundleSource, *, verify_blobs: bool = True) -> dict:
                     f"bundle too large: declared {total_uncompressed} bytes "
                     f"uncompressed exceeds cap {_MAX_TOTAL_UNCOMPRESSED}"
                 ],
+                "error_messages": [
+                    {
+                        "message_id": "restore.error.bundleLarge",
+                        "message_params": {
+                            "size": str(total_uncompressed),
+                            "limit": str(_MAX_TOTAL_UNCOMPRESSED),
+                        },
+                    }
+                ],
             }
         oversized = [zi.filename for zi in infos if zi.file_size > _MAX_ENTRY_UNCOMPRESSED]
         if oversized:
@@ -458,6 +490,13 @@ def inspect_bundle(source: BundleSource, *, verify_blobs: bool = True) -> dict:
                     f"{_MAX_ENTRY_UNCOMPRESSED} bytes"
                     for name in oversized
                 ],
+                "error_messages": [
+                    {
+                        "message_id": "restore.error.entryLarge",
+                        "message_params": {"name": name, "limit": str(_MAX_ENTRY_UNCOMPRESSED)},
+                    }
+                    for name in oversized
+                ],
             }
 
         names = zf.namelist()
@@ -469,6 +508,9 @@ def inspect_bundle(source: BundleSource, *, verify_blobs: bool = True) -> dict:
                 "files": [],
                 "warnings": [],
                 "errors": ["missing manifest.json"],
+                "error_messages": [
+                    {"message_id": "restore.error.manifestMissing", "message_params": {}}
+                ],
             }
         try:
             manifest = json.loads(zf.read(_MANIFEST_NAME).decode("utf-8"))
@@ -480,14 +522,20 @@ def inspect_bundle(source: BundleSource, *, verify_blobs: bool = True) -> dict:
                 "files": [],
                 "warnings": [],
                 "errors": ["manifest.json is not valid JSON"],
+                "error_messages": [
+                    {"message_id": "restore.error.manifestInvalid", "message_params": {}}
+                ],
             }
 
         schema_version = manifest.get("schema_version")
         if schema_version != SCHEMA_VERSION:
             detail = f" {_V1_REFUSAL}" if schema_version == 1 else ""
-            errors.append(
+            errors.add(
                 f"schema_version mismatch: bundle={schema_version!r} "
-                f"expected={SCHEMA_VERSION} (no cross-version upgrade in MVP).{detail}"
+                f"expected={SCHEMA_VERSION} (no cross-version upgrade in MVP).{detail}",
+                "restore.error.schemaV1" if schema_version == 1 else "restore.error.schemaMismatch",
+                actual=repr(schema_version),
+                expected=str(SCHEMA_VERSION),
             )
 
         manifest_entries = manifest.get("entries") or {}
@@ -496,18 +544,28 @@ def inspect_bundle(source: BundleSource, *, verify_blobs: bool = True) -> dict:
             if name == _MANIFEST_NAME or name.endswith("/"):
                 continue
             if not _is_safe_name(name):
-                errors.append(f"rejected unsafe / unknown entry: {name!r}")
+                errors.add(
+                    f"rejected unsafe / unknown entry: {name!r}",
+                    "restore.error.unsafeEntry",
+                    name=name,
+                )
                 continue
 
             if blobs.is_blob_name(name):
                 expected = (manifest_entries.get(name) or {}).get("sha256")
                 if expected is None:
-                    warnings.append(f"{name}: no sha256 in manifest")
+                    warnings.add(
+                        f"{name}: no sha256 in manifest", "restore.warning.noHash", name=name
+                    )
                 sha_ok = expected is not None and (
                     not verify_blobs or blobs.sha256_of(zf, name) == expected
                 )
                 if expected is not None and not sha_ok:
-                    errors.append(f"{name}: sha256 mismatch (tampered or corrupt)")
+                    errors.add(
+                        f"{name}: sha256 mismatch (tampered or corrupt)",
+                        "restore.error.hashMismatch",
+                        name=name,
+                    )
                 files.append({"name": name, "row_count": 0, "sha_ok": sha_ok})
                 continue
 
@@ -515,15 +573,19 @@ def inspect_bundle(source: BundleSource, *, verify_blobs: bool = True) -> dict:
             expected = (manifest_entries.get(name) or {}).get("sha256")
             sha_ok = expected is not None and _sha256(raw) == expected
             if expected is None:
-                warnings.append(f"{name}: no sha256 in manifest")
+                warnings.add(f"{name}: no sha256 in manifest", "restore.warning.noHash", name=name)
             elif not sha_ok:
-                errors.append(f"{name}: sha256 mismatch (tampered or corrupt)")
+                errors.add(
+                    f"{name}: sha256 mismatch (tampered or corrupt)",
+                    "restore.error.hashMismatch",
+                    name=name,
+                )
 
             # JSON-parse-before-write: a malformed store must never be applied.
             try:
                 parsed = json.loads(raw.decode("utf-8"))
             except Exception:
-                errors.append(f"{name}: not valid JSON")
+                errors.add(f"{name}: not valid JSON", "restore.error.invalidJson", name=name)
                 files.append({"name": name, "row_count": 0, "sha_ok": sha_ok})
                 continue
 
@@ -552,6 +614,8 @@ def inspect_bundle(source: BundleSource, *, verify_blobs: bool = True) -> dict:
         "files": files,
         "warnings": warnings,
         "errors": errors,
+        "warning_messages": warnings.messages,
+        "error_messages": errors.messages,
     }
 
 
@@ -697,7 +761,11 @@ def apply_import(source: BundleSource) -> dict:
     """
     report = inspect_bundle(source, verify_blobs=False)
     if not report["ok"]:
-        raise ValidationError("import bundle failed validation", errors=report["errors"])
+        raise ValidationError(
+            "import bundle failed validation",
+            errors=report["errors"],
+            message_id="restore.error.validationFailed",
+        )
 
     from backend.services.setup import is_fresh_setup
 

@@ -111,6 +111,7 @@ from typing import Any
 from sqlalchemy import Connection, Float, column, insert, select, table
 
 from backend.core.errors import ValidationError
+from backend.core.import_message import ImportMessage
 from backend.core.io import atomic_write_text, fire_db_write_hook
 from backend.core.paths import statements_files_dir
 from backend.db.tables import (
@@ -185,31 +186,67 @@ def validate_money_file_shape(filename: str, parsed: object) -> list[str]:
     is an earlier, clearer failure message, not a correctness dependency.)"""
     errors: list[str] = []
     if not isinstance(parsed, list):
-        errors.append(f"{filename}: expected a JSON list of objects")
+        errors.append(
+            ImportMessage(
+                f"{filename}: expected a JSON list of objects",
+                "restore.error.expectedList",
+                name=filename,
+            )
+        )
         return errors
     seen_statement_ids: set[str] = set()
     for i, row in enumerate(parsed):
         if not isinstance(row, dict):
-            errors.append(f"{filename}[{i}]: expected an object, got {type(row).__name__}")
+            errors.append(
+                ImportMessage(
+                    f"{filename}[{i}]: expected an object, got {type(row).__name__}",
+                    "restore.error.expectedObject",
+                    name=filename,
+                    index=str(i),
+                    kind=type(row).__name__,
+                )
+            )
             continue
         if filename == "accounts.json" and row.get("type") not in ACCOUNT_BAND:
             # A type this build cannot classify is not a cosmetic defect: `band_of` raises on
             # it, so the row would sit in the book making `GET /api/net-worth` fail. Refused
             # at the door rather than remapped — see `portability.SCHEMA_VERSION`.
             errors.append(
-                f"{filename}[{i}]: account {row.get('id')!r} has unknown type "
-                f"{row.get('type')!r} (expected one of {', '.join(sorted(ACCOUNT_BAND))}). "
-                "This bundle predates the seven-type account schema (2026-09-07)."
+                ImportMessage(
+                    f"{filename}[{i}]: account {row.get('id')!r} has unknown type "
+                    f"{row.get('type')!r} (expected one of {', '.join(sorted(ACCOUNT_BAND))}). "
+                    "This bundle predates the seven-type account schema (2026-09-07).",
+                    "restore.error.accountType",
+                    name=filename,
+                    index=str(i),
+                    id=repr(row.get("id")),
+                    kind=repr(row.get("type")),
+                    allowed=", ".join(sorted(ACCOUNT_BAND)),
+                )
             )
         if filename == "statements.json":
             sid = row.get("id")
             if not isinstance(sid, str) or not STATEMENT_ID_RE.fullmatch(sid):
                 errors.append(
-                    f"{filename}[{i}]: unsafe statement id {sid!r} "
-                    "(expected 1-64 chars of [A-Za-z0-9_.-])"
+                    ImportMessage(
+                        f"{filename}[{i}]: unsafe statement id {sid!r} "
+                        "(expected 1-64 chars of [A-Za-z0-9_.-])",
+                        "restore.error.unsafeStatementId",
+                        name=filename,
+                        index=str(i),
+                        id=repr(sid),
+                    )
                 )
             elif sid in seen_statement_ids:
-                errors.append(f"{filename}[{i}]: duplicate statement id {sid!r}")
+                errors.append(
+                    ImportMessage(
+                        f"{filename}[{i}]: duplicate statement id {sid!r}",
+                        "restore.error.duplicateStatementId",
+                        name=filename,
+                        index=str(i),
+                        id=repr(sid),
+                    )
+                )
             else:
                 seen_statement_ids.add(sid)
             # `file_path` is the OTHER untrusted field on this row, and until now the only
@@ -235,8 +272,14 @@ def validate_money_file_shape(filename: str, parsed: object) -> list[str]:
                 or ".." in Path(fp).parts
             ):
                 errors.append(
-                    f"{filename}[{i}]: unsafe statement file_path {fp!r} "
-                    "(must be a relative path that does not escape the bundle)"
+                    ImportMessage(
+                        f"{filename}[{i}]: unsafe statement file_path {fp!r} "
+                        "(must be a relative path that does not escape the bundle)",
+                        "restore.error.unsafeStatementPath",
+                        name=filename,
+                        index=str(i),
+                        path=repr(fp),
+                    )
                 )
     return errors
 
