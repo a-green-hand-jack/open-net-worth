@@ -35,5 +35,8 @@ An authenticated owner can issue a grant with `POST /api/trading/runs/{run_id}/a
 it with `DELETE` at the same path. The issue response contains the grant once and is marked
 `no-store`; rotation invalidates the prior grant. A participant grant cannot issue or revoke grants.
 
-This capability is being built in stages. Workspace controls and production
+This capability is being built in stages. An Alpaca MCP adapter is under review; a configured
+connector alone does not authorize a funded run. Account identity, dedicated allocation, broker
+permissions and complete execution receipts must all pass the run's checks. The adapter has not
+yet been validated against a funded broker account. Workspace controls and other production
 broker integrations are not included in this stage.
