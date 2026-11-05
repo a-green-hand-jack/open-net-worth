@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom'
 import { useIsMobile } from '../../hooks/useIsMobile'
 import { X, ChevronLeft, ChevronRight, ChevronDown, Check } from '../../ui/icons'
 import type { ModelOption } from '../../api/models'
+import { useAppIntl } from '../../i18n/useAppIntl'
 
 // The ONE model chooser. Every surface that lets a human pick a model uses it: the chat
 // side panel, the Lucius dock, Settings → Task models (×13), Settings → Preferred models,
@@ -76,12 +77,14 @@ export function resolveModelSelection(ref: string, models: ModelOption[]): Model
 interface ModelGroup {
   label: string
   models: ModelOption[]
+  preferredGroup?: boolean
+  fallbackGroup?: boolean
 }
 
 /** Preferred first (it is the one group that mixes providers), then one group per provider.
  *  A preferred model ALSO stays in its provider group — this narrows nothing. */
 export function groupModels(models: ModelOption[]): ModelGroup[] {
-  const preferred: ModelGroup = { label: 'Preferred', models: [] }
+  const preferred: ModelGroup = { label: 'Preferred', models: [], preferredGroup: true }
   const groups: ModelGroup[] = []
   const byLabel = new Map<string, ModelGroup>()
   for (const m of models) {
@@ -89,10 +92,11 @@ export function groupModels(models: ModelOption[]): ModelGroup[] {
     const label = m.provider_label ?? m.provider_key ?? 'Other'
     let group = byLabel.get(label)
     if (!group) {
-      group = { label, models: [] }
+      group = { label, models: [], fallbackGroup: !m.provider_label && !m.provider_key }
       byLabel.set(label, group)
       groups.push(group)
     }
+    if (m.provider_label || m.provider_key) group.fallbackGroup = false
     group.models.push(m)
   }
   return preferred.models.length ? [preferred, ...groups] : groups
@@ -134,9 +138,15 @@ interface BaseProps {
 
 /** Back arrow + title, shown at the top of any pane reached from the root menu. */
 function PaneHead({ title, onBack }: { title: string; onBack: () => void }) {
+  const { formatMessage } = useAppIntl()
   return (
     <div className="mp-pane-head">
-      <button type="button" className="mp-pane-back" aria-label="Back" onClick={onBack}>
+      <button
+        type="button"
+        className="mp-pane-back"
+        aria-label={formatMessage({ id: 'common.back', defaultMessage: 'Back' })}
+        onClick={onBack}
+      >
         <ChevronLeft size={16} aria-hidden="true" />
       </button>
       <span className="mp-pane-title">{title}</span>
@@ -185,6 +195,7 @@ interface MultiProps extends BaseProps {
 export type ModelPickerProps = SingleProps | MultiProps
 
 export function ModelPicker(props: ModelPickerProps) {
+  const { formatMessage } = useAppIntl()
   const {
     models,
     label,
@@ -235,6 +246,10 @@ export function ModelPicker(props: ModelPickerProps) {
       ref: string
       model?: ModelOption
       group?: string
+      defaultGroup?: boolean
+      defaultFallback?: boolean
+      preferredGroup?: boolean
+      fallbackGroup?: boolean
       text: string
       /** Provider shown ON the row — only where the group header does not already say it. */
       provider?: string
@@ -246,11 +261,12 @@ export function ModelPicker(props: ModelPickerProps) {
     // same thing twice and looked nothing like its neighbours.
     if (!multiple && !needle && (defaultModelId !== undefined || defaultLabel !== undefined)) {
       const d = defaultModelId ? resolveModelSelection(defaultModelId, models) : null
-      out.push({ ref: '__group__Default', group: 'Default', text: 'Default' })
+      out.push({ ref: '__group__Default', group: 'Default', text: 'Default', defaultGroup: true })
       out.push({
         ref: '',
         model: d?.model,
         text: d?.modelId || defaultLabel || 'Default',
+        defaultFallback: !d?.modelId && !defaultLabel,
         provider: d?.providerLabel || undefined,
       })
     }
@@ -261,8 +277,14 @@ export function ModelPicker(props: ModelPickerProps) {
         return ref.includes(needle) || (m.provider_label ?? '').toLowerCase().includes(needle)
       })
       if (!hits.length) continue
-      out.push({ ref: `__group__${group.label}`, group: group.label, text: group.label })
-      const inPreferred = group.label === 'Preferred'
+      out.push({
+        ref: `__group__${group.label}`,
+        group: group.label,
+        text: group.label,
+        preferredGroup: group.preferredGroup,
+        fallbackGroup: group.fallbackGroup,
+      })
+      const inPreferred = group.preferredGroup === true
       for (const m of hits) {
         out.push({
           ref: modelRefOf(m),
@@ -424,7 +446,11 @@ export function ModelPicker(props: ModelPickerProps) {
       // question it has room for — what is this turn going to run on?
       const d = defaultModelId ? resolveModelSelection(defaultModelId, models) : null
       return {
-        text: d?.modelId || defaultLabel || placeholder || 'Default',
+        text:
+          d?.modelId ||
+          defaultLabel ||
+          placeholder ||
+          formatMessage({ id: 'modelPicker.default', defaultMessage: 'Default' }),
         provider: d?.providerLabel || '',
       }
     }
@@ -438,18 +464,34 @@ export function ModelPicker(props: ModelPickerProps) {
           ref={searchRef}
           className="mp-search"
           value={q}
-          placeholder="Search models…"
-          aria-label="Search models"
+          placeholder={formatMessage({
+            id: 'modelPicker.searchPlaceholder',
+            defaultMessage: 'Search models…',
+          })}
+          aria-label={formatMessage({ id: 'modelPicker.search', defaultMessage: 'Search models' })}
           onChange={(e) => setQ(e.target.value)}
           onKeyDown={onKeyDown}
         />
       </div>
       <div className="mp-list" role="listbox" aria-label={label}>
-        {rows.length === 0 && <div className="mp-empty">No model matches “{q}”.</div>}
+        {rows.length === 0 && (
+          <div className="mp-empty">
+            {formatMessage(
+              { id: 'modelPicker.noMatch', defaultMessage: 'No model matches “{query}”.' },
+              { query: q },
+            )}
+          </div>
+        )}
         {rows.map((row, i) =>
           row.group ? (
             <div className="mp-group" key={row.ref}>
-              {row.group}
+              {row.defaultGroup
+                ? formatMessage({ id: 'modelPicker.default', defaultMessage: 'Default' })
+                : row.preferredGroup
+                  ? formatMessage({ id: 'modelPicker.preferred', defaultMessage: 'Preferred' })
+                  : row.fallbackGroup
+                    ? formatMessage({ id: 'modelPicker.other', defaultMessage: 'Other' })
+                    : row.group}
             </div>
           ) : (
             <button
@@ -468,8 +510,21 @@ export function ModelPicker(props: ModelPickerProps) {
               onMouseEnter={() => setActive(i)}
               onClick={() => pick(row.ref)}
             >
-              <span className="mp-opt-name">{row.custom ? `Use “${row.text}”` : row.text}</span>
-              {row.custom && <em className="mp-opt-note">custom model ID</em>}
+              <span className="mp-opt-name">
+                {row.custom
+                  ? formatMessage(
+                      { id: 'modelPicker.useCustom', defaultMessage: 'Use “{model}”' },
+                      { model: row.text },
+                    )
+                  : row.defaultFallback
+                    ? formatMessage({ id: 'modelPicker.default', defaultMessage: 'Default' })
+                    : row.text}
+              </span>
+              {row.custom && (
+                <em className="mp-opt-note">
+                  {formatMessage({ id: 'modelPicker.customId', defaultMessage: 'custom model ID' })}
+                </em>
+              )}
               {/* Named only where the group header does NOT already say it — i.e. inside
                   "Preferred" and "Default", the two groups that can hold any provider. A bare
                   `sonnet` there could be the Claude Code CLI alias, an Anthropic model or an
@@ -498,7 +553,9 @@ export function ModelPicker(props: ModelPickerProps) {
         className="mp-menu-row"
         onClick={() => setPane('models')}
       >
-        <span className="mp-menu-row-l">Model</span>
+        <span className="mp-menu-row-l">
+          {formatMessage({ id: 'modelPicker.model', defaultMessage: 'Model' })}
+        </span>
         <span className="mp-menu-row-v">{triggerParts.text}</span>
         <span className="mp-menu-row-chev" aria-hidden="true">
           <ChevronRight size={14} />
@@ -523,7 +580,12 @@ export function ModelPicker(props: ModelPickerProps) {
   )
 
   const openPane = panes?.find((p) => p.key === pane)
-  const paneTitle = pane === null ? label : pane === 'models' ? 'Model' : (openPane?.label ?? '')
+  const paneTitle =
+    pane === null
+      ? label
+      : pane === 'models'
+        ? formatMessage({ id: 'modelPicker.model', defaultMessage: 'Model' })
+        : (openPane?.label ?? '')
   const paneContent =
     pane === null
       ? root
@@ -556,7 +618,7 @@ export function ModelPicker(props: ModelPickerProps) {
             <button
               type="button"
               className="mp-sheet-back"
-              aria-label="Back"
+              aria-label={formatMessage({ id: 'common.back', defaultMessage: 'Back' })}
               onClick={() => setPane(null)}
             >
               <ChevronLeft size={16} aria-hidden="true" />
@@ -566,7 +628,7 @@ export function ModelPicker(props: ModelPickerProps) {
           <button
             type="button"
             className="mp-sheet-x"
-            aria-label="Close"
+            aria-label={formatMessage({ id: 'common.close', defaultMessage: 'Close' })}
             onClick={() => close(true)}
           >
             <X size={18} strokeWidth={1.6} aria-hidden="true" />
@@ -608,7 +670,10 @@ export function ModelPicker(props: ModelPickerProps) {
               {byRef.get(ref)?.provider_label && <em>{byRef.get(ref)!.provider_label}</em>}
               <button
                 type="button"
-                aria-label={`Remove ${ref}`}
+                aria-label={formatMessage(
+                  { id: 'modelPicker.remove', defaultMessage: 'Remove {model}' },
+                  { model: ref },
+                )}
                 onClick={() =>
                   (props.onChange as (v: string[]) => void)(
                     (props.value as string[]).filter((r) => r !== ref),

@@ -1,0 +1,14 @@
+{
+  "common.back": "返回",
+  "common.close": "关闭",
+  "modelPicker.customId": "自定义模型 ID",
+  "modelPicker.default": "默认",
+  "modelPicker.model": "模型",
+  "modelPicker.noMatch": "没有与“{query}”匹配的模型。",
+  "modelPicker.other": "其他",
+  "modelPicker.preferred": "首选",
+  "modelPicker.remove": "移除 {model}",
+  "modelPicker.search": "搜索模型",
+  "modelPicker.searchPlaceholder": "搜索模型…",
+  "modelPicker.useCustom": "使用“{model}”"
+}
