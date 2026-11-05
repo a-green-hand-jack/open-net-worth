@@ -6,6 +6,8 @@
 
 import { describe, it, expect, vi, afterEach } from 'vitest'
 import { render, screen, cleanup, fireEvent } from '@testing-library/react'
+import { IntlProvider } from 'react-intl'
+import { catalogs } from '../../i18n/catalogs'
 import { StepGreeting } from './StepGreeting'
 
 afterEach(() => {
@@ -13,6 +15,13 @@ afterEach(() => {
 })
 
 describe('StepGreeting', () => {
+  it('starts setup from the Chinese greeting', () => {
+    const onSetup = vi.fn()
+    render(<IntlProvider locale="zh-CN" messages={catalogs['zh-CN']}><StepGreeting onSetup={onSetup} /></IntlProvider>)
+    expect(screen.getByText('选择你常用的货币')).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: '开始使用' }))
+    expect(onSetup).toHaveBeenCalledTimes(1)
+  })
   it('routes "Get started" into ordinary setup', () => {
     const onSetup = vi.fn()
     render(<StepGreeting onSetup={onSetup} />)

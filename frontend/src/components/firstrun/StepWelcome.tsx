@@ -1,3 +1,4 @@
+import { getNumberLocale } from '../../utils/format'
 // First run, screen 1 — what this is, where the data lives, and the currency you think in.
 //
 // Base currency rides here rather than earning its own screen: it is one prefilled dropdown,
@@ -13,6 +14,7 @@ import { desktopBridge } from '../../platform/desktop'
 // already carrying a curated 154-currency list. A plain <select> of every ICU code was an
 // unusable wall that also offered defunct units (XDR, the 1964-2022 leone).
 import { CurrencyDialog } from './CurrencyDialog'
+import { useAppIntl } from '../../i18n/useAppIntl'
 
 export interface StepWelcomeProps {
   currency: string
@@ -43,9 +45,9 @@ export interface StepWelcomeProps {
 const MONO = 'ui-monospace, SFMono-Regular, Menlo, monospace'
 
 /** "USD" -> "USD — US Dollar", from the runtime's own ICU names. */
-function currencyLabel(code: string): string {
+function currencyLabel(code: string, locale: string): string {
   try {
-    const name = new Intl.DisplayNames(undefined, { type: 'currency' }).of(code)
+    const name = new Intl.DisplayNames(locale, { type: 'currency' }).of(code)
     return name && name !== code ? `${code} — ${name}` : code
   } catch {
     return code
@@ -63,6 +65,7 @@ export function StepWelcome({
   busy,
   gatewayMode = false,
 }: StepWelcomeProps) {
+  const intl = useAppIntl()
   const [editingCurrency, setEditingCurrency] = useState(false)
   const bridge = desktopBridge()
 
@@ -71,44 +74,90 @@ export function StepWelcome({
       {!bridge && (
         <Text as="p" tone="muted" className="firstrun-lead">
           {gatewayMode
-            ? 'Accounts, investments, spending and net worth, all in one place.'
-            : 'Accounts, investments, spending and net worth. Stored on your machine.'}
+            ? intl.formatMessage({
+                id: 'welcome.leadGateway',
+                defaultMessage: 'Accounts, investments, spending and net worth, all in one place.',
+              })
+            : intl.formatMessage({
+                id: 'welcome.leadLocal',
+                defaultMessage:
+                  'Accounts, investments, spending and net worth. Stored on your machine.',
+              })}
         </Text>
       )}
 
       <div className="firstrun-rows">
         {!bridge && !gatewayMode && dataDir && (
           <div className="firstrun-row">
-            <span className="firstrun-row__label">Working folder</span>
+            <span className="firstrun-row__label">
+              {intl.formatMessage({
+                id: 'welcome.workingFolder',
+                defaultMessage: 'Working folder',
+              })}
+            </span>
             <span className="firstrun-row__value">
               <span style={{ fontFamily: MONO, overflowWrap: 'anywhere' }}>{dataDir}</span>
               {dataLocation?.has_book ? (
                 <Text as="span" size="xs" tone="muted" className="firstrun-row__note">
-                  Already holds {(dataLocation.accounts ?? 0).toLocaleString()} accounts
                   {dataLocation.transactions
-                    ? ` • ${dataLocation.transactions.toLocaleString()} transactions`
-                    : ''}
-                  . This book will be opened as it is, not replaced.
+                    ? intl.formatMessage(
+                        {
+                          id: 'welcome.bookWithTransactions',
+                          defaultMessage:
+                            'Already holds {accounts} accounts • {transactions} transactions. This book will be opened as it is, not replaced.',
+                        },
+                        {
+                          accounts: (dataLocation.accounts ?? 0).toLocaleString(getNumberLocale()),
+                          transactions: dataLocation.transactions.toLocaleString(getNumberLocale()),
+                        },
+                      )
+                    : intl.formatMessage(
+                        {
+                          id: 'welcome.book',
+                          defaultMessage:
+                            'Already holds {accounts} accounts. This book will be opened as it is, not replaced.',
+                        },
+                        { accounts: (dataLocation.accounts ?? 0).toLocaleString(getNumberLocale()) },
+                      )}
                 </Text>
               ) : (
                 <Text as="span" size="xs" tone="faint" className="firstrun-row__note">
-                  Everything lives here — your book, backups, cache and logs.
+                  {intl.formatMessage({
+                    id: 'welcome.folderContents',
+                    defaultMessage: 'Everything lives here — your book, backups, cache and logs.',
+                  })}
                   {dataSource === 'env' ? (
                     <>
                       {' '}
-                      This location is set by <code>ONW_ROOT</code>.
+                      {intl.formatMessage(
+                        {
+                          id: 'welcome.folderSet',
+                          defaultMessage: 'This location is set by <code>ONW_ROOT</code>.',
+                        },
+                        { code: (chunks) => <code>{chunks}</code> },
+                      )}
                     </>
                   ) : (
                     <>
                       {' '}
-                      To use a different folder, set <code>ONW_ROOT</code> before starting the app.
+                      {intl.formatMessage(
+                        {
+                          id: 'welcome.folderChange',
+                          defaultMessage:
+                            'To use a different folder, set <code>ONW_ROOT</code> before starting the app.',
+                        },
+                        { code: (chunks) => <code>{chunks}</code> },
+                      )}
                     </>
                   )}
                 </Text>
               )}
               {dataLocation && !dataLocation.writable && (
                 <Text as="span" size="xs" tone="bad" className="firstrun-row__note">
-                  This folder is not writable.
+                  {intl.formatMessage({
+                    id: 'welcome.folderNotWritable',
+                    defaultMessage: 'This folder is not writable.',
+                  })}
                 </Text>
               )}
             </span>
@@ -116,9 +165,11 @@ export function StepWelcome({
         )}
 
         <div className="firstrun-row">
-          <span className="firstrun-row__label">App currency</span>
+          <span className="firstrun-row__label">
+            {intl.formatMessage({ id: 'welcome.currency', defaultMessage: 'App currency' })}
+          </span>
           <span className="firstrun-row__value">
-            <span>{currencyLabel(currency)}</span>
+            <span>{currencyLabel(currency, intl.locale)}</span>
             {editingCurrency && (
               <CurrencyDialog
                 value={currency}
@@ -130,8 +181,11 @@ export function StepWelcome({
               />
             )}
             <Text as="span" size="xs" tone="faint" className="firstrun-row__note">
-              What your totals are shown in. Accounts can be in any currency — they convert into
-              this one.
+              {intl.formatMessage({
+                id: 'welcome.currencyHelp',
+                defaultMessage:
+                  'What your totals are shown in. Accounts can be in any currency — they convert into this one.',
+              })}
             </Text>
           </span>
           {/* ALWAYS rendered. It used to hide itself while the inline picker was open, and
@@ -139,22 +193,28 @@ export function StepWelcome({
           <button
             type="button"
             className="firstrun-row__action"
-            aria-label="Change app currency"
+            aria-label={intl.formatMessage({
+              id: 'welcome.changeCurrency',
+              defaultMessage: 'Change app currency',
+            })}
             disabled={busy}
             onClick={() => setEditingCurrency(true)}
           >
-            Change
+            {intl.formatMessage({ id: 'common.change', defaultMessage: 'Change' })}
           </button>
         </div>
       </div>
 
       <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-8)' }}>
         <Button variant="primary" loading={busy} onClick={onNext}>
-          Continue
+          {intl.formatMessage({ id: 'common.continue', defaultMessage: 'Continue' })}
         </Button>
         {onRestore && (
           <Button variant="ghost" disabled={busy} onClick={onRestore}>
-            I have a backup to restore
+            {intl.formatMessage({
+              id: 'welcome.restore',
+              defaultMessage: 'I have a backup to restore',
+            })}
           </Button>
         )}
       </div>

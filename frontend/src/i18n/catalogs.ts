@@ -21,6 +21,7 @@ import permissionsV2Zh from '../components/tabs/settings/sections/permissions-v2
 import developerZh from '../components/tabs/settings/developer.zh-CN.json'
 import modelSupportZh from '../components/tabs/settings/sections/model-support.zh-CN.json'
 import modelSettingsZh from '../components/tabs/settings/sections/model-settings.zh-CN.json'
+import firstRunCoreZh from '../components/firstrun/first-run-core.zh-CN.json'
 
 export const catalogs: Record<Locale, Record<string, string> | undefined> = {
   en: undefined,
@@ -47,6 +48,7 @@ export const catalogs: Record<Locale, Record<string, string> | undefined> = {
     ...developerZh,
     ...modelSupportZh,
     ...modelSettingsZh,
+    ...firstRunCoreZh,
     'auth.signingBackIn': '正在重新登录…',
     'auth.rateLimit': '尝试次数过多。请在 {minutes, plural, other {# 分钟}}后重试。',
     'settings.section.language': '界面语言',

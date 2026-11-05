@@ -17,6 +17,7 @@ import {
   useRef,
   useState,
 } from 'react'
+import { useAppIntl } from '../../i18n/useAppIntl'
 import { Modal, Text, TextField } from '../ui'
 import { Check } from '../../ui/icons'
 
@@ -48,8 +49,9 @@ export function PickDialog({
   value,
   onPick,
   onClose,
-  emptyLabel = 'Nothing matches “{q}”.',
+  emptyLabel,
 }: PickDialogProps) {
+  const { formatMessage } = useAppIntl()
   const [q, setQ] = useState('')
   const currentRef = useRef<HTMLButtonElement>(null)
   const listRef = useRef<HTMLDivElement>(null)
@@ -141,7 +143,12 @@ export function PickDialog({
           ))}
           {matches.length === 0 && (
             <Text as="p" size="xs" tone="faint" className="firstrun-pick__empty">
-              {emptyLabel.replace('{q}', q)}
+              {emptyLabel
+                ? emptyLabel.replace('{q}', q)
+                : formatMessage(
+                    { id: 'firstrun.pick.noMatches', defaultMessage: 'Nothing matches “{q}”.' },
+                    { q },
+                  )}
             </Text>
           )}
         </div>
