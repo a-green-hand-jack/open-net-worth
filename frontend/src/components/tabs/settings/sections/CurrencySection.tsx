@@ -60,7 +60,11 @@ function timeZoneOptions(extra: Array<string | null | undefined>): string[] {
   return [...all].sort()
 }
 
-export function CurrencySection({ toast }: SectionProps) {
+export function LanguageSection(props: SectionProps) {
+  return <CurrencySection {...props} languageOnly />
+}
+
+export function CurrencySection({ toast, languageOnly = false }: SectionProps & { languageOnly?: boolean }) {
   const intl = useAppIntl()
   const {
     data: profile,
@@ -227,6 +231,7 @@ export function CurrencySection({ toast }: SectionProps) {
           )}
         </div>
       </Panel>
+      {!languageOnly && <>
       <Panel
         title={intl.formatMessage({ id: 'currency.base', defaultMessage: 'Base currency' })}
         sub={intl.formatMessage({
@@ -480,6 +485,7 @@ export function CurrencySection({ toast }: SectionProps) {
           ) : null}
         </Modal>
       )}
+      </>}
     </>
   )
 }

@@ -27,6 +27,7 @@ import {
   Code2,
   Copy,
   Database,
+  Globe,
   Info,
   LockKeyhole,
   MessageSquare,
@@ -84,6 +85,9 @@ const DesktopSection = lazyChunk(() =>
 const CurrencySection = lazyChunk(() =>
   loadCurrencySection().then((m) => ({ default: m.CurrencySection })),
 )
+const LanguageSection = lazyChunk(() =>
+  loadCurrencySection().then((m) => ({ default: m.LanguageSection })),
+)
 const loadSecuritySection = () => import('./settings/sections/SecuritySection')
 const SecuritySection = lazyChunk(() =>
   loadSecuritySection().then((m) => ({ default: m.SecuritySection })),
@@ -110,6 +114,7 @@ import './settings/settings.css'
 
 export const SECTIONS = [
   { key: 'profile', label: 'Profile' },
+  { key: 'language', label: 'Interface language' },
   { key: 'model', label: 'AI' },
   { key: 'chat', label: 'Chat' },
   { key: 'memory', label: 'Memory' },
@@ -138,7 +143,7 @@ export type Section = (typeof SECTIONS)[number]['key']
 const SECTION_GROUPS: { title: SettingsGroup; keys: Section[] }[] = [
   { title: 'Account', keys: ['profile', 'security'] },
   { title: 'Assistant', keys: ['model', 'chat', 'memory', 'permissions'] },
-  { title: 'App', keys: ['appearance', 'desktop', 'currency', 'dedup', 'intel'] },
+  { title: 'App', keys: ['language', 'appearance', 'desktop', 'currency', 'dedup', 'intel'] },
   { title: 'Phone & other apps', keys: ['shortcuts', 'mcp'] },
   { title: 'Advanced', keys: ['data', 'terminal', 'developer', 'aiUsage'] },
   { title: 'Support', keys: ['help'] },
@@ -156,6 +161,7 @@ const SECTION_LOADERS: Partial<Record<Section, () => Promise<unknown>>> = {
   appearance: loadAppearanceSection,
   desktop: loadDesktopSection,
   currency: loadCurrencySection,
+  language: loadCurrencySection,
   security: loadSecuritySection,
   data: loadDataSection,
   terminal: loadTerminalSection,
@@ -200,6 +206,7 @@ const SECTION_ICONS: Record<Exclude<Section, 'model'>, ComponentType<IconProps>>
   shortcuts: Smartphone,
   mcp: Plug,
   currency: WalletCards,
+  language: Globe,
   security: LockKeyhole,
   data: Database,
   terminal: Terminal,
@@ -223,6 +230,7 @@ const SECTION_TERMS: Record<Section, string> = {
   appearance: 'theme accent colour color logo name',
   desktop: 'desktop background tray startup login notifications folder statements imports',
   currency: 'base currency sgd usd date number format week',
+  language: 'language locale translation english chinese 语言 中文 英文',
   security: 'password token auth session login loopback',
   data: 'backup restore reset export danger uploads files credits market data yahoo finance coingecko crypto api key',
   terminal:
@@ -248,6 +256,7 @@ const BODY: Record<Exclude<Section, 'profile'>, ComponentType<SectionProps>> = {
   shortcuts: ShortcutsSection,
   mcp: McpSection,
   currency: CurrencySection,
+  language: LanguageSection,
   security: SecuritySection,
   data: DataSection,
   terminal: TerminalSection,

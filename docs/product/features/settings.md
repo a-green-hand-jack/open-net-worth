@@ -21,7 +21,7 @@ On a phone the sections are a grouped list — tap one to open it, and use the b
 ## Common tasks
 
 **Choose the interface language**
-1. Open **Settings → Currency & format**.
+1. Open **Settings → Interface language** (also available under **Currency & format**).
 2. Under **Language**, choose **English**, **简体中文**, or **Follow browser**.
 3. An explicit choice is saved with your profile and follows it across devices. Follow browser
    uses a supported browser language, falling back to English; before the profile loads, the

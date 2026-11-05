@@ -1,5 +1,6 @@
 {
   "settings.language.title": "语言",
+  "settings.section.language": "界面语言",
   "settings.language.description": "选择此资料在所有设备上使用的界面语言",
   "settings.language.label": "界面语言",
   "settings.language.browser": "跟随浏览器",

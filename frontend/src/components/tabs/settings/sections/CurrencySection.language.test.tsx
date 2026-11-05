@@ -4,12 +4,22 @@ import { afterEach, expect, it, vi } from 'vitest'
 import * as client from '../../../../api/client'
 import { clearQueryCache } from '../../../../state/queryCache'
 import { LocaleProvider } from '../../../../i18n/LocaleProvider'
-import { CurrencySection } from './CurrencySection'
+import { CurrencySection, LanguageSection } from './CurrencySection'
 
 afterEach(() => {
   cleanup()
   clearQueryCache()
   vi.restoreAllMocks()
+})
+
+it('shows the language control alone in the dedicated section', async () => {
+  vi.spyOn(client, 'authFetch').mockResolvedValue({
+    ok: true,
+    json: async () => ({ language: 'en' }),
+  } as Response)
+  render(<LocaleProvider><LanguageSection toast={vi.fn()} /></LocaleProvider>)
+  expect(await screen.findByLabelText('Interface language')).toBeTruthy()
+  expect(screen.queryByText('Base currency')).toBeNull()
 })
 
 it('saves a chosen language and can return to following the browser', async () => {

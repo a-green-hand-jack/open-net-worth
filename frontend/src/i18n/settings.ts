@@ -3,6 +3,7 @@ import type { Section } from '../components/tabs/Settings'
 
 const sections = defineMessages({
   profile: { id: 'settings.section.profile', defaultMessage: 'Profile' },
+  language: { id: 'settings.section.language', defaultMessage: 'Interface language' },
   model: { id: 'settings.section.model', defaultMessage: 'AI' },
   chat: { id: 'settings.section.chat', defaultMessage: 'Chat' },
   memory: { id: 'settings.section.memory', defaultMessage: 'Memory' },
