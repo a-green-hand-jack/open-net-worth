@@ -39,6 +39,7 @@ The original and feature-flagged permissions settings controls follow the interf
 Before a profile is available at sign-in, the sign-in screen follows the browser language.
 The first-run greeting, currency selection and password steps also follow the browser language.
 The first-run backup restore controls follow the browser language; unknown server diagnostics are preserved.
+First-run AI provider configuration controls also follow the browser language.
 
 ## Common tasks
 

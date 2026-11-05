@@ -11,6 +11,8 @@
 import { describe, it, expect, vi, afterEach } from 'vitest'
 import { render, screen, cleanup, fireEvent, waitFor } from '@testing-library/react'
 import { StepLucius } from './StepLucius'
+import { IntlProvider } from 'react-intl'
+import { catalogs } from '../../i18n/catalogs'
 
 const authFetch = vi.hoisted(() => vi.fn())
 vi.mock('../../api/client', () => ({ authFetch }))
@@ -117,6 +119,17 @@ async function firstUseThis(): Promise<HTMLElement> {
 async function page1() {
   return screen.findByLabelText(/^provider$/i, {}, T)
 }
+
+it('localizes provider setup while keeping provider identities intact', async () => {
+  mockApi({ claude_cli: true })
+  render(
+    <IntlProvider locale="zh-CN" messages={catalogs['zh-CN']}>
+      <StepLucius onDone={vi.fn()} />
+    </IntlProvider>,
+  )
+  expect(await screen.findByText('在此机器上找到 Claude Code')).toBeTruthy()
+  expect(screen.getByRole('button', { name: '使用此项' })).toBeTruthy()
+})
 
 describe('StepLucius — the detected CLIs', () => {
   it('gives each detected CLI its own card, with the path it will run', async () => {
