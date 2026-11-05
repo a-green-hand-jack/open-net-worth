@@ -20291,6 +20291,22 @@ body.hide-amounts .mf-lbl-amt {
   max-width: 100%;
   overflow-x: auto;
 }
+.trading-page {
+  padding-bottom: calc(var(--space-9) * 3 + var(--safe-b));
+  container-type: inline-size;
+}
+.trading-page .trading-table tr {
+  scroll-margin-bottom: calc(var(--space-9) * 3 + var(--safe-b));
+}
+.trading-workspace-card {
+  min-width: 0;
+}
+.trading-mandate-excerpt {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
 .trading-table {
   width: 100%;
   border-collapse: collapse;

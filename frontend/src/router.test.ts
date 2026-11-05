@@ -6,7 +6,16 @@ import { describe, expect, it, beforeEach, afterEach, vi } from 'vitest'
 // the pure decision the redirect makes: given a saved tab (or none) and a viewport width, which
 // tab id does it pick? That logic is extracted into `defaultLandingTab` below so this test
 // exercises the real function, not a re-implementation of it.
-import { defaultLandingTab } from './router'
+import { defaultLandingTab, validateTradingSearch } from './router'
+
+it('bounds trading route query values', () => {
+  expect(validateTradingSearch({ view: 'compare', workspace: 'synthetic', section: 'orders' })).toEqual({
+    view: 'compare', workspace: 'synthetic', run: undefined, section: 'orders', comparison: undefined,
+  })
+  expect(validateTradingSearch({ view: 'invalid', section: 'invalid', run: 3 })).toMatchObject({
+    view: 'workspaces', section: 'overview', run: undefined,
+  })
+})
 
 function mockViewport(widthPx: number) {
   vi.stubGlobal('matchMedia', (query: string) => ({

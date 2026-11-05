@@ -151,6 +151,7 @@ describe('MobileTabBar', () => {
       // it moved off the bar itself so Lucius could sit at the true center of a 5-slot bar.
       'Assets',
       'Plan',
+      'Trading',
       'Commitments',
       'Intel',
       'Automations',

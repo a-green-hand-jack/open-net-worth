@@ -9,6 +9,10 @@ status: beta
 
 # Trading participants
 
+Open **Trading** in the sidebar, or from the mobile navigation sheet, to review a workspace,
+inspect its account and activity, or compare compatible runs. **Expert setup** opens the reviewed
+delegation form; **Create with Lucius** prepares the same unsaved review through conversation.
+
 An external participant can be given an expiring grant for one trading run. Its gateway
 accepts only that grant and offers run-scoped trading tools; it cannot use general Lucius tools
 or choose a different run in its arguments. An owner can revoke or rotate the grant, and the
