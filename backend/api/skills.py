@@ -114,6 +114,8 @@ def create_skill(body: SkillCreate):
 def list_starters():
     """Built-in starter skills NOT yet present in the library (so the Browse modal only
     offers ones the user can add). Returns ``[{id,name,description,category}]``."""
+    import hashlib
+
     from backend.db.skill_store import STARTER_SKILLS
 
     existing = {s.get("id") for s in _store().all()}
@@ -122,6 +124,15 @@ def list_starters():
             "id": s["id"],
             "name": s.get("name", ""),
             "description": s.get("description", ""),
+            "starter_source": {
+                "id": s["id"],
+                **{
+                    f"{field}_sha256": hashlib.sha256(
+                        str(s.get(field, "")).encode("utf-8")
+                    ).hexdigest()
+                    for field in ("name", "description")
+                },
+            },
         }
         for s in STARTER_SKILLS
         if s.get("id") not in existing
@@ -151,7 +162,7 @@ def add_starter(starter_id: str):
         return {"ok": True, "skill": created, **({"already": True} if existing else {})}
     if existing is not None:
         return {"ok": True, "skill": existing, "already": True}
-    store.create({**starter, "author": "builtin"})
+    store.create({**starter, "author": "builtin", "_starter_source": starter_id})
     from backend.services.starter_skill_files import write_starter_files
 
     write_starter_files(starter_id)

@@ -1183,6 +1183,36 @@ def test_seed_starters_is_idempotent_by_id(isolated):
     assert s.seed_starters() == 0  # now everything present → no-op
 
 
+def test_starter_provenance_tracks_unchanged_fields_without_changing_body(isolated):
+    store = SkillStore()
+    store.seed_starters()
+    starter = store.find_by_id("catch-up")
+    assert starter is not None
+    source = starter["starter_source"]
+    assert source["id"] == "catch-up"
+    assert len(source["name_sha256"]) == len(source["description_sha256"]) == 64
+    original_body = starter["body"]
+    updated = store.update_skill("catch-up", {"name": "My own name"})
+    assert updated["name"] == "my-own-name"
+    assert updated["body"] == original_body
+    assert "name_sha256" not in updated["starter_source"]
+    assert updated["starter_source"]["description_sha256"] == source["description_sha256"]
+
+
+def test_user_skill_cannot_gain_starter_provenance_by_name(isolated):
+    store = SkillStore()
+    created = store.create(
+        {
+            "id": "custom",
+            "name": "catch-up",
+            "body": "Synthetic",
+            "author": "user",
+            "_starter_source": "custom",
+        }
+    )
+    assert "starter_source" not in created
+
+
 # ── base CRUD still works ──────────────────────────────────────────────────────
 def test_delete_and_find(isolated):
     s = SkillStore()
