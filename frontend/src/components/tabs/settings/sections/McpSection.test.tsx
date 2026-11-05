@@ -1,6 +1,8 @@
 // @vitest-environment jsdom
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { IntlProvider } from 'react-intl'
+import { catalogs } from '../../../../i18n/catalogs'
 
 vi.mock('../../../../api/client', () => ({ authFetch: vi.fn() }))
 
@@ -34,6 +36,18 @@ beforeEach(() => {
 afterEach(cleanup)
 
 describe('Settings → MCP', () => {
+  it('keeps the token masked in the Chinese interface', async () => {
+    serve(INSTALLED)
+    const writeText = vi.fn().mockResolvedValue(undefined)
+    Object.assign(navigator, { clipboard: { writeText } })
+    const { container } = render(<IntlProvider locale="zh-CN" messages={catalogs['zh-CN']}><McpSection toast={vi.fn()} /></IntlProvider>)
+    await waitFor(() => expect(container.querySelector('.rd-code')?.textContent).toContain(TOKEN_MASK))
+    expect(container.querySelector('.rd-code')?.textContent).not.toContain('real-secret-token')
+    fireEvent.click(screen.getByRole('button', { name: '复制配置' }))
+    await waitFor(() => expect(writeText).toHaveBeenCalledTimes(1))
+    expect(writeText.mock.calls[0]![0]).toContain('real-secret-token')
+  })
+
   it('shows a masked onw config and copies the real token', async () => {
     serve(INSTALLED)
     const writeText = vi.fn().mockResolvedValue(undefined)

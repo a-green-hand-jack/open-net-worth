@@ -11,6 +11,7 @@ import intelSettingsZh from '../components/tabs/settings/sections/intel/intel.zh
 import securityZh from '../components/tabs/settings/sections/security.zh-CN.json'
 import loginZh from '../components/login.zh-CN.json'
 import usageZh from '../components/tabs/settings/sections/usage.zh-CN.json'
+import mcpZh from '../components/tabs/settings/sections/mcp.zh-CN.json'
 
 export const catalogs: Record<Locale, Record<string, string> | undefined> = {
   en: undefined,
@@ -27,6 +28,7 @@ export const catalogs: Record<Locale, Record<string, string> | undefined> = {
     ...securityZh,
     ...loginZh,
     ...usageZh,
+    ...mcpZh,
     'auth.signingBackIn': '正在重新登录…',
     'auth.rateLimit': '尝试次数过多。请在 {minutes, plural, other {# 分钟}}后重试。',
     'settings.section.language': '界面语言',
