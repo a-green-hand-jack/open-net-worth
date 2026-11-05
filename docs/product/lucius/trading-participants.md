@@ -14,5 +14,9 @@ accepts only that grant and offers run-scoped trading tools; it cannot use gener
 or choose a different run in its arguments. An owner can revoke or rotate the grant, and the
 owner's tool permissions still apply.
 
-This capability is being built in stages. The settings and workspace controls to issue a grant,
-the remaining executor tools, and production broker integrations are not included in this stage.
+An authenticated owner can issue a grant with `POST /api/trading/runs/{run_id}/access` and revoke
+it with `DELETE` at the same path. The issue response contains the grant once and is marked
+`no-store`; rotation invalidates the prior grant. A participant grant cannot issue or revoke grants.
+
+This capability is being built in stages. Workspace controls, the remaining executor tools, and
+production broker integrations are not included in this stage.
