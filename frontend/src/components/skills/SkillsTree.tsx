@@ -1,4 +1,4 @@
-import { starterField } from './starterMessages'
+import { skillDisplayName, starterField } from './starterMessages'
 import { useAppIntl } from '../../i18n/useAppIntl'
 import { Badge, Button, Loading, Text, TextField } from '../ui'
 import type { SelectedFile, Skill, SkillBundle } from '../../types/skills'
@@ -48,9 +48,7 @@ export function SkillsTree({
     ? skills.filter(
         (s) =>
           s.name.toLowerCase().includes(query) ||
-          starterField(locale, 'name', s.name, s.id, s.starter_source)
-            .toLowerCase()
-            .includes(query) ||
+          skillDisplayName(locale, s).toLowerCase().includes(query) ||
           (s.description || '').toLowerCase().includes(query) ||
           starterField(locale, 'description', s.description || '', s.id, s.starter_source)
             .toLowerCase()
@@ -156,7 +154,7 @@ function SkillTreeRow({
   // The minimum tree is just SKILL.md; script skills add scripts/ (manifest is derived server-side).
   // Optional agents/openai.yaml metadata is shown when the portable bundle contains it.
   const { formatMessage, locale } = useAppIntl()
-  const displayName = starterField(locale, 'name', skill.name, skill.id, skill.starter_source)
+  const displayName = skillDisplayName(locale, skill)
   const displayDescription = starterField(
     locale,
     'description',

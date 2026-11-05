@@ -47,6 +47,7 @@ A new install comes with these. Find them in **Skills** in the sidebar.
 | `skill-creator` | "Make a skill for…" — design and test your own |
 
 `statement-import` is always there too: it guides every statement import.
+In Simplified Chinese, its display name is 导入账单; its identifier and instructions stay unchanged.
 
 The **Daily briefing**, **Weekly report**, **Monthly report** and **Auto-log transactions from
 email** [Automations](automations.md) use these skills, so improving a skill improves the

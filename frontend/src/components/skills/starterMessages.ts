@@ -1,5 +1,6 @@
 import registry from './starterSkills.registry.json'
 import chinese from './starterSkills.zh-CN.json'
+import type { Skill } from '../../types/skills'
 export const starterCatalogs: Record<
   string,
   Record<string, Record<'name' | 'description', string>> | undefined
@@ -29,4 +30,17 @@ export function starterField(
     value === entry.english
     ? translated
     : value
+}
+
+const managedNames: Record<string, Record<string, string>> = {
+  'zh-CN': { 'statement-import': '导入账单' },
+}
+
+/** Managed built-ins are installed separately from the starter skill catalog. */
+export function skillDisplayName(locale: string, skill: Skill): string {
+  if (skill.author === 'builtin' && skill.name === skill.id) {
+    const translated = managedNames[locale]?.[skill.id]
+    if (translated) return translated
+  }
+  return starterField(locale, 'name', skill.name, skill.id, skill.starter_source)
 }

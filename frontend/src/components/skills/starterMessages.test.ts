@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import registry from './starterSkills.registry.json'
 import translations from './starterSkills.zh-CN.json'
-import { starterField } from './starterMessages'
+import { skillDisplayName, starterField } from './starterMessages'
+import type { Skill } from '../../types/skills'
 
 describe('starter skill provenance', () => {
   it('covers all first-party starters and translates only verified unchanged fields', () => {
@@ -29,4 +30,12 @@ describe('starter skill provenance', () => {
       expect(starterField('zh-CN', 'name', entry.name.english, id)).toBe(entry.name.english)
     }
   })
+})
+
+it('localizes the managed statement skill name without changing other skills', () => {
+  const skill = { id: 'statement-import', name: 'statement-import', author: 'builtin' } as Skill
+  expect(skillDisplayName('zh-CN', skill)).toBe('导入账单')
+  expect(skillDisplayName('en', skill)).toBe('statement-import')
+  expect(skillDisplayName('zh-CN', { ...skill, author: 'user' })).toBe('statement-import')
+  expect(skillDisplayName('zh-CN', { ...skill, name: 'custom name' })).toBe('custom name')
 })

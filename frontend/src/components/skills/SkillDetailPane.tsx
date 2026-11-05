@@ -1,5 +1,5 @@
 import { skillValidation } from './skillValidation'
-import { starterField } from './starterMessages'
+import { skillDisplayName, starterField } from './starterMessages'
 import { useAppIntl } from '../../i18n/useAppIntl'
 import { useState } from 'react'
 import ReactMarkdown from 'react-markdown'
@@ -122,7 +122,7 @@ function SkillDetailContent({
 }) {
   const intl = useAppIntl()
   const { formatMessage, locale } = intl
-  const displayName = starterField(locale, 'name', skill.name, skill.id, skill.starter_source)
+  const displayName = skillDisplayName(locale, skill)
   const displayDescription = starterField(
     locale,
     'description',
