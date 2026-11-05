@@ -9,6 +9,8 @@
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, waitFor, cleanup, fireEvent } from '@testing-library/react'
+import { IntlProvider } from 'react-intl'
+import { catalogs } from '../../../../i18n/catalogs'
 import { ProfileSection } from './ProfileSection'
 import { clearQueryCache } from '../../../../state/queryCache'
 
@@ -96,6 +98,22 @@ describe('ProfileSection — list-valued identity fields', () => {
     expect(screen.getByRole('button', { name: 'Singapore' })).toBeTruthy()
     expect(screen.getByRole('button', { name: 'Salaried employee' })).toBeTruthy()
     expect(screen.getByRole('button', { name: 'None selected' })).toBeTruthy()
+  })
+
+  it('translates labels while saving stable employment keys and masking numeric profile facts', async () => {
+    mockRoutes()
+    render(<IntlProvider locale="zh-CN" messages={catalogs['zh-CN']}><ProfileSection toast={vi.fn()} /></IntlProvider>)
+    expect(await screen.findByText('就业类型')).toBeTruthy()
+    expect(screen.getByDisplayValue('Alex Tan')).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: '受薪雇员' }))
+    fireEvent.click(await screen.findByLabelText('自雇'))
+    fireEvent.click(screen.getByText('保存资料'))
+    await waitFor(() => {
+      const call = mockAuthFetch.mock.calls.find((c) => c[0] === '/api/profile' && c[1]?.method === 'PUT')
+      expect(JSON.parse(call![1].body as string).employment_types).toEqual(['salaried', 'self_employed'])
+    })
+    const retirement = screen.getByText('每月退休支出').closest('.rd-readout-item')
+    expect(retirement?.querySelector('.money')?.textContent).toContain('4,600')
   })
 
   it('opening the employment types picker shows the existing selection checked, no search box', async () => {

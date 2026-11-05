@@ -92,16 +92,27 @@ export function fireSwrSuggestion(s: FireDraft): number | null {
 /** What to tell someone whose withdrawal rate differs from the horizon's suggestion: which side
  *  of it they are on, and why that is a choice, not an oversight (persona QA round 7: "suggests
  *  4.25% while the plan stays at 4%" with no word on why). Null with no suggestion or a blank rate. */
-export function fireSwrNote(s: FireDraft): string | null {
+export type FireSwrNoteParts =
+  | { kind: 'usual'; suggest: number; horizon: number }
+  | { kind: 'cautious' | 'aggressive'; suggest: number; horizon: number; rate: number }
+
+export function fireSwrNoteParts(s: FireDraft): FireSwrNoteParts | null {
   const suggest = fireSwrSuggestion(s)
   const horizon = fireHorizon(s)
   if (suggest === null || horizon === null || fireSwrMatches(s)) return null
-  if (s.withdrawalRate === '')
-    return `${suggest}% is the usual rate for a ${horizon}-yr retirement.`
+  if (s.withdrawalRate === '') return { kind: 'usual', suggest, horizon }
   const rate = Number(s.withdrawalRate)
-  return rate < suggest
-    ? `A ${horizon}-yr retirement usually allows ${suggest}%. Your plan keeps ${rate}%, the more cautious choice.`
-    : `A ${horizon}-yr retirement is safer at ${suggest}%. Your plan uses ${rate}%, which is more aggressive.`
+  return { kind: rate < suggest ? 'cautious' : 'aggressive', suggest, horizon, rate }
+}
+
+export function fireSwrNote(s: FireDraft): string | null {
+  const note = fireSwrNoteParts(s)
+  if (!note) return null
+  const { suggest, horizon } = note
+  if (note.kind === 'usual') return `${suggest}% is the usual rate for a ${horizon}-yr retirement.`
+  return note.kind === 'cautious'
+    ? `A ${horizon}-yr retirement usually allows ${suggest}%. Your plan keeps ${note.rate}%, the more cautious choice.`
+    : `A ${horizon}-yr retirement is safer at ${suggest}%. Your plan uses ${note.rate}%, which is more aggressive.`
 }
 
 export function fireSwrMatches(s: FireDraft): boolean {
