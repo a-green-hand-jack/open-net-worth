@@ -281,7 +281,8 @@ def test_total_tool_schemas_size_under_budget(tool_schemas):
     # trimming; discoverable, not CORE, so the default offer is unchanged.
     # Eight run-scoped trading tools add about 3k registry characters; the separate
     # default-offer budget remains unchanged.
-    budget = 483_000
+    # Three workspace file/work-record tools add about 1.2k more registry characters.
+    budget = 484_000
     assert total < budget, (
         f"TOOL_SCHEMAS json.dumps size is {total:,} chars — over the {budget:,}-char budget. "
         "Shorten a tool description or raise the budget intentionally (with a comment)."

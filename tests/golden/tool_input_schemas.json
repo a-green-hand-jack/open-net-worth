@@ -10972,5 +10972,65 @@
       "summary"
     ],
     "additionalProperties": false
+  },
+  "write_trading_file": {
+    "type": "object",
+    "properties": {
+      "name": {
+        "type": "string",
+        "maxLength": 160
+      },
+      "content": {
+        "type": "string",
+        "maxLength": 64000
+      }
+    },
+    "required": [
+      "name",
+      "content"
+    ],
+    "additionalProperties": false
+  },
+  "read_trading_files": {
+    "type": "object",
+    "properties": {
+      "name": {
+        "type": "string",
+        "maxLength": 160
+      },
+      "version": {
+        "type": "integer",
+        "minimum": 1
+      }
+    },
+    "additionalProperties": false
+  },
+  "record_trading_work": {
+    "type": "object",
+    "properties": {
+      "kind": {
+        "type": "string",
+        "enum": [
+          "input",
+          "output",
+          "analysis",
+          "reasoning",
+          "tool_call",
+          "tool_result",
+          "error",
+          "wait",
+          "actor",
+          "native_event"
+        ]
+      },
+      "payload": {
+        "type": "object"
+      }
+    },
+    "required": [
+      "kind",
+      "payload"
+    ],
+    "additionalProperties": false
   }
 }
