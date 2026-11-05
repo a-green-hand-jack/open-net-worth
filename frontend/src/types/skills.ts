@@ -46,6 +46,7 @@ export interface Skill {
   id: string
   name: string
   description: string
+  starter_source?: { id: string; name_sha256?: string; description_sha256?: string }
   license?: string // optional SKILL.md frontmatter license (e.g. "Complete terms in LICENSE.txt")
   compatibility?: string // standard SKILL.md field — env requirements (≤500 chars)
   metadata?: Record<string, string> // standard SKILL.md field — arbitrary string→string map
@@ -92,4 +93,5 @@ export interface StarterSkill {
   id: string
   name: string
   description: string
+  starter_source?: { id: string; name_sha256?: string; description_sha256?: string }
 }
