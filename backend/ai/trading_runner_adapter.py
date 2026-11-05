@@ -244,6 +244,9 @@ def _settle_usage(run_id: str, usage: dict, turn_id: str | None) -> None:
 
 
 async def run_due_trading_agents() -> dict:
+    from backend.services.trading.reconciliation import recover_runs
+
+    await asyncio.to_thread(recover_runs, recover_brokers=False)
     results = []
     now = datetime.now(timezone.utc)
     await trading.expire_runs()

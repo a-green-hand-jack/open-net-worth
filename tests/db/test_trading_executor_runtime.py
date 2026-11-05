@@ -131,6 +131,23 @@ def test_due_tick_records_decision_before_advancing_backtest(run, monkeypatch):
     assert trading.get_run(run["id"])["state"] == "completed"
 
 
+def test_tick_recovers_only_expired_leases_and_blocks_unknown_usage(run):
+    from backend.ai import trading_runner_adapter as adapter
+    from backend.db.trading_store import TradingStore
+
+    run_id = run["id"]
+    lease = trading.claim_agent_cycle(run_id, paid=True)
+    asyncio.run(adapter.run_due_trading_agents())
+    assert trading.get_run(run_id)["agent_lease_id"] == lease["lease_id"]
+    TradingStore("runs").update_by_id(run_id, {"agent_lease_expires_at": "2020-01-01T00:00:00Z"})
+    asyncio.run(adapter.run_due_trading_agents())
+    recovered = trading.get_run(run_id)
+    assert recovered["agent_lease_id"] is None
+    assert recovered["usage_state"] == "unknown"
+    with pytest.raises(ConflictError, match="billing reconciliation"):
+        trading.claim_agent_cycle(run_id, paid=True)
+
+
 def test_timed_out_usage_blocks_further_paid_cycles_until_operator_reconciles(run, monkeypatch):
     from backend.ai import trading_runner_adapter as adapter
     from backend.services.trading_usage import reconcile_usage
