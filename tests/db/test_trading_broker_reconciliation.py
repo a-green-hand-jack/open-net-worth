@@ -126,6 +126,38 @@ def test_timeout_is_unknown_and_retry_does_not_duplicate_submission():
     assert execution.list_orders(run["id"])["items"][0]["status"] == "open"
 
 
+def test_late_broker_acknowledgement_respects_stop_without_resubmission():
+    async def scenario():
+        entered, release = asyncio.Event(), asyncio.Event()
+
+        class SlowBroker(FakeBroker):
+            async def submit(self, account, intent):
+                receipt = await super().submit(account, intent)
+                entered.set()
+                await release.wait()
+                return receipt
+
+            async def cancel(self, account, intent):
+                if not intent.get("broker_order_id"):
+                    raise ConflictError("Submission identity not yet known")
+                return await super().cancel(account, intent)
+
+        broker = SlowBroker()
+        run = live_run(broker)
+        await lifecycle.apply_run_action(run["id"], {"action": "start"})
+        task = asyncio.create_task(execution.submit_order(run["id"], order(run["id"])))
+        await asyncio.wait_for(entered.wait(), timeout=5)
+        await lifecycle.apply_run_action(run["id"], {"action": "stop"})
+        release.set()
+        ack = await asyncio.wait_for(task, timeout=5)
+        settled = await reconciliation.reconcile_run(run["id"])
+        assert broker.orders[ack["id"]]["status"] == "canceled"
+        assert settled["state"] == "stopped"
+        assert broker.submissions == 1
+
+    call(scenario())
+
+
 def test_same_broker_account_cannot_be_managed_by_two_running_workspaces():
     broker = FakeBroker()
     first = live_run(broker)

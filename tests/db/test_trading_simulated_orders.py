@@ -82,6 +82,41 @@ def test_request_identity_and_reservation_prevent_duplicate_or_overspending(db_i
     assert execution.list_orders(run_id)["total"] == 1
 
 
+def test_marketable_sell_limit_cannot_understate_order_notional(db_isolated):
+    stamp = datetime.now(timezone.utc)
+    workspace = workspaces.create_workspace(
+        {"name": "Synthetic", "mandate": {"max_order_notional": "100"}}
+    )
+    run = workspaces.create_run(
+        workspace["id"],
+        {
+            "mode": "paper",
+            "start_at": (stamp - timedelta(minutes=1)).isoformat(),
+            "end_at": (stamp + timedelta(days=1)).isoformat(),
+            "accounts": [{"capital": "1000"}],
+            "observations": [
+                {"instrument": INSTRUMENT, "timestamp": stamp.isoformat(), "price": "100"}
+            ],
+        },
+    )
+    call(lifecycle.apply_run_action(run["id"], {"action": "start"}))
+    account_id = performance.get_account(run["id"])["items"][0]["id"]
+    for i in range(10):
+        call(
+            execution.submit_order(
+                run["id"], order(account_id, request_id=f"buy-{i}", quantity="1")
+            )
+        )
+    sell = {
+        **order(account_id, request_id="sell-all", quantity="10"),
+        "side": "sell",
+        "order_type": "limit",
+        "limit_price": "1",
+    }
+    with pytest.raises(ConflictError, match="notional"):
+        call(execution.submit_order(run["id"], sell))
+
+
 def test_pause_cancels_open_orders_and_releases_reservation(db_isolated):
     run_id, account_id = setup_run()
     call(execution.submit_order(run_id, order(account_id)))
