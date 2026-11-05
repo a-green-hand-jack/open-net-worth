@@ -1,10 +1,12 @@
 import type { Locale } from './locale'
 import appearanceZh from '../components/tabs/settings/sections/appearance.zh-CN.json'
+import dedupZh from '../components/tabs/settings/sections/dedup.zh-CN.json'
 
 export const catalogs: Record<Locale, Record<string, string> | undefined> = {
   en: undefined,
   'zh-CN': {
     ...appearanceZh,
+    ...dedupZh,
     'auth.signingBackIn': '正在重新登录…',
     'settings.section.language': '界面语言',
     'settings.section.profile': '个人资料',
