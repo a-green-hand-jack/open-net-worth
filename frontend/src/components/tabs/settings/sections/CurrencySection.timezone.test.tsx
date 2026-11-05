@@ -33,6 +33,32 @@ afterEach(() => {
 })
 
 describe('Settings time zone', () => {
+  it('requires confirmation before saving a base currency change in Chinese', async () => {
+    const profile = { base_currency: 'SGD', timezone: 'Asia/Singapore', timezone_source: 'user' }
+    const spy = vi.spyOn(client, 'authFetch').mockImplementation(async (url, init) => {
+      if (String(url).endsWith('/base-currency-preview')) {
+        return { ok: true, json: async () => ({ fields: [] }) } as Response
+      }
+      if (String(url) === '/api/profile' && init?.method === 'PUT') {
+        return { ok: true, json: async () => ({ profile: { ...profile, base_currency: 'USD' } }) } as Response
+      }
+      return { ok: true, json: async () => profile } as Response
+    })
+    render(<IntlProvider locale="zh-CN" messages={catalogs['zh-CN']}><CurrencySection toast={vi.fn()} /></IntlProvider>)
+    const currency = await screen.findByDisplayValue(/^SGD/)
+    fireEvent.change(currency, { target: { value: 'USD' } })
+    expect(await screen.findByText('将基础货币切换为 USD？')).toBeTruthy()
+    expect(await screen.findByText('你没有手动输入的金额，无需重新输入。')).toBeTruthy()
+    expect(spy).not.toHaveBeenCalledWith('/api/profile', expect.objectContaining({ method: 'PUT' }))
+    fireEvent.click(screen.getByRole('button', { name: '取消' }))
+    expect(spy).not.toHaveBeenCalledWith('/api/profile', expect.objectContaining({ method: 'PUT' }))
+    fireEvent.change(currency, { target: { value: 'USD' } })
+    fireEvent.click(await screen.findByRole('button', { name: '切换为 USD' }))
+    await waitFor(() => expect(spy).toHaveBeenCalledWith('/api/profile', expect.objectContaining({
+      method: 'PUT', body: JSON.stringify({ base_currency: 'USD' }),
+    })))
+  })
+
   it('saves a time zone from the Chinese interface', async () => {
     const spy = respond({ base_currency: 'SGD', timezone: 'Asia/Singapore', timezone_source: 'auto' })
     const toast = vi.fn()
