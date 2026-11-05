@@ -1,6 +1,8 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { IntlProvider } from 'react-intl'
+import { catalogs } from '../../../i18n/catalogs'
 import {
   clearQueryCache,
   getCachedQueryUpdatedAt,
@@ -87,6 +89,15 @@ describe('MemoryImport', () => {
     serve()
   })
   afterEach(cleanup)
+
+  it('reviews Chinese interface text without saving imported facts before confirmation', async () => {
+    render(<IntlProvider locale="zh-CN" messages={catalogs['zh-CN']}><MemoryImport onClose={vi.fn()} toast={vi.fn()} /></IntlProvider>)
+    fireEvent.click(await screen.findByRole('button', { name: '下一步' }))
+    fireEvent.change(screen.getByLabelText('粘贴的记忆'), { target: { value: '[2026-03-01] - Name is Dana Example' } })
+    fireEvent.click(screen.getByRole('button', { name: '查看' }))
+    expect(await screen.findByText('Rents a flat with a roommate')).toBeTruthy()
+    expect(authFetch.mock.calls.some((call) => call[0] === '/api/memory/import/apply')).toBe(false)
+  })
 
   it('copies the export prompt', async () => {
     const writeText = vi.fn().mockResolvedValue(undefined)

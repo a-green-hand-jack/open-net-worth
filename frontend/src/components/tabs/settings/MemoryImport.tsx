@@ -1,7 +1,10 @@
+import { getNumberLocale } from '../../../utils/format'
 // Settings → Memory → Start import: copy a prompt for another assistant, paste what it printed,
 // review where every line would go, and only then save the ones you keep. Nothing is written
 // before "Import N".
 import { useEffect, useState } from 'react'
+import { useAppIntl } from '../../../i18n/useAppIntl'
+import { defineMessages, type IntlShape } from 'react-intl'
 import { invalidateQueryCache } from '../../../state/queryCache'
 import { MEMORY_FACTS_KEY } from '../../../hooks/useMemoryFacts'
 import {
@@ -25,6 +28,44 @@ const FIELD_LABELS: Record<string, string> = {
   risk_tolerance: 'Risk tolerance',
 }
 
+const fieldMessages = defineMessages({
+  name: { id: 'memoryImport.field.name', defaultMessage: 'Name' },
+  nickname: { id: 'memoryImport.field.nickname', defaultMessage: 'Preferred name' },
+  marital_status: { id: 'memoryImport.field.marital', defaultMessage: 'Marital status' },
+  employment_types: { id: 'memoryImport.field.employment', defaultMessage: 'Employment' },
+  risk_tolerance: { id: 'memoryImport.field.risk', defaultMessage: 'Risk tolerance' },
+})
+const sectionMessages = defineMessages({
+  you: { id: 'memory.section.you', defaultMessage: 'You' },
+  money: { id: 'memory.section.money', defaultMessage: 'Money' },
+  plans: { id: 'memory.section.plans', defaultMessage: 'Plans' },
+  open_items: { id: 'memory.section.recent', defaultMessage: 'Recent' },
+  other: { id: 'memory.section.other', defaultMessage: 'Other' },
+})
+
+const reasonMessages = defineMessages({
+  'memoryImport.reason.sorted': {
+    id: 'memoryImport.reason.sorted',
+    defaultMessage: 'Sorted by Lucius.',
+  },
+  'memoryImport.reason.sensitive': {
+    id: 'memoryImport.reason.sensitive',
+    defaultMessage: 'Sensitive topic — turn on Include sensitive topics to import it.',
+  },
+  'memoryImport.reason.identifier': {
+    id: 'memoryImport.reason.identifier',
+    defaultMessage: 'Holds a full card, account or ID number or a password, which are never kept.',
+  },
+  'memoryImport.reason.profileFallback': {
+    id: 'memoryImport.reason.profileFallback',
+    defaultMessage: 'No profile field fits this, so it is kept as a note about you.',
+  },
+  'memoryImport.reason.unsorted': {
+    id: 'memoryImport.reason.unsorted',
+    defaultMessage: "Lucius couldn't sort this line. Add it by hand if you want to keep it.",
+  },
+})
+
 const GROUP_TITLES: Record<string, string> = {
   profile: 'Profile',
   instructions: 'Instructions for Lucius',
@@ -37,11 +78,18 @@ const joined = (v?: string | string[] | null) => (Array.isArray(v) ? v.join(', '
 
 /** The words the user reads for an item: what would be saved, not the raw line. A profile field
  *  that already has a value shows it too. */
-function itemText(i: ImportItem): string {
+function itemText(i: ImportItem, intl: IntlShape): string {
   if (i.destination === 'profile') {
     const now = joined(i.current)
-    const base = `${FIELD_LABELS[i.field ?? ''] ?? i.field}: ${joined(i.value)}`
-    return now ? `${base} (now: ${now})` : base
+    const field = i.field ?? ''
+    const descriptor = fieldMessages[field as keyof typeof fieldMessages]
+    const base = `${descriptor ? intl.formatMessage(descriptor) : (FIELD_LABELS[field] ?? field)}: ${joined(i.value)}`
+    return now
+      ? intl.formatMessage(
+          { id: 'memoryImport.currentValue', defaultMessage: '{base} (now: {value})' },
+          { base, value: now },
+        )
+      : base
   }
   if (i.destination === 'instructions') return joined(i.value) || i.line
   if (i.destination === 'memory') return i.content || i.line
@@ -77,13 +125,8 @@ function pastedLine(i: ImportItem): string {
   return (saved ?? '').trim() === i.line.trim() ? '' : i.line
 }
 
-function summary(applied: number, rejected: number): string {
-  const parts = [`Imported ${applied}`]
-  if (rejected) parts.push(`${rejected} not imported`)
-  return parts.join(' · ')
-}
-
 export function MemoryImport({ onClose, toast }: { onClose: () => void; toast: Toast }) {
+  const { formatMessage } = useAppIntl()
   const [step, setStep] = useState<Step>('prompt')
   const [prompt, setPrompt] = useState<string | null>(null)
   const [text, setText] = useState('')
@@ -96,19 +139,31 @@ export function MemoryImport({ onClose, toast }: { onClose: () => void; toast: T
     let live = true
     getImportPrompt().then(
       (p) => live && setPrompt(p),
-      () => live && setError('Could not load the prompt. Close this and try again.'),
+      () =>
+        live &&
+        setError(
+          formatMessage({
+            id: 'memoryImport.CouldNotLoadThePromptCloseThisAndTryAgain',
+            defaultMessage: 'Could not load the prompt. Close this and try again.',
+          }),
+        ),
     )
     return () => {
       live = false
     }
-  }, [])
+  }, [formatMessage])
 
   async function copyPrompt() {
     try {
       await navigator.clipboard.writeText(prompt ?? '')
-      toast('Prompt copied')
+      toast(formatMessage({ id: 'memoryImport.PromptCopied', defaultMessage: 'Prompt copied' }))
     } catch {
-      toast('Could not copy. Select the text and copy it yourself.')
+      toast(
+        formatMessage({
+          id: 'memoryImport.CouldNotCopySelectTheTextAndCopyItYourself',
+          defaultMessage: 'Could not copy. Select the text and copy it yourself.',
+        }),
+      )
     }
   }
 
@@ -121,7 +176,14 @@ export function MemoryImport({ onClose, toast }: { onClose: () => void; toast: T
       setKept(new Set(found.flatMap((i, n) => (i.destination === 'skip' ? [] : [n]))))
       setStep('review')
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Could not read that. Try again.')
+      setError(
+        e instanceof Error
+          ? e.message
+          : formatMessage({
+              id: 'memoryImport.CouldNotReadThatTryAgain',
+              defaultMessage: 'Could not read that. Try again.',
+            }),
+      )
     } finally {
       setBusy(false)
     }
@@ -135,10 +197,30 @@ export function MemoryImport({ onClose, toast }: { onClose: () => void; toast: T
       const applied = out.applied.profile + out.applied.instructions + out.applied.memory
       invalidateQueryCache(MEMORY_FACTS_KEY)
       invalidateQueryCache('/api/profile')
-      toast(summary(applied, out.rejected.length))
+      toast(
+        out.rejected.length
+          ? formatMessage(
+              {
+                id: 'memoryImport.summaryRejected',
+                defaultMessage: 'Imported {applied} · {rejected} not imported',
+              },
+              { applied, rejected: out.rejected.length },
+            )
+          : formatMessage(
+              { id: 'memoryImport.summary', defaultMessage: 'Imported {applied}' },
+              { applied },
+            ),
+      )
       onClose()
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Could not import. Try again.')
+      setError(
+        e instanceof Error
+          ? e.message
+          : formatMessage({
+              id: 'memoryImport.CouldNotImportTryAgain',
+              defaultMessage: 'Could not import. Try again.',
+            }),
+      )
       setBusy(false)
     }
   }
@@ -160,16 +242,16 @@ export function MemoryImport({ onClose, toast }: { onClose: () => void; toast: T
     <div className="rd-mi-foot">
       {step !== 'prompt' && (
         <Btn onClick={() => setStep(step === 'review' ? 'paste' : 'prompt')} disabled={busy}>
-          Back
+          {formatMessage({ id: 'memoryImport.Back', defaultMessage: 'Back' })}
         </Btn>
       )}
       <span className="rd-mi-foot-gap" />
       <Btn onClick={onClose} disabled={busy}>
-        Cancel
+        {formatMessage({ id: 'memoryImport.Cancel', defaultMessage: 'Cancel' })}
       </Btn>
       {step === 'prompt' && (
         <Btn variant="primary" onClick={() => setStep('paste')} disabled={!prompt}>
-          Next
+          {formatMessage({ id: 'memoryImport.Next', defaultMessage: 'Next' })}
         </Btn>
       )}
       {step === 'paste' && (
@@ -178,21 +260,41 @@ export function MemoryImport({ onClose, toast }: { onClose: () => void; toast: T
           onClick={() => void review()}
           disabled={busy || !text.trim() || tooLong}
         >
-          {busy ? 'Reading…' : 'Review'}
+          {busy
+            ? formatMessage({ id: 'memoryImport.Reading', defaultMessage: 'Reading…' })
+            : formatMessage({ id: 'memoryImport.Review', defaultMessage: 'Review' })}
         </Btn>
       )}
       {step === 'review' && (
         <Btn variant="primary" onClick={() => void save()} disabled={busy || kept.size === 0}>
-          {busy ? 'Importing…' : `Import ${kept.size}`}
+          {busy
+            ? formatMessage({ id: 'memoryImport.Importing', defaultMessage: 'Importing…' })
+            : formatMessage(
+                { id: 'memoryImport.importCount', defaultMessage: 'Import {count}' },
+                { count: kept.size },
+              )}
         </Btn>
       )}
     </div>
   )
 
   return (
-    <Modal title="Import memory from another assistant" size="lg" onClose={close} footer={footer}>
+    <Modal
+      title={formatMessage({
+        id: 'memoryImport.ImportMemoryFromAnotherAssistant',
+        defaultMessage: 'Import memory from another assistant',
+      })}
+      size="lg"
+      onClose={close}
+      footer={footer}
+    >
       <div className="rd-mi">
-        <div className="rd-help">Step {['prompt', 'paste', 'review'].indexOf(step) + 1} of 3</div>
+        <div className="rd-help">
+          {formatMessage(
+            { id: 'memoryImport.step', defaultMessage: 'Step {step} of 3' },
+            { step: ['prompt', 'paste', 'review'].indexOf(step) + 1 },
+          )}
+        </div>
         {error && (
           <div className="rd-mi-error" role="alert">
             {error}
@@ -201,31 +303,42 @@ export function MemoryImport({ onClose, toast }: { onClose: () => void; toast: T
         {step === 'prompt' && (
           <>
             <p className="rd-mi-lead">
-              Run this in your other AI account. It asks that assistant to list what it knows about
-              you.
+              {formatMessage({
+                id: 'memoryImport.promptHint',
+                defaultMessage:
+                  'Run this in your other AI account. It asks that assistant to list what it knows about you.',
+              })}
             </p>
-            <pre className="rd-mi-prompt">{prompt ?? 'Loading…'}</pre>
+            <pre className="rd-mi-prompt">
+              {prompt ?? formatMessage({ id: 'memoryImport.Loading', defaultMessage: 'Loading…' })}
+            </pre>
             <Btn size="xs" onClick={() => void copyPrompt()} disabled={!prompt}>
-              Copy prompt
+              {formatMessage({ id: 'memoryImport.CopyPrompt', defaultMessage: 'Copy prompt' })}
             </Btn>
           </>
         )}
         {step === 'paste' && (
           <>
             <p className="rd-mi-lead">
-              Paste the answer here. Lucius sorts it, and you review every line before anything is
-              saved.
+              {formatMessage({
+                id: 'memoryImport.pasteHint',
+                defaultMessage:
+                  'Paste the answer here. Lucius sorts it, and you review every line before anything is saved.',
+              })}
             </p>
             <textarea
               className="rd-textarea rd-mi-paste"
-              aria-label="Pasted memory"
+              aria-label={formatMessage({
+                id: 'memoryImport.PastedMemory',
+                defaultMessage: 'Pasted memory',
+              })}
               rows={10}
               value={text}
               onChange={(e) => setText(e.target.value)}
               placeholder="[2026-03-01] - …"
             />
             <div className={'rd-mi-count' + (tooLong ? ' over' : '')}>
-              {length.toLocaleString('en-US')} / {IMPORT_MAX_CHARS.toLocaleString('en-US')}
+              {length.toLocaleString(getNumberLocale())} / {IMPORT_MAX_CHARS.toLocaleString(getNumberLocale())}
             </div>
           </>
         )}
@@ -244,15 +357,50 @@ function ReviewList({
   kept: Set<number>
   onToggle: (n: number) => void
 }) {
-  if (!items.length) return <p className="rd-mi-lead">Nothing in that text could be sorted.</p>
+  const intl = useAppIntl()
+  const { formatMessage } = intl
+  if (!items.length)
+    return (
+      <p className="rd-mi-lead">
+        {formatMessage({
+          id: 'memoryImport.nothing',
+          defaultMessage: 'Nothing in that text could be sorted.',
+        })}
+      </p>
+    )
   return (
     <>
       <p className="rd-mi-lead">
-        Untick anything you don’t want. Nothing is saved until you import.
+        {formatMessage({
+          id: 'memoryImport.reviewHint',
+          defaultMessage: 'Untick anything you don’t want. Nothing is saved until you import.',
+        })}
       </p>
       {groupItems(items).map((g) => (
         <section key={g.title} className="rd-mi-group">
-          <h3 className="rd-mi-group-h">{g.title}</h3>
+          <h3 className="rd-mi-group-h">
+            {(() => {
+              const item = g.entries[0]![0]
+              if (item.destination === 'memory') {
+                const section =
+                  sectionMessages[(item.section ?? 'other') as keyof typeof sectionMessages] ??
+                  sectionMessages.other
+                const label = formatMessage(section)
+                return item.topic ? `${label} · ${item.topic}` : label
+              }
+              if (item.destination === 'profile')
+                return formatMessage({
+                  id: 'memoryImport.group.profile',
+                  defaultMessage: 'Profile',
+                })
+              if (item.destination === 'instructions')
+                return formatMessage({
+                  id: 'memoryImport.group.instructions',
+                  defaultMessage: 'Instructions for Lucius',
+                })
+              return formatMessage({ id: 'memoryImport.group.skipped', defaultMessage: 'Skipped' })
+            })()}
+          </h3>
           {g.entries.map(([item, n]) => {
             const skip = item.destination === 'skip'
             return (
@@ -265,9 +413,22 @@ function ReviewList({
                   onChange={() => onToggle(n)}
                 />
                 <div className="rd-mi-item-body">
-                  <label htmlFor={`mi-${n}`}>{itemText(item)}</label>
-                  {pastedLine(item) && <div className="rd-mi-said">Pasted: {pastedLine(item)}</div>}
-                  <div className="rd-help">{item.reason}</div>
+                  <label htmlFor={`mi-${n}`}>{itemText(item, intl)}</label>
+                  {pastedLine(item) && (
+                    <div className="rd-mi-said">
+                      {formatMessage(
+                        { id: 'memoryImport.pasted', defaultMessage: 'Pasted: {text}' },
+                        { text: pastedLine(item) },
+                      )}
+                    </div>
+                  )}
+                  <div className="rd-help">
+                    {item.reason_message && Object.hasOwn(reasonMessages, item.reason_message.id)
+                      ? formatMessage(
+                          reasonMessages[item.reason_message.id as keyof typeof reasonMessages],
+                        )
+                      : item.reason}
+                  </div>
                 </div>
               </div>
             )

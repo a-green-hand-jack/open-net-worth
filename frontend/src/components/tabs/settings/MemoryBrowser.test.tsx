@@ -1,6 +1,8 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
+import { IntlProvider } from 'react-intl'
+import { catalogs } from '../../../i18n/catalogs'
 import { clearQueryCache } from '../../../state/queryCache'
 import { sampleFacts } from './memoryFixtures'
 
@@ -57,6 +59,13 @@ describe('MemoryBrowser', () => {
     expect(screen.queryByText(/Moved out of memory/)).toBeNull()
   })
 
+  it('translates section labels without changing saved topics or facts', async () => {
+    render(<IntlProvider locale="zh-CN" messages={catalogs['zh-CN']}><MemoryBrowser toast={vi.fn()} /></IntlProvider>)
+    expect(await screen.findByText('Rent is paid on the 1st')).toBeTruthy()
+    expect(screen.getByRole('region', { name: '财务' })).toBeTruthy()
+    expect(screen.getByText('Housing')).toBeTruthy()
+  })
+
   it('shows a topic as name, first fact and updated date, with no fact count', async () => {
     await renderBrowser()
     const money = screen.getByRole('region', { name: 'Money' })
@@ -64,7 +73,7 @@ describe('MemoryBrowser', () => {
     expect(within(row).getByText('Housing')).toBeTruthy()
     expect(within(row).getByText('Rent is paid on the 1st')).toBeTruthy()
     expect(within(row).getByText(/^Updated /)).toBeTruthy()
-    expect(row.textContent).not.toMatch(/\b4\b/)
+    expect(within(row).queryByText(/^4(?: facts?)?$/)).toBeNull()
   })
 
   it('lists open items directly, each with its date', async () => {

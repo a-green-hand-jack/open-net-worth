@@ -20,7 +20,7 @@ On a phone the sections are a grouped list — tap one to open it, and use the b
 
 Interface translations are being added in stages. Open **Settings → Interface language** to
 choose English, Simplified Chinese, or **Follow browser** for this profile. A saved choice applies
-on other devices. Navigation, settings section labels, profile, chat, appearance and duplicate-detection settings
+on other devices. Navigation, settings section labels, profile, chat, memory, appearance and duplicate-detection settings
 follow the chosen language; messages not yet translated continue to display in English. User-entered
 payee names are preserved.
 
