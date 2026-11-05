@@ -59,6 +59,10 @@ def build_parser() -> argparse.ArgumentParser:
         help="this instance's address (default: ONW_BASE_URL, else the running instance's port)",
     )
     sub.add_parser("upgrade", help="update a `uv tool` install to the newest release")
+    agy = sub.add_parser("antigravity", help="start with a private Linux Antigravity login")
+    agy.add_argument("--login", action="store_true", help="open agy for interactive sign-in first")
+    agy.add_argument("--host", help="bind address")
+    agy.add_argument("--port", type=int, help="port")
     sub.add_parser("version", help="print the installed version")
     return parser
 
@@ -90,6 +94,10 @@ def main(argv: Sequence[str] | None = None) -> int:
         from backend.cli.serve import run_server
 
         return run_server(host=args.host, port=args.port, open_browser=args.open)
+    if args.command == "antigravity":
+        from backend.cli.antigravity import run
+
+        return run(login=args.login, host=args.host, port=args.port)
     if args.command == "autostart-run":
         from backend.cli.autostart_windows import run_service
 
