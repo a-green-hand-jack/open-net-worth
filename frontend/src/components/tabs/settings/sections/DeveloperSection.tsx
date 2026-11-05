@@ -3,6 +3,7 @@
 // (Settings → MCP) and iPhone Shortcuts are everyday features with their own sections.
 // Experimental (feature flags) is generated from the backend registry — ExperimentalPanel.
 import { useState } from 'react'
+import { useAppIntl } from '../../../../i18n/useAppIntl'
 import { authFetch } from '../../../../api/client'
 import { useCachedFetchState } from '../../../../state/queryCache'
 import { Zap } from '../../../../ui/icons'
@@ -29,6 +30,7 @@ async function getJson<T>(path: string): Promise<T> {
 }
 
 export function LogViewer({ toast }: SectionProps) {
+  const { formatMessage } = useAppIntl()
   const [level, setLevel] = useState('INFO')
   const [q, setQ] = useState('')
   const key = `/api/logs?lines=500&level=${level}&q=${encodeURIComponent(q)}`
@@ -39,24 +41,50 @@ export function LogViewer({ toast }: SectionProps) {
   )
 
   return (
-    <Panel title="Application logs" sub="Tail of the server log — filter and search live">
+    <Panel
+      title={formatMessage({
+        id: 'settings.remaining.devLogs',
+        defaultMessage: 'Application logs',
+      })}
+      sub={formatMessage({
+        id: 'settings.remaining.devLogsHelp',
+        defaultMessage: 'Tail of the server log — filter and search live',
+      })}
+    >
       <div style={{ display: 'flex', gap: 8 }}>
         <Select
           value={level}
           style={{ width: 110 }}
-          aria-label="Log level"
+          aria-label={formatMessage({
+            id: 'settings.remaining.devLogLevel',
+            defaultMessage: 'Log level',
+          })}
           onChange={(e) => setLevel(e.target.value)}
         >
-          <option value="DEBUG">debug</option>
-          <option value="INFO">info</option>
-          <option value="WARNING">warn</option>
-          <option value="ERROR">error</option>
+          <option value="DEBUG">
+            {formatMessage({ id: 'settings.remaining.devLogDebug', defaultMessage: 'debug' })}
+          </option>
+          <option value="INFO">
+            {formatMessage({ id: 'settings.remaining.devLogInfo', defaultMessage: 'info' })}
+          </option>
+          <option value="WARNING">
+            {formatMessage({ id: 'settings.remaining.devLogWarning', defaultMessage: 'warn' })}
+          </option>
+          <option value="ERROR">
+            {formatMessage({ id: 'settings.remaining.devLogError', defaultMessage: 'error' })}
+          </option>
         </Select>
         <input
           className="rd-input"
-          placeholder="Search log lines…"
+          placeholder={formatMessage({
+            id: 'settings.remaining.devLogSearchPlaceholder',
+            defaultMessage: 'Search log lines…',
+          })}
           style={{ maxWidth: 240 }}
-          aria-label="Search logs"
+          aria-label={formatMessage({
+            id: 'settings.remaining.devLogSearch',
+            defaultMessage: 'Search logs',
+          })}
           value={q}
           onChange={(e) => setQ(e.target.value)}
         />
@@ -64,22 +92,32 @@ export function LogViewer({ toast }: SectionProps) {
           size="xs"
           onClick={() => {
             void refresh()
-            toast('Refreshed')
+            toast(
+              formatMessage({
+                id: 'settings.remaining.devLogRefreshed',
+                defaultMessage: 'Refreshed',
+              }),
+            )
           }}
         >
-          Refresh
+          {formatMessage({ id: 'settings.remaining.devRefresh', defaultMessage: 'Refresh' })}
         </Btn>
       </div>
       {/* Server logs carry email addresses, account names and other PII (see
           backend/api/logs.py) — never into the screen snapshot. */}
       <div className="rd-code" style={{ height: 340, overflowY: 'auto' }} data-ctx-secret="">
-        {(data?.lines ?? []).join('\n') || 'No matching log lines.'}
+        {(data?.lines ?? []).join('\n') ||
+          formatMessage({
+            id: 'settings.remaining.devNoLogs',
+            defaultMessage: 'No matching log lines.',
+          })}
       </div>
     </Panel>
   )
 }
 
 function CodeExecution({ toast }: SectionProps) {
+  const { formatMessage } = useAppIntl()
   const { data, initialLoading, refresh } = useCachedFetchState<{
     enabled: boolean
     auto_run: boolean
@@ -102,30 +140,62 @@ function CodeExecution({ toast }: SectionProps) {
         body: JSON.stringify(next),
       })
       if (!r.ok) {
-        toast(`Could not save (HTTP ${r.status})`)
+        toast(
+          formatMessage(
+            {
+              id: 'settings.remaining.devHttpError',
+              defaultMessage: 'Could not save (HTTP {status})',
+            },
+            { status: r.status },
+          ),
+        )
         return
       }
       void refresh()
       toast(message)
     } catch {
-      toast('Could not reach the server. Try again.')
+      toast(
+        formatMessage({
+          id: 'settings.remaining.devNetworkError',
+          defaultMessage: 'Could not reach the server. Try again.',
+        }),
+      )
     }
   }
 
   return (
-    <Panel title="Code execution" sub="Lucius can write & run short Python on this server">
+    <Panel
+      title={formatMessage({
+        id: 'settings.remaining.devCodeExecution',
+        defaultMessage: 'Code execution',
+      })}
+      sub={formatMessage({
+        id: 'settings.remaining.devCodeSub',
+        defaultMessage: 'Lucius can write & run short Python on this server',
+      })}
+    >
       <span className="rd-help" style={{ display: 'block', lineHeight: 1.55 }}>
-        When on, Lucius can write a small script during a chat and run it in an isolated subprocess
-        to do a calculation. The sandbox scrubs secrets from the environment, enforces
-        CPU/memory/file limits, and the script sees only the JSON data Lucius passes it — it cannot
-        read or write your ledger or accounts, and has no network. Ad-hoc code runs only in
-        interactive chat, never from a scheduled task or an MCP client.
+        {formatMessage({
+          id: 'settings.remaining.devCodeLegacyExplanation',
+          defaultMessage:
+            'When on, Lucius can write a small script during a chat and run it in an isolated subprocess to do a calculation. The sandbox scrubs secrets from the environment, enforces CPU/memory/file limits, and the script sees only the JSON data Lucius passes it — it cannot read or write your ledger or accounts, and has no network. Ad-hoc code runs only in interactive chat, never from a scheduled task or an MCP client.',
+        })}
       </span>
       {row(
-        'Code execution',
+        formatMessage({
+          id: 'settings.remaining.devCodeExecution',
+          defaultMessage: 'Code execution',
+        }),
         codeExec
-          ? "You'll be asked for permission the first time Lucius runs code in each conversation."
-          : "Lucius's run_code is blocked. This is the safe default.",
+          ? formatMessage({
+              id: 'settings.remaining.devFirstPermission',
+              defaultMessage:
+                "You'll be asked for permission the first time Lucius runs code in each conversation.",
+            })
+          : formatMessage({
+              id: 'settings.remaining.devCodeOff',
+              defaultMessage: "Lucius's run_code is blocked. This is the safe default.",
+            }),
         <Toggle
           on={codeExec}
           disabled={!data}
@@ -134,24 +204,60 @@ function CodeExecution({ toast }: SectionProps) {
             // would silently re-arm "always allow" the moment it is switched back on.
             void patch(
               v ? { enabled: true } : { enabled: false, auto_run: false },
-              v ? 'Code execution enabled' : 'Code execution blocked',
+              v
+                ? formatMessage({
+                    id: 'settings.remaining.devCodeEnabled',
+                    defaultMessage: 'Code execution enabled',
+                  })
+                : formatMessage({
+                    id: 'settings.remaining.devCodeBlocked',
+                    defaultMessage: 'Code execution blocked',
+                  }),
             )
           }
-          label="Code execution"
+          label={formatMessage({
+            id: 'settings.remaining.devCodeExecution',
+            defaultMessage: 'Code execution',
+          })}
         />,
       )}
       {codeExec
         ? row(
-            'Always allow (skip the per-run prompt)',
+            formatMessage({
+              id: 'settings.remaining.devAlwaysAllow',
+              defaultMessage: 'Always allow (skip the per-run prompt)',
+            }),
             autoRun
-              ? 'Lucius runs code without asking, in every conversation. Turn this off to be prompted — and shown the code — each conversation.'
-              : "You'll be asked for permission and shown the code the first time Lucius runs it in a conversation.",
+              ? formatMessage({
+                  id: 'settings.remaining.devAutoOn',
+                  defaultMessage:
+                    'Lucius runs code without asking, in every conversation. Turn this off to be prompted — and shown the code — each conversation.',
+                })
+              : formatMessage({
+                  id: 'settings.remaining.devAutoOff',
+                  defaultMessage:
+                    "You'll be asked for permission and shown the code the first time Lucius runs it in a conversation.",
+                }),
             <Toggle
               on={autoRun}
               onChange={(v) =>
-                void patch({ auto_run: v }, v ? 'Always allowing' : 'Prompting per conversation')
+                void patch(
+                  { auto_run: v },
+                  v
+                    ? formatMessage({
+                        id: 'settings.remaining.devAutoEnabled',
+                        defaultMessage: 'Always allowing',
+                      })
+                    : formatMessage({
+                        id: 'settings.remaining.devAutoDisabled',
+                        defaultMessage: 'Prompting per conversation',
+                      }),
+                )
               }
-              label="Always allow"
+              label={formatMessage({
+                id: 'settings.remaining.devAllow',
+                defaultMessage: 'Always allow',
+              })}
             />,
           )
         : null}
@@ -160,6 +266,7 @@ function CodeExecution({ toast }: SectionProps) {
 }
 
 export function Extensions({ toast }: SectionProps) {
+  const { formatMessage } = useAppIntl()
   const { data, initialLoading, refresh } = useCachedFetchState<ExtensionRow[]>(
     '/api/extensions',
     () => getJson<ExtensionRow[]>('/api/extensions'),
@@ -179,13 +286,33 @@ export function Extensions({ toast }: SectionProps) {
         },
       )
       if (!r.ok) {
-        toast(`Could not save (HTTP ${r.status})`)
+        toast(
+          formatMessage(
+            {
+              id: 'settings.remaining.devHttpError',
+              defaultMessage: 'Could not save (HTTP {status})',
+            },
+            { status: r.status },
+          ),
+        )
         return
       }
       void refresh()
-      toast(enabled ? 'Enabled' : 'Disabled — it is no longer consulted')
+      toast(
+        enabled
+          ? formatMessage({ id: 'settings.remaining.devEnabled', defaultMessage: 'Enabled' })
+          : formatMessage({
+              id: 'settings.remaining.devDisabled',
+              defaultMessage: 'Disabled — it is no longer consulted',
+            }),
+      )
     } catch {
-      toast('Could not reach the server. Try again.')
+      toast(
+        formatMessage({
+          id: 'settings.remaining.devNetworkError',
+          defaultMessage: 'Could not reach the server. Try again.',
+        }),
+      )
     }
   }
 
@@ -199,20 +326,42 @@ export function Extensions({ toast }: SectionProps) {
       )
       if (!r.ok) {
         const body = (await r.json().catch(() => null)) as { detail?: string } | null
-        toast(body?.detail || `Could not uninstall (HTTP ${r.status})`)
+        toast(
+          body?.detail ||
+            formatMessage(
+              {
+                id: 'settings.remaining.devUninstallHttp',
+                defaultMessage: 'Could not uninstall (HTTP {status})',
+              },
+              { status: r.status },
+            ),
+        )
         return
       }
       void refresh()
-      toast('Uninstalled')
+      toast(
+        formatMessage({ id: 'settings.remaining.devUninstalled', defaultMessage: 'Uninstalled' }),
+      )
     } catch {
-      toast('Could not reach the server. Try again.')
+      toast(
+        formatMessage({
+          id: 'settings.remaining.devNetworkError',
+          defaultMessage: 'Could not reach the server. Try again.',
+        }),
+      )
     }
   }
 
   return (
     <Panel
-      title="Extensions"
-      sub="Installed instance extensions — each declares its permissions up front"
+      title={formatMessage({
+        id: 'settings.remaining.devExtensions',
+        defaultMessage: 'Extensions',
+      })}
+      sub={formatMessage({
+        id: 'settings.remaining.devExtensionsHelp',
+        defaultMessage: 'Installed instance extensions — each declares its permissions up front',
+      })}
       flush
     >
       {rows.length ? (
@@ -230,18 +379,31 @@ export function Extensions({ toast }: SectionProps) {
               </div>
               <div className="rd-row-meta">
                 <span>{x.description || x.type}</span>
-                {x.source === 'shipped' ? <span>Bundled</span> : null}
+                {x.source === 'shipped' ? (
+                  <span>
+                    {formatMessage({
+                      id: 'settings.remaining.devBundled',
+                      defaultMessage: 'Bundled',
+                    })}
+                  </span>
+                ) : null}
               </div>
             </div>
             <div className="rd-row-actions" style={{ opacity: 1, pointerEvents: 'auto' }}>
               <Toggle
                 on={x.enabled}
                 onChange={(v) => void toggle(x, v)}
-                label={'Enable ' + x.name}
+                label={formatMessage(
+                  { id: 'settings.remaining.devEnableName', defaultMessage: 'Enable {name}' },
+                  { name: x.name },
+                )}
               />
               {x.source === 'shipped' ? null : (
                 <Btn size="xs" variant="ghost" onClick={() => void uninstall(x)}>
-                  Uninstall
+                  {formatMessage({
+                    id: 'settings.remaining.devUninstall',
+                    defaultMessage: 'Uninstall',
+                  })}
                 </Btn>
               )}
             </div>
@@ -250,7 +412,11 @@ export function Extensions({ toast }: SectionProps) {
       ) : (
         <div style={{ padding: '14px 18px' }}>
           <span className="rd-help">
-            Nothing installed — extension packs you install will be listed here.
+            {formatMessage({
+              id: 'settings.remaining.devNoExtensions',
+              defaultMessage:
+                'Nothing installed — extension packs you install will be listed here.',
+            })}
           </span>
         </div>
       )}
@@ -259,6 +425,7 @@ export function Extensions({ toast }: SectionProps) {
 }
 
 function ScriptSkills({ toast }: SectionProps) {
+  const { formatMessage } = useAppIntl()
   const kill = useCachedFetchState<{ enabled: boolean }>(
     '/api/config/script-skills',
     () => getJson<{ enabled: boolean }>('/api/config/script-skills'),
@@ -286,12 +453,25 @@ function ScriptSkills({ toast }: SectionProps) {
 
   return (
     <Panel
-      title="Bundled script skills"
-      sub="Two independent switches — permissions sit on the caller, not the skill"
+      title={formatMessage({
+        id: 'settings.remaining.devScripts',
+        defaultMessage: 'Bundled script skills',
+      })}
+      sub={formatMessage({
+        id: 'settings.remaining.devScriptSwitches',
+        defaultMessage: 'Two independent switches — permissions sit on the caller, not the skill',
+      })}
     >
       {row(
-        'Bundled script skills',
-        'The instance kill switch. When off, no script-bearing skill can run its Python, whatever else is set. Interactive chat turns only need this switch.',
+        formatMessage({
+          id: 'settings.remaining.devScripts',
+          defaultMessage: 'Bundled script skills',
+        }),
+        formatMessage({
+          id: 'settings.remaining.devScriptOldHelp',
+          defaultMessage:
+            'The instance kill switch. When off, no script-bearing skill can run its Python, whatever else is set. Interactive chat turns only need this switch.',
+        }),
         <Toggle
           on={scripts}
           disabled={!kill.data}
@@ -304,20 +484,48 @@ function ScriptSkills({ toast }: SectionProps) {
                 if (!v && unattendedOn) await put('/api/config/script-skills-unattended', false)
                 void kill.refresh()
                 void unattended.refresh()
-                toast(v ? 'Script skills enabled' : 'Script skills blocked')
+                toast(
+                  v
+                    ? formatMessage({
+                        id: 'settings.remaining.devScriptsEnabled',
+                        defaultMessage: 'Script skills enabled',
+                      })
+                    : formatMessage({
+                        id: 'settings.remaining.devScriptsBlocked',
+                        defaultMessage: 'Script skills blocked',
+                      }),
+                )
               } catch {
-                toast('Could not save — try again')
+                toast(
+                  formatMessage({
+                    id: 'settings.remaining.devSaveError',
+                    defaultMessage: 'Could not save — try again',
+                  }),
+                )
               }
             })()
           }}
-          label="Bundled script skills"
+          label={formatMessage({
+            id: 'settings.remaining.devScripts',
+            defaultMessage: 'Bundled script skills',
+          })}
         />,
       )}
       {row(
-        'Unattended script runs',
+        formatMessage({
+          id: 'settings.remaining.devUnattended',
+          defaultMessage: 'Unattended script runs',
+        }),
         scripts
-          ? 'Lets scheduled, headless runs execute script-bearing skills. Off by default — interactive chat turns are unaffected either way.'
-          : 'Enable the kill switch above first.',
+          ? formatMessage({
+              id: 'settings.remaining.devUnattendedHelp',
+              defaultMessage:
+                'Lets scheduled, headless runs execute script-bearing skills. Off by default — interactive chat turns are unaffected either way.',
+            })
+          : formatMessage({
+              id: 'settings.remaining.devEnableFirst',
+              defaultMessage: 'Enable the kill switch above first.',
+            }),
         <Toggle
           on={unattendedOn}
           disabled={!scripts}
@@ -326,13 +534,31 @@ function ScriptSkills({ toast }: SectionProps) {
               try {
                 await put('/api/config/script-skills-unattended', v)
                 void unattended.refresh()
-                toast(v ? 'Unattended runs allowed' : 'Unattended runs blocked')
+                toast(
+                  v
+                    ? formatMessage({
+                        id: 'settings.remaining.devUnattendedOn',
+                        defaultMessage: 'Unattended runs allowed',
+                      })
+                    : formatMessage({
+                        id: 'settings.remaining.devUnattendedOff',
+                        defaultMessage: 'Unattended runs blocked',
+                      }),
+                )
               } catch {
-                toast('Could not save — try again')
+                toast(
+                  formatMessage({
+                    id: 'settings.remaining.devSaveError',
+                    defaultMessage: 'Could not save — try again',
+                  }),
+                )
               }
             })()
           }}
-          label="Unattended script runs"
+          label={formatMessage({
+            id: 'settings.remaining.devUnattended',
+            defaultMessage: 'Unattended script runs',
+          })}
         />,
       )}
     </Panel>
