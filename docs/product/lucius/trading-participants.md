@@ -20,6 +20,8 @@ The workspace endpoints provide an overview, pause or resume actions, and review
 amendments. A participant grant does not authorize those owner controls.
 The owner API also exposes the run's accounts, market observations, orders, fills and performance;
 simulated and live orders both pass through the trading service's existing execution checks.
+The run's statement and linked evidence endpoints show recorded order, fill and decision links;
+the observations shown for a decision are limited to what was available at that decision time.
 
 When allowed by the owner, a participant can write versioned research or code files, read saved
 versions, and record the work it actually performed. These files are workspace records rather
