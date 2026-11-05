@@ -59,6 +59,8 @@ export interface ToolPermission {
   default_level: PermissionLevel | ''
   /** The tool's own first sentence; empty for an external MCP tool. */
   description: string
+  /** Identity of the registry description, absent for external or retired tools. */
+  description_source?: { tool: string; sha256: string } | null
   updated_at: string
   /** False when the stored tool name no longer resolves in the registry — a rename retired
    *  it, so the decision is already inert. Rendered rather than hidden: a permission the

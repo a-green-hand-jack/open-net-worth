@@ -24,6 +24,8 @@ single-call approval — that half of the old grant contract now lives entirely 
 
 from __future__ import annotations
 
+import hashlib
+
 import pytest
 from fastapi.testclient import TestClient
 
@@ -58,6 +60,10 @@ def test_get_lists_every_registry_tool_with_its_seed_before_anything_is_stored(c
     assert write["level"] == write["default_level"] == "needs_approval"
     assert write["tool_exists"] is True
     assert write["description"]
+    assert write["description_source"] == {
+        "tool": write["tool"],
+        "sha256": hashlib.sha256(write["description"].encode("utf-8")).hexdigest(),
+    }
 
     read = _row(client, "get_net_worth")
     assert read["level"] == read["default_level"] == "always_allow"
@@ -115,6 +121,7 @@ def test_discovered_external_mcp_tools_are_listed_and_ask_by_default(client):
     row = _row(client, "delete_file", "mcp:drive")
     assert row["level"] == row["default_level"] == "needs_approval"
     assert row["tool_exists"] is True
+    assert row["description_source"] is None
 
 
 # ── PUT: owner resolution, canonicalization, validation ────────────────────────
