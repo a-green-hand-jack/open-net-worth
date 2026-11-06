@@ -103,15 +103,30 @@ export function Overview({
     },
   ])
   useRegisterScreenPrompts(() => [
-    'Is my allocation balanced?',
-    "What's driving my net-worth growth?",
-    "Today's biggest movers?",
-    'Any concentration risk?',
+    intl.formatMessage({
+      id: 'overview.prompt.balanced',
+      defaultMessage: 'Is my allocation balanced?',
+    }),
+    intl.formatMessage({
+      id: 'overview.prompt.growth',
+      defaultMessage: "What's driving my net-worth growth?",
+    }),
+    intl.formatMessage({ id: 'overview.prompt.movers', defaultMessage: "Today's biggest movers?" }),
+    intl.formatMessage({
+      id: 'overview.prompt.concentration',
+      defaultMessage: 'Any concentration risk?',
+    }),
   ])
 
   const onAskLucius = onChatSuggest
   const onShareWithLucius = onChatSuggest
-    ? (label: string) => onChatSuggest(`Let's talk about my "${label}" widget.`)
+    ? (label: string) =>
+        onChatSuggest(
+          intl.formatMessage(
+            { id: 'overview.askWidget', defaultMessage: 'Let\'s talk about my "{label}" widget.' },
+            { label },
+          ),
+        )
     : undefined
   const onOpenAssetByLabel = onOpenAsset
     ? (label: string) => {
@@ -336,11 +351,18 @@ export function Overview({
                     iconLeft={<Spark size={15} ariaHidden />}
                     onClick={() =>
                       onAskLucius(
-                        'Help me build my Overview dashboard — what widgets should I add?',
+                        intl.formatMessage({
+                          id: 'overview.askBuild',
+                          defaultMessage:
+                            'Help me build my Overview dashboard — what widgets should I add?',
+                        }),
                       )
                     }
                   >
-                    Build with Lucius
+                    {intl.formatMessage({
+                      id: 'overview.buildLucius',
+                      defaultMessage: 'Build with Lucius',
+                    })}
                   </Button>
                 )}
               </div>

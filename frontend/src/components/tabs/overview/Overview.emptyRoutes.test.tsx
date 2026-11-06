@@ -7,6 +7,8 @@ import { cleanup, render, screen, fireEvent } from '@testing-library/react'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import { IntlProvider } from 'react-intl'
 import { catalogs } from '../../../i18n/catalogs'
+import type { ComputedRow } from '../../../types/portfolio'
+import { screenSuggestions } from '../../../lucius/screenContract'
 import { Overview } from './Overview'
 
 const authFetch = vi.hoisted(() => vi.fn())
@@ -58,6 +60,19 @@ describe('Overview empty state', () => {
     expect(onNavigate).toHaveBeenCalledWith('accounts')
     fireEvent.click(screen.getByRole('button', { name: '通过 Lucius 添加' }))
     expect(onChatSuggest).toHaveBeenCalledWith('请帮我设置账户')
+  })
+
+  it('sends the Chinese build-view suggestion for a dashboard with no widgets', () => {
+    const onChatSuggest = vi.fn()
+    const rows = [{ label: 'Cash', value: 1 }] as unknown as ComputedRow[]
+    render(
+      <IntlProvider locale="zh-CN" messages={catalogs['zh-CN']}>
+        <Overview rows={rows} onChatSuggest={onChatSuggest} />
+      </IntlProvider>,
+    )
+    fireEvent.click(screen.getByRole('button', { name: '与 Lucius 一起构建' }))
+    expect(onChatSuggest).toHaveBeenCalledWith('请帮我构建概览仪表板，应该添加哪些小组件？')
+    expect(screenSuggestions()).toContain('我的资产配置均衡吗？')
   })
 
   it('offers adding an account and Lucius, nothing else', () => {
