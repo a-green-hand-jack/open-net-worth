@@ -45,6 +45,14 @@ afterEach(() => {
 })
 
 describe('useDashboardLayout.deleteView — never deletes the default or last view', () => {
+  it('keeps layout saving disabled after a failed load', async () => {
+    mockFetch.mockRejectedValue(new Error('synthetic failure'))
+    const { result } = renderHook(() => useDashboardLayout())
+    await waitFor(() => expect(result.current.error).toBe('load'))
+    act(() => result.current.addView('Personal'))
+    await new Promise((resolve) => setTimeout(resolve, 850))
+    expect(mockSave).not.toHaveBeenCalled()
+  })
   it('marks only newly created unnamed sections as defaults', async () => {
     mockFetch.mockResolvedValue(twoViewState())
     const { result } = renderHook(() => useDashboardLayout())

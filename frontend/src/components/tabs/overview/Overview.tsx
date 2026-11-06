@@ -320,7 +320,17 @@ export function Overview({
 
           {layout.error && (
             <Text as="p" size="xs" tone="bad">
-              {layout.error}
+              {layout.error === 'load'
+                ? intl.formatMessage({
+                    id: 'overview.layoutLoadError',
+                    defaultMessage:
+                      'Could not load your dashboard layout — changes in this session will not be saved until you reload successfully.',
+                  })
+                : intl.formatMessage({
+                    id: 'overview.layoutSaveError',
+                    defaultMessage:
+                      'Could not save your dashboard changes — they may not survive a reload.',
+                  })}
             </Text>
           )}
 

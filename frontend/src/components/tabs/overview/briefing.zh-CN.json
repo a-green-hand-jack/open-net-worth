@@ -26,6 +26,8 @@
   "overview.deleteView": "删除视图",
   "overview.deleteWarning": "此视图及其布局将被移除。其他视图不会受到影响。",
   "overview.loading": "正在加载仪表盘…",
+  "overview.layoutLoadError": "无法加载仪表盘布局。在重新加载成功之前，本次更改不会保存。",
+  "overview.layoutSaveError": "无法保存仪表盘更改，重新加载后这些更改可能丢失。",
   "overview.loadErrorTitle": "无法加载仪表盘",
   "overview.loadError": "账本中的内容没有丢失，只是暂时无法读取。请重试，或询问 Lucius 出了什么问题。",
   "overview.emptyTitle": "从最常用的账户开始",

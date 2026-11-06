@@ -90,6 +90,31 @@ describe('Dashboard widget "⋯ → Edit…"', () => {
     expect(screen.getByRole('button', { name: '自定义概览' })).toBeTruthy()
   })
 
+  it('explains layout load and save failures in Chinese', () => {
+    const layout = vi.mocked(useDashboardLayout)()
+    const previousError = layout.error
+    try {
+      layout.error = 'load'
+      const { rerender } = render(
+        <IntlProvider locale="zh-CN" messages={catalogs['zh-CN']}>
+          <Overview rows={rows} />
+        </IntlProvider>,
+      )
+      expect(
+        screen.getByText('无法加载仪表盘布局。在重新加载成功之前，本次更改不会保存。'),
+      ).toBeTruthy()
+      layout.error = 'save'
+      rerender(
+        <IntlProvider locale="zh-CN" messages={catalogs['zh-CN']}>
+          <Overview rows={rows} />
+        </IntlProvider>,
+      )
+      expect(screen.getByText('无法保存仪表盘更改，重新加载后这些更改可能丢失。')).toBeTruthy()
+    } finally {
+      layout.error = previousError
+    }
+  })
+
   it('adds a named section from the Chinese dialog', () => {
     const layout = vi.mocked(useDashboardLayout)()
     vi.mocked(layout.addSection).mockClear()

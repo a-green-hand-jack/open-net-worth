@@ -64,7 +64,7 @@ export function useDashboardLayout() {
       : { activeViewId: null, views: [] },
   )
   const [loading, setLoading] = useState(cachedLayout === undefined)
-  const [error, setError] = useState<string | null>(null)
+  const [error, setError] = useState<'load' | 'save' | null>(null)
   const snapshotRef = useRef<DashboardState | null>(null)
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const skipNextSave = useRef(true) // don't save right after the initial load/seed
@@ -113,9 +113,7 @@ export function useDashboardLayout() {
       })
       .catch(() => {
         if (!cancelled) {
-          setError(
-            'Could not load your dashboard layout — changes in this session will not be saved until you reload successfully.',
-          )
+          setError('load')
           setState(buildPresetState())
         }
       })
@@ -143,7 +141,7 @@ export function useDashboardLayout() {
       saveDashboardLayout(state)
         .then(() => invalidateQueryCache(DASHBOARD_LAYOUT_KEY))
         .catch(() => {
-          setError('Could not save your dashboard changes — they may not survive a reload.')
+          setError('save')
         })
     }, SAVE_DEBOUNCE_MS)
     return () => {
