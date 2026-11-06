@@ -11,6 +11,7 @@ from backend.services.trading.common import (
     ACTIVE_ORDER_STATES,
     amount,
     assert_running,
+    bounded_fraction,
     collection,
     event,
     fingerprint,
@@ -138,11 +139,12 @@ def _reserve(conn, run, clean):
     price = amount(clean["limit_price"] or quote["price"])
     if clean["side"] == "sell":
         price = max(price, amount(quote["price"]))
-    notional = quantity * price
-    if mandate["max_order_notional"] is not None and notional > amount(
-        mandate["max_order_notional"]
+    if mandate["max_order_notional"] is not None and (
+        bounded_fraction(quantity) * bounded_fraction(price)
+        > bounded_fraction(mandate["max_order_notional"])
     ):
         raise ConflictError("Order exceeds the mandate notional limit")
+    notional = quantity * price
     snapshot = account_snapshot(run, account, conn=conn)
     if clean["side"] == "sell":
         position = snapshot["positions"].get(instrument_key(instrument), {})

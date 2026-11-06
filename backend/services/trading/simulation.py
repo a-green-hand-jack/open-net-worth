@@ -3,9 +3,15 @@
 from decimal import ROUND_DOWN, Decimal, localcontext
 from fractions import Fraction
 
-from backend.core.errors import ValidationError
 from backend.db.trading_store import TradingStore
-from backend.services.trading.common import ACTIVE_ORDER_STATES, amount, event, identity, instant
+from backend.services.trading.common import (
+    ACTIVE_ORDER_STATES,
+    amount,
+    bounded_fraction,
+    event,
+    identity,
+    instant,
+)
 from backend.services.trading.fills import apply_fill
 from backend.services.trading.market import available_observations, instrument_key
 from backend.services.trading.quote_authority import quote_is_authorized
@@ -33,7 +39,7 @@ def _match_orders(conn, run):
         for fill in fills:
             order_id = fill["order_id"]
             spent_by_order[order_id] = spent_by_order.get(order_id, Fraction(0)) + (
-                _bounded_fraction(fill["quantity"]) * _bounded_fraction(fill["price"])
+                bounded_fraction(fill["quantity"]) * bounded_fraction(fill["price"])
             )
     for observation in observations:
         used = sum(
@@ -84,19 +90,11 @@ def _eligible(run, order, observation):
     )
 
 
-def _bounded_fraction(value):
-    number = amount(value)
-    parts = number.as_tuple()
-    if len(parts.digits) > 128 or abs(parts.exponent) > 128:
-        raise ValidationError("Trading amount exceeds supported precision")
-    return Fraction(number)
-
-
 def _match(conn, run, order, observation, used, spent):
     mandate = run["workspace_snapshot"]["mandate"]
     cap = mandate.get("max_order_notional")
     if cap is not None:
-        _bounded_fraction(observation["price"])
+        bounded_fraction(observation["price"])
     slip = amount(mandate["slippage_bps"]) / 10000
     price = amount(observation["price"]) * (1 + slip if order["side"] == "buy" else 1 - slip)
     limit = order.get("limit_price")
@@ -107,8 +105,8 @@ def _match(conn, run, order, observation, used, spent):
         return order, amount(0), spent
     quantity = amount(order["quantity"]) - amount(order["filled_quantity"])
     if cap is not None:
-        remaining = max(Fraction(0), _bounded_fraction(cap) - spent)
-        cap_quantity = remaining / _bounded_fraction(price)
+        remaining = max(Fraction(0), bounded_fraction(cap) - spent)
+        cap_quantity = remaining / bounded_fraction(price)
         with localcontext() as ctx:
             ctx.prec = 28
             ctx.rounding = ROUND_DOWN
@@ -145,7 +143,7 @@ def _match(conn, run, order, observation, used, spent):
     if quantity <= 0:
         return order, amount(0), spent
     if cap is not None:
-        fill_notional = _bounded_fraction(quantity) * _bounded_fraction(price)
+        fill_notional = bounded_fraction(quantity) * bounded_fraction(price)
     raw = {
         "execution_id": identity(order["id"], _observation_id(observation)),
         "quantity": str(quantity),
@@ -159,7 +157,7 @@ def _match(conn, run, order, observation, used, spent):
     }
     order = apply_fill(conn, run, order, raw)
     if cap is not None and order["status"] == "partially_filled":
-        exhausted = spent + fill_notional >= _bounded_fraction(cap)
+        exhausted = spent + fill_notional >= bounded_fraction(cap)
         if exhausted:
             order = TradingStore("orders").update_by_id(
                 order["id"],

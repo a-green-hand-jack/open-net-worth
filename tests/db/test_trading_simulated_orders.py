@@ -230,6 +230,25 @@ def test_marketable_sell_limit_cannot_understate_order_notional(db_isolated):
         call(execution.submit_order(run["id"], sell))
 
 
+def test_preflight_rejects_notional_over_cap_without_decimal_rounding(db_isolated):
+    run_id, account_id = setup_run()
+    with trading_transaction() as conn:
+        run = TradingStore("runs").required(run_id, conn=conn)
+        snapshot = {**run["workspace_snapshot"]}
+        snapshot["mandate"] = {**snapshot["mandate"], "max_order_notional": "100"}
+        TradingStore("runs").update_by_id(run_id, {"workspace_snapshot": snapshot}, conn=conn)
+    with pytest.raises(ConflictError, match="notional"):
+        call(
+            execution.submit_order(
+                run_id, order(account_id, quantity="1.0000000000000000000000000001")
+            )
+        )
+    assert execution.list_orders(run_id)["total"] == 0
+    assert call(execution.submit_order(run_id, order(account_id, quantity="1")))["status"] == "open"
+    with pytest.raises(ValidationError, match="supported precision"):
+        call(execution.submit_order(run_id, order(account_id, "tiny", "1e-129")))
+
+
 def test_backtest_partial_fills_stay_within_order_notional_cap(db_isolated):
     run_id, account_id = setup_run()
     with trading_transaction() as conn:

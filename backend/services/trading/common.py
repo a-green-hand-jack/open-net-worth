@@ -7,6 +7,7 @@ import hmac
 import json
 from datetime import datetime, timezone
 from decimal import Decimal
+from fractions import Fraction
 
 from pydantic import ValidationError as SchemaError
 
@@ -44,6 +45,14 @@ def amount(value) -> Decimal:
     if not result.is_finite():
         raise ValidationError("Amount must be finite")
     return result
+
+
+def bounded_fraction(value) -> Fraction:
+    number = amount(value)
+    parts = number.as_tuple()
+    if len(parts.digits) > 128 or abs(parts.exponent) > 128:
+        raise ValidationError("Trading amount exceeds supported precision")
+    return Fraction(number)
 
 
 def validated(model, data: dict) -> dict:

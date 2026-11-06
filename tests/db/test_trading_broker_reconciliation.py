@@ -154,6 +154,25 @@ def test_activation_requires_authorization_and_isolated_broker():
     assert broker.submissions == 0
 
 
+def test_precisely_over_cap_order_does_not_reach_broker():
+    broker = FakeBroker()
+    run = live_run(broker)
+    call(lifecycle.apply_run_action(run["id"], {"action": "start"}))
+    with trading_transaction() as conn:
+        stored = TradingStore("runs").required(run["id"], conn=conn)
+        snapshot = {**stored["workspace_snapshot"]}
+        snapshot["mandate"] = {**snapshot["mandate"], "max_order_notional": "100"}
+        TradingStore("runs").update_by_id(run["id"], {"workspace_snapshot": snapshot}, conn=conn)
+    with pytest.raises(ConflictError, match="notional"):
+        call(
+            execution.submit_order(
+                run["id"], {**order(run["id"]), "quantity": "1.0000000000000000000000000001"}
+            )
+        )
+    assert broker.submissions == 0
+    assert execution.list_orders(run["id"])["total"] == 0
+
+
 def test_timeout_is_unknown_and_retry_does_not_duplicate_submission():
     broker = FakeBroker(timeout=True)
     run = live_run(broker)
