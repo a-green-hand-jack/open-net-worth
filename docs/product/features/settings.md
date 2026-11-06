@@ -35,6 +35,9 @@ Language does not change your base currency or the date and number formats you c
 not change user-entered names or external content, and Lucius continues to respond according to
 the conversation.
 
+Unchanged built-in skill names and descriptions can also follow the interface language,
+including on installations created before language support. Customized skill text stays as entered.
+
 **Change your base currency**
 1. Open **Settings → Currency & format**.
 2. Pick a new **Base currency**.
