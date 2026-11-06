@@ -33,7 +33,6 @@ afterEach(cleanup)
 beforeEach(() => {
   vi.clearAllMocks()
   mockAuthFetch.mockResolvedValue({ ok: false } as Response) // the post-commit ledger-diff probe
-  vi.spyOn(window, 'confirm').mockReturnValue(true)
   Element.prototype.scrollIntoView = vi.fn()
 })
 
@@ -54,6 +53,8 @@ const openRow = (row: HTMLElement): HTMLElement => {
 const rowFor = (note: string) =>
   openRow(screen.getAllByText(note)[0]!.closest('.imp3-arow') as HTMLElement)
 const footerText = () => document.querySelector('.imp3-foot-note')?.textContent ?? ''
+const confirmDeletion = () =>
+  fireEvent.click(screen.getByRole('button', { name: 'Delete and import' }))
 
 // Three uncovered ledger entries + one plain statement row to import — the owner's shape
 // (several duplicate ride charges sitting under one statement being reviewed).
@@ -242,6 +243,7 @@ describe('staged delete — confirm deletes exactly the marked rows', () => {
     await waitFor(() => expect(screen.getAllByText('Will delete')).toHaveLength(2))
 
     fireEvent.click(screen.getByRole('button', { name: 'Confirm' }))
+    confirmDeletion()
 
     await waitFor(() => expect(onDecisionCommit).toHaveBeenCalledTimes(1))
     expect(onDecisionCommit.mock.calls[0]![3]).toEqual(['ride-1', 'ride-2'])
@@ -269,47 +271,42 @@ describe('staged delete — confirm deletes exactly the marked rows', () => {
     await screen.findByText('Will delete')
 
     fireEvent.click(screen.getByRole('button', { name: 'Confirm' }))
+    confirmDeletion()
 
     await waitFor(() => expect(onDecisionCommit).toHaveBeenCalledTimes(1))
     expect(onDecisionCommit.mock.calls[0]![3]).toEqual(['ride-1'])
   })
 
   it('asks for ONE confirmation naming the count, not one per row', async () => {
-    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true)
     const { onDecisionCommit } = await openWith()
     mark('Grab ride A')
     mark('Grab ride B')
     await waitFor(() => expect(screen.getAllByText('Will delete')).toHaveLength(2))
-    confirmSpy.mockClear()
-
     fireEvent.click(screen.getByRole('button', { name: 'Confirm' }))
-
+    expect(screen.getAllByText('Delete 2 transactions from your ledger?')).toHaveLength(1)
+    expect(onDecisionCommit).not.toHaveBeenCalled()
+    confirmDeletion()
     await waitFor(() => expect(onDecisionCommit).toHaveBeenCalled())
-    expect(confirmSpy).toHaveBeenCalledTimes(1)
-    expect(confirmSpy.mock.calls[0]![0]).toContain('Delete 2 transactions from your ledger?')
   })
 
   it('declining that confirmation commits NOTHING — not even the import', async () => {
-    vi.spyOn(window, 'confirm').mockReturnValue(false)
     const { onDecisionCommit } = await openWith()
     mark('Grab ride A')
     await screen.findByText('Will delete')
 
     fireEvent.click(screen.getByRole('button', { name: 'Confirm' }))
-
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }))
     await waitFor(() => expect(screen.getByRole('button', { name: 'Confirm' })).toBeTruthy())
     expect(onDecisionCommit).not.toHaveBeenCalled()
   })
 
   it('does not prompt at all when nothing is marked', async () => {
-    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true)
     const { onDecisionCommit } = await openWith()
-    confirmSpy.mockClear()
 
     fireEvent.click(screen.getByRole('button', { name: 'Confirm' }))
 
     await waitFor(() => expect(onDecisionCommit).toHaveBeenCalled())
-    expect(confirmSpy).not.toHaveBeenCalled()
+    expect(screen.queryByRole('button', { name: 'Delete and import' })).toBeNull()
   })
 })
 
@@ -340,6 +337,7 @@ describe('staged delete — unmark restores the row completely', () => {
     await waitFor(() => expect(screen.getAllByText('Will delete')).toHaveLength(1))
 
     fireEvent.click(screen.getByRole('button', { name: 'Confirm' }))
+    confirmDeletion()
     await waitFor(() => expect(onDecisionCommit).toHaveBeenCalled())
     expect(onDecisionCommit.mock.calls[0]![3]).toEqual(['ride-2'])
   })
@@ -368,6 +366,7 @@ describe('staged delete — bulk marking', () => {
     fireEvent.click(screen.getByRole('button', { name: /Mark all 3 for deletion/ }))
     await waitFor(() => expect(screen.getAllByText('Will delete')).toHaveLength(3))
     fireEvent.click(screen.getByRole('button', { name: 'Confirm' }))
+    confirmDeletion()
 
     await waitFor(() => expect(onDecisionCommit).toHaveBeenCalled())
     expect(onDecisionCommit.mock.calls[0]![3]).toEqual(['ride-1', 'ride-2', 'keep-1'])
@@ -393,6 +392,7 @@ describe('staged delete — failures surface', () => {
     await waitFor(() => expect(screen.getAllByText('Will delete')).toHaveLength(2))
 
     fireEvent.click(screen.getByRole('button', { name: 'Confirm' }))
+    confirmDeletion()
 
     await screen.findByText(/^Imported /)
     expect(screen.getByText(/1 marked transaction could not be deleted/)).toBeTruthy()
@@ -411,6 +411,7 @@ describe('staged delete — failures surface', () => {
     await screen.findByText('Will delete')
 
     fireEvent.click(screen.getByRole('button', { name: 'Confirm' }))
+    confirmDeletion()
 
     await screen.findByText(/^Imported /)
     expect(document.body.textContent).not.toContain('1 row deleted from your ledger')
@@ -424,6 +425,7 @@ describe('staged delete — failures surface', () => {
     await waitFor(() => expect(screen.getAllByText('Will delete')).toHaveLength(2))
 
     fireEvent.click(screen.getByRole('button', { name: 'Confirm' }))
+    confirmDeletion()
 
     await screen.findByText(/^Imported /)
     expect(document.body.textContent).toContain('2 rows deleted from your ledger')
