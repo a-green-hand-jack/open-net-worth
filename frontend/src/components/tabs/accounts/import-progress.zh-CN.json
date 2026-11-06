@@ -1,0 +1,18 @@
+{
+  "accounts.importProgress.categorise": "正在为记录分类",
+  "accounts.importProgress.elapsed": "已用时 {time}",
+  "accounts.importProgress.fewSeconds": "通常只需几秒",
+  "accounts.importProgress.instructions": "正在应用您的指示",
+  "accounts.importProgress.ledgerCheck": "正在与已入账记录比较",
+  "accounts.importProgress.lucius": "Lucius 正在审核读取结果",
+  "accounts.importProgress.match": "正在逐行与账簿核对",
+  "accounts.importProgress.read": "正在读取账单",
+  "accounts.importProgress.readPage": "正在读取第 {page} 页，共 {pages} 页",
+  "accounts.importProgress.reconcile": "正在根据账单自身余额核对",
+  "accounts.importProgress.render": "正在渲染页面",
+  "accounts.importProgress.retry": "正在重试第 {page} 页（第 {attempt} 次，共 3 次）",
+  "accounts.importProgress.slow": "此页耗时比平常长，仍在处理中。",
+  "accounts.importProgress.stale": "仍在处理，与进度源的连接不稳定。",
+  "accounts.importProgress.stillOpening": "仍在打开，已用 {seconds} 秒。较长的账单最多可能需要 30 秒。",
+  "accounts.importProgress.table": "正在查找交易表"
+}

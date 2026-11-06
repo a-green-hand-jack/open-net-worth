@@ -2,6 +2,8 @@
 // through the ONE server decision pipeline; the manual mapping is sent to the server as a
 // TEACH (saved as the source's format profile) before the same decision preview runs.
 import { Fragment, useState, useRef, useMemo, useEffect, useLayoutEffect } from 'react'
+import { defineMessages } from 'react-intl'
+import { useAppIntl } from '../../../i18n/useAppIntl'
 import { authFetch } from '../../../api/client'
 import { Modal, Button, FormField, Select, EmptyState, SegmentedControl } from '../../ui'
 import { Spark as LuciusSpark } from '../../../lucius/identity'
@@ -76,12 +78,28 @@ const FILE_WIDTH_KEY = 'onw.import.fileWidth'
 const FILE_MIN_PX = 280
 const REVIEW_MIN_PX = 420
 
+const phaseMessages = defineMessages({
+  read: { id: 'accounts.importProgress.read', defaultMessage: 'Reading the statement' },
+  table: { id: 'accounts.importProgress.table', defaultMessage: 'Finding the transaction table' },
+  reconcile: {
+    id: 'accounts.importProgress.reconcile',
+    defaultMessage: 'Checking the statement against its own balances',
+  },
+  instructions: {
+    id: 'accounts.importProgress.instructions',
+    defaultMessage: 'Applying your instructions',
+  },
+  match: {
+    id: 'accounts.importProgress.match',
+    defaultMessage: 'Checking every row against your ledger',
+  },
+})
 const READ_PHASES = [
-  'Reading the statement',
-  'Finding the transaction table',
-  'Checking the statement against its own balances',
-  'Applying your instructions',
-  'Checking every row against your ledger',
+  phaseMessages.read,
+  phaseMessages.table,
+  phaseMessages.reconcile,
+  phaseMessages.instructions,
+  phaseMessages.match,
 ]
 
 // Mirrors TxnDetail.tsx's own KIND_LABEL — the matched-ledger-entry's kind, shown on the
@@ -767,14 +785,33 @@ function fSize(bytes: number): string {
  *  how long it can take (owner, 2026-10-26: the old "Opening your review" only repeated the
  *  title above it). */
 function OpeningReviewLine() {
+  const { formatMessage } = useAppIntl()
   const [seconds, setSeconds] = useState(0)
   useEffect(() => {
     const started = Date.now()
     const id = setInterval(() => setSeconds(Math.floor((Date.now() - started) / 1000)), 1000)
     return () => clearInterval(id)
   }, [])
-  if (seconds < 4) return <>Usually a few seconds</>
-  return <>Still opening — {seconds}s. A long statement can take up to 30 seconds.</>
+  if (seconds < 4)
+    return (
+      <>
+        {formatMessage({
+          id: 'accounts.importProgress.fewSeconds',
+          defaultMessage: 'Usually a few seconds',
+        })}
+      </>
+    )
+  return (
+    <>
+      {formatMessage(
+        {
+          id: 'accounts.importProgress.stillOpening',
+          defaultMessage: 'Still opening — {seconds}s. A long statement can take up to 30 seconds.',
+        },
+        { seconds },
+      )}
+    </>
+  )
 }
 
 export interface ReopenOptions {
@@ -1011,6 +1048,7 @@ export function ImportModal({
   onLoadTxnSourceEntries,
   onDetachTxnSourceRef,
 }: ImportModalProps) {
+  const intl = useAppIntl()
   const [step, setStep] = useState<
     'source' | 'choose' | 'processing' | 'configure' | 'preview' | 'done'
   >(() => (resumeStatementId ? 'processing' : 'source'))
@@ -3435,17 +3473,27 @@ export function ImportModal({
   const liveStage = activeProgress?.stages[activeProgress.stages.length - 1] ?? null
   const readingPhase = activeProgress
     ? activeStale
-      ? 'Still working — losing touch with the progress feed.'
+      ? intl.formatMessage({
+          id: 'accounts.importProgress.stale',
+          defaultMessage: 'Still working — losing touch with the progress feed.',
+        })
       : progressPhaseLabel(
           liveStage?.stage || '',
           liveStage?.page,
           liveStage?.pages,
           liveStage?.label,
+          intl,
         )
-    : READ_PHASES[Math.min(phase, READ_PHASES.length - 1)]
+    : intl.formatMessage(READ_PHASES[Math.min(phase, READ_PHASES.length - 1)]!)
   const readingRetryText =
     liveStage && liveStage.stage === 'read' && liveStage.retry
-      ? `Retrying page ${liveStage.page} (attempt ${liveStage.retry + 1} of 3)`
+      ? intl.formatMessage(
+          {
+            id: 'accounts.importProgress.retry',
+            defaultMessage: 'Retrying page {page} (attempt {attempt} of 3)',
+          },
+          { page: liveStage.page, attempt: liveStage.retry + 1 },
+        )
       : null
   const readingHint =
     !!liveStage &&
@@ -4021,15 +4069,23 @@ export function ImportModal({
                       <span
                         key={s}
                         className={'seg ' + progressStageStatus(activeProgress, s)}
-                        title={progressPhaseLabel(s, null, null)}
+                        title={progressPhaseLabel(s, null, null, undefined, intl)}
                       />
                     ))}
                   </div>
                   {readingRetryText && <div className="imp3-retry">{readingRetryText}</div>}
-                  <div className="imp3-elapsed">{formatElapsed(activeElapsedS)} elapsed</div>
+                  <div className="imp3-elapsed">
+                    {intl.formatMessage(
+                      { id: 'accounts.importProgress.elapsed', defaultMessage: '{time} elapsed' },
+                      { time: formatElapsed(activeElapsedS) },
+                    )}
+                  </div>
                   {readingHint && (
                     <div className="imp3-hint">
-                      This page is taking longer than usual — still working.
+                      {intl.formatMessage({
+                        id: 'accounts.importProgress.slow',
+                        defaultMessage: 'This page is taking longer than usual — still working.',
+                      })}
                     </div>
                   )}
                 </>

@@ -8,6 +8,7 @@
  * is gone; the mapping is sent to the server as a teach instead).
  */
 
+import { defineMessages, type IntlShape, type MessageDescriptor } from 'react-intl'
 import { fCur } from './format'
 
 // ── Format detection ──────────────────────────────────────────────────────
@@ -1582,12 +1583,46 @@ export function mapPreviewProgress(data: unknown): PreviewProgress | null {
 
 /** The phase line's own copy — deliberately NOT the server's generic `label` field, which
  *  exists for logs/other consumers: this is the polished narrative wording for the modal. */
+const progressMessages = defineMessages({
+  render: { id: 'accounts.importProgress.render', defaultMessage: 'Rendering the pages' },
+  read: { id: 'accounts.importProgress.read', defaultMessage: 'Reading the statement' },
+  readPage: {
+    id: 'accounts.importProgress.readPage',
+    defaultMessage: 'Reading page {page} of {pages}',
+  },
+  reconcile: {
+    id: 'accounts.importProgress.reconcile',
+    defaultMessage: 'Checking the statement against its own balances',
+  },
+  match: {
+    id: 'accounts.importProgress.match',
+    defaultMessage: 'Checking every row against your ledger',
+  },
+  lucius: { id: 'accounts.importProgress.lucius', defaultMessage: 'Lucius is reviewing the read' },
+  categorise: {
+    id: 'accounts.importProgress.categorise',
+    defaultMessage: 'Sorting rows into categories',
+  },
+  ledger_check: {
+    id: 'accounts.importProgress.ledgerCheck',
+    defaultMessage: 'Comparing against what’s already booked',
+  },
+})
+
 export function progressPhaseLabel(
   stage: string,
   page: number | null | undefined,
   pages: number | null | undefined,
   fallbackLabel?: string,
+  intl?: IntlShape,
 ): string {
+  if (intl) {
+    if (stage === 'read' && page && pages)
+      return intl.formatMessage(progressMessages.readPage as MessageDescriptor, { page, pages })
+    if (stage !== 'readPage' && Object.hasOwn(progressMessages, stage))
+      return intl.formatMessage(progressMessages[stage as keyof typeof progressMessages])
+    return fallbackLabel || intl.formatMessage(progressMessages.read)
+  }
   switch (stage as ProgressStage) {
     case 'render':
       return 'Rendering the pages'
