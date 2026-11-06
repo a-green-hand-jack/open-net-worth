@@ -5,6 +5,7 @@
  */
 
 import { useState, useRef, useEffect, useLayoutEffect, useMemo, useId } from 'react'
+import { useAppIntl } from '../../../i18n/useAppIntl'
 import { createPortal } from 'react-dom'
 import { DRAG_IGNORE_PROPS } from '../../../hooks/useSheetDragToDismiss'
 import { Check, Plus } from '../../../ui/icons'
@@ -120,6 +121,7 @@ export interface ColorPickerProps {
   onChange: (c: string) => void
 }
 export function ColorPicker({ value, onChange }: ColorPickerProps) {
+  const { formatMessage } = useAppIntl()
   const [open, setOpen] = useState(false)
   const popRef = useRef<HTMLDivElement>(null)
   const [shiftX, setShiftX] = useState(0)
@@ -196,7 +198,10 @@ export function ColorPicker({ value, onChange }: ColorPickerProps) {
         type="button"
         className={'acct-swatch acct-swatch-custom' + (COLORS.includes(value) ? '' : ' on')}
         style={COLORS.includes(value) ? undefined : { background: value }}
-        title="Custom colour"
+        title={formatMessage({
+          id: 'accounts.picker.customColor',
+          defaultMessage: 'Custom colour',
+        })}
         onClick={() => {
           setShiftX(0)
           setOpen((o) => !o)
@@ -294,6 +299,7 @@ export function InstitutionPicker({
   options,
   onManage,
 }: InstitutionPickerProps) {
+  const { formatMessage } = useAppIntl()
   const generatedId = useId()
   const listId = `${id || generatedId}-options`
   const [open, setOpen] = useState(false)
@@ -359,7 +365,10 @@ export function InstitutionPicker({
           aria-autocomplete="list"
           aria-expanded={open}
           aria-controls={listId}
-          placeholder="e.g. DBS, IBKR"
+          placeholder={formatMessage({
+            id: 'accounts.picker.institutionExample',
+            defaultMessage: 'e.g. DBS, IBKR',
+          })}
           value={value}
           onFocus={() => {
             setOpen(true)
@@ -377,13 +386,23 @@ export function InstitutionPicker({
         </span>
       </div>
       {!!ql && !isKnown && !open && (
-        <div className="acct-instp-note">Will be saved with this account</div>
+        <div className="acct-instp-note">
+          {formatMessage({
+            id: 'accounts.picker.savedInstitution',
+            defaultMessage: 'Will be saved with this account',
+          })}
+        </div>
       )}
       {open && (
         <div className="acct-ccyp-pop">
           <div className="acct-ccyp-list" id={listId} role="listbox">
             {matches.length === 0 && !showCreate && (
-              <div className="acct-instp-empty">No saved institutions yet</div>
+              <div className="acct-instp-empty">
+                {formatMessage({
+                  id: 'accounts.picker.noInstitutions',
+                  defaultMessage: 'No saved institutions yet',
+                })}
+              </div>
             )}
             {matches.map((o, i) => (
               <button
@@ -413,7 +432,10 @@ export function InstitutionPicker({
               <button
                 type="button"
                 role="option"
-                aria-label={`Use “${value.trim()}”`}
+                aria-label={formatMessage(
+                  { id: 'accounts.visible.useNamed', defaultMessage: 'Use “{value}”' },
+                  { value: value.trim() },
+                )}
                 aria-selected="false"
                 className="acct-ccyp-item create"
                 onMouseDown={(e) => {
@@ -423,7 +445,10 @@ export function InstitutionPicker({
               >
                 <Plus className="acct-payf-plus" size={12} aria-hidden="true" />
                 <span>
-                  Use “<b>{value.trim()}</b>”
+                  {formatMessage(
+                    { id: 'accounts.picker.useInstitution', defaultMessage: 'Use “<b>{name}</b>”' },
+                    { name: value.trim(), b: (chunks) => <b>{chunks}</b> },
+                  )}
                 </span>
               </button>
             )}
@@ -438,7 +463,10 @@ export function InstitutionPicker({
                 onManage()
               }}
             >
-              Manage saved institutions
+              {formatMessage({
+                id: 'accounts.picker.manageInstitutions',
+                defaultMessage: 'Manage saved institutions',
+              })}
             </button>
           )}
         </div>
@@ -623,6 +651,10 @@ export interface CurrencyPickerProps {
   defaultOpen?: boolean
 }
 export function CurrencyPicker({ value, onChange, defaultOpen }: CurrencyPickerProps) {
+  const { formatMessage, locale } = useAppIntl()
+  const names = new Intl.DisplayNames([locale], { type: 'currency' })
+  const currencyName = (code: string, fallback: string) =>
+    locale === 'en' ? fallback : names.of(code) || fallback
   const [open, setOpen] = useState(false),
     [q, setQ] = useState(''),
     [hi, setHi] = useState(0)
@@ -675,7 +707,12 @@ export function CurrencyPicker({ value, onChange, defaultOpen }: CurrencyPickerP
   const real = CURRENCIES.filter(([c]) => c !== '—')
   const ql = q.trim().toLowerCase()
   const matches = ql
-    ? real.filter(([c, n]) => c.toLowerCase().includes(ql) || n.toLowerCase().includes(ql))
+    ? real.filter(
+        ([c, n]) =>
+          c.toLowerCase().includes(ql) ||
+          n.toLowerCase().includes(ql) ||
+          currencyName(c, n).toLowerCase().includes(ql),
+      )
     : real
   const cur = real.find(([c]) => c === value)
   useEffect(() => {
@@ -769,7 +806,9 @@ export function CurrencyPicker({ value, onChange, defaultOpen }: CurrencyPickerP
           )
         }}
       >
-        <span className="acct-ccyp-val">{cur ? cur[0] + ' — ' + cur[1] : value}</span>
+        <span className="acct-ccyp-val">
+          {cur ? cur[0] + ' — ' + currencyName(cur[0], cur[1]) : value}
+        </span>
         <Caret />
       </button>
       {open &&
@@ -789,7 +828,10 @@ export function CurrencyPicker({ value, onChange, defaultOpen }: CurrencyPickerP
               <input
                 ref={inputRef}
                 className="acct-ccyp-input"
-                placeholder="Search currency…"
+                placeholder={formatMessage({
+                  id: 'accounts.picker.searchCurrencyDots',
+                  defaultMessage: 'Search currency…',
+                })}
                 value={q}
                 onChange={(e) => {
                   setQ(e.target.value)
@@ -799,7 +841,11 @@ export function CurrencyPicker({ value, onChange, defaultOpen }: CurrencyPickerP
               />
             </div>
             <div className="acct-ccyp-list" ref={popRef}>
-              {matches.length === 0 && <div className="acct-ccyp-empty">No match</div>}
+              {matches.length === 0 && (
+                <div className="acct-ccyp-empty">
+                  {formatMessage({ id: 'accounts.picker.noMatch', defaultMessage: 'No match' })}
+                </div>
+              )}
               {matches.map(([c, n], i) => (
                 <button
                   type="button"
@@ -817,7 +863,7 @@ export function CurrencyPicker({ value, onChange, defaultOpen }: CurrencyPickerP
                   }}
                 >
                   <span className="acct-ccyp-code">{c}</span>
-                  <span className="acct-ccyp-name">{n}</span>
+                  <span className="acct-ccyp-name">{currencyName(c, n)}</span>
                   {c === value && (
                     <Check className="acct-ccyp-check" size={12} aria-hidden="true" />
                   )}
@@ -876,6 +922,8 @@ export interface CcyPickerProps {
   onChange: (c: string) => void
 }
 export function CcyPicker({ value, onChange }: CcyPickerProps) {
+  const { formatMessage, locale } = useAppIntl()
+  const names = new Intl.DisplayNames([locale], { type: 'currency' })
   const [open, setOpen] = useState(false),
     [q, setQ] = useState(''),
     [hi, setHi] = useState(0)
@@ -896,14 +944,26 @@ export function CcyPicker({ value, onChange }: CcyPickerProps) {
     }
   }, [open])
   const ql = q.trim().toLowerCase()
-  const opts = [{ code: '', name: 'Same as account' }].concat(
-    ALL_CCY.map((c) => ({ code: c, name: CCY_NAMES[c] || c })),
+  const opts = [
+    {
+      code: '',
+      name: formatMessage({
+        id: 'accounts.picker.sameCurrency',
+        defaultMessage: 'Same as account',
+      }),
+    },
+  ].concat(
+    ALL_CCY.map((c) => ({
+      code: c,
+      name: locale === 'en' ? CCY_NAMES[c] || c : names.of(c) || CCY_NAMES[c] || c,
+    })),
   )
   const matches = ql
     ? opts.filter(
         (o) =>
           o.code.toLowerCase().includes(ql) ||
           o.name.toLowerCase().includes(ql) ||
+          (CCY_NAMES[o.code]?.toLowerCase().includes(ql) ?? false) ||
           (o.code === '' && 'same'.includes(ql)),
       )
     : opts
@@ -933,7 +993,9 @@ export function CcyPicker({ value, onChange }: CcyPickerProps) {
         className={'ui-select acct-edit-in acct-ccyp-btn' + (open ? ' open' : '')}
         onClick={() => setOpen((o) => !o)}
       >
-        <span className="acct-ccyp-val">{value || 'Same'}</span>
+        <span className="acct-ccyp-val">
+          {value || formatMessage({ id: 'accounts.visible.same', defaultMessage: 'Same' })}
+        </span>
         <Caret />
       </button>
       {open && (
@@ -942,7 +1004,10 @@ export function CcyPicker({ value, onChange }: CcyPickerProps) {
             <input
               ref={inRef}
               className="acct-ccyp-input"
-              placeholder="Search currency"
+              placeholder={formatMessage({
+                id: 'accounts.picker.searchCurrency',
+                defaultMessage: 'Search currency',
+              })}
               value={q}
               onChange={(e) => {
                 setQ(e.target.value)
@@ -952,7 +1017,14 @@ export function CcyPicker({ value, onChange }: CcyPickerProps) {
             />
           </div>
           <div className="acct-ccyp-list">
-            {matches.length === 0 && <div className="acct-ccyp-empty">No currency found</div>}
+            {matches.length === 0 && (
+              <div className="acct-ccyp-empty">
+                {formatMessage({
+                  id: 'accounts.picker.noCurrency',
+                  defaultMessage: 'No currency found',
+                })}
+              </div>
+            )}
             {matches.map((o, i) => (
               <button
                 type="button"
@@ -1008,13 +1080,14 @@ export function PMSelect({
   placeholder,
   className,
   searchable,
-  searchPlaceholder = 'Search payees…',
-  emptyText = 'No payees match.',
+  searchPlaceholder,
+  emptyText,
   compact,
   ariaLabel,
   disabled,
   menuWidth = 168,
 }: PMSelectProps) {
+  const { formatMessage } = useAppIntl()
   const [open, setOpen] = useState(false),
     [pos, setPos] = useState<React.CSSProperties | null>(null)
   const [q, setQ] = useState(''),
@@ -1116,7 +1189,9 @@ export function PMSelect({
         ref={btnRef}
         type="button"
         className={'acct-acctsel-btn' + (open ? ' open' : '')}
-        title={compact ? 'Sort' : undefined}
+        title={
+          compact ? formatMessage({ id: 'remaining.sort', defaultMessage: 'Sort' }) : undefined
+        }
         aria-label={ariaLabel}
         disabled={disabled}
         aria-haspopup="listbox"
@@ -1166,7 +1241,10 @@ export function PMSelect({
             <input
               ref={searchRef}
               className="pm-select-search"
-              placeholder={searchPlaceholder}
+              placeholder={
+                searchPlaceholder ??
+                formatMessage({ id: 'accounts.pmSelect.search', defaultMessage: 'Search payees…' })
+              }
               value={q}
               onChange={(e) => {
                 setQ(e.target.value)
@@ -1200,7 +1278,13 @@ export function PMSelect({
             </button>
           ))}
           {searchable && shown.filter((o) => o.value !== '').length === 0 && (
-            <div className="pm-select-noresult">{emptyText}</div>
+            <div className="pm-select-noresult">
+              {emptyText ??
+                formatMessage({
+                  id: 'accounts.pmSelect.empty',
+                  defaultMessage: 'No payees match.',
+                })}
+            </div>
           )}
         </div>
       )}

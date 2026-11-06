@@ -118,6 +118,20 @@ export type DateStyle = 'numeric' | 'short' | 'long'
  *  `always` — "10/06" is ambiguous — the month-name styles default to `auto`. */
 export type YearMode = 'auto' | 'always' | 'never'
 
+/** Format an ISO calendar month in the interface language without timezone shifts. */
+export function fLocalizedMonth(value: string, locale: string): string {
+  const match = /^(\d{4})-(\d{2})$/.exec(value)
+  if (!match) return value
+  const y = Number(match[1]),
+    m = Number(match[2])
+  if (m < 1 || m > 12) return value
+  return new Intl.DateTimeFormat(locale, {
+    month: 'long',
+    year: 'numeric',
+    timeZone: 'UTC',
+  }).format(new Date(Date.UTC(y, m - 1, 1)))
+}
+
 /** A "YYYY-MM-DD" value names a calendar day, so it is read as LOCAL — `new Date(iso)` would
  *  read it as UTC and show the day before in any timezone behind UTC. A full timestamp is an
  *  instant and is shown in the viewer's own timezone. Returns null for an unreadable value. */

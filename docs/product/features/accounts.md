@@ -207,6 +207,11 @@ the cleared balance only. The sidebar includes pending (uncleared) transactions 
 Reconcile showed it (a transaction cleared, edited or added, here or by Lucius). Nothing was
 booked. Open Reconcile again; it now asks about the current figure.
 
+## Interface language
+
+Account, category, payee and date picker controls follow the interface language. Account names,
+payees and category group names retain the text you entered.
+
 ## Related pages
 
 - [Transactions and the ledger](transactions.md)
