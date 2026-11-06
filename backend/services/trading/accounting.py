@@ -1,5 +1,8 @@
 """Average-cost realized results from the same execution units used by fill application."""
 
+from decimal import localcontext
+
+from backend.core.errors import ValidationError
 from backend.services.trading.common import amount
 from backend.services.trading.fees import base_fee_quantity
 from backend.services.trading.market import instrument_key, latest_quote
@@ -23,39 +26,48 @@ def execution_ledger(account, fills):
     cash, realized, basis_complete = amount(account["capital"]), amount(0), True
     movements = []
     for fill in fills:
-        key = instrument_key(fill["instrument"])
-        held, basis = positions.get(key, (amount(0), amount(0)))
-        quantity, price, fee = amount(fill["quantity"]), amount(fill["price"]), amount(fill["fees"])
-        gross, base_fee = quantity * price, base_fee_quantity(fill)
-        if fill["side"] == "buy":
-            positions[key] = (held + quantity - base_fee, basis + gross + fee)
-            movement = -gross - fee
-        else:
-            if held <= 0 or quantity + base_fee > held:
-                basis_complete = False
-                disposed_basis = amount(0)
-                remaining_basis = basis
+        precision = fill.get("accounting_precision", 28)
+        if type(precision) is not int or precision not in (28, 600):
+            raise ValidationError("Unsupported fill accounting precision")
+        with localcontext() as ctx:
+            ctx.prec = precision
+            key = instrument_key(fill["instrument"])
+            held, basis = positions.get(key, (amount(0), amount(0)))
+            quantity, price, fee = (
+                amount(fill["quantity"]),
+                amount(fill["price"]),
+                amount(fill["fees"]),
+            )
+            gross, base_fee = quantity * price, base_fee_quantity(fill)
+            if fill["side"] == "buy":
+                positions[key] = (held + quantity - base_fee, basis + gross + fee)
+                movement = -gross - fee
             else:
-                disposed_basis = basis * (quantity + base_fee) / held
-                remaining_basis = basis * (held - quantity - base_fee) / held
-            positions[key] = (held - quantity - base_fee, remaining_basis)
-            realized += gross - fee - disposed_basis
-            movement = gross - fee
-        cash += movement
-        movements.append(
-            {
-                "id": fill["id"],
-                "timestamp": fill["timestamp"],
-                "kind": fill["side"],
-                "amount": str(movement),
-                "gross": str(gross),
-                "cash_fee": str(fee),
-                "fee_asset": fill.get("fee_asset"),
-                "fee_quantity": fill.get("fee_quantity"),
-                "order_id": fill["order_id"],
-                "fill_id": fill["id"],
-            }
-        )
+                if held <= 0 or quantity + base_fee > held:
+                    basis_complete = False
+                    disposed_basis = amount(0)
+                    remaining_basis = basis
+                else:
+                    disposed_basis = basis * (quantity + base_fee) / held
+                    remaining_basis = basis * (held - quantity - base_fee) / held
+                positions[key] = (held - quantity - base_fee, remaining_basis)
+                realized += gross - fee - disposed_basis
+                movement = gross - fee
+            cash += movement
+            movements.append(
+                {
+                    "id": fill["id"],
+                    "timestamp": fill["timestamp"],
+                    "kind": fill["side"],
+                    "amount": str(movement),
+                    "gross": str(gross),
+                    "cash_fee": str(fee),
+                    "fee_asset": fill.get("fee_asset"),
+                    "fee_quantity": fill.get("fee_quantity"),
+                    "order_id": fill["order_id"],
+                    "fill_id": fill["id"],
+                }
+            )
     reconciled = (
         basis_complete
         and cash == amount(account["cash"])

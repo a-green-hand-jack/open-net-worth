@@ -49,6 +49,7 @@ For simulated orders, the order-notional limit applies to the cumulative gross v
 fees are accounted for separately. The pre-submission check compares the stated quantity and
 reference price without rounding their product. A quote-based check cannot guarantee a live
 broker fill will stay within that limit.
+Simulated account statements reconstruct cash and positions from the recorded fills.
 
 In Paper or Live runs, permitted participants can search public research, fetch a public research
 page, and request current Yahoo market data within the reviewed mandate and allocated account.

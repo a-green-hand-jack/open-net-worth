@@ -10,6 +10,12 @@ from backend.services.trading.market import instrument_key
 
 
 def apply_fill(conn, run, order, raw):
+    with localcontext() as ctx:
+        ctx.prec = 28 if uses_broker_execution(run) else 600
+        return _apply_fill(conn, run, order, raw)
+
+
+def _apply_fill(conn, run, order, raw):
     base_fee = base_fee_quantity(raw)
     if not isinstance(raw.get("execution_id"), str) or not raw["execution_id"]:
         raise ValidationError("Broker fill needs a stable execution identity")
@@ -88,6 +94,7 @@ def apply_fill(conn, run, order, raw):
     )
     fill = {
         **raw,
+        "accounting_precision": 28 if uses_broker_execution(run) else 600,
         "id": fill_id,
         "scope_id": run["id"],
         "run_id": run["id"],

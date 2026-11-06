@@ -659,6 +659,7 @@ def test_replayed_fill_is_idempotent_and_outside_activity_blocks_run():
         fills=[
             {
                 "execution_id": "synthetic-fill",
+                "accounting_precision": 600,
                 "quantity": "1",
                 "price": "100",
                 "fees": "1",
@@ -682,6 +683,7 @@ def test_replayed_fill_is_idempotent_and_outside_activity_blocks_run():
     assert call(reconciliation.reconcile_run(run["id"]))["state"] == "running"
     call(reconciliation.reconcile_run(run["id"]))
     assert execution.list_fills(run["id"])["total"] == 1
+    assert execution.list_fills(run["id"])["items"][0]["accounting_precision"] == 28
     assert performance.get_account(run["id"])["items"][0]["cash"] == "899"
     broker.account["cash"] = "898"
     assert call(reconciliation.reconcile_run(run["id"]))["state"] == "needs_reconciliation"

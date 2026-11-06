@@ -14,6 +14,7 @@ from backend.db.account_store import AccountStore
 from backend.db.trading_store import TradingStore, trading_transaction
 from backend.db.transaction_store import TransactionStore
 from backend.services.trading import execution, lifecycle, market, performance, workspaces
+from backend.services.trading.accounting import execution_ledger
 
 T0 = "2026-01-05T14:30:00+00:00"
 T1 = "2026-01-05T14:31:00+00:00"
@@ -275,6 +276,14 @@ def test_backtest_partial_fills_stay_within_order_notional_cap(db_isolated):
     )
     assert actual_cash == Fraction(1000) - spent
     assert actual_quantity == filled_quantity
+    assert all(fill["accounting_precision"] == 600 for fill in fills)
+    assert execution_ledger(account, fills)["reconciled"] is True
+    historical_fills = [dict(fill) for fill in fills]
+    historical_fills[0].pop("accounting_precision")
+    assert execution_ledger(account, historical_fills)["reconciled"] is True
+    historical_fills[0]["accounting_precision"] = 601
+    with pytest.raises(ValidationError, match="Unsupported fill accounting precision"):
+        execution_ledger(account, historical_fills)
     displayed = performance.get_account(run_id)["items"][0]
     displayed_position = next(iter(displayed["positions"].values()))
     available_quantity = Fraction(Decimal(displayed_position["available_quantity"]))
