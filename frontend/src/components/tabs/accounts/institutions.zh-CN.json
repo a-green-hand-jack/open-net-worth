@@ -1,0 +1,18 @@
+{
+  "institutions.accountCount": "{count} 个账户",
+  "institutions.renameFailed": "无法重命名机构",
+  "institutions.deleteFailed": "无法删除机构",
+  "institutions.title": "管理机构",
+  "institutions.description": "重命名共享机构，或将其从已保存列表中移除。删除只会解除账户关联，不会删除账户数据。",
+  "institutions.empty": "尚无已保存的机构。",
+  "institutions.nameFor": "{name}的机构名称",
+  "institutions.save": "保存",
+  "institutions.cancel": "取消",
+  "institutions.renameName": "重命名{name}",
+  "institutions.rename": "重命名",
+  "institutions.deleteName": "删除{name}",
+  "institutions.delete": "删除",
+  "institutions.deleteTitle": "删除{name}？",
+  "institutions.deleteBody": "这会解除其与 {count} 个账户的关联。账户、余额和交易记录会保留。",
+  "institutions.confirmDelete": "解除关联并删除"
+}
