@@ -250,6 +250,7 @@ header controls and suggested prompts follow the same language without changing 
 instructions for Lucius.
 Layout loading and saving errors also appear in the selected interface language.
 New default view and section names follow the interface language; existing and renamed items retain their names.
+The money-flow card's controls, status and chart description follow the interface language.
 
 ## Related pages
 

@@ -1,0 +1,9 @@
+{
+  "overview.moneyFlow.openPlan": "在计划中打开",
+  "overview.moneyFlow.netRefunds": "已扣除退款和报销",
+  "overview.moneyFlow.error": "无法加载资金流向。",
+  "overview.moneyFlow.empty": "{month} 没有记录收入或支出。",
+  "overview.moneyFlow.over": " 超支",
+  "overview.moneyFlow.saved": " 已结余",
+  "overview.moneyFlow.chartLabel": "{month} 的资金流向：收入 {income}，支出 {spend}"
+}
