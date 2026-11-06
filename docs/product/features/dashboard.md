@@ -257,6 +257,8 @@ Transaction widget controls and system-generated transaction labels follow the i
 payees, descriptions, account names and categories keep their original text.
 Budget progress, spending pace and liability widget controls follow the interface language while
 budget and account names retain their original text.
+Net worth chart labels, asset classes and breakdown controls follow the interface language;
+institution names remain as entered.
 
 ## Related pages
 
