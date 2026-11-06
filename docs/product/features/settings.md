@@ -46,6 +46,7 @@ The permission mode selector and its skip-approval warning follow the interface 
 Verified built-in starter skill display names follow the interface language; skill files remain unchanged.
 Previously installed built-in starters are recognized when their name and description still match the shipped template.
 The starter-skill browser translates verified display text while preserving skill identifiers.
+Skill list controls follow the interface language and search retains original names and descriptions.
 
 ## Common tasks
 

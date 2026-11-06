@@ -1,0 +1,16 @@
+{
+  "skills.off": "关闭",
+  "skills.tree.bundleError": "无法加载文件包。",
+  "skills.tree.collapse": "折叠",
+  "skills.tree.createFirst": "创建第一个技能",
+  "skills.tree.empty": "暂无技能。创建第一个技能，让 Lucius 执行可复用的流程。",
+  "skills.tree.expand": "展开",
+  "skills.tree.label": "技能树",
+  "skills.tree.loading": "正在加载文件包…",
+  "skills.tree.noMatch": "没有匹配“{query}”的技能。",
+  "skills.tree.placeholder": "搜索技能…",
+  "skills.tree.search": "搜索技能",
+  "skills.tree.skillOff": "技能 · 已关闭",
+  "skills.tree.skillOn": "技能 · 已开启",
+  "skills.unnamed": "（未命名）"
+}
