@@ -8,7 +8,7 @@ import { CreateSkillMenu } from './CreateSkillMenu'
 afterEach(cleanup)
 
 it('opens the Chinese creation menu and preserves its actions', () => {
-  const actions = [vi.fn(), vi.fn(), vi.fn(), vi.fn()]
+  const actions = [vi.fn(), vi.fn(), vi.fn(), vi.fn()] as const
   render(<IntlProvider locale="zh-CN" messages={catalogs['zh-CN']}>
     <CreateSkillMenu onCreateWithLucius={actions[0]} onWriteInstructions={actions[1]}
       onUpload={actions[2]} onBrowseStarters={actions[3]} />
