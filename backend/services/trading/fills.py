@@ -122,6 +122,13 @@ def apply_receipt(conn, run, order, receipt):
     }
     if receipt.get("status") not in allowed or not receipt.get("broker_order_id"):
         raise ValidationError("Invalid broker order receipt")
+    terminal = {"rejected", "canceled", "expired"}
+    if order["status"] in terminal and receipt["status"] != order["status"]:
+        raise ConflictError(
+            "Broker receipt contradicts a terminal order; reconcile before continuing"
+        )
+    if order.get("broker_order_id") and order["broker_order_id"] != receipt["broker_order_id"]:
+        raise ConflictError("Broker order identity changed; reconcile before continuing")
     order = TradingStore("orders").update_by_id(
         order["id"], {"broker_order_id": receipt["broker_order_id"]}, conn=conn
     )

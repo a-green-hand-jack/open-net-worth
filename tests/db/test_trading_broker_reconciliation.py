@@ -387,3 +387,47 @@ def test_revoked_strategy_order_is_not_sent_to_broker(monkeypatch):
     assert retry["id"] == submitted["id"]
     assert retry["status"] == "canceled"
     assert broker.submissions == 0
+
+
+def test_conflicting_terminal_receipt_does_not_overwrite_cancellation():
+    from backend.services.trading.fills import apply_receipt
+
+    broker = FakeBroker()
+    run = live_run(broker)
+    call(lifecycle.apply_run_action(run["id"], {"action": "start"}))
+    submitted = call(execution.submit_order(run["id"], order(run["id"])))
+    canceled = call(execution.cancel_order(run["id"], submitted["id"]))
+    assert canceled["status"] == "canceled"
+    contradictory = {
+        "broker_order_id": canceled["broker_order_id"],
+        "status": "rejected",
+        "fills": [],
+    }
+    with pytest.raises(ConflictError, match="terminal"):
+        with trading_transaction() as conn:
+            apply_receipt(
+                conn, run, TradingStore("orders").required(canceled["id"], conn=conn), contradictory
+            )
+    assert execution.list_orders(run["id"])["items"][0]["status"] == "canceled"
+
+
+def test_receipt_cannot_replace_known_broker_order_identity():
+    from backend.services.trading.fills import apply_receipt
+
+    broker = FakeBroker()
+    run = live_run(broker)
+    call(lifecycle.apply_run_action(run["id"], {"action": "start"}))
+    submitted = call(execution.submit_order(run["id"], order(run["id"])))
+    contradictory = {"broker_order_id": "different-synthetic-id", "status": "open", "fills": []}
+    with pytest.raises(ConflictError, match="identity"):
+        with trading_transaction() as conn:
+            apply_receipt(
+                conn,
+                run,
+                TradingStore("orders").required(submitted["id"], conn=conn),
+                contradictory,
+            )
+    assert (
+        execution.list_orders(run["id"])["items"][0]["broker_order_id"]
+        == submitted["broker_order_id"]
+    )
