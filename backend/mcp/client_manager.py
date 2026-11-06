@@ -62,6 +62,7 @@ transport doesn't share the bug).
 from __future__ import annotations
 
 import asyncio
+import json
 import logging
 import threading
 import time
@@ -450,6 +451,61 @@ class McpClientManager:
         ``blocked`` — re-read by ``apply_confirmed`` so nothing the caller decided fires past
         them."""
         return await self.apply_confirmed(name, args)
+
+    async def call_structured_tool(self, server_id: str, tool: str, args: dict) -> object:
+        """Call a standing-authorized provider tool and parse a bounded JSON receipt."""
+        import jsonschema
+
+        from backend.core.errors import ConflictError
+
+        def authorized(server):
+            return (
+                server is not None
+                and server.last_status not in FAILED_STATUSES
+                and self._dispatch_refusal(server, tool) is None
+                and tool_permissions.get_tool_permission(mcp_connector_id(server.id), tool)
+                == "always_allow"
+            )
+
+        server = self._store.find(server_id)
+        if not authorized(server):
+            raise ConflictError(
+                "Broker MCP tool requires an available connection and standing permission"
+            )
+        discovered = next(
+            (
+                t
+                for t in (server.discovered_tools or [])
+                if isinstance(t, dict) and t.get("name") == tool
+            ),
+            None,
+        )
+        if discovered is None or not isinstance(discovered.get("inputSchema"), dict):
+            raise ConflictError("Broker MCP tool schema is unavailable")
+        try:
+            jsonschema.validate(args, discovered["inputSchema"])
+        except (jsonschema.ValidationError, jsonschema.SchemaError) as exc:
+            raise ConflictError("Broker MCP tool schema does not match the adapter") from exc
+        try:
+            await asyncio.to_thread(oauth_flow.ensure_fresh_token, server)
+            current = self._store.find(server_id)
+            if not authorized(current):
+                raise ConflictError("Broker MCP permission or connection changed before dispatch")
+            if current.discovered_tools != server.discovered_tools:
+                raise ConflictError("Broker MCP schema changed before dispatch")
+            raw, images = await asyncio.to_thread(self._call_tool_blocking, current, tool, args)
+            if images or not isinstance(raw, str) or len(raw.encode("utf-8")) > 2_000_000:
+                raise ValueError("Expected a bounded JSON receipt")
+            result = json.loads(raw, parse_constant=lambda _: (_ for _ in ()).throw(ValueError()))
+        except ConflictError:
+            raise
+        except Exception as exc:
+            raise ConflictError(
+                "Broker MCP receipt unavailable; reconcile before retrying"
+            ) from exc
+        if isinstance(result, dict) and result.get("error"):
+            raise ConflictError("Broker reported an error; reconcile before retrying")
+        return result
 
     async def _fire(
         self, server: McpServerConfig, tool: str, args: dict, name: str

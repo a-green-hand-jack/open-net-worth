@@ -49,6 +49,7 @@ const PRESENTATION: Record<string, { icon: string; hue: string }> = {
   enable_banking: { icon: 'accounts', hue: 'var(--cash-c)' },
   gocardless: { icon: 'accounts', hue: 'var(--recv)' },
   yodlee: { icon: 'accounts', hue: 'var(--good)' },
+  binance: { icon: 'investments', hue: 'var(--crypto)' },
   alpaca: { icon: 'investments', hue: 'var(--crypto)' },
   ibkr: { icon: 'investments', hue: 'var(--ibkr)' },
   yahoo_finance: { icon: 'investments', hue: 'var(--cash-c)' },
@@ -103,6 +104,7 @@ const DEVELOPERS: Record<string, { name: string; url: string }> = {
   // the vendor (Yahoo, CoinGecko) is still named in the card's own name/description, just
   // not on this specific "who wrote this connector" line (see ConnectorDetail.tsx's own
   // comment on the non-MCP "Developed by" line for the full reasoning).
+  binance: { name: 'Open Net Worth', url: 'https://opennetworth.ai' },
   yahoo_finance: { name: 'Open Net Worth', url: 'https://opennetworth.ai' },
   coingecko: { name: 'Open Net Worth', url: 'https://opennetworth.ai' },
   'web_search:duckduckgo': { name: 'DuckDuckGo', url: 'https://duckduckgo.com/' },

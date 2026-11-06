@@ -1,6 +1,23 @@
 {
   "entries": [
     {
+      "id": "binance",
+      "name": "Binance Spot",
+      "families": [
+        "Data source"
+      ],
+      "categories": [
+        "Brokerage"
+      ],
+      "publisher": "Open Net Worth",
+      "verification": "unverified",
+      "popular": false,
+      "mcp": false,
+      "connect": {
+        "kind": "in_app_form"
+      }
+    },
+    {
       "id": "telegram",
       "name": "Telegram",
       "families": [
