@@ -215,6 +215,8 @@ Account creation and editing forms also follow the interface language; the saved
 type, currency and balance retain the values you choose.
 Account header, reconciliation and due-payment controls follow the interface language while
 continuing to honor amount hiding.
+The register's bulk-action controls follow the selected interface language. Account
+and category names remain as entered; selection counts follow the number format.
 
 ## Related pages
 

@@ -7,9 +7,11 @@
  */
 
 import { useState, useRef, useEffect, type CSSProperties } from 'react'
+import { useAppIntl } from '../../../i18n/useAppIntl'
 import type { Account, Category } from './types'
 import type { SelectionTotal } from './data'
 import { fBase, fCur } from './format'
+import { getNumberLocale } from '../../../utils/format'
 import { useIsMobile } from '../../../hooks/useIsMobile'
 import { BottomSheet } from '../../ui/BottomSheet'
 import {
@@ -86,6 +88,8 @@ export function BulkBar({
   onExport,
   onDelete,
 }: BulkBarProps) {
+  const { formatMessage } = useAppIntl()
+  const formattedCount = count.toLocaleString(getNumberLocale())
   const [menu, setMenu] = useState<string | null>(null)
   const [moveOpen, setMoveOpen] = useState(false)
   const [catOpen, setCatOpen] = useState(false)
@@ -160,7 +164,7 @@ export function BulkBar({
         <>
           <button className="acct-bm-item" onClick={() => setCatOpen(true)}>
             <Tags className="acct-bm-ic" size={14} aria-hidden="true" />
-            Categorize
+            {formatMessage({ id: 'accounts.bulk.categorize', defaultMessage: 'Categorize' })}
             <ChevronRight className="acct-bm-caret" size={14} aria-hidden="true" />
           </button>
           <div className="acct-bm-div" />
@@ -170,73 +174,110 @@ export function BulkBar({
         className="acct-bm-item"
         onClick={() => act(onMarkCleared)}
         disabled={nCleared === 0}
-        title={whyDisabled(nCleared, 'Every selected transaction is already cleared')}
+        title={whyDisabled(
+          nCleared,
+          formatMessage({
+            id: 'accounts.bulk.allCleared',
+            defaultMessage: 'Every selected transaction is already cleared',
+          }),
+        )}
       >
         <Check className="acct-bm-ic" size={14} aria-hidden="true" />
-        Mark as Cleared
+        {formatMessage({ id: 'accounts.bulk.cleared', defaultMessage: 'Mark as Cleared' })}
         {!isMobile && <Shortcut k="C" />}
       </button>
       <button
         className="acct-bm-item"
         onClick={() => act(onMarkUncleared)}
         disabled={nUncleared === 0}
-        title={whyDisabled(nUncleared, 'No selected transaction is cleared')}
+        title={whyDisabled(
+          nUncleared,
+          formatMessage({
+            id: 'accounts.bulk.noneCleared',
+            defaultMessage: 'No selected transaction is cleared',
+          }),
+        )}
       >
         <Circle className="acct-bm-ic dim" size={14} aria-hidden="true" />
-        Mark as Uncleared
+        {formatMessage({ id: 'accounts.bulk.uncleared', defaultMessage: 'Mark as Uncleared' })}
         {!isMobile && <Shortcut k="C" />}
       </button>
       <button
         className="acct-bm-item"
         onClick={() => act(onMarkReviewed)}
         disabled={nReview === 0}
-        title={whyDisabled(nReview, 'Every selected transaction is already reviewed')}
+        title={whyDisabled(
+          nReview,
+          formatMessage({
+            id: 'accounts.bulk.allReviewed',
+            defaultMessage: 'Every selected transaction is already reviewed',
+          }),
+        )}
       >
         <Check className="acct-bm-ic" size={14} aria-hidden="true" />
-        Mark as Reviewed
+        {formatMessage({ id: 'accounts.bulk.reviewed', defaultMessage: 'Mark as Reviewed' })}
       </button>
       <div className="acct-bm-div" />
       <button
         className="acct-bm-item"
         onClick={() => act(onHide)}
         disabled={nHide === 0}
-        title={whyDisabled(nHide, 'Every selected transaction is already hidden')}
+        title={whyDisabled(
+          nHide,
+          formatMessage({
+            id: 'accounts.bulk.allHidden',
+            defaultMessage: 'Every selected transaction is already hidden',
+          }),
+        )}
       >
         <EyeOff className="acct-bm-ic" size={14} aria-hidden="true" />
-        Hide from Register
+        {formatMessage({ id: 'accounts.bulk.hide', defaultMessage: 'Hide from Register' })}
       </button>
       <button
         className="acct-bm-item"
         onClick={() => act(onUnhide)}
         disabled={nUnhide === 0}
-        title={whyDisabled(nUnhide, 'No selected transaction is hidden')}
+        title={whyDisabled(
+          nUnhide,
+          formatMessage({
+            id: 'accounts.bulk.noneHidden',
+            defaultMessage: 'No selected transaction is hidden',
+          }),
+        )}
       >
         <Eye className="acct-bm-ic" size={14} aria-hidden="true" />
-        Unhide
+        {formatMessage({ id: 'accounts.bulk.unhide', defaultMessage: 'Unhide' })}
       </button>
       <div className="acct-bm-div" />
       <button className="acct-bm-item" onClick={() => act(onDuplicate)}>
         <Copy className="acct-bm-ic" size={14} aria-hidden="true" />
-        Duplicate
+        {formatMessage({ id: 'accounts.bulk.duplicate', defaultMessage: 'Duplicate' })}
         {!isMobile && <Shortcut k="⇧D" />}
       </button>
       <button className="acct-bm-item" onClick={() => setMemoMode(true)}>
         <Pencil className="acct-bm-ic" size={14} aria-hidden="true" />
-        Description…
+        {formatMessage({ id: 'accounts.bulk.descriptionAction', defaultMessage: 'Description…' })}
       </button>
       <button className="acct-bm-item" onClick={() => setMoveOpen(true)}>
         <ArrowLeftRight className="acct-bm-ic" size={14} aria-hidden="true" />
-        Move to Account
+        {formatMessage({ id: 'accounts.bulk.move', defaultMessage: 'Move to Account' })}
         <ChevronRight className="acct-bm-caret" size={14} aria-hidden="true" />
       </button>
       <button className="acct-bm-item" onClick={() => act(onExport)}>
         <Download className="acct-bm-ic" size={14} aria-hidden="true" />
-        Export {count} {count === 1 ? 'Transaction' : 'Transactions'}
+        {formatMessage(
+          {
+            id: 'accounts.bulk.export',
+            defaultMessage:
+              'Export {count, plural, one {{formattedCount} Transaction} other {{formattedCount} Transactions}}',
+          },
+          { count, formattedCount },
+        )}
       </button>
       <div className="acct-bm-div" />
       <button className="acct-bm-item danger" onClick={() => act(onDelete)}>
         <Trash2 className="acct-bm-ic" size={14} aria-hidden="true" />
-        Delete
+        {formatMessage({ id: 'accounts.bulk.delete', defaultMessage: 'Delete' })}
         {!isMobile && <Shortcut k="⌫" />}
       </button>
     </>
@@ -245,7 +286,7 @@ export function BulkBar({
     <>
       <button className="acct-bm-item" onClick={() => setCatOpen(false)}>
         <ChevronLeft className="acct-bm-ic" size={14} aria-hidden="true" />
-        Back
+        {formatMessage({ id: 'accounts.bulk.back', defaultMessage: 'Back' })}
       </button>
       <div className="acct-bm-div" />
       {spend.map((c) => (
@@ -262,7 +303,7 @@ export function BulkBar({
         <>
           <button className="acct-bm-item" onClick={() => setMoveOpen(false)}>
             <ChevronLeft className="acct-bm-ic" size={14} aria-hidden="true" />
-            Back
+            {formatMessage({ id: 'accounts.bulk.back', defaultMessage: 'Back' })}
           </button>
           <div className="acct-bm-div" />
         </>
@@ -276,11 +317,24 @@ export function BulkBar({
   )
   const memoFields = (
     <>
-      {!isMobile && <div className="acct-bm-lbl">Set description on {count}</div>}
+      {!isMobile && (
+        <div className="acct-bm-lbl">
+          {formatMessage(
+            {
+              id: 'accounts.bulk.setDescription',
+              defaultMessage: 'Set description on {formattedCount}',
+            },
+            { formattedCount },
+          )}
+        </div>
+      )}
       <input
         className="acct-bm-input"
         autoFocus
-        placeholder="Description"
+        placeholder={formatMessage({
+          id: 'accounts.bulk.description',
+          defaultMessage: 'Description',
+        })}
         value={memoText}
         onChange={(e) => setMemoText(e.target.value)}
         onKeyDown={(e) => {
@@ -289,10 +343,10 @@ export function BulkBar({
       />
       <div className="acct-bm-memo-actions">
         <button className="acct-bm-textbtn" onClick={() => setMemoMode(false)}>
-          Cancel
+          {formatMessage({ id: 'accounts.bulk.cancel', defaultMessage: 'Cancel' })}
         </button>
         <button className="acct-bm-textbtn primary" onClick={() => act(onMemo, memoText)}>
-          Apply
+          {formatMessage({ id: 'accounts.bulk.apply', defaultMessage: 'Apply' })}
         </button>
       </div>
     </>
@@ -306,8 +360,11 @@ export function BulkBar({
         <button
           className="acct-bulk-x"
           onClick={onClear}
-          title="Deselect all"
-          aria-label="Deselect all"
+          title={formatMessage({ id: 'accounts.bulk.deselect', defaultMessage: 'Deselect all' })}
+          aria-label={formatMessage({
+            id: 'accounts.bulk.deselect',
+            defaultMessage: 'Deselect all',
+          })}
         >
           <svg
             width="14"
@@ -322,8 +379,23 @@ export function BulkBar({
           </svg>
         </button>
         <span className="acct-bulk-count">
-          {count}{' '}
-          {isMobile ? (count === 1 ? 'txn' : 'txns') : count === 1 ? 'Transaction' : 'Transactions'}
+          {isMobile
+            ? formatMessage(
+                {
+                  id: 'accounts.bulk.countMobile',
+                  defaultMessage:
+                    '{count, plural, one {{formattedCount} txn} other {{formattedCount} txns}}',
+                },
+                { count, formattedCount },
+              )
+            : formatMessage(
+                {
+                  id: 'accounts.bulk.count',
+                  defaultMessage:
+                    '{count, plural, one {{formattedCount} Transaction} other {{formattedCount} Transactions}}',
+                },
+                { count, formattedCount },
+              )}
         </span>
         {count >= 1 && (
           <span className={'acct-bulk-total mask ' + (total.amount < 0 ? 'neg' : 'pos')}>
@@ -344,7 +416,7 @@ export function BulkBar({
               className="acct-bulk-btn acct-bulk-btn--lucius"
               onClick={() => act(onAskLucius)}
             >
-              Ask Lucius
+              {formatMessage({ id: 'accounts.bulk.ask', defaultMessage: 'Ask Lucius' })}
             </button>
           ) : (
             <>
@@ -353,11 +425,16 @@ export function BulkBar({
                 onClick={() => setMenu((m) => (m === 'cat' ? null : 'cat'))}
               >
                 <Tags className="acct-bm-ic" size={14} aria-hidden="true" />
-                Categorize
+                {formatMessage({ id: 'accounts.bulk.categorize', defaultMessage: 'Categorize' })}
               </button>
               {menu === 'cat' && (
                 <div className="acct-bm-menu cats">
-                  <div className="acct-bm-lbl">Set category</div>
+                  <div className="acct-bm-lbl">
+                    {formatMessage({
+                      id: 'accounts.bulk.setCategory',
+                      defaultMessage: 'Set category',
+                    })}
+                  </div>
                   {spend.map((c) => (
                     <button
                       key={c.id}
@@ -378,10 +455,14 @@ export function BulkBar({
           <button
             className={'acct-bulk-btn' + (menu === 'more' ? ' on' : '')}
             onClick={() => setMenu((m) => (m === 'more' ? null : 'more'))}
-            aria-label={isMobile ? 'More' : undefined}
+            aria-label={
+              isMobile
+                ? formatMessage({ id: 'accounts.bulk.more', defaultMessage: 'More' })
+                : undefined
+            }
           >
             <MoreHorizontal className="acct-bm-ic" size={14} aria-hidden="true" />
-            {!isMobile && 'More'}
+            {!isMobile && formatMessage({ id: 'accounts.bulk.more', defaultMessage: 'More' })}
           </button>
           {menu === 'more' && !isMobile && !memoMode && !moveOpen && (
             <div className="acct-bm-menu wide">{moreMainItems}</div>
@@ -390,7 +471,7 @@ export function BulkBar({
             <div className="acct-bm-menu wide">
               <button className="acct-bm-item" onClick={() => setMoveOpen(false)}>
                 <ChevronLeft className="acct-bm-ic" size={14} aria-hidden="true" />
-                Move to Account
+                {formatMessage({ id: 'accounts.bulk.move', defaultMessage: 'Move to Account' })}
               </button>
               <div className="acct-bm-div" />
               {moveItems}
@@ -405,12 +486,27 @@ export function BulkBar({
         <BottomSheet
           title={
             memoMode
-              ? `Set description on ${count}`
+              ? formatMessage(
+                  {
+                    id: 'accounts.bulk.setDescription',
+                    defaultMessage: 'Set description on {formattedCount}',
+                  },
+                  { formattedCount },
+                )
               : moveOpen
-                ? 'Move to account'
+                ? formatMessage({
+                    id: 'accounts.bulk.moveTitle',
+                    defaultMessage: 'Move to account',
+                  })
                 : catOpen
-                  ? 'Set category'
-                  : 'More actions'
+                  ? formatMessage({
+                      id: 'accounts.bulk.setCategory',
+                      defaultMessage: 'Set category',
+                    })
+                  : formatMessage({
+                      id: 'accounts.bulk.moreActions',
+                      defaultMessage: 'More actions',
+                    })
           }
           onClose={close}
         >
