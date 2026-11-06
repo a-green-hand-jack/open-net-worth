@@ -15,5 +15,10 @@
   "accounts.importFooter.link": "关联 {count} 条",
   "accounts.importFooter.nothing": "没有记录需要入账",
   "accounts.importFooter.nothingWritten": "— 确认前不会写入任何数据。",
-  "accounts.importFooter.preview": "预览导入"
+  "accounts.importFooter.preview": "预览导入",
+  "accounts.importFooter.backLoseReview": "返回并放弃本次审核？",
+  "accounts.importFooter.closeLoseReview": "关闭并放弃本次审核？",
+  "accounts.importFooter.discardExplanation": "尚未入账。您对这份账单逐行做出的选择（导入、排除、关联）尚未保存。现在离开将放弃所有选择，您需要重新读取文件。",
+  "accounts.importFooter.goBack": "返回",
+  "accounts.importFooter.discard": "放弃审核"
 }

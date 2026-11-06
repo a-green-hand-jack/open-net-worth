@@ -15,6 +15,8 @@
 import { describe, it, expect, afterEach, vi } from 'vitest'
 import { render, cleanup, screen, fireEvent, waitFor } from '@testing-library/react'
 import { ImportModal } from './ImportModal'
+import { IntlProvider } from 'react-intl'
+import { catalogs } from '../../../i18n/catalogs'
 import type { Account } from './types'
 
 // The live progress channel reports the statement's id once the server has minted it —
@@ -78,8 +80,8 @@ const PREVIEW = {
 
 /** Renders and advances to the choose step with a file picked. `onPreview` decides whether
  *  the next click parks on `processing` (a pending promise) or lands on `preview`. */
-async function mount(onPreview: ReturnType<typeof vi.fn>, onClose = vi.fn()) {
-  render(
+async function mount(onPreview: ReturnType<typeof vi.fn>, onClose = vi.fn(), chinese = false) {
+  const modal = (
     <ImportModal
       open
       accounts={[acct]}
@@ -89,13 +91,14 @@ async function mount(onPreview: ReturnType<typeof vi.fn>, onClose = vi.fn()) {
       onDecisionCommit={
         vi.fn().mockResolvedValue({ created: 1, merged: 0, duplicates: 0, skipped: 0 }) as never
       }
-    />,
+    />
   )
+  render(chinese ? <IntlProvider locale="zh-CN" messages={catalogs['zh-CN']}>{modal}</IntlProvider> : modal)
   const fileInput = document.body.querySelector('input[type="file"]') as HTMLInputElement
   const file = new File([CSV], 'mega.csv', { type: 'text/csv' })
   Object.defineProperty(file, 'text', { value: async () => CSV })
   fireEvent.change(fileInput, { target: { files: [file] } })
-  await screen.findByRole('button', { name: /Read the statement/ })
+  await screen.findByRole('button', { name: chinese ? '读取账单' : /Read the statement/ })
   return onClose
 }
 
@@ -210,6 +213,23 @@ describe('ImportModal — an accidental exit cannot end the import', () => {
     await waitFor(() => expect(screen.queryByText('Close and lose this review?')).toBeNull())
     expect(onClose).not.toHaveBeenCalled()
     expect(screen.getByText('COFFEE')).toBeTruthy()
+  })
+
+  it('Chinese exit warning preserves the review when canceled and closes only when confirmed', async () => {
+    const onClose = await mount(vi.fn().mockResolvedValue(PREVIEW), vi.fn(), true)
+    fireEvent.click(screen.getByRole('button', { name: '读取账单' }))
+    await screen.findByText('COFFEE')
+    escape()
+    await screen.findByText('关闭并放弃本次审核？')
+    expect(screen.getByText(/尚未入账/)).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: '取消' }))
+    await waitFor(() => expect(screen.queryByText('关闭并放弃本次审核？')).toBeNull())
+    expect(onClose).not.toHaveBeenCalled()
+    expect(screen.getByText('COFFEE')).toBeTruthy()
+    escape()
+    await screen.findByText('关闭并放弃本次审核？')
+    fireEvent.click(screen.getByRole('button', { name: '放弃审核' }))
+    expect(onClose).toHaveBeenCalledTimes(1)
   })
 
   it('the dialog opts OUT of backdrop dismissal', async () => {

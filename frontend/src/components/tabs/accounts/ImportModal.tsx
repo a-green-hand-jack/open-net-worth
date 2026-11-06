@@ -8221,10 +8221,14 @@ export function ImportModal({
       <ConfirmModal
         open={pendingExit !== null}
         title={
-          pendingExit === 'back' ? 'Go back and lose this review?' : 'Close and lose this review?'
+          pendingExit === 'back'
+            ? intl.formatMessage({ id: 'accounts.importFooter.backLoseReview', defaultMessage: 'Go back and lose this review?' })
+            : intl.formatMessage({ id: 'accounts.importFooter.closeLoseReview', defaultMessage: 'Close and lose this review?' })
         }
-        body="Nothing has been booked yet — your row-by-row decisions (Import, Leave out, Link) on this statement aren't saved anywhere. Leaving now discards all of them; you'd need to read the file again."
-        confirmLabel={pendingExit === 'back' ? 'Go back' : 'Discard review'}
+        body={intl.formatMessage({ id: 'accounts.importFooter.discardExplanation', defaultMessage: "Nothing has been booked yet — your row-by-row decisions (Import, Leave out, Link) on this statement aren't saved anywhere. Leaving now discards all of them; you'd need to read the file again." })}
+        confirmLabel={pendingExit === 'back'
+          ? intl.formatMessage({ id: 'accounts.importFooter.goBack', defaultMessage: 'Go back' })
+          : intl.formatMessage({ id: 'accounts.importFooter.discard', defaultMessage: 'Discard review' })}
         danger
         onConfirm={confirmExit}
         onClose={() => setPendingExit(null)}
