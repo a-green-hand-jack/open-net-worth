@@ -8,6 +8,7 @@
 // the register, the counts and Lucius's landing all refetch from that.
 
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { useAppIntl } from '../../../i18n/useAppIntl'
 import { authFetch } from '../../../api/client'
 import { useDataVersion } from '../../../hooks/useDataVersion'
 import { fetchCachedQuery } from '../../../state/queryCache'
@@ -163,6 +164,7 @@ export function TransactionSurfacesProvider({
    *  "Review" (BackgroundStatementNotices) opens its import review. */
   onOpenAccounts?: () => void
 }) {
+  const { formatMessage } = useAppIntl()
   const [reviewScope, setReviewScope] = useState<ReviewScope | null>(null)
   const [reviewAccountId, setReviewAccountId] = useState<string | null>(null)
   // `txn: null` while a row opened by id is still on its way; `hint` is what the caller
@@ -340,7 +342,16 @@ export function TransactionSurfacesProvider({
                 setDetail((d) => (d && d.id === txn.id ? { ...d, txn: updated } : d))
                 noteRowChange(updated)
               })
-              .catch((e) => noteDetailFailure(txn.id, e, 'Update failed'))
+              .catch((e) =>
+                noteDetailFailure(
+                  txn.id,
+                  e,
+                  formatMessage({
+                    id: 'accounts.surfaces.updateFailed',
+                    defaultMessage: 'Update failed',
+                  }),
+                ),
+              )
           }}
           onToggleCleared={(txn, cleared) => {
             clearDetailFailure()
@@ -349,7 +360,16 @@ export function TransactionSurfacesProvider({
                 setDetail((d) => (d && d.id === txn.id ? { ...d, txn: updated } : d))
                 noteRowChange(updated)
               })
-              .catch((e) => noteDetailFailure(txn.id, e, 'Update failed'))
+              .catch((e) =>
+                noteDetailFailure(
+                  txn.id,
+                  e,
+                  formatMessage({
+                    id: 'accounts.surfaces.updateFailed',
+                    defaultMessage: 'Update failed',
+                  }),
+                ),
+              )
           }}
           onToggleHidden={(txn, hidden) => {
             clearDetailFailure()
@@ -358,7 +378,16 @@ export function TransactionSurfacesProvider({
                 setDetail((d) => (d && d.id === txn.id ? { ...d, txn: updated } : d))
                 noteRowChange(updated)
               })
-              .catch((e) => noteDetailFailure(txn.id, e, 'Update failed'))
+              .catch((e) =>
+                noteDetailFailure(
+                  txn.id,
+                  e,
+                  formatMessage({
+                    id: 'accounts.surfaces.updateFailed',
+                    defaultMessage: 'Update failed',
+                  }),
+                ),
+              )
           }}
           onManagePayees={() => {
             setDetail(null)
@@ -379,9 +408,23 @@ export function TransactionSurfacesProvider({
       {confirm && (
         <ConfirmModal
           open
-          title="Delete transaction"
-          body={`“${payeeNames[confirm.txn.payeeId ?? ''] || confirm.txn.description || 'This transaction'}” will be removed.`}
-          confirmLabel="Delete"
+          title={formatMessage({
+            id: 'accounts.surfaces.deleteTitle',
+            defaultMessage: 'Delete transaction',
+          })}
+          body={formatMessage(
+            { id: 'accounts.surfaces.deleteBody', defaultMessage: '“{name}” will be removed.' },
+            {
+              name:
+                payeeNames[confirm.txn.payeeId ?? ''] ||
+                confirm.txn.description ||
+                formatMessage({
+                  id: 'accounts.surfaces.thisTransaction',
+                  defaultMessage: 'This transaction',
+                }),
+            },
+          )}
+          confirmLabel={formatMessage({ id: 'accounts.surfaces.delete', defaultMessage: 'Delete' })}
           danger
           onConfirm={() => {
             const txn = confirm.txn
@@ -394,7 +437,16 @@ export function TransactionSurfacesProvider({
                 setDetail((d) => (d && d.id === txn.id ? null : d))
                 noteRowChange({ ...txn, deleted: true })
               })
-              .catch((e) => noteDetailFailure(txn.id, e, 'Delete failed'))
+              .catch((e) =>
+                noteDetailFailure(
+                  txn.id,
+                  e,
+                  formatMessage({
+                    id: 'accounts.surfaces.deleteFailed',
+                    defaultMessage: 'Delete failed',
+                  }),
+                ),
+              )
           }}
           onClose={() => setConfirm(null)}
         />
@@ -411,7 +463,16 @@ export function TransactionSurfacesProvider({
             clearDetailFailure()
             void createCategory(data.name, data.kind, categories.length)
               .then((c) => done(c.id))
-              .catch((e) => noteDetailFailure(null, e, 'Failed to add category'))
+              .catch((e) =>
+                noteDetailFailure(
+                  null,
+                  e,
+                  formatMessage({
+                    id: 'accounts.surfaces.categoryFailed',
+                    defaultMessage: 'Failed to add category',
+                  }),
+                ),
+              )
           }}
         />
       )}

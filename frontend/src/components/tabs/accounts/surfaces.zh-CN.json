@@ -1,0 +1,9 @@
+{
+  "accounts.surfaces.categoryFailed": "无法添加分类",
+  "accounts.surfaces.delete": "删除",
+  "accounts.surfaces.deleteBody": "将移除“{name}”。",
+  "accounts.surfaces.deleteFailed": "删除失败",
+  "accounts.surfaces.deleteTitle": "删除交易",
+  "accounts.surfaces.thisTransaction": "此交易",
+  "accounts.surfaces.updateFailed": "更新失败"
+}

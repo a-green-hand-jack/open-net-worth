@@ -11,6 +11,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { useEffect } from 'react'
+import { IntlProvider } from 'react-intl'
+import { catalogs } from '../../../i18n/catalogs'
 import { TransactionSurfacesProvider } from './TransactionSurfaces'
 import { useTransactionSurfaces } from './transactionSurfacesContext'
 import { fromApiTxn } from './data'
@@ -108,11 +110,20 @@ function Open({ byId }: { byId?: string }) {
   return null
 }
 
-async function openDrawer(byId?: string) {
+async function openDrawer(byId?: string, chinese = false) {
   render(
     <TransactionSurfacesProvider onManagePayees={() => {}}>
       <Open byId={byId} />
     </TransactionSurfacesProvider>,
+    chinese
+      ? {
+          wrapper: ({ children }) => (
+            <IntlProvider locale="zh-CN" messages={catalogs['zh-CN']}>
+              {children}
+            </IntlProvider>
+          ),
+        }
+      : undefined,
   )
   await waitFor(() => expect(document.querySelector('.acct-detail-wrap')).not.toBeNull())
 }
@@ -126,6 +137,16 @@ const sent = (method: string) =>
   )
 
 describe('transaction surfaces — no toast bar', () => {
+  it('confirms deletion in Chinese before sending the unchanged transaction id', async () => {
+    setupMocks()
+    await openDrawer(undefined, true)
+    fireEvent.click(screen.getByRole('button', { name: 'Delete' }))
+    const confirm = await screen.findByRole('dialog', { name: '删除交易' })
+    expect(within(confirm).getByText(/Corner Grocer/)).toBeTruthy()
+    expect(sent('DELETE')).toBe(false)
+    fireEvent.click(within(confirm).getByRole('button', { name: '删除' }))
+    await waitFor(() => expect(sent('DELETE')).toBe(true))
+  })
   it('approving from the drawer says nothing extra: the review block just goes', async () => {
     setupMocks()
     await openDrawer()
