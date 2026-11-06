@@ -14,6 +14,7 @@ vi.mock('../../../api/client', () => ({ authFetch: (...a: unknown[]) => authFetc
 import { MemoryImport } from './MemoryImport'
 import { IntlProvider } from 'react-intl'
 import zh from '../../../i18n/zh-CN.json'
+import { catalogs } from '../../../i18n/LocaleProvider'
 
 const json = (body: unknown, status = 200) =>
   Promise.resolve(new Response(JSON.stringify(body), { status }))
@@ -89,6 +90,15 @@ describe('MemoryImport', () => {
     serve()
   })
   afterEach(cleanup)
+
+  it('reviews Chinese interface text without saving imported facts before confirmation', async () => {
+    render(<IntlProvider locale="zh-CN" messages={catalogs['zh-CN']}><MemoryImport onClose={vi.fn()} toast={vi.fn()} /></IntlProvider>)
+    fireEvent.click(await screen.findByRole('button', { name: '下一步' }))
+    fireEvent.change(screen.getByLabelText('粘贴的记忆'), { target: { value: '[2026-03-01] - Name is Dana Example' } })
+    fireEvent.click(screen.getByRole('button', { name: '查看' }))
+    expect(await screen.findByText('Rents a flat with a roommate')).toBeTruthy()
+    expect(authFetch.mock.calls.some((call) => call[0] === '/api/memory/import/apply')).toBe(false)
+  })
 
   it('localizes the review while preserving imported text', async () => {
     render(

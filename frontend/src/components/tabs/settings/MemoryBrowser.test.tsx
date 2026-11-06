@@ -11,6 +11,7 @@ import { MemoryBrowser } from './MemoryBrowser'
 import { ForgetConfirm } from './MemoryParts'
 import { IntlProvider } from 'react-intl'
 import zh from '../../../i18n/zh-CN.json'
+import { catalogs } from '../../../i18n/LocaleProvider'
 
 it('shows the irreversible topic deletion warning in Chinese without changing its name', () => {
   const confirm = vi.fn()
@@ -70,6 +71,25 @@ describe('MemoryBrowser', () => {
   })
   afterEach(cleanup)
 
+  it('translates section labels without changing saved topics or facts', async () => {
+    render(<IntlProvider locale="zh-CN" messages={catalogs['zh-CN']}><MemoryBrowser toast={vi.fn()} /></IntlProvider>)
+    expect(await screen.findByText('Rent is paid on the 1st')).toBeTruthy()
+    expect(screen.getByRole('region', { name: '财务' })).toBeTruthy()
+    expect(screen.getByText('Housing')).toBeTruthy()
+  })
+
+  it('shows a Chinese confirmation before deleting a named topic', async () => {
+    render(<IntlProvider locale="zh-CN" messages={catalogs['zh-CN']}><MemoryBrowser toast={vi.fn()} /></IntlProvider>)
+    await screen.findByText('Rent is paid on the 1st')
+    fireEvent.click(screen.getByRole('button', { name: '删除Housing' }))
+    const dialog = screen.getByRole('alertdialog', { name: '忘记Housing？' })
+    expect(dialog.textContent).toContain('4 条信息')
+    expect(authFetch).not.toHaveBeenCalledWith(expect.anything(), { method: 'DELETE' })
+    fireEvent.click(within(dialog).getByRole('button', { name: '取消' }))
+    expect(screen.queryByRole('alertdialog')).toBeNull()
+    expect(authFetch).not.toHaveBeenCalledWith(expect.anything(), { method: 'DELETE' })
+  })
+
   it('lists the sections in order, then older memories, and never memories moved out', async () => {
     await renderBrowser()
     expect(sectionLabels()).toEqual(['You', 'Money', 'Plans', 'Recent', 'Other', 'Older memories'])
@@ -84,7 +104,7 @@ describe('MemoryBrowser', () => {
     expect(within(row).getByText('Housing')).toBeTruthy()
     expect(within(row).getByText('Rent is paid on the 1st')).toBeTruthy()
     expect(within(row).getByText(/^Updated /)).toBeTruthy()
-    expect(row.textContent).not.toMatch(/\b4\b/)
+    expect(within(row).queryByText(/^4(?: facts?)?$/)).toBeNull()
   })
 
   it('lists open items directly, each with its date', async () => {
