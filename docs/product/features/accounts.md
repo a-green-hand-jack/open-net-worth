@@ -211,6 +211,8 @@ booked. Open Reconcile again; it now asks about the current figure.
 
 Account, category, payee and date picker controls follow the interface language. Account names,
 payees and category group names retain the text you entered.
+Account creation and editing forms also follow the interface language; the saved account name,
+type, currency and balance retain the values you choose.
 
 ## Related pages
 

@@ -1,8 +1,11 @@
+import { getNumberLocale } from '../../../utils/format'
 // AccountModal.tsx — compact account creation + essentials-first account editing
 //
 // The opening balance is a real "Starting Balance" ledger row. Quick create records it today;
 // later corrections happen by editing that transaction in the register.
 import { useState, useEffect, useRef } from 'react'
+import { useAppIntl } from '../../../i18n/useAppIntl'
+import { useAccountTypeLabel, useAccountTypeMeaning } from './useAccountTypeLabel'
 import { AccIcon, InstitutionPicker, CurrencyPicker } from './ds'
 import type { InstitutionOption } from './ds'
 import { InstitutionManager } from './InstitutionManager'
@@ -121,6 +124,9 @@ export default function AccountModal({
   onEditOpening,
   prefill,
 }: AccountModalProps) {
+  const { formatMessage } = useAppIntl()
+  const localizedType = useAccountTypeLabel()
+  const localizedMeaning = useAccountTypeMeaning()
   const [step, setStep] = useState<'quick' | 'type' | 'details'>(
     mode === 'edit' ? 'details' : 'quick',
   )
@@ -244,7 +250,12 @@ export default function AccountModal({
       if (!res.ok) throw new Error()
       setExternalIds(next)
     } catch {
-      setUnlinkErr('Could not unlink — try again.')
+      setUnlinkErr(
+        formatMessage({
+          id: 'accounts.unlinkFailed',
+          defaultMessage: 'Could not unlink — try again.',
+        }),
+      )
     } finally {
       setUnlinkingIdx(null)
     }
@@ -266,7 +277,12 @@ export default function AccountModal({
     }
     const parsedOpening = Number(form.initial)
     if (!Number.isFinite(parsedOpening)) {
-      setSaveErr('Enter a valid current balance.')
+      setSaveErr(
+        formatMessage({
+          id: 'accounts.invalidCurrentBalance',
+          defaultMessage: 'Enter a valid current balance.',
+        }),
+      )
       return
     }
     setSaving(true)
@@ -283,7 +299,12 @@ export default function AccountModal({
       try {
         await onSave(payload)
       } catch {
-        setSaveErr('We couldn’t add this account. Check the details and try again.')
+        setSaveErr(
+          formatMessage({
+            id: 'accounts.addAccountError',
+            defaultMessage: 'We couldn’t add this account. Check the details and try again.',
+          }),
+        )
       } finally {
         setSaving(false)
       }
@@ -321,7 +342,12 @@ export default function AccountModal({
       try {
         await onSave(rest as AccountUpdate, account.id)
       } catch {
-        setSaveErr('We couldn’t save these details. Try again.')
+        setSaveErr(
+          formatMessage({
+            id: 'accounts.saveDetailsError',
+            defaultMessage: 'We couldn’t save these details. Try again.',
+          }),
+        )
       } finally {
         setSaving(false)
       }
@@ -337,13 +363,19 @@ export default function AccountModal({
       rate = parseFloat(form.apy)
     if (!isYield || !bal || !rate) return ''
     const yearly = (bal * rate) / 100,
-      fmt = (n: number) => form.currency + ' ' + Math.round(n).toLocaleString('en-US')
-    return '≈ ' + fmt(yearly / 12) + '/mo • ' + fmt(yearly) + '/yr at this balance'
+      fmt = (n: number) => form.currency + ' ' + Math.round(n).toLocaleString(getNumberLocale())
+    return formatMessage(
+      {
+        id: 'accounts.apyProjection',
+        defaultMessage: '≈ {monthly}/mo • {yearly}/yr at this balance',
+      },
+      { monthly: fmt(yearly / 12), yearly: fmt(yearly) },
+    )
   })()
   const nameInvalid = nameTouched && !form.name.trim()
   const titleEl =
     mode === 'edit' ? (
-      'Edit account'
+      formatMessage({ id: 'accounts.editAccount', defaultMessage: 'Edit account' })
     ) : step === 'type' ? (
       <button
         type="button"
@@ -364,16 +396,16 @@ export default function AccountModal({
             <path d="M15 6l-6 6 6 6" />
           </svg>
         </span>
-        What kind of account?
+        {formatMessage({ id: 'accounts.kindQuestion', defaultMessage: 'What kind of account?' })}
       </button>
     ) : (
-      'Add account'
+      formatMessage({ id: 'accounts.addAccount', defaultMessage: 'Add account' })
     )
   const footer =
     step === 'quick' ? (
       <>
         <Button size="sm" variant="ghost" onClick={() => onClose()} disabled={saving}>
-          Cancel
+          {formatMessage({ id: 'accounts.cancel', defaultMessage: 'Cancel' })}
         </Button>
         <Button
           size="sm"
@@ -381,7 +413,9 @@ export default function AccountModal({
           onClick={() => void submit()}
           disabled={!form.name.trim() || saving}
         >
-          {saving ? 'Adding…' : 'Add account'}
+          {saving
+            ? formatMessage({ id: 'accounts.adding', defaultMessage: 'Adding…' })
+            : formatMessage({ id: 'accounts.addAccount', defaultMessage: 'Add account' })}
         </Button>
       </>
     ) : step === 'details' ? (
@@ -393,7 +427,9 @@ export default function AccountModal({
           onClick={() => void submit()}
           disabled={!form.name.trim() || saving}
         >
-          {saving ? 'Saving…' : 'Save changes'}
+          {saving
+            ? formatMessage({ id: 'accounts.saving', defaultMessage: 'Saving…' })
+            : formatMessage({ id: 'accounts.saveChanges', defaultMessage: 'Save changes' })}
         </Button>
       </>
     ) : undefined
@@ -421,22 +457,39 @@ export default function AccountModal({
           {step === 'quick' && (
             <div className="acct-quick">
               <FormField
-                label="Name"
+                label={formatMessage({ id: 'accounts.name', defaultMessage: 'Name' })}
                 htmlFor="f-name"
                 required
-                error={nameInvalid ? 'Name is required' : undefined}
+                error={
+                  nameInvalid
+                    ? formatMessage({
+                        id: 'accounts.nameRequired',
+                        defaultMessage: 'Name is required',
+                      })
+                    : undefined
+                }
                 reserveMessageSpace
               >
                 <TextField
                   id="f-name"
                   autoFocus
                   value={form.name}
-                  placeholder="e.g. Everyday account"
+                  placeholder={formatMessage({
+                    id: 'accounts.nameExample',
+                    defaultMessage: 'e.g. Everyday account',
+                  })}
                   onChange={(e) => set('name', e.target.value)}
                   onBlur={() => setNameTouched(true)}
                 />
               </FormField>
-              <FormField label="Account type" required reserveMessageSpace>
+              <FormField
+                label={formatMessage({
+                  id: 'accounts.accountType',
+                  defaultMessage: 'Account type',
+                })}
+                required
+                reserveMessageSpace
+              >
                 <button
                   type="button"
                   className="acct-type-chosen"
@@ -444,28 +497,53 @@ export default function AccountModal({
                     setTypeQ('')
                     setStep('type')
                   }}
-                  aria-label={`Account type: ${TYPE_LABELS[form.type]}. Change`}
+                  aria-label={formatMessage(
+                    {
+                      id: 'accounts.changeAccountType',
+                      defaultMessage: 'Account type: {type}. Change',
+                    },
+                    { type: localizedType(form.type) },
+                  )}
                 >
                   <span className="ti">
                     <AccIcon name={ICON[form.type]} size={18} />
                   </span>
                   <span className="acct-type-chosen-l">
-                    <span className="acct-type-chosen-lbl">{TYPE_LABELS[form.type]}</span>
-                    <span className="acct-type-chosen-grp">{TYPE_MEANING[form.type]}</span>
+                    <span className="acct-type-chosen-lbl">{localizedType(form.type)}</span>
+                    <span className="acct-type-chosen-grp">{localizedMeaning(form.type)}</span>
                   </span>
                   <span className="acct-type-chosen-change">
                     <ChevronRight size={16} aria-hidden="true" />
                   </span>
                 </button>
               </FormField>
-              <FormField label="Currency" htmlFor="f-ccy" required reserveMessageSpace>
+              <FormField
+                label={formatMessage({ id: 'accounts.currency', defaultMessage: 'Currency' })}
+                htmlFor="f-ccy"
+                required
+                reserveMessageSpace
+              >
                 <CurrencyPicker value={form.currency} onChange={(c) => set('currency', c)} />
               </FormField>
               <FormField
-                label={isAsset ? 'Current balance' : 'Amount currently owed'}
+                label={
+                  isAsset
+                    ? formatMessage({
+                        id: 'accounts.currentBalance',
+                        defaultMessage: 'Current balance',
+                      })
+                    : formatMessage({
+                        id: 'accounts.currentlyOwed',
+                        defaultMessage: 'Amount currently owed',
+                      })
+                }
                 htmlFor="f-balance"
                 required
-                help="We’ll record this as today’s Starting Balance transaction. You can edit it later."
+                help={formatMessage({
+                  id: 'accounts.startingBalanceHelp',
+                  defaultMessage:
+                    'We’ll record this as today’s Starting Balance transaction. You can edit it later.',
+                })}
               >
                 <div className="acct-balance-inline">
                   <NumberField
@@ -509,7 +587,10 @@ export default function AccountModal({
                   <input
                     className="acct-typesearch-in"
                     autoFocus
-                    placeholder="Search — e.g. 401k, CPF, mortgage, fixed deposit…"
+                    placeholder={formatMessage({
+                      id: 'accounts.typeSearch',
+                      defaultMessage: 'Search — e.g. 401k, CPF, mortgage, fixed deposit…',
+                    })}
                     value={typeQ}
                     onChange={(e) => setTypeQ(e.target.value)}
                   />
@@ -522,15 +603,24 @@ export default function AccountModal({
                         !q ||
                         lbl.toLowerCase().includes(q) ||
                         meaning.toLowerCase().includes(q) ||
+                        localizedType(t).toLowerCase().includes(q) ||
+                        localizedMeaning(t).toLowerCase().includes(q) ||
                         (TYPE_ALIASES[t] ?? '').includes(q),
                     )
                     if (!rows.length)
                       return (
                         <div className="acct-typesearch-empty">
-                          No account type matches "{typeQ}". Try a simpler word.
+                          {formatMessage(
+                            {
+                              id: 'accounts.noTypeMatches',
+                              defaultMessage:
+                                'No account type matches "{query}". Try a simpler word.',
+                            },
+                            { query: typeQ },
+                          )}
                         </div>
                       )
-                    return rows.map(({ t, ic, lbl, meaning }) => (
+                    return rows.map(({ t, ic }) => (
                       <button
                         key={t}
                         type="button"
@@ -541,8 +631,8 @@ export default function AccountModal({
                           <AccIcon name={ic} size={18} />
                         </span>
                         <span className="acct-type-txt">
-                          <span className="acct-type-lbl">{lbl}</span>
-                          <span className="acct-type-meaning">{meaning}</span>
+                          <span className="acct-type-lbl">{localizedType(t)}</span>
+                          <span className="acct-type-meaning">{localizedMeaning(t)}</span>
                         </span>
                       </button>
                     ))
@@ -561,25 +651,42 @@ export default function AccountModal({
                     </div>
                     <div
                       className="acct-identity-meta"
-                      aria-label={`Account type: ${TYPE_LABELS[form.type]}. Currency: ${form.currency}. Both are set when this account is created.`}
+                      aria-label={formatMessage(
+                        {
+                          id: 'accounts.typeCurrencyFixed',
+                          defaultMessage:
+                            'Account type: {type}. Currency: {currency}. Both are set when this account is created.',
+                        },
+                        { type: localizedType(form.type), currency: form.currency },
+                      )}
                     >
-                      <span>{TYPE_LABELS[form.type]}</span>
+                      <span>{localizedType(form.type)}</span>
                       <span>{form.currency}</span>
                     </div>
                   </div>
                   <div className="acct-identity-fields">
                     <FormField
-                      label="Name"
+                      label={formatMessage({ id: 'accounts.name', defaultMessage: 'Name' })}
                       htmlFor="f-name"
                       required
-                      error={nameInvalid ? 'Name is required' : undefined}
+                      error={
+                        nameInvalid
+                          ? formatMessage({
+                              id: 'accounts.nameRequired',
+                              defaultMessage: 'Name is required',
+                            })
+                          : undefined
+                      }
                       reserveMessageSpace
                     >
                       <TextField
                         id="f-name"
                         autoFocus={mode !== 'edit'}
                         value={form.name}
-                        placeholder="e.g. Meridian Bank Multiplier"
+                        placeholder={formatMessage({
+                          id: 'accounts.editNameExample',
+                          defaultMessage: 'e.g. Meridian Bank Multiplier',
+                        })}
                         onChange={(e) => set('name', e.target.value)}
                         onBlur={() => setNameTouched(true)}
                       />
@@ -598,8 +705,14 @@ export default function AccountModal({
                   <section>
                     <div className="acct-grid">
                       <FormField
-                        label="Institution"
-                        help="Groups accounts by bank or broker."
+                        label={formatMessage({
+                          id: 'accounts.institution',
+                          defaultMessage: 'Institution',
+                        })}
+                        help={formatMessage({
+                          id: 'accounts.institutionHelp',
+                          defaultMessage: 'Groups accounts by bank or broker.',
+                        })}
                         htmlFor="f-inst"
                       >
                         <InstitutionPicker
@@ -618,25 +731,44 @@ export default function AccountModal({
                   </section>
                   <section>
                     <FormField
-                      label="Note"
+                      label={formatMessage({ id: 'accounts.note', defaultMessage: 'Note' })}
                       htmlFor="f-note"
-                      help="Anything else about this account for you and AI to know."
+                      help={formatMessage({
+                        id: 'accounts.noteHelp',
+                        defaultMessage: 'Anything else about this account for you and AI to know.',
+                      })}
                     >
                       <textarea
                         id="f-note"
                         className="ui-textarea acct-note-area"
                         rows={3}
                         value={form.note}
-                        placeholder="e.g. Joint account with Alex • used mainly for rent and bills"
+                        placeholder={formatMessage({
+                          id: 'accounts.noteExample',
+                          defaultMessage:
+                            'e.g. Joint account with Alex • used mainly for rent and bills',
+                        })}
                         onChange={(e) => set('note', e.target.value)}
                       />
                     </FormField>
                   </section>
                   <section>
-                    <div className="acct-section-label">Account details</div>
+                    <div className="acct-section-label">
+                      {formatMessage({
+                        id: 'accounts.accountDetails',
+                        defaultMessage: 'Account details',
+                      })}
+                    </div>
                     <FormField
-                      label="Last 4 digits"
-                      help="Helps AI identify the right account in chat, automations, or transaction imports"
+                      label={formatMessage({
+                        id: 'accounts.lastFour',
+                        defaultMessage: 'Last 4 digits',
+                      })}
+                      help={formatMessage({
+                        id: 'accounts.lastFourHelp',
+                        defaultMessage:
+                          'Helps AI identify the right account in chat, automations, or transaction imports',
+                      })}
                       htmlFor="f-l4"
                     >
                       <TextField
@@ -653,9 +785,20 @@ export default function AccountModal({
                   it on its own step instead. */}
                   {isCredit && (
                     <section>
-                      <div className="acct-section-label">Credit details</div>
+                      <div className="acct-section-label">
+                        {formatMessage({
+                          id: 'accounts.creditDetails',
+                          defaultMessage: 'Credit details',
+                        })}
+                      </div>
                       <div className="acct-grid acct-grid--2">
-                        <FormField label="Interest rate (APR, %)" htmlFor="f-apr">
+                        <FormField
+                          label={formatMessage({
+                            id: 'accounts.apr',
+                            defaultMessage: 'Interest rate (APR, %)',
+                          })}
+                          htmlFor="f-apr"
+                        >
                           <TextField
                             id="f-apr"
                             inputMode="decimal"
@@ -665,9 +808,15 @@ export default function AccountModal({
                           />
                         </FormField>
                         <FormField
-                          label="Credit limit"
+                          label={formatMessage({
+                            id: 'accounts.creditLimit',
+                            defaultMessage: 'Credit limit',
+                          })}
                           htmlFor="f-limit"
-                          help="Total available credit"
+                          help={formatMessage({
+                            id: 'accounts.creditLimitHelp',
+                            defaultMessage: 'Total available credit',
+                          })}
                         >
                           <TextField
                             id="f-limit"
@@ -678,9 +827,15 @@ export default function AccountModal({
                           />
                         </FormField>
                         <FormField
-                          label="Statement closes (day)"
+                          label={formatMessage({
+                            id: 'accounts.statementClosesDay',
+                            defaultMessage: 'Statement closes (day)',
+                          })}
                           htmlFor="f-close"
-                          help="Day of month the cycle closes"
+                          help={formatMessage({
+                            id: 'accounts.statementClosesHelp',
+                            defaultMessage: 'Day of month the cycle closes',
+                          })}
                         >
                           <NumberField
                             id="f-close"
@@ -692,9 +847,15 @@ export default function AccountModal({
                           />
                         </FormField>
                         <FormField
-                          label="Payment due (day)"
+                          label={formatMessage({
+                            id: 'accounts.paymentDueDay',
+                            defaultMessage: 'Payment due (day)',
+                          })}
                           htmlFor="f-due"
-                          help="Day of month payment is due"
+                          help={formatMessage({
+                            id: 'accounts.paymentDueHelp',
+                            defaultMessage: 'Day of month payment is due',
+                          })}
                         >
                           <NumberField
                             id="f-due"
@@ -711,9 +872,20 @@ export default function AccountModal({
 
                   {isLoan && (
                     <section>
-                      <div className="acct-section-label">Loan details</div>
+                      <div className="acct-section-label">
+                        {formatMessage({
+                          id: 'accounts.loanDetails',
+                          defaultMessage: 'Loan details',
+                        })}
+                      </div>
                       <div className="acct-grid acct-grid--2">
-                        <FormField label="Interest rate (APR, %)" htmlFor="f-apr">
+                        <FormField
+                          label={formatMessage({
+                            id: 'accounts.apr',
+                            defaultMessage: 'Interest rate (APR, %)',
+                          })}
+                          htmlFor="f-apr"
+                        >
                           <TextField
                             id="f-apr"
                             inputMode="decimal"
@@ -723,9 +895,15 @@ export default function AccountModal({
                           />
                         </FormField>
                         <FormField
-                          label="Original principal"
+                          label={formatMessage({
+                            id: 'accounts.originalPrincipal',
+                            defaultMessage: 'Original principal',
+                          })}
                           htmlFor="f-principal"
-                          help="Amount originally borrowed"
+                          help={formatMessage({
+                            id: 'accounts.principalHelp',
+                            defaultMessage: 'Amount originally borrowed',
+                          })}
                         >
                           <TextField
                             id="f-principal"
@@ -736,9 +914,15 @@ export default function AccountModal({
                           />
                         </FormField>
                         <FormField
-                          label="Payoff date"
+                          label={formatMessage({
+                            id: 'accounts.payoffDate',
+                            defaultMessage: 'Payoff date',
+                          })}
                           htmlFor="f-payoff"
-                          help="When the balance reaches zero"
+                          help={formatMessage({
+                            id: 'accounts.payoffDateHelp',
+                            defaultMessage: 'When the balance reaches zero',
+                          })}
                         >
                           <DateField
                             id="f-payoff"
@@ -748,9 +932,15 @@ export default function AccountModal({
                           />
                         </FormField>
                         <FormField
-                          label="Minimum payment"
+                          label={formatMessage({
+                            id: 'accounts.minimumPayment',
+                            defaultMessage: 'Minimum payment',
+                          })}
                           htmlFor="f-minpay"
-                          help="Required payment each period"
+                          help={formatMessage({
+                            id: 'accounts.minimumPaymentHelp',
+                            defaultMessage: 'Required payment each period',
+                          })}
                         >
                           <TextField
                             id="f-minpay"
@@ -767,7 +957,13 @@ export default function AccountModal({
                   {isYield && (
                     <section>
                       <div className="acct-grid acct-grid--2">
-                        <FormField label="Interest rate (APY, %)" htmlFor="f-apy">
+                        <FormField
+                          label={formatMessage({
+                            id: 'accounts.apy',
+                            defaultMessage: 'Interest rate (APY, %)',
+                          })}
+                          htmlFor="f-apy"
+                        >
                           <TextField
                             id="f-apy"
                             inputMode="decimal"
@@ -785,7 +981,9 @@ export default function AccountModal({
 
                   {mode === 'edit' && (externalIds.length > 0 || unlinkErr) && (
                     <section>
-                      <div className="acct-section-label">Linked to</div>
+                      <div className="acct-section-label">
+                        {formatMessage({ id: 'accounts.linked', defaultMessage: 'Linked to' })}
+                      </div>
                       <Stack gap="--space-2">
                         {externalIds.map((entry, i) => (
                           <Cluster
@@ -803,7 +1001,7 @@ export default function AccountModal({
                               loading={unlinkingIdx === i}
                               onClick={() => void unlink(i)}
                             >
-                              Unlink
+                              {formatMessage({ id: 'accounts.unlink', defaultMessage: 'Unlink' })}
                             </Button>
                           </Cluster>
                         ))}
@@ -817,26 +1015,43 @@ export default function AccountModal({
                   )}
                   {mode === 'edit' && (
                     <div className="acct-opening-compact">
-                      <span className="acct-opening-label">Starting balance</span>
+                      <span className="acct-opening-label">
+                        {formatMessage({
+                          id: 'accounts.startingBalance',
+                          defaultMessage: 'Starting balance',
+                        })}
+                      </span>
                       <span className="acct-opening-amt">
                         {form.currency}{' '}
-                        {Math.abs(account?.initialBalance ?? 0).toLocaleString('en-US', {
+                        {Math.abs(account?.initialBalance ?? 0).toLocaleString(getNumberLocale(), {
                           maximumFractionDigits: 2,
                         })}
-                        {!isAsset && (account?.initialBalance ?? 0) !== 0 ? ' owed' : ''}
+                        {!isAsset && (account?.initialBalance ?? 0) !== 0
+                          ? formatMessage({ id: 'accounts.owedSuffix', defaultMessage: ' owed' })
+                          : ''}
                       </span>
                       <span className="acct-opening-meta">
-                        {form.asOf ? `as of ${form.asOf}` : 'tracked from the first transaction'}
+                        {form.asOf
+                          ? formatMessage(
+                              { id: 'accounts.asOf', defaultMessage: 'as of {date}' },
+                              { date: form.asOf },
+                            )
+                          : formatMessage({
+                              id: 'accounts.fromFirstTransaction',
+                              defaultMessage: 'tracked from the first transaction',
+                            })}
                       </span>
                       {onEditOpening && (
                         <button type="button" className="acct-opening-link" onClick={onEditOpening}>
-                          Open
+                          {formatMessage({ id: 'accounts.open', defaultMessage: 'Open' })}
                         </button>
                       )}
                       <span className="acct-opening-explanation">
-                        Starting balance is what this account held when you began tracking it.
-                        Transactions before this date are excluded, so your ledger starts from this
-                        balance.
+                        {formatMessage({
+                          id: 'accounts.startingExplanation',
+                          defaultMessage:
+                            'Starting balance is what this account held when you began tracking it. Transactions before this date are excluded, so your ledger starts from this balance.',
+                        })}
                       </span>
                     </div>
                   )}

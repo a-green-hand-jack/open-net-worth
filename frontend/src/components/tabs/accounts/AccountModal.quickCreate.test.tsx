@@ -2,6 +2,8 @@
 
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { IntlProvider } from 'react-intl'
+import { catalogs } from '../../../i18n/catalogs'
 import AccountModal from './AccountModal'
 import type { Account, AccountCreate, AccountUpdate } from './types'
 import { setBaseCurrency } from '../../../utils/format'
@@ -52,6 +54,23 @@ function renderAdd(
 }
 
 describe('AccountModal quick create', () => {
+  it('shows Chinese controls and submits the unchanged synthetic account values', () => {
+    const onSave = vi.fn()
+    render(
+      <IntlProvider locale="zh-CN" messages={catalogs['zh-CN']}>
+        <AccountModal open mode="add" institutions={[]} onClose={vi.fn()} onSave={onSave} />
+      </IntlProvider>,
+    )
+    fireEvent.change(screen.getByLabelText(/名称/), { target: { value: 'My Account' } })
+    fireEvent.change(screen.getByLabelText(/当前余额/), { target: { value: '125.50' } })
+    fireEvent.click(screen.getByRole('button', { name: '添加账户' }))
+    expect(onSave).toHaveBeenCalledWith({
+      name: 'My Account',
+      type: 'cash',
+      currency: 'SGD',
+      initial_balance: 125.5,
+    })
+  })
   it('opens directly on the four essentials without advanced fields or a date', () => {
     renderAdd()
 
