@@ -64,6 +64,7 @@ it('translates card controls and chart description without rewriting user labels
     </IntlProvider>,
   )
   expect(screen.getAllByText('Saved').length).toBeGreaterThan(0)
+  expect(screen.getByText('已储蓄')).toBeTruthy()
   expect(screen.getByRole('img').getAttribute('aria-label')).toMatch(/收入.*100.*支出.*30/)
   expect(screen.getByText('已扣除退款和报销')).toBeTruthy()
   fireEvent.click(screen.getByRole('button', { name: '在计划中打开' }))

@@ -1,4 +1,10 @@
 {
+  "overview.moneyFlow.node.saved": "已储蓄",
+  "overview.moneyFlow.node.fromSavings": "来自储蓄",
+  "overview.moneyFlow.node.otherIncome": "其他收入",
+  "overview.moneyFlow.node.otherSpending": "其他支出",
+  "overview.moneyFlow.node.income": "收入",
+  "overview.moneyFlow.node.spent": "支出",
   "overview.moneyFlow.openPlan": "在计划中打开",
   "overview.moneyFlow.netRefunds": "已扣除退款和报销",
   "overview.moneyFlow.error": "无法加载资金流向。",

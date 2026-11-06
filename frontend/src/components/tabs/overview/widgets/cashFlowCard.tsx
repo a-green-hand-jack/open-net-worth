@@ -20,6 +20,7 @@ import { WidgetShell } from '../WidgetShell'
 import { WidgetPlaceholder } from '../WidgetPlaceholder'
 import { useElementSize } from '../../../../hooks/useElementWidth'
 import { useAppIntl } from '../../../../i18n/useAppIntl'
+import { moneyFlowSystemLabel } from './moneyFlowSystemLabels'
 
 function lastFullMonth(): string {
   const d = new Date()
@@ -45,17 +46,23 @@ export const CashFlowCard: ComponentType<WidgetContentProps> = ({ instance, def,
   const laid = useMemo(
     () =>
       g
-        ? layoutMoneyFlow(g, {
-            width,
-            height,
-            labelLeft: Math.min(100, width * 0.27),
-            labelRight: Math.min(128, width * 0.32),
-            nodeWidth: 7,
-            nodePadding: 8,
-            labelGap: 26,
-          })
+        ? layoutMoneyFlow(
+            {
+              ...g,
+              nodes: g.nodes.map((node) => ({ ...node, label: moneyFlowSystemLabel(intl, node) })),
+            },
+            {
+              width,
+              height,
+              labelLeft: Math.min(100, width * 0.27),
+              labelRight: Math.min(128, width * 0.32),
+              nodeWidth: 7,
+              nodePadding: 8,
+              labelGap: 26,
+            },
+          )
         : null,
-    [g, width, height],
+    [g, width, height, intl],
   )
   const byId = useMemo(() => new Map((laid?.nodes ?? []).map((n) => [n.id, n])), [laid])
   const link =
