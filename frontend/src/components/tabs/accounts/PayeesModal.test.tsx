@@ -9,6 +9,8 @@
 
 import { describe, it, expect, afterEach, vi } from 'vitest'
 import { render, cleanup, screen, fireEvent } from '@testing-library/react'
+import { IntlProvider } from 'react-intl'
+import { catalogs } from '../../../i18n/catalogs'
 
 const authFetch = vi.hoisted(() =>
   vi.fn<(url: string, init?: RequestInit) => Promise<Response>>(() =>
@@ -48,6 +50,33 @@ function makePayee(over: Partial<Payee> = {}): Payee {
 }
 
 function noop() {}
+
+it('localizes controls while preserving payee data and rule actions', () => {
+  const applyRules = vi.fn()
+  render(
+    <IntlProvider locale="zh-CN" messages={catalogs['zh-CN']}>
+      <PayeesModal
+        open
+        payees={[makePayee()]}
+        categories={categories}
+        onClose={noop}
+        onChange={noop}
+        onMerge={noop}
+        onView={noop}
+        onAdd={() => ''}
+        onDelete={noop}
+        onApplyPayeeRules={applyRules}
+      />
+    </IntlProvider>,
+  )
+  expect(screen.getByText('管理收款方')).toBeTruthy()
+  expect(screen.getAllByText('Bar Example').length).toBeGreaterThan(0)
+  expect(screen.getByText('bar example hanoi')).toBeTruthy()
+  fireEvent.click(screen.getByText('将规则应用于现有交易'))
+  expect(screen.getByText(/匹配 Bar Example 重命名规则/)).toBeTruthy()
+  fireEvent.click(screen.getByText('应用规则'))
+  expect(applyRules).toHaveBeenCalledWith('pay_1')
+})
 
 function mockMobile(isMobile: boolean) {
   const original = Object.getOwnPropertyDescriptor(window, 'matchMedia')

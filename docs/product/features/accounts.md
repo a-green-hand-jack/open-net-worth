@@ -209,6 +209,9 @@ booked. Open Reconcile again; it now asks about the current figure.
 
 ## Interface language
 
+The payee manager's controls and confirmations use the interface language; saved payee names,
+aliases, categories and renaming rules remain unchanged.
+
 Account, category, payee and date picker controls follow the interface language. Account names,
 payees and category group names retain the text you entered.
 Account creation and editing forms also follow the interface language; the saved account name,
