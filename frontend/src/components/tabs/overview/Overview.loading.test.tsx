@@ -9,6 +9,8 @@
 
 import { cleanup, render, screen } from '@testing-library/react'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
+import { IntlProvider } from 'react-intl'
+import { catalogs } from '../../../i18n/catalogs'
 import type { ComputedRow } from '../../../types/portfolio'
 import { Overview } from './Overview'
 
@@ -44,6 +46,22 @@ describe('Overview — "nothing yet" is not "nothing at all"', () => {
   })
 
   afterEach(cleanup)
+
+  it('distinguishes loading and failed reads in Chinese', () => {
+    const { rerender } = render(
+      <IntlProvider locale="zh-CN" messages={catalogs['zh-CN']}>
+        <Overview rows={[]} loading />
+      </IntlProvider>,
+    )
+    expect(screen.getByRole('status').getAttribute('aria-label')).toBe('正在加载仪表盘…')
+    rerender(
+      <IntlProvider locale="zh-CN" messages={catalogs['zh-CN']}>
+        <Overview rows={[]} loadFailed />
+      </IntlProvider>,
+    )
+    expect(screen.getByText('无法加载仪表盘')).toBeTruthy()
+    expect(screen.queryByText('从最常用的账户开始')).toBeNull()
+  })
 
   it('shows a loading state, not the demo-data pitch, while the portfolio read is in flight', () => {
     render(<Overview rows={[]} loading />)

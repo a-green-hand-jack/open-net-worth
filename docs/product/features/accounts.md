@@ -34,6 +34,8 @@ beside its amount, in case the **Source** column is out of view.
 
 ## Add an account
 
+The empty-account setup buttons use your selected interface language.
+
 1. Open **Accounts** and click **Add account** (top right). On a brand-new book, click
    **Add an account myself** instead — or **Add with Lucius** to do it in chat.
 2. **Name** — what you call it, e.g. "Everyday account".

@@ -4,6 +4,7 @@
 import { Button, Cluster, EmptyState } from '../ui'
 import { Landmark } from '../../ui/icons'
 import { LuciusCta } from '../intro/LuciusCta'
+import { useAppIntl } from '../../i18n/useAppIntl'
 
 export interface DataInHeroProps {
   title: string
@@ -23,6 +24,7 @@ export function DataInHero({
   luciusMessage,
   onAskLucius,
 }: DataInHeroProps) {
+  const intl = useAppIntl()
   return (
     <EmptyState
       fill
@@ -32,9 +34,19 @@ export function DataInHero({
       action={
         <Cluster gap="--space-3" justify="center">
           <Button variant="primary" size="sm" onClick={onAddAccount}>
-            Add an account myself
+            {intl.formatMessage({
+              id: 'dataIn.addAccount',
+              defaultMessage: 'Add an account myself',
+            })}
           </Button>
-          <LuciusCta label="Add with Lucius" message={luciusMessage} onAskLucius={onAskLucius} />
+          <LuciusCta
+            label={intl.formatMessage({
+              id: 'dataIn.addWithLucius',
+              defaultMessage: 'Add with Lucius',
+            })}
+            message={luciusMessage}
+            onAskLucius={onAskLucius}
+          />
         </Cluster>
       }
     />

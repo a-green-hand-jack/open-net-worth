@@ -1,4 +1,12 @@
 {
+  "overview.loading": "正在加载仪表盘…",
+  "overview.loadErrorTitle": "无法加载仪表盘",
+  "overview.loadError": "账本中的内容没有丢失，只是暂时无法读取。请重试，或询问 Lucius 出了什么问题。",
+  "overview.emptyTitle": "从最常用的账户开始",
+  "overview.emptyBody": "添加账户，开始构建你的财务全貌。",
+  "overview.askSetup": "请帮我设置账户",
+  "dataIn.addAccount": "自行添加账户",
+  "dataIn.addWithLucius": "通过 Lucius 添加",
   "overview.loadingShort": "正在加载",
   "overview.briefing.instructions": "简报指示",
   "overview.briefing.placeholder": "Lucius 应关注什么，简报应多长？",

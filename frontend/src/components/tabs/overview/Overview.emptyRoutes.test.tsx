@@ -5,6 +5,8 @@
 
 import { cleanup, render, screen, fireEvent } from '@testing-library/react'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
+import { IntlProvider } from 'react-intl'
+import { catalogs } from '../../../i18n/catalogs'
 import { Overview } from './Overview'
 
 const authFetch = vi.hoisted(() => vi.fn())
@@ -42,6 +44,21 @@ describe('Overview empty state', () => {
   })
 
   afterEach(cleanup)
+
+  it('offers the same setup paths in Chinese', () => {
+    const onNavigate = vi.fn()
+    const onChatSuggest = vi.fn()
+    render(
+      <IntlProvider locale="zh-CN" messages={catalogs['zh-CN']}>
+        <Overview rows={[]} onNavigate={onNavigate} onChatSuggest={onChatSuggest} />
+      </IntlProvider>,
+    )
+    expect(screen.getByText('从最常用的账户开始')).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: '自行添加账户' }))
+    expect(onNavigate).toHaveBeenCalledWith('accounts')
+    fireEvent.click(screen.getByRole('button', { name: '通过 Lucius 添加' }))
+    expect(onChatSuggest).toHaveBeenCalledWith('请帮我设置账户')
+  })
 
   it('offers adding an account and Lucius, nothing else', () => {
     render(<Overview rows={[]} onChatSuggest={vi.fn()} />)

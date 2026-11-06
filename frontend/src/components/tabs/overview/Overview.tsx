@@ -20,6 +20,7 @@ import { ViewTabs } from './ViewTabs'
 import { DataInHero } from '../../dataIn/DataInHero'
 import { installOvTooltip } from './tooltip'
 import { useDashboardLayout } from './useDashboardLayout'
+import { useAppIntl } from '../../../i18n/useAppIntl'
 import { stickyTopbarOffset } from '../../../utils/stickyTopbarOffset'
 import './registry' // ensure every widget-group module registers before first render
 import './overview.css'
@@ -53,6 +54,7 @@ export function Overview({
   onRetry,
   onOpenRegister,
 }: Props) {
+  const intl = useAppIntl()
   const layout = useDashboardLayout()
   const [editing, setEditing] = useState(false)
   const [pickerOpen, setPickerOpen] = useState(false)
@@ -137,7 +139,13 @@ export function Overview({
       return (
         <Container size="wide">
           <div className="ov-page">
-            <TabSkeleton variant="dashboard" label="Loading your dashboard…" />
+            <TabSkeleton
+              variant="dashboard"
+              label={intl.formatMessage({
+                id: 'overview.loading',
+                defaultMessage: 'Loading your dashboard…',
+              })}
+            />
           </div>
         </Container>
       )
@@ -146,8 +154,15 @@ export function Overview({
       return (
         <Container size="wide">
           <ErrorState
-            title="Your dashboard couldn’t load"
-            message="Nothing is missing from your book. It couldn’t be read just now, so try again or ask Lucius what went wrong."
+            title={intl.formatMessage({
+              id: 'overview.loadErrorTitle',
+              defaultMessage: 'Your dashboard couldn’t load',
+            })}
+            message={intl.formatMessage({
+              id: 'overview.loadError',
+              defaultMessage:
+                'Nothing is missing from your book. It couldn’t be read just now, so try again or ask Lucius what went wrong.',
+            })}
             onRetry={onRetry}
           />
         </Container>
@@ -157,10 +172,19 @@ export function Overview({
     return (
       <Container size="wide">
         <DataInHero
-          title="Start with the account you use most"
-          body="Add an account to start your financial picture."
+          title={intl.formatMessage({
+            id: 'overview.emptyTitle',
+            defaultMessage: 'Start with the account you use most',
+          })}
+          body={intl.formatMessage({
+            id: 'overview.emptyBody',
+            defaultMessage: 'Add an account to start your financial picture.',
+          })}
           onAddAccount={() => onNavigate?.('accounts')}
-          luciusMessage="Help me set up my accounts"
+          luciusMessage={intl.formatMessage({
+            id: 'overview.askSetup',
+            defaultMessage: 'Help me set up my accounts',
+          })}
           onAskLucius={onChatSuggest}
         />
       </Container>
