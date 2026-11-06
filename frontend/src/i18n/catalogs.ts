@@ -1,4 +1,5 @@
 import type { Locale } from './locale'
+import archivedAccountsZh from '../components/tabs/accounts/archived-accounts.zh-CN.json'
 import institutionsZh from '../components/tabs/accounts/institutions.zh-CN.json'
 import appearanceZh from '../components/tabs/settings/sections/appearance.zh-CN.json'
 import dedupZh from '../components/tabs/settings/sections/dedup.zh-CN.json'
@@ -119,6 +120,7 @@ export const catalogs: Record<Locale, Record<string, string> | undefined> = {
     ...accountReviewUiZh,
     ...accountReviewSummaryZh,
     ...institutionsZh,
+    ...archivedAccountsZh,
     'auth.signingBackIn': '正在重新登录…',
     'auth.rateLimit': '尝试次数过多。请在 {minutes, plural, other {# 分钟}}后重试。',
     'settings.section.language': '界面语言',

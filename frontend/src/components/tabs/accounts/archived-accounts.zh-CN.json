@@ -1,0 +1,15 @@
+{
+  "accounts.archive.title": "已归档账户",
+  "accounts.archive.badge": "已归档",
+  "accounts.archive.readOnly": "此账户已关闭。恢复账户前，其历史记录为只读。",
+  "accounts.archive.restore": "恢复账户",
+  "accounts.archive.delete": "永久删除",
+  "accounts.archive.transactions": "已归档账户的交易记录",
+  "accounts.archive.loadingTransactions": "正在加载交易记录…",
+  "accounts.archive.noTransactions": "此账户没有交易记录。",
+  "accounts.archive.transaction": "交易",
+  "accounts.archive.loading": "正在加载已归档账户…",
+  "accounts.archive.loadFailed": "无法加载已归档账户",
+  "accounts.archive.empty": "没有已归档账户。",
+  "accounts.archive.description": "已关闭的账户不计入活跃账户余额，但仍可在此查看其历史记录。"
+}
