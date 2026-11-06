@@ -1,0 +1,18 @@
+{
+  "accounts.confirm.cancel": "取消",
+  "accounts.receipt.attach": "附加收据",
+  "accounts.receipt.attachFailedMany": "无法附加 {count} 个文件，请重试。",
+  "accounts.receipt.attachFailedOne": "无法附加该文件，请重试。",
+  "accounts.receipt.attaching": "正在附加…",
+  "accounts.receipt.cancel": "取消",
+  "accounts.receipt.confirm": "确认",
+  "accounts.receipt.count": "收据（{count}）",
+  "accounts.receipt.download": "下载原件",
+  "accounts.receipt.loadFailed": "无法加载收据。",
+  "accounts.receipt.none": "尚未附加收据。",
+  "accounts.receipt.receipts": "收据",
+  "accounts.receipt.remove": "移除",
+  "accounts.receipt.removeFailed": "无法移除收据，请重试。",
+  "accounts.receipt.retry": "重试",
+  "accounts.receipt.viewerTitle": "收据"
+}

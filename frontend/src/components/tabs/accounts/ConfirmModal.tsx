@@ -3,6 +3,7 @@
  * Ported from prototype/accounts/modals.jsx ConfirmModal.
  */
 
+import { useAppIntl } from '../../../i18n/useAppIntl'
 import { Modal } from '../../ui/Modal'
 import { Button } from '../../ui/Button'
 import { Text } from '../../ui/Text'
@@ -26,6 +27,7 @@ export function ConfirmModal({
   onConfirm,
   onClose,
 }: ConfirmModalProps) {
+  const { formatMessage } = useAppIntl()
   return (
     <Modal
       open={open}
@@ -35,7 +37,7 @@ export function ConfirmModal({
       footer={
         <>
           <Button size="sm" variant="ghost" onClick={onClose}>
-            Cancel
+            {formatMessage({ id: 'accounts.confirm.cancel', defaultMessage: 'Cancel' })}
           </Button>
           <Button size="sm" variant={danger ? 'danger' : 'primary'} onClick={onConfirm}>
             {confirmLabel}
