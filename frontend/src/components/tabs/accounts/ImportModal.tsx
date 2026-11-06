@@ -3658,7 +3658,10 @@ export function ImportModal({
               <button
                 type="button"
                 className={'imp3-drop' + (dragOver ? ' over' : '')}
-                aria-label="Choose a statement file or drop it here"
+                aria-label={intl.formatMessage({
+                  id: 'accounts.importChoose.chooseFile',
+                  defaultMessage: 'Choose a statement file or drop it here',
+                })}
                 onDragOver={(e) => {
                   e.preventDefault()
                   setDragOver(true)
@@ -3689,10 +3692,19 @@ export function ImportModal({
                   <path d="M12 3v12" />
                 </svg>
                 <span className="imp3-drop-t">
-                  Drop a statement here, or <span className="lk">browse</span>
+                  {intl.formatMessage(
+                    {
+                      id: 'accounts.importChoose.drop',
+                      defaultMessage: 'Drop a statement here, or <link>browse</link>',
+                    },
+                    { link: (chunks) => <span className="lk">{chunks}</span> },
+                  )}
                 </span>
                 <span className="imp3-drop-d">
-                  PDF, CSV, XLSX, OFX, QIF, MT940, CAMT — scanned PDFs work too
+                  {intl.formatMessage({
+                    id: 'accounts.importChoose.formats',
+                    defaultMessage: 'PDF, CSV, XLSX, OFX, QIF, MT940, CAMT — scanned PDFs work too',
+                  })}
                 </span>
               </button>
               <input
@@ -3701,7 +3713,10 @@ export function ImportModal({
                 type="file"
                 accept={ACCEPT}
                 tabIndex={-1}
-                aria-label="Statement file"
+                aria-label={intl.formatMessage({
+                  id: 'accounts.importChoose.file',
+                  defaultMessage: 'Statement file',
+                })}
                 onChange={(e) => {
                   const f = e.target.files?.[0]
                   if (f) pickFile(f)
@@ -3712,7 +3727,10 @@ export function ImportModal({
                 <div className="imp3-urlbox">
                   <input
                     type="url"
-                    aria-label="Statement URL"
+                    aria-label={intl.formatMessage({
+                      id: 'accounts.importChoose.url',
+                      defaultMessage: 'Statement URL',
+                    })}
                     placeholder="https://docs.google.com/…/pub?output=csv"
                     value={url}
                     onChange={(e) => {
@@ -3724,7 +3742,10 @@ export function ImportModal({
                   />
                   <div className="imp3-urlbox-acts">
                     <span className="imp3-drop-cost">
-                      A hosted CSV, OFX, QIF, MT940, CAMT, XLSX or PDF link.
+                      {intl.formatMessage({
+                        id: 'accounts.importChoose.hosted',
+                        defaultMessage: 'A hosted CSV, OFX, QIF, MT940, CAMT, XLSX or PDF link.',
+                      })}
                     </span>
                     <button
                       type="button"
@@ -3734,7 +3755,10 @@ export function ImportModal({
                         setError('')
                       }}
                     >
-                      Cancel
+                      {intl.formatMessage({
+                        id: 'accounts.importChoose.cancel',
+                        defaultMessage: 'Cancel',
+                      })}
                     </button>
                     <button
                       type="button"
@@ -3742,7 +3766,10 @@ export function ImportModal({
                       disabled={!url.trim()}
                       onClick={loadUrl}
                     >
-                      Load
+                      {intl.formatMessage({
+                        id: 'accounts.importChoose.load',
+                        defaultMessage: 'Load',
+                      })}
                     </button>
                   </div>
                 </div>
@@ -3755,7 +3782,10 @@ export function ImportModal({
                     setError('')
                   }}
                 >
-                  or paste a URL / Google Sheet link
+                  {intl.formatMessage({
+                    id: 'accounts.importChoose.paste',
+                    defaultMessage: 'or paste a URL / Google Sheet link',
+                  })}
                 </button>
               )}
             </div>
@@ -3880,11 +3910,21 @@ export function ImportModal({
                               <Plus size={12} aria-hidden="true" /> Add account
                             </>
                           ) : (
-                            'Select account'
+                            intl.formatMessage({
+                              id: 'accounts.importChoose.selectAccount',
+                              defaultMessage: 'Select account',
+                            })
                           )}
                         </button>
                         {acctPickOpen && (
-                          <div className="imp3-lpick-pop" role="listbox" aria-label="Accounts">
+                          <div
+                            className="imp3-lpick-pop"
+                            role="listbox"
+                            aria-label={intl.formatMessage({
+                              id: 'accounts.importChoose.accounts',
+                              defaultMessage: 'Accounts',
+                            })}
+                          >
                             {accounts
                               .filter((a) => !acctIds.includes(a.id))
                               .map((a) => (
@@ -3982,7 +4022,12 @@ export function ImportModal({
                 </div>
               ) : (
                 <div className="imp3-drop-cta">
-                  <span className="imp3-drop-cost">You review everything before it books</span>
+                  <span className="imp3-drop-cost">
+                    {intl.formatMessage({
+                      id: 'accounts.importChoose.reviewBefore',
+                      defaultMessage: 'You review everything before it books',
+                    })}
+                  </span>
                   <Button
                     variant="primary"
                     className="fi-lucius"
@@ -3990,7 +4035,10 @@ export function ImportModal({
                     disabled={!acctIds.length}
                     onClick={() => runLucius()}
                   >
-                    Read the statement
+                    {intl.formatMessage({
+                      id: 'accounts.importChoose.readStatement',
+                      defaultMessage: 'Read the statement',
+                    })}
                   </Button>
                 </div>
               )}

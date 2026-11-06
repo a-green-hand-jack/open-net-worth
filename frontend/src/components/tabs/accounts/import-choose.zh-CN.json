@@ -1,0 +1,15 @@
+{
+  "accounts.importChoose.accounts": "账户",
+  "accounts.importChoose.cancel": "取消",
+  "accounts.importChoose.chooseFile": "选择账单文件或拖放至此",
+  "accounts.importChoose.drop": "将账单拖放到此处，或<link>浏览文件</link>",
+  "accounts.importChoose.file": "账单文件",
+  "accounts.importChoose.formats": "支持 PDF、CSV、XLSX、OFX、QIF、MT940 和 CAMT，也支持扫描版 PDF",
+  "accounts.importChoose.hosted": "支持托管的 CSV、OFX、QIF、MT940、CAMT、XLSX 或 PDF 链接。",
+  "accounts.importChoose.load": "加载",
+  "accounts.importChoose.paste": "或粘贴网址 / Google 表格链接",
+  "accounts.importChoose.readStatement": "读取账单",
+  "accounts.importChoose.reviewBefore": "入账前由您审核所有内容",
+  "accounts.importChoose.selectAccount": "选择账户",
+  "accounts.importChoose.url": "账单网址"
+}

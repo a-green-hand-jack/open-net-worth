@@ -226,13 +226,14 @@ describe('Choose step — the picked state (prototype DropStep, picked)', () => 
         { onPreview: vi.fn().mockReturnValue(new Promise(() => {})) },
         true,
       )
+      expect(screen.getByRole('button', { name: '选择账单文件或拖放至此' })).toBeTruthy()
       pick(container, 'custom-statement.csv')
       await act(async () => {
         await Promise.resolve()
       })
-      fireEvent.click(screen.getByRole('button', { name: 'Select account' }))
+      fireEvent.click(screen.getByRole('button', { name: '选择账户' }))
       fireEvent.click(screen.getByRole('option', { name: /Riverside Bank/ }))
-      fireEvent.click(screen.getByRole('button', { name: /Read the statement/ }))
+      fireEvent.click(screen.getByRole('button', { name: '读取账单' }))
       expect(document.body.querySelector('.imp3-phase')?.textContent).toBe('正在读取账单')
       expect(document.body.textContent).toContain('custom-statement.csv')
       act(() => {
