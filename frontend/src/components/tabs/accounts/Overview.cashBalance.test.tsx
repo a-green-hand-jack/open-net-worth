@@ -11,6 +11,8 @@
 
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { IntlProvider } from 'react-intl'
+import { catalogs } from '../../../i18n/catalogs'
 import {
   Overview,
   type OverviewCashBalance,
@@ -42,30 +44,45 @@ const totals: OverviewTotals = {
 const stats: OverviewStats = { count: 0, review: 0 }
 const noop = vi.fn()
 
-function renderOverview(cashBalance: OverviewCashBalance) {
+function renderOverview(cashBalance: OverviewCashBalance, chinese = false) {
   return render(
-    <Overview
-      totals={totals}
-      groups={[]}
-      cashBalance={cashBalance}
-      stats={stats}
-      baseCurrency="SGD"
-      collapsed={false}
-      onReopen={noop}
-      onAddTxn={noop}
-      onAdd={noop}
-      onManagePayees={noop}
-      onManageCategories={noop}
-      onImport={noop}
-      onExport={noop}
-      onReview={noop}
-      onStartReview={noop}
-      onShowUncleared={noop}
-    />,
+    <IntlProvider locale={chinese ? 'zh-CN' : 'en'} messages={chinese ? catalogs['zh-CN'] : {}}>
+      <Overview
+        totals={totals}
+        groups={[]}
+        cashBalance={cashBalance}
+        stats={stats}
+        baseCurrency="SGD"
+        collapsed={false}
+        onReopen={noop}
+        onAddTxn={noop}
+        onAdd={noop}
+        onManagePayees={noop}
+        onManageCategories={noop}
+        onImport={noop}
+        onExport={noop}
+        onReview={noop}
+        onStartReview={noop}
+        onShowUncleared={noop}
+      />
+    </IntlProvider>,
   )
 }
 
 describe('Overview — the balance card totals cash accounts only, never the whole book', () => {
+  it('explains cash balances in Chinese while preserving the displayed values', () => {
+    const { container } = renderOverview({ cleared: 25000, uncleared: -500, total: 24500 }, true)
+    expect(balanceLabels(container)).toEqual(['已入账', '未入账', '手头现金'])
+    expect(container.querySelector('.acct-bal')?.textContent).toContain('24,500')
+    fireEvent.click(screen.getByRole('button', { name: '这些金额的含义' }))
+    const explanation = screen.getByRole('tooltip').textContent ?? ''
+    expect(explanation).toContain('已过账')
+    expect(explanation).toContain('待处理')
+    expect(explanation).toContain('银行和电子钱包账户')
+    fireEvent.click(screen.getByRole('button', { name: '更多操作' }))
+    expect(screen.getByRole('button', { name: '已归档账户' })).toBeTruthy()
+  })
+
   it('renders Cash on hand as the sum of cleared and uncleared, not the unrelated `total` field', () => {
     // `total` stands in for what the OLD all-account figure would have been (mortgage and
     // all) — cleared+uncleared (cash accounts only) is far smaller and, unlike before, is

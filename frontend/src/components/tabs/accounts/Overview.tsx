@@ -8,6 +8,7 @@
 
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { Button } from '../../ui'
+import { useAppIntl } from '../../../i18n/useAppIntl'
 import { BalanceTermsInfo } from './BalanceTermsInfo'
 import {
   ChevronsRight,
@@ -145,6 +146,7 @@ export function Overview({
   archivedCount = 0,
   onPhoneShortcuts,
 }: OverviewProps) {
+  const { formatMessage: fm } = useAppIntl()
   const [menuOpen, setMenuOpen] = useState(false)
   const menuRef = useRef<HTMLDivElement>(null)
 
@@ -177,14 +179,14 @@ export function Overview({
               onClick={onReopen}
               onMouseEnter={onReopenHover}
               onMouseLeave={onReopenLeave}
-              title="Show accounts"
+              title={fm({ id: 'accounts.showAccounts', defaultMessage: 'Show accounts' })}
             >
               <ChevronsRight size={16} strokeWidth={1.75} aria-hidden="true" />
             </button>
           )}
           <div>
             <div className="acct-head-title" data-ctx-title="Accounts">
-              Accounts
+              {fm({ id: 'accounts.overview.title', defaultMessage: 'Accounts' })}
             </div>
           </div>
         </div>
@@ -195,7 +197,7 @@ export function Overview({
             variant="ghost"
             onClick={onManagePayees}
           >
-            Manage payees
+            {fm({ id: 'accounts.managePayees', defaultMessage: 'Manage payees' })}
           </Button>
           {/* Beside Manage payees, its natural sibling — both are ledger-entity admin, and both
               are used well outside the screen that happens to host them. */}
@@ -205,21 +207,22 @@ export function Overview({
             variant="ghost"
             onClick={onManageCategories}
           >
-            Manage categories
+            {fm({ id: 'accounts.manageCategories', defaultMessage: 'Manage categories' })}
           </Button>
           <Button className="acct-head-collapsible" size="sm" variant="ghost" onClick={onImport}>
-            Import
+            {fm({ id: 'accounts.import', defaultMessage: 'Import' })}
           </Button>
           <Button size="sm" variant="secondary" onClick={onAdd} data-tour="setup-accounts">
             <span className="acct-btn-ico">
-              <Plus size={14} strokeWidth={2} aria-hidden="true" /> Add account
+              <Plus size={14} strokeWidth={2} aria-hidden="true" />{' '}
+              {fm({ id: 'accounts.overview.addAccount', defaultMessage: 'Add account' })}
             </span>
           </Button>
           <div className="acct-menu-wrap" ref={menuRef}>
             <button
               className="btn-ghost-icon"
               onClick={() => setMenuOpen((o) => !o)}
-              aria-label="More actions"
+              aria-label={fm({ id: 'accounts.moreActions', defaultMessage: 'More actions' })}
             >
               <MoreHorizontal size={18} strokeWidth={1.75} aria-hidden="true" />
             </button>
@@ -234,7 +237,7 @@ export function Overview({
                     onManagePayees()
                   }}
                 >
-                  Manage payees
+                  {fm({ id: 'accounts.managePayees', defaultMessage: 'Manage payees' })}
                 </OverviewMenuItem>
                 <OverviewMenuItem
                   icon="categories"
@@ -244,7 +247,7 @@ export function Overview({
                     onManageCategories()
                   }}
                 >
-                  Manage categories
+                  {fm({ id: 'accounts.manageCategories', defaultMessage: 'Manage categories' })}
                 </OverviewMenuItem>
                 {onManageInstitutions && (
                   <OverviewMenuItem
@@ -254,7 +257,10 @@ export function Overview({
                       onManageInstitutions()
                     }}
                   >
-                    Manage institutions
+                    {fm({
+                      id: 'accounts.manageInstitutions',
+                      defaultMessage: 'Manage institutions',
+                    })}
                   </OverviewMenuItem>
                 )}
                 <OverviewMenuItem
@@ -265,7 +271,7 @@ export function Overview({
                     onImport()
                   }}
                 >
-                  Import
+                  {fm({ id: 'accounts.import', defaultMessage: 'Import' })}
                 </OverviewMenuItem>
                 <OverviewMenuItem
                   icon="export"
@@ -274,7 +280,7 @@ export function Overview({
                     onExport()
                   }}
                 >
-                  Export transactions
+                  {fm({ id: 'accounts.exportTransactions', defaultMessage: 'Export transactions' })}
                 </OverviewMenuItem>
                 <OverviewMenuItem
                   icon="archive"
@@ -283,7 +289,8 @@ export function Overview({
                     onArchivedAccounts?.()
                   }}
                 >
-                  Archived accounts{archivedCount ? ` (${archivedCount})` : ''}
+                  {fm({ id: 'accounts.archive.title', defaultMessage: 'Archived accounts' })}
+                  {archivedCount ? ` (${archivedCount})` : ''}
                 </OverviewMenuItem>
                 {onPhoneShortcuts ? (
                   <OverviewMenuItem
@@ -293,7 +300,10 @@ export function Overview({
                       onPhoneShortcuts()
                     }}
                   >
-                    Phone shortcuts
+                    {fm({
+                      id: 'accounts.overview.phoneShortcuts',
+                      defaultMessage: 'Phone shortcuts',
+                    })}
                   </OverviewMenuItem>
                 ) : null}
               </div>
@@ -307,10 +317,13 @@ export function Overview({
       <div className="acct-bal">
         <div className="acct-bal-card">
           <div className="acct-bal-k">
-            Cash
+            {fm({ id: 'accounts.overview.cash', defaultMessage: 'Cash' })}
             <BalanceTermsInfo
-              total="Cash on hand"
-              meaning="the two together, across your bank and e-wallet accounts."
+              total={fm({ id: 'accounts.overview.cashOnHand', defaultMessage: 'Cash on hand' })}
+              meaning={fm({
+                id: 'accounts.overview.cashMeaning',
+                defaultMessage: 'the two together, across your bank and e-wallet accounts.',
+              })}
             />
           </div>
           <div className="acct-bal-breakdown">
@@ -318,7 +331,9 @@ export function Overview({
               <div className={'acct-bal-fig mask' + (cashBalance.cleared > 0 ? ' pos' : '')}>
                 {fCur(cashBalance.cleared, baseCurrency, { cents: true })}
               </div>
-              <div className="acct-bal-lbl">Cleared</div>
+              <div className="acct-bal-lbl">
+                {fm({ id: 'accounts.cleared', defaultMessage: 'Cleared' })}
+              </div>
             </div>
             <div className="acct-bal-grp">
               <span className="acct-bal-op">+</span>
@@ -331,9 +346,12 @@ export function Overview({
                     type="button"
                     className="acct-bal-lbl-btn"
                     onClick={onShowUncleared}
-                    title="Show uncleared transactions"
+                    title={fm({
+                      id: 'accounts.overview.showUncleared',
+                      defaultMessage: 'Show uncleared transactions',
+                    })}
                   >
-                    Uncleared
+                    {fm({ id: 'accounts.uncleared', defaultMessage: 'Uncleared' })}
                   </button>
                 </div>
               </div>
@@ -344,7 +362,9 @@ export function Overview({
                 <div className={'acct-bal-fig work mask' + (cashOnHand > 0 ? ' pos' : '')}>
                   {fCur(cashOnHand, baseCurrency, { cents: true })}
                 </div>
-                <div className="acct-bal-lbl">Cash on hand</div>
+                <div className="acct-bal-lbl">
+                  {fm({ id: 'accounts.overview.cashOnHand', defaultMessage: 'Cash on hand' })}
+                </div>
               </div>
             </div>
           </div>

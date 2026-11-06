@@ -5,19 +5,36 @@
  */
 
 import { InfoPopover } from '../../ui'
+import { useAppIntl } from '../../../i18n/useAppIntl'
 
 export function BalanceTermsInfo({ total, meaning }: { total: string; meaning: string }) {
+  const { formatMessage: fm } = useAppIntl()
   return (
     <InfoPopover
       width={280}
-      label="What these figures mean"
+      label={fm({
+        id: 'accounts.overview.figuresMeaning',
+        defaultMessage: 'What these figures mean',
+      })}
       text={
         <span className="acct-bal-terms">
           <span>
-            <b>Cleared</b> — posted; the amount won't change.
+            {fm(
+              {
+                id: 'accounts.overview.clearedMeaning',
+                defaultMessage: "<b>Cleared</b> — posted; the amount won't change.",
+              },
+              { b: (chunks) => <b>{chunks}</b> },
+            )}
           </span>
           <span>
-            <b>Uncleared</b> — pending holds that can still change.
+            {fm(
+              {
+                id: 'accounts.overview.unclearedMeaning',
+                defaultMessage: '<b>Uncleared</b> — pending holds that can still change.',
+              },
+              { b: (chunks) => <b>{chunks}</b> },
+            )}
           </span>
           <span>
             <b>{total}</b> — {meaning}

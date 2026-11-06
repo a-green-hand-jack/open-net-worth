@@ -1,0 +1,17 @@
+{
+  "accounts.overview.title": "账户",
+  "accounts.overview.addAccount": "添加账户",
+  "accounts.overview.phoneShortcuts": "手机快捷方式",
+  "accounts.overview.cash": "现金",
+  "accounts.overview.cashOnHand": "手头现金",
+  "accounts.overview.cashMeaning": "银行和电子钱包账户中两者的合计。",
+  "accounts.overview.figuresMeaning": "这些金额的含义",
+  "accounts.overview.clearedMeaning": "<b>已入账</b> — 已过账，金额不会再变化。",
+  "accounts.overview.unclearedMeaning": "<b>未入账</b> — 待处理的预扣款，金额仍可能变化。",
+  "accounts.overview.showUncleared": "显示未入账交易",
+  "accounts.overview.showReview": "显示需要审核的交易",
+  "accounts.overview.toReview": "{count} 条待审核",
+  "accounts.overview.reviewHint": "逐条批准或跳过",
+  "accounts.overview.startReview": "开始审核",
+  "accounts.overview.txnCount": "{count} 笔交易"
+}
