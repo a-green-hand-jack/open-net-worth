@@ -42,6 +42,9 @@ Order permission is rechecked for each strategy order and before an unsent broke
 submission. Revoking permission cannot recall a broker submission already in progress.
 Receipts that contradict a rejected, canceled, or expired order, or change its broker order ID,
 require reconciliation before they can be applied.
+A broker order awaiting a submission or cancellation receipt blocks additional broker submissions
+until the outstanding operation is resolved. Interrupted or conflicting broker operations keep
+the run in a reconciliation state.
 
 In Paper or Live runs, permitted participants can search public research, fetch a public research
 page, and request current Yahoo market data within the reviewed mandate and allocated account.

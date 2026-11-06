@@ -1,5 +1,8 @@
 """One order choke for direct tools, scripts, and every execution mode."""
 
+import asyncio
+from uuid import uuid4
+
 from backend.core.errors import ConflictError, ValidationError
 from backend.db.tool_permission_store import ToolPermissionStore
 from backend.db.trading_store import TradingStore, trading_transaction
@@ -53,6 +56,8 @@ async def submit_order(run_id, data, *, strategy_order=False):
                 raise ConflictError("Request ID was already used for a different order")
             return existing
         assert_running(run)
+        if uses_broker_execution(run):
+            _require_no_unsettled_orders(conn, run_id)
         if run.get("environment_error"):
             raise ConflictError(
                 "Trading environment has an unresolved error; repair it before submitting new orders"
@@ -151,6 +156,17 @@ def _reserve(conn, run, clean):
     return account, reserved, amount(0)
 
 
+def _require_no_unsettled_orders(conn, run_id, *, exclude=None):
+    uncertain = {"pending", "submitting", "submission_unknown", "cancel_pending"}
+    if any(
+        item["id"] != exclude and item["status"] in uncertain
+        for item in TradingStore("orders").list_scope(run_id, conn=conn)
+    ):
+        raise ConflictError(
+            "A broker order is awaiting a receipt or reconciliation before another submission"
+        )
+
+
 async def dispatch_live_order(run_id, order_id):
     with trading_transaction() as conn:
         require_bound_run(conn, run_id)
@@ -159,6 +175,7 @@ async def dispatch_live_order(run_id, order_id):
         if order["status"] != "pending":
             return order
         assert_running(run)
+        _require_no_unsettled_orders(conn, run_id, exclude=order_id)
         if (
             order.get("strategy_order")
             and ToolPermissionStore().get_level_for_update(
@@ -193,6 +210,9 @@ async def dispatch_live_order(run_id, order_id):
                 conn, run, "broker_order_updated", {"order_id": order_id, "status": order["status"]}
             )
             snapshot_performance(conn, run)
+    except asyncio.CancelledError:
+        _unknown(run_id, order_id, "submission_unknown", "CancelledError")
+        raise
     except Exception as exc:
         return _unknown(run_id, order_id, "submission_unknown", type(exc).__name__)
     from backend.services.trading.book_projection import project_live_fills
@@ -205,10 +225,16 @@ async def dispatch_live_order(run_id, order_id):
 def _unknown(run_id, order_id, state, reason):
     with trading_transaction() as conn:
         run = TradingStore("runs").required(run_id, conn=conn)
-        order = TradingStore("orders").update_by_id(
-            order_id, {"status": state, "error": reason}, conn=conn
+        order = TradingStore("orders").required(order_id, conn=conn)
+        patch = {"error": reason}
+        if order["status"] not in {"filled", "rejected", "canceled", "expired"}:
+            patch["status"] = state
+        order = TradingStore("orders").update_by_id(order_id, patch, conn=conn)
+        TradingStore("runs").update_by_id(
+            run_id,
+            {"state": "needs_reconciliation", "reconciliation_attempt": uuid4().hex},
+            conn=conn,
         )
-        TradingStore("runs").update_by_id(run_id, {"state": "needs_reconciliation"}, conn=conn)
         event(conn, run, state, {"order_id": order_id, "reason": reason})
     return order
 
@@ -220,13 +246,23 @@ def _owned_order(conn, run_id, order_id):
     return order
 
 
-async def cancel_order(run_id, order_id):
+async def cancel_order(run_id, order_id, *, _reconciliation_attempt=None):
     with trading_transaction() as conn:
         require_bound_run(conn, run_id)
         run = TradingStore("runs").required(run_id, conn=conn)
         order = _owned_order(conn, run_id, order_id)
         if order["status"] not in ACTIVE_ORDER_STATES:
             return order
+        if uses_broker_execution(run):
+            if _reconciliation_attempt is not None:
+                if run.get("reconciliation_attempt") != _reconciliation_attempt:
+                    raise ConflictError(
+                        "Trading operation was superseded; reconcile before continuing"
+                    )
+            else:
+                run = TradingStore("runs").update_by_id(
+                    run_id, {"reconciliation_attempt": uuid4().hex}, conn=conn
+                )
         if not uses_broker_execution(run) or order["status"] == "pending":
             order = TradingStore("orders").update_by_id(
                 order_id,
@@ -250,6 +286,9 @@ async def cancel_order(run_id, order_id):
                 conn, run, "broker_order_updated", {"order_id": order_id, "status": order["status"]}
             )
             return order
+    except asyncio.CancelledError:
+        _unknown(run_id, order_id, "cancel_pending", "CancelledError")
+        raise
     except Exception as exc:
         return _unknown(run_id, order_id, "cancel_pending", type(exc).__name__)
 
