@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { ArrowLeftRight, Check, Info, Pencil, Wallet, X } from '../../../ui/icons'
 import { Button } from '../../ui'
 import { sourceLine, validateReviewDraft, type ReviewDraft } from './transactionReview'
+import { useReviewValidation } from './useReviewValidation'
 import type { Account, Category, Txn } from './types'
 import { ReviewChoices, ReviewSummary } from './ReviewSummary'
 import { TransactionReviewPeek } from './TransactionReviewPeek'
@@ -71,6 +72,7 @@ export function TransactionReviewCard(props: Props) {
   const { txn, account, draft, busy } = props
   const selectedAccount = props.accounts.find((item) => item.id === draft.accountId) ?? account
   const validationError = validateReviewDraft(txn, draft, props.accounts)
+  const validationMessage = useReviewValidation(validationError)
   const [dragX, setDragX] = useState(0)
   const [thresholdPx, setThresholdPx] = useState(96)
   const [exit, setExit] = useState<'left' | 'right' | null>(null)
@@ -312,7 +314,7 @@ export function TransactionReviewCard(props: Props) {
             onDraftChange={props.onDraftChange}
             suggestedCategoryIds={props.suggestedCategoryIds}
           />
-          {validationError && <p className="acct-review-validation">{validationError}</p>}
+          {validationMessage && <p className="acct-review-validation">{validationMessage}</p>}
         </div>
       </div>
       <p className="acct-review-swipe-hint" aria-hidden="true">

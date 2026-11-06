@@ -9,6 +9,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { useAppIntl } from '../../../i18n/useAppIntl'
+import { formatReviewValidation } from './useReviewValidation'
 import { authFetch } from '../../../api/client'
 import { useDataVersion } from '../../../hooks/useDataVersion'
 import { fetchCachedQuery } from '../../../state/queryCache'
@@ -164,7 +165,8 @@ export function TransactionSurfacesProvider({
    *  "Review" (BackgroundStatementNotices) opens its import review. */
   onOpenAccounts?: () => void
 }) {
-  const { formatMessage } = useAppIntl()
+  const intl = useAppIntl()
+  const { formatMessage } = intl
   const [reviewScope, setReviewScope] = useState<ReviewScope | null>(null)
   const [reviewAccountId, setReviewAccountId] = useState<string | null>(null)
   // `txn: null` while a row opened by id is still on its way; `hint` is what the caller
@@ -256,7 +258,7 @@ export function TransactionSurfacesProvider({
   const approve = useCallback(
     async (txn: Txn, draft: ReviewDraft): Promise<Txn> => {
       const invalid = validateReviewDraft(txn, draft, accounts)
-      if (invalid) throw new Error(invalid)
+      if (invalid) throw new Error(formatReviewValidation(intl, invalid))
       const update: TransactionUpdate = reviewDraftToUpdate(txn, draft, accounts)
       if (
         draft.kind !== txn.kind &&
@@ -276,7 +278,7 @@ export function TransactionSurfacesProvider({
       }
       return updateTransaction(txn.id, update)
     },
-    [accounts, payees],
+    [accounts, payees, intl],
   )
 
   const saveDetail = useCallback(

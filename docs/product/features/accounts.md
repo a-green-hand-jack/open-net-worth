@@ -228,6 +228,8 @@ Split transaction details also translate their controls and preserve amount hidi
 The split editor translates its controls and balance feedback without altering line amounts.
 Transaction edit forms follow the interface language without changing saved transaction values.
 Transaction deletion confirmations and generic update errors follow the interface language.
+Built-in transaction-review validation messages follow the interface language; server-provided
+errors and names remain unchanged.
 
 ## Related pages
 

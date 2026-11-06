@@ -1,0 +1,14 @@
+{
+  "accounts.reviewValidation.account": "请选择有效账户。",
+  "accounts.reviewValidation.amount": "请输入有效金额。",
+  "accounts.reviewValidation.date": "请选择日期。",
+  "accounts.reviewValidation.destination": "请选择有效的目标账户。",
+  "accounts.reviewValidation.differentCurrency": "原始货币必须不同于账户货币。",
+  "accounts.reviewValidation.direction": "请选择此投资是买入还是卖出。",
+  "accounts.reviewValidation.distinct": "转账需要两个不同的账户。",
+  "accounts.reviewValidation.originalAmount": "请输入有效的原始扣款金额。",
+  "accounts.reviewValidation.originalBoth": "原始扣款需要金额和货币。",
+  "accounts.reviewValidation.originalCurrency": "请选择支持的原始货币。",
+  "accounts.reviewValidation.received": "请输入收到的金额。",
+  "accounts.reviewValidation.split": "请使用“编辑全部详情”更改类型、账户或拆分明细。"
+}

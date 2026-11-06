@@ -2,6 +2,8 @@
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
+import { IntlProvider } from 'react-intl'
+import { catalogs } from '../../../i18n/catalogs'
 import { TransactionReviewMode, type ReviewDraft } from './TransactionReviewMode'
 import { fromApiTxn } from './data'
 import type { Account, ApiTxn, Category, Txn } from './types'
@@ -122,7 +124,10 @@ function apiTxn(over: Partial<ApiTxn> = {}): ApiTxn {
   } as ApiTxn
 }
 
-function renderMode(over: Partial<React.ComponentProps<typeof TransactionReviewMode>> = {}) {
+function renderMode(
+  over: Partial<React.ComponentProps<typeof TransactionReviewMode>> = {},
+  chinese = false,
+) {
   const props: React.ComponentProps<typeof TransactionReviewMode> = {
     open: true,
     scope: 'automation',
@@ -144,7 +149,21 @@ function renderMode(over: Partial<React.ComponentProps<typeof TransactionReviewM
     onEditAll: vi.fn(),
     ...over,
   }
-  return { ...render(<TransactionReviewMode {...props} />), props }
+  return {
+    ...render(
+      <TransactionReviewMode {...props} />,
+      chinese
+        ? {
+            wrapper: ({ children }) => (
+              <IntlProvider locale="zh-CN" messages={catalogs['zh-CN']}>
+                {children}
+              </IntlProvider>
+            ),
+          }
+        : undefined,
+    ),
+    props,
+  }
 }
 
 it('changes category directly from the review card and includes it in approval', async () => {
@@ -202,6 +221,15 @@ beforeEach(() => {
 afterEach(cleanup)
 
 describe('TransactionReviewMode — compact queue', () => {
+  it('shows a Chinese validation message and keeps approval disabled', async () => {
+    mockAuthFetch.mockResolvedValue(
+      okJson({ transactions: [apiTxn({ from_amount: 0 })], total: 1, has_more: false }),
+    )
+    const { props } = renderMode({}, true)
+    expect(await screen.findByText('请输入有效金额。')).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Approve' })).toHaveProperty('disabled', true)
+    expect(props.onApprove).not.toHaveBeenCalled()
+  })
   it('loads the global queue by review state and shows the newest card with important facts first', async () => {
     renderMode()
 
