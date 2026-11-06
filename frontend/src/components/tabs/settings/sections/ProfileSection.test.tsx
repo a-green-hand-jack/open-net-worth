@@ -85,6 +85,15 @@ describe('ProfileSection — list-valued identity fields', () => {
     vi.restoreAllMocks()
   })
 
+  it('marks monetary retirement readouts for amount masking without masking ages', async () => {
+    mockRoutes()
+    render(<ProfileSection toast={vi.fn()} />)
+    const spending = (await screen.findByText('Monthly retirement spending')).closest('.rd-readout-item')
+    const age = screen.getByText('Target retirement age').closest('.rd-readout-item')
+    expect(spending?.querySelector('.money')).toBeTruthy()
+    expect(age?.querySelector('.money')).toBeNull()
+  })
+
   it('shows localized country and employment labels without changing profile values', async () => {
     mockRoutes()
     render(

@@ -1103,11 +1103,11 @@ export function ProfileSection({
               // here and is deliberately NOT added: this panel is a read-only MIRROR of the
               // FIRE facts, and progress-against-target is the Plan tab's job.
             ] as [string, string, string?][]
-          ).map(([k, v, note]) => (
+          ).map(([k, v, note], index) => (
             <div className="rd-readout-item" key={k}>
               <span className="rd-readout-k">{k}</span>
               <span className="rd-readout-v rd-mono">
-                {v}
+                {index === 0 || index === 1 || index === 5 ? <span className="money">{v}</span> : v}
                 {note ? <em>{note}</em> : null}
               </span>
             </div>
