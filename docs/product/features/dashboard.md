@@ -265,6 +265,8 @@ Attention, upcoming commitments and dashboard prompts follow the interface langu
 own instructions and financial details retain their original text.
 Spending, cash-flow, calendar, goals and runway widget controls also follow the interface
 language while preserving user-defined labels and server-provided values.
+Report chart labels and controls follow the interface language. Labels supplied by the book
+remain unchanged unless identified by the server as a built-in label.
 
 ## Related pages
 

@@ -13,6 +13,8 @@
 
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
+import { IntlProvider } from 'react-intl'
+import { catalogs } from '../../../../i18n/catalogs'
 
 const authFetch = vi.hoisted(() => vi.fn())
 vi.mock('../../../../api/client', () => ({ authFetch }))
@@ -159,6 +161,32 @@ function renderWidget(defId: string, config: WidgetInstance['config'] = {}) {
 const lastChart = () => charts.configs[charts.configs.length - 1]!
 
 describe('Reports widgets render the server aggregate', () => {
+  it('localizes savings and keeps the trailing rate maskable', async () => {
+    routeToFixtures({
+      ...REPORTS_PAYLOAD,
+      savings: {
+        ...REPORTS_PAYLOAD.savings,
+        ym: '2026-07',
+        trailing: {
+          months: 3,
+          from: '2026-05',
+          to: '2026-07',
+          monthly: 2000,
+          rate_pct: 73,
+        },
+      },
+    })
+    const Comp = reportsWidgetComponents['rep-savings']!
+    const def = WIDGET_DEFINITIONS.find((d) => d.defId === 'rep-savings')!
+    render(
+      <IntlProvider locale="zh-CN" messages={catalogs['zh-CN']}>
+        <Comp instance={instanceOf('rep-savings', {})} def={def} onPatch={vi.fn()} />
+      </IntlProvider>,
+    )
+    const rate = await screen.findByText('73%')
+    expect(rate.classList.contains('money')).toBe(true)
+    expect(document.body.textContent).toContain('平均')
+  })
   it('renders spending rows instead of the load-failed placeholder', async () => {
     routeToFixtures()
     renderWidget('rep-spendcat')

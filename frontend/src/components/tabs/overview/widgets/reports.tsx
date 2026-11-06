@@ -66,7 +66,8 @@ import {
   Legend,
   Filler,
 } from 'chart.js'
-import { cardCaveat } from '../../../../utils/cardCaveat'
+import { useAppIntl } from '../../../../i18n/useAppIntl'
+import type { IntlShape } from 'react-intl'
 import { fBase, fBaseCompact, fMonth } from '../../../../utils/format'
 import type { ReportsRollup, StackedSeries } from '../../../../types/aggregates'
 import { Text } from '../../../ui'
@@ -126,9 +127,35 @@ const PALETTE = ['var(--accent)', 'var(--good)', 'var(--warn)', 'var(--recv)', '
 const paletteColor = (i: number): string =>
   PALETTE[((i % PALETTE.length) + PALETTE.length) % PALETTE.length]!
 
-function monthShortLabel(ym: string): string {
+export function reportLabel(
+  intl: IntlShape,
+  row: { label: string; label_message?: { id: string; params: Record<string, unknown> } },
+): string {
+  const message = row.label_message
+  if (
+    !message ||
+    !message.params ||
+    typeof message.params !== 'object' ||
+    Array.isArray(message.params) ||
+    Object.keys(message.params).length
+  )
+    return row.label
+  if (message.id === 'reports.label.uncategorized')
+    return intl.formatMessage({
+      id: 'overview.reports.uncategorized',
+      defaultMessage: 'Uncategorized',
+    })
+  if (message.id === 'reports.label.uncategorizedIncome')
+    return intl.formatMessage({
+      id: 'overview.reports.uncategorizedIncome',
+      defaultMessage: 'Uncategorized income',
+    })
+  return row.label
+}
+
+function monthShortLabel(ym: string, locale: string): string {
   const [y, m] = ym.split('-').map(Number) as [number, number]
-  return new Date(y, m - 1, 1).toLocaleDateString(undefined, { month: 'short' })
+  return new Date(y, m - 1, 1).toLocaleDateString(locale, { month: 'short' })
 }
 
 /** Attach a fallback colour to a server series/row that has none. Presentation only. */
@@ -140,7 +167,7 @@ const REPORT_MONTHS = 6
 
 /** The month the spending widgets show. A new month has no spending for its first days, and
  *  "No spending recorded this month yet" over a full September read as a broken import. */
-function spendingMonth(data: ReportsRollup | null) {
+function spendingMonth(data: ReportsRollup | null, intl: IntlShape) {
   const point = data?.points.find((p) => p.ym === data.spending_month) ?? data?.current
   const fellBack = !!data && data.spending_month !== data.current_month
   return {
@@ -148,18 +175,34 @@ function spendingMonth(data: ReportsRollup | null) {
     ym: point?.ym,
     fellBack,
     note: fellBack
-      ? `${fMonth(data.spending_month, 'long')}. Nothing spent in ${fMonth(data.current_month, 'long')} yet.`
+      ? intl.formatMessage(
+          {
+            id: 'overview.reports.monthFallback',
+            defaultMessage: '{previous}. Nothing spent in {current} yet.',
+          },
+          {
+            previous: fMonth(data.spending_month, 'long'),
+            current: fMonth(data.current_month, 'long'),
+          },
+        )
       : null,
   }
 }
 
 /** The one report read, with this group's error/loading conventions applied. */
 function useReports(merchantLimit = 10) {
+  const intl = useAppIntl()
   const query = useReportsRollup(REPORT_MONTHS, merchantLimit)
   return {
     data: query.data ?? null,
     loading: query.initialLoading,
-    error: query.error && query.data == null ? "Couldn't load the monthly report." : '',
+    error:
+      query.error && query.data == null
+        ? intl.formatMessage({
+            id: 'overview.reports.loadError',
+            defaultMessage: "Couldn't load the monthly report.",
+          })
+        : '',
   }
 }
 
@@ -175,13 +218,14 @@ function MonthNote({ children }: { children: string }) {
 // same shape as the Net-worth group's alloc/reach/venues widgets ───────────
 
 const SpendCategories: ComponentType<WidgetContentProps> = ({ instance, def, onPatch }) => {
+  const intl = useAppIntl()
   const { data, loading, error } = useReports()
   const viz = vizOf(instance, def) || 'list'
-  const shown = spendingMonth(data)
+  const shown = spendingMonth(data, intl)
   // Server-ranked, server-summed; the widget attaches a fallback colour and renders.
   const rows: BreakdownRow[] = withColor(shown.point?.expense_rows ?? []).map((r) => ({
     key: r.key,
-    label: r.label,
+    label: reportLabel(intl, r),
     value: r.amount,
     color: r.color,
   }))
@@ -196,7 +240,15 @@ const SpendCategories: ComponentType<WidgetContentProps> = ({ instance, def, onP
   if (error || !rows.length) {
     return (
       <WidgetShell title={instance.title} base={def.title}>
-        <WidgetPlaceholder detail={error || 'No spending recorded this month yet.'} />
+        <WidgetPlaceholder
+          detail={
+            error ||
+            intl.formatMessage({
+              id: 'overview.reports.noSpending',
+              defaultMessage: 'No spending recorded this month yet.',
+            })
+          }
+        />
       </WidgetShell>
     )
   }
@@ -208,9 +260,18 @@ const SpendCategories: ComponentType<WidgetContentProps> = ({ instance, def, onP
       chart={{
         value: viz,
         options: [
-          { value: 'list', label: 'List' },
-          { value: 'bar', label: 'Bar' },
-          { value: 'pie', label: 'Pie' },
+          {
+            value: 'list',
+            label: intl.formatMessage({ id: 'overview.viz.list', defaultMessage: 'List' }),
+          },
+          {
+            value: 'bar',
+            label: intl.formatMessage({ id: 'overview.viz.bar', defaultMessage: 'Bar' }),
+          },
+          {
+            value: 'pie',
+            label: intl.formatMessage({ id: 'overview.viz.pie', defaultMessage: 'Pie' }),
+          },
         ],
         onChange: (v) => onPatch({ config: { ...instance.config, viz: v } }),
       }}
@@ -233,7 +294,7 @@ type TipItem = { dataset: { label?: string; type?: string; side?: string }; raw:
 /** A dashed horizontal line at `avg` with its label ("Avg S$14.9K") on a small backing pill at
  *  the right edge — drawn by the chart so it tracks the axis. The figure is the server's, taken
  *  over complete months only. */
-function avgLabelPlugin(avg: number) {
+function avgLabelPlugin(avg: number, intl: IntlShape) {
   return {
     id: 'ovAvgLabel',
     afterDatasetsDraw(chart: Chart) {
@@ -242,7 +303,10 @@ function avgLabelPlugin(avg: number) {
       if (!y || !area) return
       const py = y.getPixelForValue(avg)
       if (py < area.top || py > area.bottom) return
-      const text = `Avg ${amountsHidden() ? '***' : fBaseCompact(avg)}`
+      const text = intl.formatMessage(
+        { id: 'overview.reports.avgAmount', defaultMessage: 'Avg {amount}' },
+        { amount: amountsHidden() ? '***' : fBaseCompact(avg) },
+      )
       ctx.save()
       ctx.font = `600 11px ${Chart.defaults.font.family}`
       ctx.textAlign = 'right'
@@ -264,6 +328,7 @@ function avgLabelPlugin(avg: number) {
 }
 
 const SpendingTrends: ComponentType<WidgetContentProps> = ({ instance, def }) => {
+  const intl = useAppIntl()
   const { data, loading, error } = useReports()
   const points = data?.points ?? []
   if (loading) {
@@ -276,12 +341,27 @@ const SpendingTrends: ComponentType<WidgetContentProps> = ({ instance, def }) =>
   if (error || !points.length) {
     return (
       <WidgetShell title={instance.title} base={def.title}>
-        <WidgetPlaceholder detail={error || 'Not enough transaction history yet.'} />
+        <WidgetPlaceholder
+          detail={
+            error ||
+            intl.formatMessage({
+              id: 'overview.reports.noHistory',
+              defaultMessage: 'Not enough transaction history yet.',
+            })
+          }
+        />
       </WidgetShell>
     )
   }
   // Top-N + "All other" folding and the monthly average are the server's — see the header note.
-  const series = withColor(data?.expense_series ?? [])
+  const series = withColor(data?.expense_series ?? []).map((series) =>
+    series.key === OTHER_KEY
+      ? {
+          ...series,
+          label: intl.formatMessage({ id: 'overview.reports.other', defaultMessage: 'All other' }),
+        }
+      : { ...series, label: reportLabel(intl, series) },
+  )
   const avgSpend = data?.expense_totals?.average ?? 0
   const datasets: Array<Record<string, unknown>> = series.map((s) => ({
     label: s.label,
@@ -293,7 +373,10 @@ const SpendingTrends: ComponentType<WidgetContentProps> = ({ instance, def }) =>
   if (avgSpend > 0) {
     datasets.push({
       type: 'line',
-      label: 'Monthly average',
+      label: intl.formatMessage({
+        id: 'overview.reports.monthlyAverage',
+        defaultMessage: 'Monthly average',
+      }),
       data: points.map(() => avgSpend),
       borderColor: withAlpha(resolveColor('var(--ink)'), 0.7),
       borderDash: [6, 4],
@@ -306,8 +389,8 @@ const SpendingTrends: ComponentType<WidgetContentProps> = ({ instance, def }) =>
   }
   const cfg = {
     type: 'bar',
-    data: { labels: points.map((p) => monthShortLabel(p.ym)), datasets },
-    plugins: avgSpend > 0 ? [avgLabelPlugin(avgSpend)] : [],
+    data: { labels: points.map((p) => monthShortLabel(p.ym, intl.locale)), datasets },
+    plugins: avgSpend > 0 ? [avgLabelPlugin(avgSpend, intl)] : [],
     options: {
       responsive: true,
       maintainAspectRatio: false,
@@ -320,7 +403,13 @@ const SpendingTrends: ComponentType<WidgetContentProps> = ({ instance, def }) =>
           callbacks: {
             label: (x: TipItem) =>
               x.dataset.type === 'line'
-                ? `Monthly average: ${moneyTip(x.raw)} (complete months)`
+                ? intl.formatMessage(
+                    {
+                      id: 'overview.reports.averageTooltip',
+                      defaultMessage: 'Monthly average: {amount} (complete months)',
+                    },
+                    { amount: moneyTip(x.raw) },
+                  )
                 : `${x.dataset.label}: ${moneyTip(x.raw)}`,
           },
         },
@@ -339,7 +428,10 @@ const SpendingTrends: ComponentType<WidgetContentProps> = ({ instance, def }) =>
       bodyClass="ov-rep-body"
       meta={
         <>
-          avg <span className="money">{fBaseCompact(avgSpend)}</span>/mo
+          {intl.formatMessage(
+            { id: 'overview.reports.avgPerMonth', defaultMessage: 'avg {amount}/mo' },
+            { amount: <span className="money">{fBaseCompact(avgSpend)}</span> },
+          )}
         </>
       }
     >
@@ -382,7 +474,7 @@ function sideShade(side: Side, i: number): { css: string; fill: string } {
 
 /** A side's server series, recoloured into its family. The remainder bucket keeps a neutral
  *  grey and says which side it belongs to ("All other income" / "All other expenses"). */
-function sideSeries(series: StackedSeries[], side: Side) {
+function sideSeries(series: StackedSeries[], side: Side, intl: IntlShape) {
   return series.map((s, i) => {
     const other = s.key === OTHER_KEY
     const shade = other
@@ -391,12 +483,23 @@ function sideSeries(series: StackedSeries[], side: Side) {
           fill: withAlpha(resolveColor('var(--muted)'), 0.6),
         }
       : sideShade(side, i)
-    const label = other ? (side === 'in' ? 'All other income' : 'All other expenses') : s.label
+    const label = other
+      ? side === 'in'
+        ? intl.formatMessage({
+            id: 'overview.reports.otherIncome',
+            defaultMessage: 'All other income',
+          })
+        : intl.formatMessage({
+            id: 'overview.reports.otherExpenses',
+            defaultMessage: 'All other expenses',
+          })
+      : reportLabel(intl, s)
     return { key: s.key, label, data: s.data, ...shade }
   })
 }
 
 const IncomeExpense: ComponentType<WidgetContentProps> = ({ instance, def }) => {
+  const intl = useAppIntl()
   const { data, loading, error } = useReports()
   const points = data?.points ?? []
   if (loading) {
@@ -409,7 +512,15 @@ const IncomeExpense: ComponentType<WidgetContentProps> = ({ instance, def }) => 
   if (error || !points.length) {
     return (
       <WidgetShell title={instance.title} base={def.title}>
-        <WidgetPlaceholder detail={error || 'Not enough transaction history yet.'} />
+        <WidgetPlaceholder
+          detail={
+            error ||
+            intl.formatMessage({
+              id: 'overview.reports.noHistory',
+              defaultMessage: 'Not enough transaction history yet.',
+            })
+          }
+        />
       </WidgetShell>
     )
   }
@@ -417,7 +528,7 @@ const IncomeExpense: ComponentType<WidgetContentProps> = ({ instance, def }) => 
   const netTotal = data?.net_total ?? 0
   type Ds = {
     label: string
-    side?: 'Income' | 'Expense'
+    side?: string
     data: number[]
     backgroundColor: string
     stack: string
@@ -430,14 +541,14 @@ const IncomeExpense: ComponentType<WidgetContentProps> = ({ instance, def }) => 
     const expense = sideShade('out', 0)
     datasets = [
       {
-        label: 'Income',
+        label: intl.formatMessage({ id: 'overview.reports.income', defaultMessage: 'Income' }),
         data: points.map((p) => p.income_total),
         backgroundColor: income.fill,
         stack: 'in',
         borderWidth: 0,
       },
       {
-        label: 'Expenses',
+        label: intl.formatMessage({ id: 'overview.reports.expenses', defaultMessage: 'Expenses' }),
         data: points.map((p) => p.expense_total),
         backgroundColor: expense.fill,
         stack: 'out',
@@ -447,14 +558,25 @@ const IncomeExpense: ComponentType<WidgetContentProps> = ({ instance, def }) => 
     groups = [
       {
         items: [
-          { key: 'in', label: 'Income', color: income.css },
-          { key: 'out', label: 'Expenses', color: expense.css },
+          {
+            key: 'in',
+            label: intl.formatMessage({ id: 'overview.reports.income', defaultMessage: 'Income' }),
+            color: income.css,
+          },
+          {
+            key: 'out',
+            label: intl.formatMessage({
+              id: 'overview.reports.expenses',
+              defaultMessage: 'Expenses',
+            }),
+            color: expense.css,
+          },
         ],
       },
     ]
   } else {
-    const inc = sideSeries(data?.income_series ?? [], 'in')
-    const exp = sideSeries(data?.expense_series ?? [], 'out')
+    const inc = sideSeries(data?.income_series ?? [], 'in', intl)
+    const exp = sideSeries(data?.expense_series ?? [], 'out', intl)
     const toDs = (rows: typeof inc, side: Ds['side'], stack: string): Ds[] =>
       rows.map((r) => ({
         label: r.label,
@@ -464,17 +586,36 @@ const IncomeExpense: ComponentType<WidgetContentProps> = ({ instance, def }) => 
         stack,
         borderWidth: 0,
       }))
-    datasets = [...toDs(inc, 'Income', 'in'), ...toDs(exp, 'Expense', 'out')]
+    datasets = [
+      ...toDs(
+        inc,
+        intl.formatMessage({ id: 'overview.reports.income', defaultMessage: 'Income' }),
+        'in',
+      ),
+      ...toDs(
+        exp,
+        intl.formatMessage({ id: 'overview.reports.expense', defaultMessage: 'Expense' }),
+        'out',
+      ),
+    ]
     const items = (rows: typeof inc) =>
       rows.map((r) => ({ key: r.key, label: r.label, color: r.css }))
     groups = [
-      { title: 'Income', side: 'in', items: items(inc) },
-      { title: 'Expenses', side: 'out', items: items(exp) },
+      {
+        title: intl.formatMessage({ id: 'overview.reports.income', defaultMessage: 'Income' }),
+        side: 'in',
+        items: items(inc),
+      },
+      {
+        title: intl.formatMessage({ id: 'overview.reports.expenses', defaultMessage: 'Expenses' }),
+        side: 'out',
+        items: items(exp),
+      },
     ]
   }
   const cfg = {
     type: 'bar',
-    data: { labels: points.map((p) => monthShortLabel(p.ym)), datasets },
+    data: { labels: points.map((p) => monthShortLabel(p.ym, intl.locale)), datasets },
     options: {
       responsive: true,
       maintainAspectRatio: false,
@@ -502,7 +643,7 @@ const IncomeExpense: ComponentType<WidgetContentProps> = ({ instance, def }) => 
       bodyClass="ov-rep-body"
       meta={
         <>
-          net{' '}
+          {intl.formatMessage({ id: 'overview.reports.net', defaultMessage: 'net' })}{' '}
           <b className={'money ' + (netTotal >= 0 ? 'pos' : 'neg')}>
             {netTotal >= 0 ? '+' : ''}
             {fBase(netTotal)}
@@ -525,6 +666,7 @@ const IncomeExpense: ComponentType<WidgetContentProps> = ({ instance, def }) => 
 // ── 4. income & expense table — a simplified 2-level hierarchy ─────────────
 
 const IncExpTable: ComponentType<WidgetContentProps> = ({ instance, def }) => {
+  const intl = useAppIntl()
   const { data, loading, error } = useReports()
   const points = data?.points ?? []
   const [open, setOpen] = useState<{ income: boolean; expense: boolean }>({
@@ -543,7 +685,15 @@ const IncExpTable: ComponentType<WidgetContentProps> = ({ instance, def }) => {
   if (error || !data || !points.length) {
     return (
       <WidgetShell title={instance.title} base={def.title}>
-        <WidgetPlaceholder detail={error || 'Not enough transaction history yet.'} />
+        <WidgetPlaceholder
+          detail={
+            error ||
+            intl.formatMessage({
+              id: 'overview.reports.noHistory',
+              defaultMessage: 'Not enough transaction history yet.',
+            })
+          }
+        />
       </WidgetShell>
     )
   }
@@ -583,13 +733,25 @@ const IncExpTable: ComponentType<WidgetContentProps> = ({ instance, def }) => {
     <WidgetShell title={instance.title} base={def.title}>
       <div className="ov-iet">
         <div className="ov-iet-head">
-          <span>Category</span>
-          <span className="num ov-iet-cur">{monthShortLabel(latest.ym)}</span>
-          <span className="num ov-iet-avg">Avg / mo</span>
-          <span className="num ov-iet-tot">{n}-mo total</span>
+          <span>
+            {intl.formatMessage({ id: 'overview.reports.category', defaultMessage: 'Category' })}
+          </span>
+          <span className="num ov-iet-cur">{monthShortLabel(latest.ym, intl.locale)}</span>
+          <span className="num ov-iet-avg">
+            {intl.formatMessage({ id: 'overview.reports.avgMonth', defaultMessage: 'Avg / mo' })}
+          </span>
+          <span className="num ov-iet-tot">
+            {intl.formatMessage(
+              { id: 'overview.reports.monthTotal', defaultMessage: '{count}-mo total' },
+              { count: n },
+            )}
+          </span>
         </div>
         <div className="ov-iet-row grp" onClick={() => toggle('income')}>
-          <span className="ov-iet-lab">{chev('income')}Income</span>
+          <span className="ov-iet-lab">
+            {chev('income')}
+            {intl.formatMessage({ id: 'overview.reports.income', defaultMessage: 'Income' })}
+          </span>
           {numCells(incTot, 'in')}
         </div>
         {open.income &&
@@ -597,13 +759,16 @@ const IncExpTable: ComponentType<WidgetContentProps> = ({ instance, def }) => {
             <div className="ov-iet-row ind1" key={r.key}>
               <span className="ov-iet-lab">
                 <i style={{ background: resolveColor(r.color) }} />
-                {r.label}
+                {reportLabel(intl, r)}
               </span>
               {numCells(r, 'in')}
             </div>
           ))}
         <div className="ov-iet-row grp" onClick={() => toggle('expense')}>
-          <span className="ov-iet-lab">{chev('expense')}Spending</span>
+          <span className="ov-iet-lab">
+            {chev('expense')}
+            {intl.formatMessage({ id: 'overview.reports.spending', defaultMessage: 'Spending' })}
+          </span>
           {numCells(spendTot, 'out')}
         </div>
         {open.expense &&
@@ -611,13 +776,15 @@ const IncExpTable: ComponentType<WidgetContentProps> = ({ instance, def }) => {
             <div className="ov-iet-row ind1" key={r.key}>
               <span className="ov-iet-lab">
                 <i style={{ background: resolveColor(r.color) }} />
-                {r.label}
+                {reportLabel(intl, r)}
               </span>
               {numCells(r, 'out')}
             </div>
           ))}
         <div className="ov-iet-row net">
-          <span className="ov-iet-lab">Net income</span>
+          <span className="ov-iet-lab">
+            {intl.formatMessage({ id: 'overview.reports.netIncome', defaultMessage: 'Net income' })}
+          </span>
           {numCells(net, 'net')}
         </div>
       </div>
@@ -689,6 +856,7 @@ function gaugeConfig(value: number, total: number, color: string) {
 }
 
 const SavingsRate: ComponentType<WidgetContentProps> = ({ instance, def }) => {
+  const intl = useAppIntl()
   // Saved amount and rate come from the server's own savings figure — the same month totals
   // the rest of this group renders, so the gauge can't disagree with the table beside it.
   const { data, loading, error } = useReports()
@@ -703,12 +871,28 @@ const SavingsRate: ComponentType<WidgetContentProps> = ({ instance, def }) => {
   if (error || !savings?.known) {
     return (
       <WidgetShell title={instance.title} base={def.title}>
-        <WidgetPlaceholder detail={error || 'No income recorded in the last few months.'} />
+        <WidgetPlaceholder
+          detail={
+            error ||
+            intl.formatMessage({
+              id: 'overview.reports.noIncome',
+              defaultMessage: 'No income recorded in the last few months.',
+            })
+          }
+        />
       </WidgetShell>
     )
   }
   const rate = Math.round(savings.rate_pct)
-  const caveat = cardCaveat(savings.cards_missing_spending)
+  const caveat = savings.cards_missing_spending?.length
+    ? intl.formatMessage(
+        {
+          id: 'overview.runway.cardCaveat',
+          defaultMessage: 'Card spending not included yet ({cards})',
+        },
+        { cards: savings.cards_missing_spending.join(', ') },
+      )
+    : null
   const trailing = savings.trailing
   return (
     <WidgetShell title={instance.title} base={def.title} bodyAlign="center">
@@ -722,21 +906,48 @@ const SavingsRate: ComponentType<WidgetContentProps> = ({ instance, def }) => {
           <div className="ov-savings-pct money">{rate}%</div>
         </div>
         <Text as="p" size="xs" tone="faint" className="ov-savings-sub">
-          <span className="money">{fBase(savings.saved)}</span> saved of{' '}
-          <span className="money">{fBase(savings.income)}</span> earned
-          {savings.ym !== data?.current?.ym
-            ? ` in ${fMonth(`${savings.ym}-01`, 'long')}`
-            : ' so far this month'}
+          {intl.formatMessage(
+            {
+              id: 'overview.reports.savedOf',
+              defaultMessage: '{saved} saved of {income} earned {when}',
+            },
+            {
+              saved: <span className="money">{fBase(savings.saved)}</span>,
+              income: <span className="money">{fBase(savings.income)}</span>,
+              when:
+                savings.ym !== data?.current?.ym
+                  ? intl.formatMessage(
+                      { id: 'overview.reports.inMonth', defaultMessage: 'in {month}' },
+                      { month: fMonth(`${savings.ym}-01`, 'long') },
+                    )
+                  : intl.formatMessage({
+                      id: 'overview.reports.soFar',
+                      defaultMessage: 'so far this month',
+                    }),
+            },
+          )}
         </Text>
         {trailing && (
           <Text as="p" size="xs" tone="faint" className="ov-savings-sub">
-            {trailing.months}-month average ({fMonth(`${trailing.from}-01`, 'short')} to{' '}
-            {fMonth(`${trailing.to}-01`, 'short')}):{' '}
-            <span className="money">{fBaseCompact(trailing.monthly)}</span> a month
-            {trailing.rate_pct != null && (
-              <>
-                , <span className="money">{Math.round(trailing.rate_pct)}%</span>
-              </>
+            {intl.formatMessage(
+              {
+                id: 'overview.reports.trailingAverage',
+                defaultMessage: '{months}-month average ({from} to {to}): {amount} a month{rate}',
+              },
+              {
+                months: trailing.months,
+                from: fMonth(`${trailing.from}-01`, 'short'),
+                to: fMonth(`${trailing.to}-01`, 'short'),
+                amount: <span className="money">{fBaseCompact(trailing.monthly)}</span>,
+                rate:
+                  trailing.rate_pct != null ? (
+                    <>
+                      , <span className="money">{Math.round(trailing.rate_pct)}%</span>
+                    </>
+                  ) : (
+                    ''
+                  ),
+              },
             )}
           </Text>
         )}
@@ -762,14 +973,21 @@ const TopMerchants: ComponentType<WidgetContentProps> = ({
   onNavigate,
   onOpenRegister,
 }) => {
+  const intl = useAppIntl()
   const cap = rowCap(instance, def) ?? 25
   // Grouped by payee and ranked server-side (no endpoint does per-month payee spend — see the
   // header note), so the browser no longer pulls the month's raw expense legs to fold them.
   const { data, loading, error } = useReports(cap)
   const rows = (data?.merchants ?? []).slice(0, cap)
-  const shown = spendingMonth(data)
+  const shown = spendingMonth(data, intl)
   const month = shown.ym
-  const when = shown.fellBack && month ? `in ${fMonth(month, 'long')}` : 'this month'
+  const when =
+    shown.fellBack && month
+      ? intl.formatMessage(
+          { id: 'overview.reports.inMonth', defaultMessage: 'in {month}' },
+          { month: fMonth(month, 'long') },
+        )
+      : intl.formatMessage({ id: 'overview.reports.thisMonth', defaultMessage: 'this month' })
   const viz = vizOf(instance, def) || 'list'
   // A card that fits its content cannot also fill it: the chart gets a height of its own.
   const fit = fitMode(def.defId, instance.heightMode)
@@ -783,7 +1001,15 @@ const TopMerchants: ComponentType<WidgetContentProps> = ({
   if (error || !rows.length) {
     return (
       <WidgetShell title={instance.title} base={def.title}>
-        <WidgetPlaceholder detail={error || 'No spending recorded this month yet.'} />
+        <WidgetPlaceholder
+          detail={
+            error ||
+            intl.formatMessage({
+              id: 'overview.reports.noSpending',
+              defaultMessage: 'No spending recorded this month yet.',
+            })
+          }
+        />
       </WidgetShell>
     )
   }
@@ -805,14 +1031,27 @@ const TopMerchants: ComponentType<WidgetContentProps> = ({
     <WidgetShell
       title={instance.title}
       base={def.title}
-      meta={shown.fellBack && month ? fMonth(month, 'long') : 'this month'}
+      meta={
+        shown.fellBack && month
+          ? fMonth(month, 'long')
+          : intl.formatMessage({ id: 'overview.reports.thisMonth', defaultMessage: 'this month' })
+      }
       fill={viz !== 'list' && !fit}
       chart={{
         value: viz,
         options: [
-          { value: 'list', label: 'List' },
-          { value: 'bar', label: 'Bar' },
-          { value: 'pie', label: 'Pie' },
+          {
+            value: 'list',
+            label: intl.formatMessage({ id: 'overview.viz.list', defaultMessage: 'List' }),
+          },
+          {
+            value: 'bar',
+            label: intl.formatMessage({ id: 'overview.viz.bar', defaultMessage: 'Bar' }),
+          },
+          {
+            value: 'pie',
+            label: intl.formatMessage({ id: 'overview.viz.pie', defaultMessage: 'Pie' }),
+          },
         ],
         onChange: (v) => onPatch({ config: { ...instance.config, viz: v } }),
       }}
@@ -823,7 +1062,11 @@ const TopMerchants: ComponentType<WidgetContentProps> = ({
             className="ov-rep-link"
             onClick={() => onNavigate(def.source?.tab || 'accounts')}
           >
-            All transactions <ArrowRight size={12} aria-hidden="true" />
+            {intl.formatMessage({
+              id: 'overview.reports.allTransactions',
+              defaultMessage: 'All transactions',
+            })}{' '}
+            <ArrowRight size={12} aria-hidden="true" />
           </button>
         )
       }
@@ -832,7 +1075,13 @@ const TopMerchants: ComponentType<WidgetContentProps> = ({
       {viz === 'list' ? (
         <RankedList
           rows={ranked}
-          selectLabel={`show its transactions ${when}`}
+          selectLabel={intl.formatMessage(
+            {
+              id: 'overview.reports.showTransactions',
+              defaultMessage: 'show its transactions {when}',
+            },
+            { when },
+          )}
           canSelect={canSelect}
           onSelect={open}
         />
@@ -847,7 +1096,13 @@ const TopMerchants: ComponentType<WidgetContentProps> = ({
           barRowHeight={fit ? MERCHANT_BAR_PX : undefined}
           canSelect={canSelect}
           onSelect={open}
-          selectLabel={`show its transactions ${when}`}
+          selectLabel={intl.formatMessage(
+            {
+              id: 'overview.reports.showTransactions',
+              defaultMessage: 'show its transactions {when}',
+            },
+            { when },
+          )}
         />
       )}
     </WidgetShell>
