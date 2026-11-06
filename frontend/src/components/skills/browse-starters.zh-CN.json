@@ -1,0 +1,12 @@
+{
+  "skills.close": "关闭",
+  "skills.menu.browse": "浏览入门技能",
+  "skills.serverError": "无法连接服务器。",
+  "skills.starters.add": "添加",
+  "skills.starters.addHttp": "无法添加入门技能（HTTP {status}）",
+  "skills.starters.added": "已添加",
+  "skills.starters.empty": "你已拥有所有可用的入门技能。",
+  "skills.starters.help": "将内置入门技能添加到技能库，快速开始常见流程；之后可以自行修改。",
+  "skills.starters.loadHttp": "无法加载入门技能（HTTP {status}）",
+  "skills.starters.loading": "正在加载入门技能…"
+}
