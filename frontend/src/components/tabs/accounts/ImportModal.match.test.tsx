@@ -149,6 +149,18 @@ const matchedRow = () => openRow(document.querySelector('[data-draft-index="0"]'
 const decisionRadio = (name: string) => within(matchedRow()).getByRole('radio', { name })
 
 describe('ImportModal — import-dedup 3-way (decision commit)', () => {
+  it('shows Chinese comparison headings while preserving the linked record', async () => {
+    const onDecisionCommit = commitMock()
+    await openPreview(onDecisionCommit, {}, true)
+    const row = matchedRow()
+    expect(within(row).getByText('账单中')).toBeTruthy()
+    expect(within(row).getByText('账簿中')).toBeTruthy()
+    expect(within(row).getByTitle('打开此交易')).toBeTruthy()
+    fireEvent.click(within(row).getByRole('radio', { name: '关联' }))
+    fireEvent.click(screen.getByRole('button', { name: '确认' }))
+    await waitFor(() => expect(onDecisionCommit).toHaveBeenCalled())
+    expect(onDecisionCommit.mock.calls[0]![2]).toEqual([{ row: 0, action: 'merge', existing_id: 'existing-1' }])
+  })
   it('submits the skip decision selected using the Chinese label', async () => {
     const onDecisionCommit = commitMock()
     await openPreview(onDecisionCommit, {}, true)

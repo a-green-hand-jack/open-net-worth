@@ -4684,7 +4684,7 @@ export function ImportModal({
                           return o ? (
                             <span
                               className="imp3-orig"
-                              title="Original charge — before currency conversion"
+                              title={intl.formatMessage({ id: 'accounts.importCompare.originalCharge', defaultMessage: 'Original charge — before currency conversion' })}
                             >
                               {o}
                             </span>
@@ -4914,7 +4914,7 @@ export function ImportModal({
                         return o ? (
                           <span
                             className="imp3-orig"
-                            title="Original charge — before currency conversion"
+                            title={intl.formatMessage({ id: 'accounts.importCompare.originalCharge', defaultMessage: 'Original charge — before currency conversion' })}
                           >
                             {o}
                           </span>
@@ -5254,13 +5254,13 @@ export function ImportModal({
                           {decisionLabel}
                         </span>
                         {band === 'review' && !queueDecided[d.rowIndex ?? i] && (
-                          <span className="imp3-qchip open">needs you</span>
+                          <span className="imp3-qchip open">{intl.formatMessage({ id: 'accounts.importCompare.needsYou', defaultMessage: 'needs you' })}</span>
                         )}
                         {/* Muted, never amber and never green: amber on this screen means "we are
                         blocking on you", and a weak row is explicitly NOT blocking — it
                         already carries a safe default (SIUM-WEAK-QUIET). */}
                         {band === 'weak' && (
-                          <span className="imp3-qchip maybe">Possible match</span>
+                          <span className="imp3-qchip maybe">{intl.formatMessage({ id: 'accounts.importCompare.possible', defaultMessage: 'Possible match' })}</span>
                         )}
                       </span>
                       <span className="imp3-arow-catcol">
@@ -5379,7 +5379,7 @@ export function ImportModal({
                             {ledgerOriginal && (
                               <span
                                 className="imp3-orig"
-                                title="Original charge — before currency conversion"
+                                title={intl.formatMessage({ id: 'accounts.importCompare.originalCharge', defaultMessage: 'Original charge — before currency conversion' })}
                               >
                                 {ledgerOriginal}
                               </span>
@@ -5407,7 +5407,7 @@ export function ImportModal({
                         </span>
                         <span className="imp3-arow-match-main">
                           <span className="imp3-arow-match-name">
-                            <span className="imp3-arow-match-tag">Ledger</span>
+                            <span className="imp3-arow-match-tag">{intl.formatMessage({ id: 'accounts.importCompare.ledgerTag', defaultMessage: 'Ledger' })}</span>
                             {ex.note || '—'}
                           </span>
                           {/* Date + kind, always visible without expanding — enough to judge "is
@@ -5439,7 +5439,7 @@ export function ImportModal({
                           {ledgerOriginal && (
                             <span
                               className="imp3-orig"
-                              title="Original charge — before currency conversion"
+                              title={intl.formatMessage({ id: 'accounts.importCompare.originalCharge', defaultMessage: 'Original charge — before currency conversion' })}
                             >
                               {ledgerOriginal}
                             </span>
@@ -5462,7 +5462,7 @@ export function ImportModal({
                       dashed mid rail carrying either `=` or the Δ drift pill. */}
                         <div className="imp3-cmp">
                           <div className="imp3-cmp-col imp-pair-side stmt">
-                            <div className="imp3-cmp-h">On the statement</div>
+                            <div className="imp3-cmp-h">{intl.formatMessage({ id: 'accounts.importCompare.statement', defaultMessage: 'On the statement' })}</div>
                             <div className="imp3-cmp-name">{d.payee || d.description}</div>
                             {d.payee && d.description && d.payee !== d.description && (
                               <div className="imp3-cmp-src">{d.description}</div>
@@ -5472,7 +5472,7 @@ export function ImportModal({
                               {origAmt && origCcy && origCcy !== d.currency ? (
                                 <span
                                   className="imp3-orig"
-                                  title="Original charge — before currency conversion"
+                                  title={intl.formatMessage({ id: 'accounts.importCompare.originalCharge', defaultMessage: 'Original charge — before currency conversion' })}
                                 >
                                   {fCur(origAmt, origCcy, { cents: true })}
                                 </span>
@@ -5502,9 +5502,9 @@ export function ImportModal({
                                 // an unrelated S$16.75 entry showed "Δ ₫325,670" — not a real amount).
                                 <span
                                   className="imp3-cmp-drift"
-                                  title="Different currencies — not directly comparable"
+                                  title={intl.formatMessage({ id: 'accounts.importCompare.currencyWarning', defaultMessage: 'Different currencies — not directly comparable' })}
                                 >
-                                  ≠ different currency
+                                  {intl.formatMessage({ id: 'accounts.importCompare.currencyDifferent', defaultMessage: '≠ different currency' })}
                                 </span>
                               )
                             ) : (
@@ -5514,12 +5514,12 @@ export function ImportModal({
                             )}
                           </div>
                           <div className="imp3-cmp-col imp-pair-side ledger">
-                            <div className="imp3-cmp-h">In your ledger</div>
+                            <div className="imp3-cmp-h">{intl.formatMessage({ id: 'accounts.importCompare.ledger', defaultMessage: 'In your ledger' })}</div>
                             <div className="imp3-cmp-name">
                               <button
                                 type="button"
                                 className="imp3-cmp-lk"
-                                title="Open this transaction"
+                                title={intl.formatMessage({ id: 'accounts.importCompare.openTransaction', defaultMessage: 'Open this transaction' })}
                                 disabled={opening}
                                 onClick={() => openExistingTxn(resolved.id)}
                               >
@@ -5538,7 +5538,7 @@ export function ImportModal({
                             </div>
                             {openFailed && (
                               <span className="imp-rowmatch-drawererr">
-                                Couldn’t open — try again.
+                                {intl.formatMessage({ id: 'accounts.importCompare.openFailed', defaultMessage: 'Couldn’t open — try again.' })}
                               </span>
                             )}
                             {/* Same slot, same class, same placement as the statement side's own
@@ -5550,7 +5550,7 @@ export function ImportModal({
                               {ledgerOriginal && (
                                 <span
                                   className="imp3-orig"
-                                  title="Original charge — before currency conversion"
+                                  title={intl.formatMessage({ id: 'accounts.importCompare.originalCharge', defaultMessage: 'Original charge — before currency conversion' })}
                                 >
                                   {ledgerOriginal}
                                 </span>
@@ -6130,7 +6130,7 @@ export function ImportModal({
                           return o ? (
                             <span
                               className="imp3-orig"
-                              title="Original charge — before currency conversion"
+                              title={intl.formatMessage({ id: 'accounts.importCompare.originalCharge', defaultMessage: 'Original charge — before currency conversion' })}
                             >
                               {o}
                             </span>
@@ -6172,7 +6172,7 @@ export function ImportModal({
                             </span>
                             <span className="imp3-arow-match-main">
                               <span className="imp3-arow-match-name">
-                                <span className="imp3-arow-match-tag">Ledger</span>
+                                <span className="imp3-arow-match-tag">{intl.formatMessage({ id: 'accounts.importCompare.ledgerTag', defaultMessage: 'Ledger' })}</span>
                                 {existing && existingId ? (
                                   <button
                                     type="button"
@@ -6229,7 +6229,7 @@ export function ImportModal({
                                 return o ? (
                                   <span
                                     className="imp3-orig"
-                                    title="Original charge — before currency conversion"
+                                    title={intl.formatMessage({ id: 'accounts.importCompare.originalCharge', defaultMessage: 'Original charge — before currency conversion' })}
                                   >
                                     {o}
                                   </span>
@@ -6646,7 +6646,7 @@ export function ImportModal({
                         {origLine && (
                           <span
                             className="imp3-orig"
-                            title="Original charge — before currency conversion"
+                            title={intl.formatMessage({ id: 'accounts.importCompare.originalCharge', defaultMessage: 'Original charge — before currency conversion' })}
                           >
                             {' '}
                             ({origLine})
@@ -6702,7 +6702,7 @@ export function ImportModal({
                     {resolved ? (
                       <div className="imp3-cmp">
                         <div className="imp3-cmp-col imp-pair-side stmt">
-                          <div className="imp3-cmp-h">On the statement</div>
+                          <div className="imp3-cmp-h">{intl.formatMessage({ id: 'accounts.importCompare.statement', defaultMessage: 'On the statement' })}</div>
                           <div className="imp3-cmp-name">{d.payee || d.description}</div>
                           <div className="imp3-cmp-src">{d.description}</div>
                           <div className="imp3-cmp-facts">
@@ -6710,7 +6710,7 @@ export function ImportModal({
                             {origLine && (
                               <span
                                 className="imp3-orig"
-                                title="Original charge — before currency conversion"
+                                title={intl.formatMessage({ id: 'accounts.importCompare.originalCharge', defaultMessage: 'Original charge — before currency conversion' })}
                               >
                                 {origLine}
                               </span>
@@ -6734,9 +6734,9 @@ export function ImportModal({
                             ) : (
                               <span
                                 className="imp3-cmp-drift"
-                                title="Different currencies — not directly comparable"
+                                title={intl.formatMessage({ id: 'accounts.importCompare.currencyWarning', defaultMessage: 'Different currencies — not directly comparable' })}
                               >
-                                ≠ different currency
+                                {intl.formatMessage({ id: 'accounts.importCompare.currencyDifferent', defaultMessage: '≠ different currency' })}
                               </span>
                             )
                           ) : (
@@ -6746,12 +6746,12 @@ export function ImportModal({
                           )}
                         </div>
                         <div className="imp3-cmp-col imp-pair-side ledger">
-                          <div className="imp3-cmp-h">In your ledger</div>
+                          <div className="imp3-cmp-h">{intl.formatMessage({ id: 'accounts.importCompare.ledger', defaultMessage: 'In your ledger' })}</div>
                           <div className="imp3-cmp-name">
                             <button
                               type="button"
                               className="imp3-cmp-lk"
-                              title="Open this transaction"
+                              title={intl.formatMessage({ id: 'accounts.importCompare.openTransaction', defaultMessage: 'Open this transaction' })}
                               onClick={() => openExistingTxn(resolved.id)}
                             >
                               {resolved.summary.note || '—'}
@@ -6769,7 +6769,7 @@ export function ImportModal({
                             {existingOriginal && (
                               <span
                                 className="imp3-orig"
-                                title="Original charge — before currency conversion"
+                                title={intl.formatMessage({ id: 'accounts.importCompare.originalCharge', defaultMessage: 'Original charge — before currency conversion' })}
                               >
                                 {existingOriginal}
                               </span>

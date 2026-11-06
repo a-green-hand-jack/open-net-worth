@@ -4,5 +4,15 @@
   "accounts.importLine.lucius": "通过 Lucius",
   "accounts.importLine.manual": "由您添加",
   "accounts.importLine.transfer": "转账",
-  "accounts.importLine.uncategorized": "未分类"
+  "accounts.importLine.uncategorized": "未分类",
+  "accounts.importCompare.statement": "账单中",
+  "accounts.importCompare.ledger": "账簿中",
+  "accounts.importCompare.possible": "可能匹配",
+  "accounts.importCompare.needsYou": "需要您处理",
+  "accounts.importCompare.ledgerTag": "账簿",
+  "accounts.importCompare.currencyWarning": "币种不同，无法直接比较",
+  "accounts.importCompare.currencyDifferent": "≠ 币种不同",
+  "accounts.importCompare.openTransaction": "打开此交易",
+  "accounts.importCompare.originalCharge": "币种转换前的原始金额",
+  "accounts.importCompare.openFailed": "无法打开，请重试。"
 }
