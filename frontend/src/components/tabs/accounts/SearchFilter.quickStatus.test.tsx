@@ -8,11 +8,15 @@ import { describe, it, expect, afterEach, vi } from 'vitest'
 import { render, fireEvent, cleanup, screen } from '@testing-library/react'
 import { IntlProvider } from 'react-intl'
 import messages from './zh-CN.messages.json'
-import { SearchFilter, type FilterToken } from './SearchFilter'
+import { SearchFilter, type FilterToken, type SuggestData } from './SearchFilter'
 
 const suggest = { categories: [], payees: [], accounts: [], tags: [] }
 
-function setup(tokens: FilterToken[] = [], chinese = false) {
+function setup(
+  tokens: FilterToken[] = [],
+  chinese = false,
+  categories: SuggestData['categories'] = suggest.categories,
+) {
   const addToken = vi.fn()
   render(
     <SearchFilter
@@ -20,7 +24,7 @@ function setup(tokens: FilterToken[] = [], chinese = false) {
       addToken={addToken}
       removeToken={() => {}}
       clearTokens={() => {}}
-      suggest={suggest}
+      suggest={{ ...suggest, categories }}
       sym="$"
     />,
     chinese
@@ -70,6 +74,24 @@ describe('SearchFilter — quick picks', () => {
     fireEvent.change(input, { target: { value: '收入' } })
     fireEvent.keyDown(input, { key: 'Enter' })
     expect(addToken).toHaveBeenCalledWith(expect.objectContaining({ field: 'text', value: '收入' }))
+  })
+  it('prefers a user category named like the translated uncategorized label', () => {
+    const { addToken, input } = setup([], true, [
+      { id: 'cat_custom', label: '未分类', color: '#123456' },
+    ])
+    fireEvent.change(input, { target: { value: '分类：未分类' } })
+    fireEvent.keyDown(input, { key: 'Enter' })
+    expect(addToken).toHaveBeenCalledWith(
+      expect.objectContaining({ field: 'category', value: 'cat_custom' }),
+    )
+  })
+  it('still selects uncategorized when no matching custom category exists', () => {
+    const { addToken, input } = setup([], true)
+    fireEvent.change(input, { target: { value: '分类：未分类' } })
+    fireEvent.keyDown(input, { key: 'Enter' })
+    expect(addToken).toHaveBeenCalledWith(
+      expect.objectContaining({ field: 'uncategorized', value: true }),
+    )
   })
   it('lists Uncategorized, Uncleared and Needs review on focus, and one click adds it', () => {
     const { addToken } = setup()

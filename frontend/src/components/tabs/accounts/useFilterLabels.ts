@@ -1,6 +1,6 @@
 import { defineMessages, type MessageDescriptor } from 'react-intl'
 import { useAppIntl } from '../../../i18n/useAppIntl'
-import type { FilterToken } from './SearchFilter'
+import type { FilterToken, SuggestData } from './SearchFilter'
 import { fDate, fMonth } from '../../../utils/format'
 
 const labels: Record<string, MessageDescriptor> = defineMessages({
@@ -30,7 +30,7 @@ const labels: Record<string, MessageDescriptor> = defineMessages({
   reconcile: { id: 'accounts.filter.reconcile', defaultMessage: 'Reconcile adjustment' },
 })
 
-export function useFilterInputNormalization() {
+export function useFilterInputNormalization(categories: SuggestData['categories']) {
   const { formatMessage, locale } = useAppIntl()
   if (locale === 'en') return (input: string) => input
   const scopes = [
@@ -67,7 +67,10 @@ export function useFilterInputNormalization() {
     const scope = names[match[1]!.trim().toLowerCase()]
     if (!scope) return input
     const raw = match[2]!
-    return `${scope}: ${['status', 'type', 'source'].includes(scope) ? (values[raw.trim()] ?? raw) : scope === 'category' && raw.trim() === formatMessage({ id: 'accounts.uncategorized', defaultMessage: 'Uncategorized' }) ? 'uncategorized' : raw}`
+    const namedCategory = categories.some(
+      (category) => category.label.toLowerCase() === raw.trim().toLowerCase(),
+    )
+    return `${scope}: ${['status', 'type', 'source'].includes(scope) ? (values[raw.trim()] ?? raw) : scope === 'category' && !namedCategory && raw.trim() === formatMessage({ id: 'accounts.uncategorized', defaultMessage: 'Uncategorized' }) ? 'uncategorized' : raw}`
   }
 }
 

@@ -37,6 +37,7 @@ the conversation.
 
 Unchanged built-in skill names and descriptions can also follow the interface language,
 including on installations created before language support. Customized skill text stays as entered.
+Category filters preserve your category names even when one matches a translated system label.
 
 **Change your base currency**
 1. Open **Settings → Currency & format**.
