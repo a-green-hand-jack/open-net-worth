@@ -11,6 +11,7 @@ import { IntlProvider } from 'react-intl'
 import { catalogs } from '../../../i18n/catalogs'
 import type { ComputedRow } from '../../../types/portfolio'
 import { Overview } from './Overview'
+import { useDashboardLayout } from './useDashboardLayout'
 
 vi.mock('./registry', async () => {
   const { WidgetShell } = await import('./WidgetShell')
@@ -87,6 +88,43 @@ describe('Dashboard widget "⋯ → Edit…"', () => {
     fireEvent.click(screen.getAllByRole('button', { name: '取消' })[0]!)
     expect(inCustomize()).toBe(false)
     expect(screen.getByRole('button', { name: '自定义概览' })).toBeTruthy()
+  })
+
+  it('adds a named section from the Chinese dialog', () => {
+    const layout = vi.mocked(useDashboardLayout)()
+    vi.mocked(layout.addSection).mockClear()
+    render(
+      <IntlProvider locale="zh-CN" messages={catalogs['zh-CN']}>
+        <Overview rows={rows} />
+      </IntlProvider>,
+    )
+    fireEvent.click(screen.getByRole('button', { name: '自定义概览' }))
+    fireEvent.click(screen.getByRole('button', { name: '添加分区' }))
+    fireEvent.change(screen.getByPlaceholderText('分区名称'), { target: { value: 'My section' } })
+    fireEvent.click(screen.getByRole('button', { name: '添加' }))
+    expect(layout.addSection).toHaveBeenCalledWith('My section')
+  })
+
+  it('confirms deletion of the selected named view in Chinese', () => {
+    const layout = vi.mocked(useDashboardLayout)()
+    const previousId = layout.activeViewId
+    layout.views.push({ viewId: 'personal', name: 'Personal', widgets: [] })
+    layout.activeViewId = 'personal'
+    vi.mocked(layout.deleteView).mockClear()
+    try {
+      render(
+        <IntlProvider locale="zh-CN" messages={catalogs['zh-CN']}>
+          <Overview rows={rows} />
+        </IntlProvider>,
+      )
+      fireEvent.click(screen.getByRole('button', { name: '删除视图 Personal' }))
+      expect(screen.getByText('删除“Personal”？')).toBeTruthy()
+      fireEvent.click(screen.getByRole('button', { name: '删除视图' }))
+      expect(layout.deleteView).toHaveBeenCalledWith('personal')
+    } finally {
+      layout.views.pop()
+      layout.activeViewId = previousId
+    }
   })
 
   it('opens the settings without Customize, and Save leaves the page as it was', () => {

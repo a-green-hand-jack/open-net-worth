@@ -245,8 +245,8 @@ newer widget.
 The widget picker uses your interface language for its controls and built-in widget names and
 descriptions. View and widget controls, and widget display and alert dialogs, also follow your
 interface language; view names, custom widget names, and content remain unchanged.
-The dashboard setup, layout controls, briefing instruction and widget header controls follow the
-same language without changing the instruction you write for Lucius or your custom widget titles.
+The dashboard setup, layout controls, section and view dialogs, briefing instruction and widget
+header controls follow the same language without changing your names or instructions for Lucius.
 
 ## Related pages
 

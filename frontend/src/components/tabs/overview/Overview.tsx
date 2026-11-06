@@ -374,13 +374,13 @@ export function Overview({
         <Modal
           open
           onClose={() => setAddingSection(false)}
-          title="Add section"
+          title={intl.formatMessage({ id: 'overview.addSection', defaultMessage: 'Add section' })}
           size="sm"
           className="ov-section-prompt"
           footer={
             <div className="ov-section-prompt-actions">
               <Button size="sm" variant="ghost" onClick={() => setAddingSection(false)}>
-                Cancel
+                {intl.formatMessage({ id: 'overview.cancel', defaultMessage: 'Cancel' })}
               </Button>
               <Button
                 size="sm"
@@ -391,7 +391,7 @@ export function Overview({
                   setAddingSection(false)
                 }}
               >
-                Add
+                {intl.formatMessage({ id: 'overview.add', defaultMessage: 'Add' })}
               </Button>
             </div>
           }
@@ -399,7 +399,10 @@ export function Overview({
           <input
             className="ui-input"
             data-autofocus
-            placeholder="Section name"
+            placeholder={intl.formatMessage({
+              id: 'overview.sectionName',
+              defaultMessage: 'Section name',
+            })}
             value={sectionName}
             onChange={(e) => setSectionName(e.target.value)}
             onKeyDown={(e) => {
@@ -416,18 +419,22 @@ export function Overview({
       {confirmDeleteViewId &&
         (() => {
           const v = layout.views.find((x) => x.viewId === confirmDeleteViewId)
-          const name = v?.name || 'this view'
+          const name =
+            v?.name || intl.formatMessage({ id: 'overview.thisView', defaultMessage: 'this view' })
           return (
             <Modal
               open
               onClose={() => setConfirmDeleteViewId(null)}
-              title={`Delete "${name}"?`}
+              title={intl.formatMessage(
+                { id: 'overview.deleteTitle', defaultMessage: 'Delete "{name}"?' },
+                { name },
+              )}
               size="sm"
               className="ov-confirm"
               footer={
                 <div className="ov-confirm-actions">
                   <Button size="sm" variant="ghost" onClick={() => setConfirmDeleteViewId(null)}>
-                    Cancel
+                    {intl.formatMessage({ id: 'overview.cancel', defaultMessage: 'Cancel' })}
                   </Button>
                   <Button
                     size="sm"
@@ -437,13 +444,20 @@ export function Overview({
                       setConfirmDeleteViewId(null)
                     }}
                   >
-                    Delete view
+                    {intl.formatMessage({
+                      id: 'overview.deleteView',
+                      defaultMessage: 'Delete view',
+                    })}
                   </Button>
                 </div>
               }
             >
               <Text as="p" size="sm" tone="muted">
-                This view and its layout will be removed. Your other views aren&rsquo;t affected.
+                {intl.formatMessage({
+                  id: 'overview.deleteWarning',
+                  defaultMessage:
+                    'This view and its layout will be removed. Your other views aren’t affected.',
+                })}
               </Text>
             </Modal>
           )
