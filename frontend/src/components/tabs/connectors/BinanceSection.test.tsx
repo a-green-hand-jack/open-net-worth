@@ -110,7 +110,7 @@ it('never retrieves saved credentials when the eye is toggled', async () => {
   render(<Host />)
   const key = await screen.findByLabelText(/API key/)
   expect(key).toHaveProperty('value', '')
-  fireEvent.click(screen.getAllByRole('button', { name: 'Show secret' })[0])
+  fireEvent.click(screen.getAllByRole('button', { name: 'Show secret' })[0]!)
   expect(key).toHaveProperty('value', '')
   expect(binanceApi.status).toHaveBeenCalledTimes(1)
 })
