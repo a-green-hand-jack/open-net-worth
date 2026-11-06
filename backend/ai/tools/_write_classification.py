@@ -20,6 +20,8 @@ READ_ONLY_TOOLS = frozenset(
         "list_trading_orders",
         "list_trading_fills",
         "read_trading_files",
+        "list_trading_workspaces",
+        "preview_trading_workspace",
         "search_trading_research",
         "fetch_trading_research",
         "calculate",

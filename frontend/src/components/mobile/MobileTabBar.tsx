@@ -52,7 +52,7 @@ const TAB_SLOTS: { id: TabId; icon: ReactElement }[] = [
 
 /** Everything the four slots don't carry — grouped exactly as the sidebar zones are. */
 // 'inbox' deliberately excluded — that tab is hidden pending further work.
-const SHEET_SECTIONS: TabId[] = ['assets', 'plan', 'commitments', 'intel']
+const SHEET_SECTIONS: TabId[] = ['assets', 'plan', 'trading', 'commitments', 'intel']
 
 export type PriceStatus = 'live' | 'loading' | 'cached'
 

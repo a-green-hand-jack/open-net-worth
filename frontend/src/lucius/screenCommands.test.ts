@@ -28,6 +28,11 @@ it('with nothing live the catalog rides as live:false with a route', () => {
   expect(whatif?.params.some((p) => p.name === 'spend')).toBe(false)
   expect(OFFSCREEN_COMMAND_CATALOG.length).toBeGreaterThanOrEqual(2)
   const review = m.find((c) => c.name === 'automations.review_draft')
+  const trading = m.find((c) => c.name === 'trading.review_draft')
+  expect(trading).toMatchObject({ live: false, route: 'trading' })
+  expect(trading?.params).toEqual([
+    expect.objectContaining({ name: 'delegation', type: 'object', required: true }),
+  ])
   expect(review?.live).toBe(false)
   expect(review?.route).toBe('automations')
   expect(review?.params).toEqual([
