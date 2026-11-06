@@ -19,12 +19,19 @@ vi.mock('../../../../hooks/serverState', () => ({
         { id: 'inc:a', label: 'Saved', kind: 'income', column: 0, amount: 100, pct: 100 },
         { id: 'total', label: 'Income', kind: 'total', column: 1, amount: 100, pct: 100 },
         { id: 'saved', label: 'Saved', kind: 'saved', column: 2, amount: 70, pct: 70 },
-        { id: 'spend', label: 'Spend', kind: 'spend_group', column: 2, amount: 30, pct: 30 },
+        {
+          id: 'sg:__unbudgeted__',
+          label: 'Not in budget',
+          kind: 'spend_group',
+          column: 2,
+          amount: 30,
+          pct: 30,
+        },
       ],
       links: [
         { source: 'inc:a', target: 'total', amount: 100 },
         { source: 'total', target: 'saved', amount: 70 },
-        { source: 'total', target: 'spend', amount: 30 },
+        { source: 'total', target: 'sg:__unbudgeted__', amount: 30 },
       ],
     },
   }),
@@ -65,6 +72,7 @@ it('translates card controls and chart description without rewriting user labels
   )
   expect(screen.getAllByText('Saved').length).toBeGreaterThan(0)
   expect(screen.getByText('已储蓄')).toBeTruthy()
+  expect(screen.getByText('未纳入预算')).toBeTruthy()
   expect(screen.getByRole('img').getAttribute('aria-label')).toMatch(/收入.*100.*支出.*30/)
   expect(screen.getByText('已扣除退款和报销')).toBeTruthy()
   fireEvent.click(screen.getByRole('button', { name: '在计划中打开' }))

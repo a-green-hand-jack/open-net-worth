@@ -19,6 +19,15 @@ export function moneyFlowSystemLabel(intl: IntlShape, node: CashFlowNode): strin
       id: 'overview.moneyFlow.node.otherSpending',
       defaultMessage: 'Other spending',
     })
+  if (
+    node.id === 'sg:__unbudgeted__' &&
+    node.kind === 'spend_group' &&
+    node.label === 'Not in budget'
+  )
+    return intl.formatMessage({
+      id: 'overview.moneyFlow.node.notInBudget',
+      defaultMessage: 'Not in budget',
+    })
   if (node.id === 'total' && node.kind === 'total' && node.label === 'Income')
     return intl.formatMessage({ id: 'overview.moneyFlow.node.income', defaultMessage: 'Income' })
   if (node.id === 'total' && node.kind === 'total' && node.label === 'Spent')

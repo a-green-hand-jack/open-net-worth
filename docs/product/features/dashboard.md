@@ -251,7 +251,8 @@ instructions for Lucius.
 Layout loading and saving errors also appear in the selected interface language.
 New default view and section names follow the interface language; existing and renamed items retain their names.
 The money-flow card's controls, status, chart description and identified system nodes follow the
-interface language. Labels supplied by your book remain unchanged.
+interface language, including the system's unbudgeted group. Labels supplied by your book remain
+unchanged.
 
 ## Related pages
 

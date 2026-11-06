@@ -18,4 +18,20 @@ it('only translates matching system IDs, kinds and labels', () => {
   expect(moneyFlowSystemLabel(intl, { ...node, id: 'inc:custom', kind: 'income' })).toBe('Saved')
   expect(moneyFlowSystemLabel(intl, { ...node, label: 'Personal' })).toBe('Personal')
   expect(moneyFlowSystemLabel(intl, { ...node, kind: 'income' })).toBe('Saved')
+  expect(
+    moneyFlowSystemLabel(intl, {
+      ...node,
+      id: 'sg:__unbudgeted__',
+      kind: 'spend_group',
+      label: 'Not in budget',
+    }),
+  ).toBe('未纳入预算')
+  expect(
+    moneyFlowSystemLabel(intl, {
+      ...node,
+      id: 'sg:custom',
+      kind: 'spend_group',
+      label: 'Not in budget',
+    }),
+  ).toBe('Not in budget')
 })
