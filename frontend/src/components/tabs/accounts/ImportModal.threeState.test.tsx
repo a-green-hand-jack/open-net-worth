@@ -2167,8 +2167,8 @@ describe('ImportModal — transfer_pair formation copy (§2b)', () => {
     fixture.total = 2
     await openWith(fixture)
     await findPairRowFor('Link')
-    fireEvent.click(screen.getByRole('button', { name: 'Filter by kind' }))
-    const pop = screen.getByRole('listbox')
+    fireEvent.click(screen.getByRole('button', { name: 'Filter by type or category' }))
+    const pop = screen.getByRole('listbox', { name: 'Type' })
     expect(within(pop).getByRole('option', { name: /Transfer\s*1/ })).toBeTruthy()
     fireEvent.click(within(pop).getByRole('option', { name: /Transfer\s*1/ }))
     expect(screen.getByText('Top-up received')).toBeTruthy()
