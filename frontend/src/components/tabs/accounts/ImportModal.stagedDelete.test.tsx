@@ -165,8 +165,8 @@ async function openWith(
   return { onDecisionCommit }
 }
 
-const mark = (note: string) =>
-  fireEvent.click(within(rowFor(note)).getByRole('button', { name: 'Delete' }))
+const mark = (note: string, chinese = false) =>
+  fireEvent.click(within(rowFor(note)).getByRole('button', { name: chinese ? '删除' : 'Delete' }))
 
 // ── 1. staged, not fired ─────────────────────────────────────────────────────────────────
 
@@ -253,9 +253,15 @@ describe('staged delete — the footer summary', () => {
 describe('staged delete — confirm deletes exactly the marked rows', () => {
   it('Chinese deletion confirmation names the count and sends only marked ids', async () => {
     const { onDecisionCommit } = await openWith(preview(), {}, true)
-    mark('Grab ride A')
-    mark('Grab ride B')
-    await waitFor(() => expect(screen.getAllByText('Will delete')).toHaveLength(2))
+    expect(screen.getByText('账簿中有，但此账单中没有')).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: '将全部 3 条标记为删除' }))
+    expect(screen.getAllByText('将删除')).toHaveLength(3)
+    expect(onDecisionCommit).not.toHaveBeenCalled()
+    fireEvent.click(screen.getByRole('button', { name: '清除标记' }))
+    expect(screen.queryByText('将删除')).toBeNull()
+    mark('Grab ride A', true)
+    mark('Grab ride B', true)
+    await waitFor(() => expect(screen.getAllByText('将删除')).toHaveLength(2))
     expect(footerText()).toContain('从账簿删除 2 条')
     fireEvent.click(screen.getByRole('button', { name: '确认' }))
     expect(screen.getByText('从账簿删除 2 笔交易？')).toBeTruthy()

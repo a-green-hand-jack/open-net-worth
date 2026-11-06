@@ -14,5 +14,17 @@
   "accounts.importCompare.currencyDifferent": "≠ 币种不同",
   "accounts.importCompare.openTransaction": "打开此交易",
   "accounts.importCompare.originalCharge": "币种转换前的原始金额",
-  "accounts.importCompare.openFailed": "无法打开，请重试。"
+  "accounts.importCompare.openFailed": "无法打开，请重试。",
+  "accounts.importLedger.notOnStatement": "账簿中有，但此账单中没有",
+  "accounts.importLedger.notInLedger": "账单中有，但账簿中没有",
+  "accounts.importLedger.notInLedgerHint": "不在账簿中，导入后也不会出现",
+  "accounts.importLedger.markAll": "将全部 {count} 条标记为删除",
+  "accounts.importLedger.clearMarks": "清除标记",
+  "accounts.importLedger.willDelete": "将删除",
+  "accounts.importLedger.willKeep": "将保留",
+  "accounts.importLedger.ledgerOnly": "仅在账簿中",
+  "accounts.importLedger.markedHint": "已标记——确认后将从账簿删除。",
+  "accounts.importLedger.delete": "删除",
+  "accounts.importLedger.undo": "撤销",
+  "accounts.importLedger.leave": "保留"
 }

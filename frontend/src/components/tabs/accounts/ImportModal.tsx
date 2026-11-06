@@ -4646,11 +4646,11 @@ export function ImportModal({
                         {/* A marked row states its STAGED outcome where its status normally reads —
                         the same slot every other row uses to say what confirm will do to it. */}
                         {marked ? (
-                          <span className="imp3-dchip willdelete">Will delete</span>
+                          <span className="imp3-dchip willdelete">{intl.formatMessage({ id: 'accounts.importLedger.willDelete', defaultMessage: 'Will delete' })}</span>
                         ) : keptLedger[r.id] ? (
-                          <span className="imp3-dchip keep">Will keep</span>
+                          <span className="imp3-dchip keep">{intl.formatMessage({ id: 'accounts.importLedger.willKeep', defaultMessage: 'Will keep' })}</span>
                         ) : (
-                          <span className="imp3-dchip ledger">Ledger only</span>
+                          <span className="imp3-dchip ledger">{intl.formatMessage({ id: 'accounts.importLedger.ledgerOnly', defaultMessage: 'Ledger only' })}</span>
                         )}
                         {/* "Not on this statement" usually means "it's on the adjacent one" — this
                         chip is what tells those two apart. Server-decided edge + distance; the
@@ -4740,7 +4740,7 @@ export function ImportModal({
                       about whether to act, and that question is answered once marked. */}
                         <div className="imp3-lc-hint">
                           {marked
-                            ? 'Marked — this will be deleted from your ledger when you confirm.'
+                            ? intl.formatMessage({ id: 'accounts.importLedger.markedHint', defaultMessage: 'Marked — this will be deleted from your ledger when you confirm.' })
                             : explanation}
                         </div>
                         <div className="imp3-lc-acts">
@@ -4818,7 +4818,7 @@ export function ImportModal({
                               className="imp3-lc-btn"
                               onClick={() => toggleDeleteMark(r.id)}
                             >
-                              Undo
+                              {intl.formatMessage({ id: 'accounts.importLedger.undo', defaultMessage: 'Undo' })}
                             </button>
                           ) : (
                             <button
@@ -4826,7 +4826,7 @@ export function ImportModal({
                               className="imp3-lc-btn danger"
                               onClick={() => toggleDeleteMark(r.id)}
                             >
-                              Delete
+                              {intl.formatMessage({ id: 'accounts.importLedger.delete', defaultMessage: 'Delete' })}
                             </button>
                           )}
                           {!marked &&
@@ -4842,7 +4842,7 @@ export function ImportModal({
                                   })
                                 }
                               >
-                                Undo
+                                {intl.formatMessage({ id: 'accounts.importLedger.undo', defaultMessage: 'Undo' })}
                               </button>
                             ) : (
                               <button
@@ -4853,7 +4853,7 @@ export function ImportModal({
                                   setLedgerExpanded((current) => ({ ...current, [r.id]: false }))
                                 }}
                               >
-                                Leave it
+                                {intl.formatMessage({ id: 'accounts.importLedger.leave', defaultMessage: 'Leave it' })}
                               </button>
                             ))}
                         </div>
@@ -7841,7 +7841,7 @@ export function ImportModal({
                               >
                                 <span className="imp3-sec-badge">{ledgerOnlyRows.length}</span>
                                 <span className="imp3-sec-t">
-                                  In your ledger, not on this statement
+                                  {intl.formatMessage({ id: 'accounts.importLedger.notOnStatement', defaultMessage: 'In your ledger, not on this statement' })}
                                 </span>
                                 {t0 && t0.uncovered_net !== 0 && (
                                   <span className="imp3-sec-sub">
@@ -7883,7 +7883,7 @@ export function ImportModal({
                                           )
                                         }
                                       >
-                                        Mark all {ledgerOnlyRows.length} for deletion
+                                        {intl.formatMessage({ id: 'accounts.importLedger.markAll', defaultMessage: 'Mark all {count} for deletion' }, { count: ledgerOnlyRows.length })}
                                       </button>
                                       {markedForDelete.length > 0 && (
                                         <button
@@ -7896,7 +7896,7 @@ export function ImportModal({
                                             )
                                           }
                                         >
-                                          Clear marks
+                                          {intl.formatMessage({ id: 'accounts.importLedger.clearMarks', defaultMessage: 'Clear marks' })}
                                         </button>
                                       )}
                                     </div>
@@ -7929,10 +7929,10 @@ export function ImportModal({
                             >
                               <span className="imp3-sec-badge">{uncoveredRows.length}</span>
                               <span className="imp3-sec-t">
-                                On the statement, not in your ledger
+                                {intl.formatMessage({ id: 'accounts.importLedger.notInLedger', defaultMessage: 'On the statement, not in your ledger' })}
                               </span>
                               <span className="imp3-sec-sub">
-                                not in your ledger — won’t be anywhere after import
+                                {intl.formatMessage({ id: 'accounts.importLedger.notInLedgerHint', defaultMessage: 'not in your ledger — won’t be anywhere after import' })}
                               </span>
                               <svg
                                 className={'imp3-chev' + (sectionOpen.uncovered ? ' open' : '')}
