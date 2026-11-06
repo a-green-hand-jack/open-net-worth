@@ -267,6 +267,8 @@ Spending, cash-flow, calendar, goals and runway widget controls also follow the 
 language while preserving user-defined labels and server-provided values.
 Report chart labels and controls follow the interface language. Labels supplied by the book
 remain unchanged unless identified by the server as a built-in label.
+Note, image, embed and chart legend controls follow the interface language. Your note content,
+URLs and artifact names remain as entered.
 
 ## Related pages
 
