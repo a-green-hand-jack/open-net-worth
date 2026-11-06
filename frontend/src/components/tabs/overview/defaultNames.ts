@@ -3,6 +3,15 @@ import type { DashboardView, SectionDivider } from './types'
 
 export function displayViewName(intl: IntlShape, view: DashboardView): string {
   const { formatMessage } = intl
+  const sourceNames: Record<string, string> = {
+    preset_overview: 'Overview',
+    preset_investing: 'Investing',
+    preset_cash_flow: 'Cash flow',
+    preset_plan: 'Plan',
+    preset_reports: 'Reports',
+    default_view: 'New view',
+  }
+  if (!view.nameSource || sourceNames[view.nameSource] !== view.name) return view.name
   switch (view.nameSource) {
     case 'preset_overview':
       return formatMessage({ id: 'overview.defaultView.overview', defaultMessage: 'Overview' })
@@ -22,7 +31,7 @@ export function displayViewName(intl: IntlShape, view: DashboardView): string {
 }
 
 export function displaySectionTitle(intl: IntlShape, section: SectionDivider): string {
-  return section.titleSource === 'default_section'
+  return section.titleSource === 'default_section' && section.title === 'Section'
     ? intl.formatMessage({ id: 'overview.defaultSection', defaultMessage: 'Section' })
     : section.title
 }

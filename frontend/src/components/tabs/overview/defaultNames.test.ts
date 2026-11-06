@@ -20,6 +20,7 @@ describe('dashboard default names', () => {
     expect(displayViewName(zh, { ...view, name: 'Cash flow', nameSource: 'preset_cash_flow' })).toBe('现金流')
     expect(displayViewName(zh, { ...view, name: 'Plan', nameSource: 'preset_plan' })).toBe('规划')
     expect(displayViewName(zh, { viewId: 'v', name: 'Overview', widgets: [] })).toBe('Overview')
+    expect(displayViewName(zh, { ...view, name: 'My custom view' })).toBe('My custom view')
     const section = {
       kind: 'section' as const,
       instanceId: 's',
@@ -32,5 +33,6 @@ describe('dashboard default names', () => {
     }
     expect(displaySectionTitle(zh, section)).toBe('分区')
     expect(displaySectionTitle(zh, { ...section, titleSource: undefined })).toBe('Section')
+    expect(displaySectionTitle(zh, { ...section, title: 'My custom section' })).toBe('My custom section')
   })
 })
