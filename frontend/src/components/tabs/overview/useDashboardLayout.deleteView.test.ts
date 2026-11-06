@@ -45,6 +45,16 @@ afterEach(() => {
 })
 
 describe('useDashboardLayout.deleteView — never deletes the default or last view', () => {
+  it('marks newly created default views and clears the marker on rename', async () => {
+    mockFetch.mockResolvedValue(twoViewState())
+    const { result } = renderHook(() => useDashboardLayout())
+    await waitFor(() => expect(result.current.loading).toBe(false))
+    act(() => result.current.addView(''))
+    const created = result.current.views.at(-1)!
+    expect(created).toMatchObject({ name: 'New view', nameSource: 'default_view' })
+    act(() => result.current.renameView(created.viewId, 'My view'))
+    expect(result.current.views.at(-1)).toMatchObject({ name: 'My view', nameSource: undefined })
+  })
   it('refuses to delete the first (default) view even when other views exist', async () => {
     mockFetch.mockResolvedValue(twoViewState())
     const { result } = renderHook(() => useDashboardLayout())

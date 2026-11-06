@@ -159,6 +159,7 @@ export function isSection(item: GridItem): item is SectionDivider {
 export interface DashboardView {
   viewId: string
   name: string
+  nameSource?: 'preset_overview' | 'preset_reports' | 'default_view'
   widgets: GridItem[]
   /** The order cards stack in on a phone, by instanceId — set by the phone's ↑↓ buttons, so
    *  reordering on a phone never moves anything on the desktop grid. Ids not listed (added

@@ -21,6 +21,7 @@ import { DataInHero } from '../../dataIn/DataInHero'
 import { installOvTooltip } from './tooltip'
 import { useDashboardLayout } from './useDashboardLayout'
 import { useAppIntl } from '../../../i18n/useAppIntl'
+import { displayViewName } from './defaultViewName'
 import { stickyTopbarOffset } from '../../../utils/stickyTopbarOffset'
 import './registry' // ensure every widget-group module registers before first render
 import './overview.css'
@@ -419,8 +420,9 @@ export function Overview({
       {confirmDeleteViewId &&
         (() => {
           const v = layout.views.find((x) => x.viewId === confirmDeleteViewId)
-          const name =
-            v?.name || intl.formatMessage({ id: 'overview.thisView', defaultMessage: 'this view' })
+          const name = v
+            ? displayViewName(intl, v)
+            : intl.formatMessage({ id: 'overview.thisView', defaultMessage: 'this view' })
           return (
             <Modal
               open

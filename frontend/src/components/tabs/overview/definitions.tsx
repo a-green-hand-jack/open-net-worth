@@ -713,9 +713,14 @@ export const PICKER_DEFINITIONS: WidgetDefinition[] = WIDGET_DEFINITIONS.filter(
 // ── Preset views (seeded on first run) ──────────────────────────────────────
 // Each line below is one row of 12 columns. Lucius's daily briefing is not seeded: a new
 // book has little to brief on, and each note is a model call. It stays in Add widget.
-export const PRESET_VIEWS: Array<{ name: string; widgets: PresetWidget[] }> = [
+export const PRESET_VIEWS: Array<{
+  name: string
+  nameSource: 'preset_overview' | 'preset_reports'
+  widgets: PresetWidget[]
+}> = [
   {
     name: 'Overview',
+    nameSource: 'preset_overview',
     widgets: [
       'hero',
       'attention',
@@ -730,6 +735,7 @@ export const PRESET_VIEWS: Array<{ name: string; widgets: PresetWidget[] }> = [
   },
   {
     name: 'Reports',
+    nameSource: 'preset_reports',
     widgets: [
       { defId: 'rep-spendcat', w: 4 },
       { defId: 'rep-merchants', w: 4 },

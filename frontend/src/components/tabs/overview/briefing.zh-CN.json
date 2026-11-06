@@ -1,4 +1,7 @@
 {
+  "overview.defaultView.overview": "概览",
+  "overview.defaultView.reports": "报告",
+  "overview.defaultView.new": "新视图",
   "overview.subtitle": "你的完整财务全貌",
   "overview.resetChanges": "重置更改",
   "overview.addSection": "添加分区",

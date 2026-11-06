@@ -50,6 +50,7 @@ function buildPresetState(): DashboardState {
   const views: DashboardView[] = PRESET_VIEWS.map((p) => ({
     viewId: localInstanceId('view'),
     name: p.name,
+    nameSource: p.nameSource,
     widgets: seedWidgets(p.widgets, WIDGET_DEFINITIONS),
   }))
   return { activeViewId: views[0]?.viewId ?? null, views }
@@ -217,6 +218,7 @@ export function useDashboardLayout() {
     const view: DashboardView = {
       viewId: localInstanceId('view'),
       name: name || 'New view',
+      ...(!name ? { nameSource: 'default_view' as const } : {}),
       widgets: [],
     }
     setState((s) => ({ activeViewId: view.viewId, views: [...s.views, view] }))
@@ -232,7 +234,7 @@ export function useDashboardLayout() {
   const renameView = useCallback((viewId: string, name: string) => {
     setState((s) => ({
       ...s,
-      views: s.views.map((v) => (v.viewId === viewId ? { ...v, name } : v)),
+      views: s.views.map((v) => (v.viewId === viewId ? { ...v, name, nameSource: undefined } : v)),
     }))
   }, [])
 

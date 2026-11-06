@@ -15,6 +15,7 @@ import { useState } from 'react'
 import type { DashboardView } from './types'
 import { X, Plus } from '../../../ui/icons'
 import { useAppIntl } from '../../../i18n/useAppIntl'
+import { displayViewName } from './defaultViewName'
 
 export interface ViewTabsProps {
   views: DashboardView[]
@@ -53,6 +54,7 @@ export function ViewTabs({
     >
       {views.map((v, idx) => {
         const active = v.viewId === activeViewId
+        const name = displayViewName(intl, v)
         if (renamingId === v.viewId) {
           return (
             <input
@@ -62,7 +64,7 @@ export function ViewTabs({
               value={draft}
               onChange={(e) => setDraft(e.target.value)}
               onBlur={() => {
-                if (draft.trim()) onRename(v.viewId, draft.trim())
+                if (draft.trim() && draft.trim() !== name) onRename(v.viewId, draft.trim())
                 setRenamingId(null)
               }}
               onKeyDown={(e) => {
@@ -100,7 +102,7 @@ export function ViewTabs({
             onClick={() => onSelect(v.viewId)}
             onDoubleClick={() => {
               if (!editing) return
-              setDraft(v.name)
+              setDraft(name)
               setRenamingId(v.viewId)
             }}
             title={
@@ -109,10 +111,10 @@ export function ViewTabs({
                     id: 'overview.viewRenameHelp',
                     defaultMessage: 'Double-click to rename • drag to reorder',
                   })
-                : v.name
+                : name
             }
           >
-            {v.name}
+            {name}
             {active && views.length > 1 && idx !== 0 && (
               <span
                 className="ov-view-tab-close"
@@ -120,7 +122,7 @@ export function ViewTabs({
                 tabIndex={0}
                 aria-label={intl.formatMessage(
                   { id: 'overview.deleteNamedView', defaultMessage: 'Delete view {name}' },
-                  { name: v.name },
+                  { name },
                 )}
                 onClick={(e) => {
                   e.stopPropagation()
@@ -145,7 +147,7 @@ export function ViewTabs({
           type="button"
           className="ov-view-tab ov-view-tab--add"
           aria-label={intl.formatMessage({ id: 'overview.addView', defaultMessage: 'Add view' })}
-          onClick={() => onAdd('New view')}
+          onClick={() => onAdd('')}
         >
           <Plus size={14} aria-hidden="true" />
         </button>
