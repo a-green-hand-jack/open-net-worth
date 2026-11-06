@@ -263,6 +263,8 @@ Investment widget controls and status labels follow the interface language; inst
 account names remain unchanged.
 Attention, upcoming commitments and dashboard prompts follow the interface language; your
 own instructions and financial details retain their original text.
+Spending, cash-flow, calendar, goals and runway widget controls also follow the interface
+language while preserving user-defined labels and server-provided values.
 
 ## Related pages
 

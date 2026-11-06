@@ -3,6 +3,8 @@
 // @vitest-environment jsdom
 import { cleanup, render, screen } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
+import { IntlProvider } from 'react-intl'
+import { catalogs } from '../../../../i18n/catalogs'
 
 const summary = vi.hoisted(() => ({ current: null as unknown }))
 const projections = vi.hoisted(() => ({ current: null as unknown }))
@@ -62,6 +64,32 @@ const envelope = (key: string, label: string, assigned: number, spent: number) =
 })
 
 describe('Spending pulse', () => {
+  it('localizes spending controls and keeps the category and budget figures maskable', () => {
+    summary.current = {
+      pace_pct: 40,
+      envelopes: {
+        rows: [envelope('food', 'Budget', 400, 100)],
+        total_spent: 100,
+        budgeted_spent: 100,
+        budgeted_total: 400,
+        pct_of_budget: 25,
+      },
+    }
+    const Comp = cashflowPlanningWidgetComponents.spending!
+    const def = WIDGET_DEFINITIONS.find((d) => d.defId === 'spending')!
+    const { container } = render(
+      <IntlProvider locale="zh-CN" messages={catalogs['zh-CN']}>
+        <Comp
+          instance={{ instanceId: 'w', defId: 'spending', x: 0, y: 0, w: 6, h: 260, config: {} }}
+          def={def}
+          onPatch={vi.fn()}
+        />
+      </IntlProvider>,
+    )
+    expect(screen.getByText('Budget')).toBeTruthy()
+    expect(container.textContent).toContain('本月迄今')
+    expect(container.querySelectorAll('.money').length).toBeGreaterThanOrEqual(3)
+  })
   it('shows an unbudgeted category as "no budget", with no fake $0 budget or red bar', () => {
     const rows = [envelope('food', 'Food', 400, 100), envelope('misc', 'Hobbies', 0, 250)]
     summary.current = {

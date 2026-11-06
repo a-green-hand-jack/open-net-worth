@@ -38,6 +38,7 @@ import overviewBudgetZh from '../components/tabs/overview/widgets/budget.zh-CN.j
 import overviewNetWorthZh from '../components/tabs/overview/widgets/net-worth.zh-CN.json'
 import overviewInvestingZh from '../components/tabs/overview/widgets/investing.zh-CN.json'
 import overviewCoreZh from '../components/tabs/overview/widgets/core.zh-CN.json'
+import overviewPlanningZh from '../components/tabs/overview/widgets/planning.zh-CN.json'
 
 export const catalogs: Record<Locale, Record<string, string> | undefined> = {
   en: undefined,
@@ -81,6 +82,7 @@ export const catalogs: Record<Locale, Record<string, string> | undefined> = {
     ...overviewNetWorthZh,
     ...overviewInvestingZh,
     ...overviewCoreZh,
+    ...overviewPlanningZh,
     'auth.signingBackIn': '正在重新登录…',
     'auth.rateLimit': '尝试次数过多。请在 {minutes, plural, other {# 分钟}}后重试。',
     'settings.section.language': '界面语言',
