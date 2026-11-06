@@ -2,14 +2,18 @@
 
 import asyncio
 import json
+import multiprocessing
 import os
 import shutil
 import subprocess
+from concurrent.futures import ThreadPoolExecutor
+from threading import Event
 
 import pytest
 
 from backend.core.errors import ConflictError, ValidationError
-from backend.db.trading_store import TradingStore
+from backend.db.tool_permission_store import ToolPermissionStore
+from backend.db.trading_store import TradingStore, trading_transaction
 from backend.sandbox import trading as sandbox
 from backend.services import tool_permissions, trading_scripts
 from backend.services.trading import delegation, execution, lifecycle, performance
@@ -58,6 +62,15 @@ def docker_runtime():
 
 def call(coro):
     return asyncio.run(coro)
+
+
+def _revoke_in_process(started, finished, action):
+    started.set()
+    if action == "clear":
+        tool_permissions.clear_tool_permission("core", "submit_trading_order")
+    else:
+        tool_permissions.set_tool_permission("core", "submit_trading_order", "blocked")
+    finished.set()
 
 
 def test_strategy_in_real_sandbox_submits_idempotent_simulated_intent(run, docker_runtime):
@@ -119,6 +132,221 @@ def test_secret_shaped_strategy_is_not_persisted_or_executed(run, monkeypatch):
     assert not invoked
     assert secret not in json.dumps(TradingStore("runs").required(run))
     assert secret not in json.dumps(TradingStore("events").list_scope(run))
+
+
+@pytest.mark.parametrize("level", [None, "needs_approval", "blocked"])
+def test_strategy_order_requires_unattended_permission(run, monkeypatch, level):
+    if level is not None:
+        tool_permissions.set_tool_permission("core", "submit_trading_order", level)
+    account = TradingStore("accounts").list_scope(run)[0]
+    intent = {
+        "account_id": account["id"],
+        "instrument": {"symbol": "ACME"},
+        "side": "buy",
+        "quantity": "1",
+        "request_id": "synthetic-denied",
+    }
+    monkeypatch.setattr(
+        trading_scripts,
+        "run_trading_script",
+        lambda *args, **kwargs: {"ok": True, "result": {"orders": [intent]}},
+    )
+    with pytest.raises(ValidationError, match="owner must allow"):
+        call(trading_scripts.execute_strategy(run, 'print("synthetic")'))
+    assert execution.list_orders(run)["total"] == 0
+
+
+def test_strategy_stops_submitting_after_order_permission_is_revoked(run, monkeypatch):
+    tool_permissions.set_tool_permission("core", "submit_trading_order", "always_allow")
+    account = TradingStore("accounts").list_scope(run)[0]
+    orders = [
+        {
+            "account_id": account["id"],
+            "instrument": {"symbol": "ACME"},
+            "side": "buy",
+            "quantity": "1",
+            "request_id": f"synthetic-{index}",
+        }
+        for index in range(2)
+    ]
+    monkeypatch.setattr(
+        trading_scripts,
+        "run_trading_script",
+        lambda *args, **kwargs: {"ok": True, "result": {"orders": orders}},
+    )
+    original_submit = trading_scripts.trading.submit_order
+
+    async def submit_and_revoke(run_id, intent, **kwargs):
+        result = await original_submit(run_id, intent, **kwargs)
+        tool_permissions.set_tool_permission("core", "submit_trading_order", "blocked")
+        return result
+
+    monkeypatch.setattr(trading_scripts.trading, "submit_order", submit_and_revoke)
+    with pytest.raises(ValidationError, match="owner must allow"):
+        call(trading_scripts.execute_strategy(run, 'print("synthetic")'))
+    assert execution.list_orders(run)["total"] == 1
+
+
+def test_order_permission_lock_serializes_revocation(run):
+    tool_permissions.set_tool_permission("core", "submit_trading_order", "always_allow")
+    started = Event()
+    finished = Event()
+
+    def revoke():
+        started.set()
+        tool_permissions.set_tool_permission("core", "submit_trading_order", "blocked")
+        finished.set()
+
+    with ThreadPoolExecutor(max_workers=1) as pool:
+        with trading_transaction() as conn:
+            assert (
+                ToolPermissionStore().get_level_for_update(
+                    "core", "submit_trading_order", conn=conn
+                )
+                == "always_allow"
+            )
+            future = pool.submit(revoke)
+            assert started.wait(timeout=5)
+            assert not finished.wait(timeout=0.3)
+        future.result(timeout=10)
+    assert tool_permissions.get_tool_permission("core", "submit_trading_order") == "blocked"
+
+
+@pytest.mark.timeout(35)
+@pytest.mark.parametrize("action", ["blocked", "clear"])
+def test_order_permission_lock_serializes_cross_process_revocation(run, action):
+    tool_permissions.set_tool_permission("core", "submit_trading_order", "always_allow")
+    context = multiprocessing.get_context("spawn")
+    started, finished = context.Event(), context.Event()
+    process = context.Process(target=_revoke_in_process, args=(started, finished, action))
+    try:
+        with trading_transaction() as conn:
+            assert (
+                ToolPermissionStore().get_level_for_update(
+                    "core", "submit_trading_order", conn=conn
+                )
+                == "always_allow"
+            )
+            process.start()
+            assert started.wait(timeout=15)
+            assert not finished.wait(timeout=0.5)
+        process.join(timeout=15)
+        assert process.exitcode == 0
+        assert finished.is_set()
+        expected = "needs_approval" if action == "clear" else "blocked"
+        assert tool_permissions.get_tool_permission("core", "submit_trading_order") == expected
+        account = TradingStore("accounts").list_scope(run)[0]
+        with pytest.raises(ValidationError, match="owner must allow"):
+            call(
+                execution.submit_order(
+                    run,
+                    {
+                        "account_id": account["id"],
+                        "instrument": {"symbol": "ACME"},
+                        "side": "buy",
+                        "quantity": "1",
+                        "request_id": "synthetic-after-revoke",
+                    },
+                    strategy_order=True,
+                )
+            )
+    finally:
+        if process.is_alive():
+            process.terminate()
+            process.join(timeout=5)
+
+
+def test_strategy_order_and_revocation_are_serialized_at_order_write(run, monkeypatch):
+    tool_permissions.set_tool_permission("core", "submit_trading_order", "always_allow")
+    account = TradingStore("accounts").list_scope(run)[0]
+    intent = {
+        "account_id": account["id"],
+        "instrument": {"symbol": "ACME"},
+        "side": "buy",
+        "quantity": "1",
+        "request_id": "synthetic-locked",
+    }
+    locked, release, revoking, revoked = Event(), Event(), Event(), Event()
+    original = ToolPermissionStore.get_level_for_update
+
+    def hold_lock(store, *args, **kwargs):
+        level = original(store, *args, **kwargs)
+        locked.set()
+        if not release.wait(timeout=10):
+            raise TimeoutError("test did not release permission lock")
+        return level
+
+    def revoke():
+        revoking.set()
+        tool_permissions.set_tool_permission("core", "submit_trading_order", "blocked")
+        revoked.set()
+
+    monkeypatch.setattr(ToolPermissionStore, "get_level_for_update", hold_lock)
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        order_future = pool.submit(
+            lambda: call(execution.submit_order(run, intent, strategy_order=True))
+        )
+        try:
+            assert locked.wait(timeout=10)
+            revoke_future = pool.submit(revoke)
+            assert revoking.wait(timeout=5)
+            assert not revoked.wait(timeout=0.3)
+        finally:
+            release.set()
+        assert order_future.result(timeout=10)["status"] == "open"
+        revoke_future.result(timeout=10)
+    with pytest.raises(ValidationError, match="owner must allow"):
+        call(
+            execution.submit_order(
+                run, {**intent, "request_id": "synthetic-after"}, strategy_order=True
+            )
+        )
+    assert execution.list_orders(run)["total"] == 1
+
+
+def test_strategy_order_waits_for_prior_revocation_and_is_refused(run, monkeypatch):
+    tool_permissions.set_tool_permission("core", "submit_trading_order", "always_allow")
+    account = TradingStore("accounts").list_scope(run)[0]
+    intent = {
+        "account_id": account["id"],
+        "instrument": {"symbol": "ACME"},
+        "side": "buy",
+        "quantity": "1",
+        "request_id": "synthetic-revoke-first",
+    }
+    stamped, release, ordering, order_finished = Event(), Event(), Event(), Event()
+    original = ToolPermissionStore._stamp
+
+    def hold_revocation(store, conn, connector_id, tool, level):
+        result = original(store, conn, connector_id, tool, level)
+        stamped.set()
+        if not release.wait(timeout=10):
+            raise TimeoutError("test did not release revocation")
+        return result
+
+    def submit():
+        ordering.set()
+        try:
+            return call(execution.submit_order(run, intent, strategy_order=True))
+        finally:
+            order_finished.set()
+
+    monkeypatch.setattr(ToolPermissionStore, "_stamp", hold_revocation)
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        revoke_future = pool.submit(
+            tool_permissions.set_tool_permission, "core", "submit_trading_order", "blocked"
+        )
+        try:
+            assert stamped.wait(timeout=10)
+            order_future = pool.submit(submit)
+            assert ordering.wait(timeout=5)
+            assert not order_finished.wait(timeout=0.3)
+        finally:
+            release.set()
+        revoke_future.result(timeout=10)
+        with pytest.raises(ValidationError, match="owner must allow"):
+            order_future.result(timeout=10)
+    assert execution.list_orders(run)["total"] == 0
 
 
 def test_bad_strategy_intents_do_not_partially_submit(run, monkeypatch):

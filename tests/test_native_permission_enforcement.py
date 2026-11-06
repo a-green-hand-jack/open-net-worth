@@ -297,7 +297,7 @@ def test_every_dispatch_site_consults_the_permission_store():
     import pathlib
 
     backend = pathlib.Path(__file__).resolve().parents[1] / "backend"
-    reads = {"get_tool_permission", "stored_tool_level", "yolo_enabled"}
+    reads = {"get_tool_permission", "stored_tool_level", "yolo_enabled", "get_level_for_update"}
     # Not dispatch sites, and each excluded for a stated reason rather than because it was
     # inconvenient. Keyed on the RELATIVE path: `api/tool_permissions.py` and
     # `services/tool_permissions.py` share a basename, and excluding the API layer by
@@ -350,6 +350,7 @@ def test_every_dispatch_site_consults_the_permission_store():
         # Strategy output bypasses tool dispatch and therefore requires an explicit
         # always-allow order permission before it reaches the trading order choke.
         "services/trading_scripts.py",
+        "services/trading/execution.py",
     }, (
         "the permission store is read somewhere new. Every dispatch site MUST consult it, "
         "and every consulting site must be a dispatch site — review this addition rather "

@@ -38,6 +38,8 @@ versions, and record the work it actually performed. These files are workspace r
 than host filesystem paths; credential filtering is defensive and cannot detect every secret.
 An allowed participant can run a strategy in the isolated container; its order intents still pass
 through the run's permission and order checks. This requires Docker and the pinned sandbox image.
+Order permission is rechecked for each strategy order and before an unsent broker order enters
+submission. Revoking permission cannot recall a broker submission already in progress.
 
 In Paper or Live runs, permitted participants can search public research, fetch a public research
 page, and request current Yahoo market data within the reviewed mandate and allocated account.

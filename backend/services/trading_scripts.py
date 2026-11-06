@@ -104,7 +104,11 @@ async def _execute(run_id: str, source: str) -> dict:
     recorded = trading.record_decision(run_id, decision)
     results = []
     for intent in orders:
-        results.append(await trading.submit_order(run_id, _linked_intent(run_id, intent, recorded)))
+        results.append(
+            await trading.submit_order(
+                run_id, _linked_intent(run_id, intent, recorded), strategy_order=True
+            )
+        )
     trading.record_activity(run_id, "script_finished", {**receipt, "orders": results})
     fresh = trading.get_run(run_id)
     next_wake = (

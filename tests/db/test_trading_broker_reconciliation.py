@@ -8,6 +8,7 @@ import pytest
 
 from backend.core.errors import ConflictError
 from backend.db.trading_store import TradingStore, trading_transaction
+from backend.services import tool_permissions
 from backend.services.trading import execution, lifecycle, performance, reconciliation, workspaces
 from backend.services.trading.providers import register_live_adapter
 
@@ -363,3 +364,26 @@ def test_book_projection_uses_execution_identity_and_is_idempotent(monkeypatch):
         TransactionStore().delete(transaction["id"])
     assert project_live_fills(run["id"])["items"][0]["status"] == "booked"
     assert len(LotStore().all()) == len(TransactionStore().all()) == 1
+
+
+def test_revoked_strategy_order_is_not_sent_to_broker(monkeypatch):
+    broker = FakeBroker()
+    run = live_run(broker)
+    call(lifecycle.apply_run_action(run["id"], {"action": "start"}))
+    tool_permissions.set_tool_permission("core", "submit_trading_order", "always_allow")
+    dispatch = execution.dispatch_live_order
+
+    async def revoke_before_dispatch(run_id, order_id):
+        tool_permissions.set_tool_permission("core", "submit_trading_order", "blocked")
+        return await dispatch(run_id, order_id)
+
+    monkeypatch.setattr(execution, "dispatch_live_order", revoke_before_dispatch)
+    submitted = call(execution.submit_order(run["id"], order(run["id"]), strategy_order=True))
+    assert submitted["status"] == "canceled"
+    assert broker.submissions == 0
+    assert performance.get_account(run["id"])["items"][0]["available_cash"] == "1000"
+    tool_permissions.set_tool_permission("core", "submit_trading_order", "always_allow")
+    retry = call(execution.submit_order(run["id"], order(run["id"]), strategy_order=True))
+    assert retry["id"] == submitted["id"]
+    assert retry["status"] == "canceled"
+    assert broker.submissions == 0

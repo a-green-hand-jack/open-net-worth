@@ -1,6 +1,7 @@
 """One order choke for direct tools, scripts, and every execution mode."""
 
-from backend.core.errors import ConflictError
+from backend.core.errors import ConflictError, ValidationError
+from backend.db.tool_permission_store import ToolPermissionStore
 from backend.db.trading_store import TradingStore, trading_transaction
 from backend.models.trading import OrderIntent
 from backend.services.trading.common import (
@@ -30,10 +31,20 @@ from backend.services.trading.quote_authority import assert_quote_authority
 from backend.services.trading.simulation import match_orders
 
 
-async def submit_order(run_id, data):
+async def submit_order(run_id, data, *, strategy_order=False):
     clean = validated(OrderIntent, data)
     with trading_transaction() as conn:
         require_bound_run(conn, run_id)
+        if (
+            strategy_order
+            and ToolPermissionStore().get_level_for_update(
+                "core", "submit_trading_order", conn=conn
+            )
+            != "always_allow"
+        ):
+            raise ValidationError(
+                "The owner must allow submit_trading_order before a script can place orders"
+            )
         run = TradingStore("runs").required(run_id, conn=conn)
         key = identity(run_id, clean["account_id"], clean["request_id"])
         existing = TradingStore("orders").find_by_id(key, conn=conn)
@@ -62,6 +73,7 @@ async def submit_order(run_id, data):
         account, reserved_cash, reserved_qty = _reserve(conn, run, clean)
         order = {
             **clean,
+            "strategy_order": strategy_order,
             "id": key,
             "scope_id": run_id,
             "run_id": run_id,
@@ -147,6 +159,27 @@ async def dispatch_live_order(run_id, order_id):
         if order["status"] != "pending":
             return order
         assert_running(run)
+        if (
+            order.get("strategy_order")
+            and ToolPermissionStore().get_level_for_update(
+                "core", "submit_trading_order", conn=conn
+            )
+            != "always_allow"
+        ):
+            order = TradingStore("orders").update_by_id(
+                order_id,
+                {
+                    "status": "canceled",
+                    "reserved_cash": "0",
+                    "reserved_quantity": "0",
+                    "error": "strategy_order_permission_revoked",
+                },
+                conn=conn,
+            )
+            event(
+                conn, run, "order_canceled", {"order_id": order_id, "reason": "permission_revoked"}
+            )
+            return order
         account = TradingStore("accounts").required(order["account_id"], conn=conn)
         adapter = get_live_adapter(account)
         order = TradingStore("orders").update_by_id(order_id, {"status": "submitting"}, conn=conn)
