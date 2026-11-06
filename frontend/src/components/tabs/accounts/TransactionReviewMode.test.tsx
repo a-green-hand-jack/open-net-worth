@@ -227,8 +227,31 @@ describe('TransactionReviewMode — compact queue', () => {
     )
     const { props } = renderMode({}, true)
     expect(await screen.findByText('请输入有效金额。')).toBeTruthy()
-    expect(screen.getByRole('button', { name: 'Approve' })).toHaveProperty('disabled', true)
+    expect(screen.getByRole('button', { name: '批准' })).toHaveProperty('disabled', true)
     expect(props.onApprove).not.toHaveBeenCalled()
+  })
+  it('approves the unchanged transaction from the Chinese review queue', async () => {
+    const onApprove = vi.fn(async (txn: Txn) => ({ ...txn, needsReview: false }))
+    renderMode({ onApprove }, true)
+    await screen.findByRole('heading', { name: 'Kroger' })
+    fireEvent.click(screen.getByRole('button', { name: '批准' }))
+    await waitFor(() =>
+      expect(onApprove).toHaveBeenCalledWith(
+        expect.objectContaining({ id: 'txn-new' }),
+        expect.objectContaining({ category: 'groceries' }),
+      ),
+    )
+  })
+  it('preserves a user-supplied automation name in the translated source', async () => {
+    mockAuthFetch.mockResolvedValue(
+      okJson({
+        transactions: [apiTxn({ via: 'Synthetic schedule', automation_id: 'synthetic-auto' })],
+        total: 1,
+        has_more: false,
+      }),
+    )
+    renderMode({}, true)
+    expect(await screen.findByText('由 Synthetic schedule 添加')).toBeTruthy()
   })
   it('loads the global queue by review state and shows the newest card with important facts first', async () => {
     renderMode()

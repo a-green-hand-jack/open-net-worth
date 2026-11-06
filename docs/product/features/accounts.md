@@ -230,6 +230,7 @@ Transaction edit forms follow the interface language without changing saved tran
 Transaction deletion confirmations and generic update errors follow the interface language.
 Built-in transaction-review validation messages follow the interface language; server-provided
 errors and names remain unchanged.
+Review queue controls and built-in source labels also follow the interface language.
 
 ## Related pages
 
