@@ -147,7 +147,11 @@ const Spending: ComponentType<WidgetContentProps> = ({ instance, def, onNavigate
             id: 'overview.spending.budgetLine',
             defaultMessage: '{spent} of {total} budgeted ({percent}%)',
           },
-          { spent: fBase(budgetedSpent), total: fBase(budgetedTotal), percent: pctOfBudget },
+          {
+            spent: <Money as="span">{fBase(budgetedSpent)}</Money>,
+            total: <Money as="span">{fBase(budgetedTotal)}</Money>,
+            percent: <span className="money">{pctOfBudget}</span>,
+          },
         )
       : formatMessage({ id: 'overview.spending.noBudgets', defaultMessage: 'No budgets set' })
 
@@ -197,12 +201,16 @@ const Spending: ComponentType<WidgetContentProps> = ({ instance, def, onNavigate
                 <span className="ov-env-amt">
                   <Money as="span">{fBase(r.spent)}</Money>{' '}
                   <span>
-                    {budgeted
-                      ? `/ ${fBase(r.assigned)}`
-                      : formatMessage({
-                          id: 'overview.spending.noBudget',
-                          defaultMessage: '· no budget',
-                        })}
+                    {budgeted ? (
+                      <>
+                        / <Money as="span">{fBase(r.assigned)}</Money>
+                      </>
+                    ) : (
+                      formatMessage({
+                        id: 'overview.spending.noBudget',
+                        defaultMessage: '· no budget',
+                      })
+                    )}
                   </span>
                 </span>
               </div>
@@ -814,7 +822,7 @@ const Goals: ComponentType<WidgetContentProps> = ({ instance, def, onNavigate })
                       </Badge>
                     )}
                   </span>
-                  <span className="ov-goal-pct">{pct}%</span>
+                  <span className="ov-goal-pct money">{pct}%</span>
                 </div>
                 <div className="ov-env-bar ov-goal-bar">
                   <span

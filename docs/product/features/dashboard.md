@@ -256,3 +256,5 @@ newer widget.
 - [Investments](investments.md)
 - [Net worth](../concepts/net-worth.md)
 - [Base currency & FX](../concepts/base-currency-and-fx.md)
+
+The spending widget marks its budget amounts and budget percentage for the Hide amounts display setting.
