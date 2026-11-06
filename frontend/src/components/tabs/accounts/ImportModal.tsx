@@ -4192,20 +4192,20 @@ export function ImportModal({
           {step === 'processing' && resuming && reopenFailed && (
             <div className="imp3-body imp3-reading" role="alert">
               <div className="imp3-reading-t">
-                Couldn’t open <b>{resumeFilename || 'this statement'}</b>
+                {intl.formatMessage({ id: 'accounts.importProgress.cannotOpen', defaultMessage: 'Couldn’t open <b>{filename}</b>' }, { filename: resumeFilename || intl.formatMessage({ id: 'accounts.importProgress.thisStatement', defaultMessage: 'this statement' }), b: (chunks) => <b>{chunks}</b> })}
               </div>
               <div className="imp3-phase">
                 {reopenFailed.kind === 'account'
-                  ? 'Which account is this statement for? Nothing is re-read — the review opens for it.'
+                  ? intl.formatMessage({ id: 'accounts.importProgress.reopenAccount', defaultMessage: 'Which account is this statement for? Nothing is re-read — the review opens for it.' })
                   : reopenFailed.kind === 'read'
-                    ? 'Its read didn’t finish. Re-run it from the account’s Statements list.'
-                    : 'The review didn’t load. Nothing was lost — try again.'}
+                    ? intl.formatMessage({ id: 'accounts.importProgress.reopenRead', defaultMessage: 'Its read didn’t finish. Re-run it from the account’s Statements list.' })
+                    : intl.formatMessage({ id: 'accounts.importProgress.reopenError', defaultMessage: 'The review didn’t load. Nothing was lost — try again.' })}
               </div>
               {reopenFailed.kind === 'account' && (
                 <div className="imp3-reopen-acct">
-                  <FormField label="Account">
+                  <FormField label={intl.formatMessage({ id: 'accounts.importProgress.account', defaultMessage: 'Account' })}>
                     <Select
-                      options={[{ value: '', label: 'Choose an account' }, ...acctOpts]}
+                      options={[{ value: '', label: intl.formatMessage({ id: 'accounts.importProgress.chooseAccount', defaultMessage: 'Choose an account' }) }, ...acctOpts]}
                       value={reopenAccount}
                       onChange={(e) => setReopenAccount(e.target.value)}
                     />
@@ -4214,7 +4214,7 @@ export function ImportModal({
               )}
               {reopenFailed.kind === 'read' ? (
                 <Button variant="secondary" size="sm" onClick={close}>
-                  Close
+                  {intl.formatMessage({ id: 'accounts.importProgress.close', defaultMessage: 'Close' })}
                 </Button>
               ) : (
                 <Button
@@ -4225,7 +4225,7 @@ export function ImportModal({
                     void resumeReopen(activeResumeId as string, reopenAccount || undefined)
                   }
                 >
-                  {reopenFailed.kind === 'account' ? 'Open review' : 'Try again'}
+                  {reopenFailed.kind === 'account' ? intl.formatMessage({ id: 'accounts.importProgress.openReview', defaultMessage: 'Open review' }) : intl.formatMessage({ id: 'accounts.importProgress.tryAgain', defaultMessage: 'Try again' })}
                 </Button>
               )}
             </div>
@@ -4236,8 +4236,15 @@ export function ImportModal({
                 <Spark />
               </div>
               <div className="imp3-reading-t">
-                {openingReview ? 'Opening' : 'Lucius is reading'}{' '}
-                <b>{file ? file.name : resuming ? resumeFilename || 'your file' : 'your file'}</b>
+                {intl.formatMessage(
+                  openingReview
+                    ? { id: 'accounts.importProgress.openingFile', defaultMessage: 'Opening <b>{filename}</b>' }
+                    : { id: 'accounts.importProgress.readingFile', defaultMessage: 'Lucius is reading <b>{filename}</b>' },
+                  {
+                    filename: file?.name || (resuming && resumeFilename) || intl.formatMessage({ id: 'accounts.importProgress.yourFile', defaultMessage: 'your file' }),
+                    b: (chunks) => <b>{chunks}</b>,
+                  },
+                )}
               </div>
               <div
                 className={'imp3-phase' + (activeStale ? ' imp3-phase--stale' : '')}
@@ -4254,7 +4261,7 @@ export function ImportModal({
                   <div
                     className="imp3-stagebar"
                     role="img"
-                    aria-label={`Progress: ${readingPhase}`}
+                    aria-label={intl.formatMessage({ id: 'accounts.importProgress.progressLabel', defaultMessage: 'Progress: {phase}' }, { phase: readingPhase })}
                   >
                     {PROGRESS_STAGE_ORDER.map((s) => (
                       <span
@@ -4289,7 +4296,7 @@ export function ImportModal({
                   disabled={bgPending}
                   onClick={() => continueInBackground()}
                 >
-                  {bgPending ? 'Continuing…' : 'Continue in background'}
+                  {bgPending ? intl.formatMessage({ id: 'accounts.importProgress.continuing', defaultMessage: 'Continuing…' }) : intl.formatMessage({ id: 'accounts.importProgress.background', defaultMessage: 'Continue in background' })}
                 </Button>
               )}
             </div>

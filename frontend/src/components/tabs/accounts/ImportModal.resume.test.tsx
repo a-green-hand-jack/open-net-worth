@@ -7,6 +7,8 @@
 import { describe, it, expect, afterEach, vi } from 'vitest'
 import { render, cleanup, screen, fireEvent, waitFor } from '@testing-library/react'
 import { ImportModal } from './ImportModal'
+import { IntlProvider } from 'react-intl'
+import { catalogs } from '../../../i18n/catalogs'
 import type { Account } from './types'
 
 const authFetch = vi.hoisted(() => vi.fn())
@@ -63,8 +65,8 @@ const PREVIEW_RESULT = {
   },
 }
 
-function open(resumeStatementId: string, onReopenPreview: ReturnType<typeof vi.fn>) {
-  return render(
+function open(resumeStatementId: string, onReopenPreview: ReturnType<typeof vi.fn>, chinese = false) {
+  const modal = (
     <ImportModal
       open
       accounts={ACCOUNTS}
@@ -76,8 +78,9 @@ function open(resumeStatementId: string, onReopenPreview: ReturnType<typeof vi.f
       onDecisionCommit={
         vi.fn().mockResolvedValue({ created: 1, merged: 0, duplicates: 0, skipped: 0 }) as never
       }
-    />,
+    />
   )
+  return render(chinese ? <IntlProvider locale="zh-CN" messages={catalogs['zh-CN']}>{modal}</IntlProvider> : modal)
 }
 
 describe('ImportModal — resume by id (B20 async)', () => {
@@ -262,6 +265,19 @@ describe('ImportModal — resume by id (B20 async)', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Try again' }))
     await screen.findByText('COFFEE')
     expect(onReopenPreview).toHaveBeenCalledTimes(2)
+  })
+
+  it('retries a failed reopen in Chinese using the same statement ID', async () => {
+    authFetch.mockImplementation(() =>
+      jsonResponse({ parse_status: 'ready', progress: null, error: null }),
+    )
+    const onReopenPreview = vi.fn().mockRejectedValueOnce(new Error('500')).mockResolvedValueOnce(PREVIEW_RESULT)
+    open('stmt_flaky', onReopenPreview, true)
+    expect(await screen.findByText('审核未能加载。数据没有丢失，请重试。')).toBeTruthy()
+    expect(screen.getByText('jan.pdf')).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: '重试' }))
+    await screen.findByText('COFFEE')
+    expect(onReopenPreview).toHaveBeenLastCalledWith('stmt_flaky', undefined)
   })
 
   it('a statement whose read failed says so, with no empty Choose step', async () => {

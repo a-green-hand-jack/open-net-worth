@@ -253,7 +253,7 @@ Review queue controls and built-in source labels also follow the interface langu
 Review summaries and category choices translate built-in labels while retaining payee and
 category names entered by the user.
 
-Statement import coverage and amount-check verdicts follow the selected interface language.
+Statement import coverage and amount-check verdicts, and reopen and retry prompts, follow the selected interface language.
 
 ## Related pages
 

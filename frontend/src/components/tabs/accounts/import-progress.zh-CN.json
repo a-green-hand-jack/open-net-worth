@@ -15,5 +15,20 @@
   "accounts.importProgress.stale": "仍在处理，与进度源的连接不稳定。",
   "accounts.importProgress.stillOpening": "仍在打开，已用 {seconds} 秒。较长的账单最多可能需要 30 秒。",
   "accounts.importProgress.table": "正在查找交易表",
-  "accounts.importProgress.close": "关闭"
+  "accounts.importProgress.close": "关闭",
+  "accounts.importProgress.continuing": "正在转入后台…",
+  "accounts.importProgress.background": "在后台继续",
+  "accounts.importProgress.cannotOpen": "无法打开 <b>{filename}</b>",
+  "accounts.importProgress.thisStatement": "此账单",
+  "accounts.importProgress.reopenAccount": "这份账单属于哪个账户？不会重新读取，将直接打开审核。",
+  "accounts.importProgress.reopenRead": "读取未完成。请从账户的账单列表重新运行。",
+  "accounts.importProgress.reopenError": "审核未能加载。数据没有丢失，请重试。",
+  "accounts.importProgress.account": "账户",
+  "accounts.importProgress.chooseAccount": "选择账户",
+  "accounts.importProgress.openReview": "打开审核",
+  "accounts.importProgress.tryAgain": "重试",
+  "accounts.importProgress.progressLabel": "进度：{phase}",
+  "accounts.importProgress.openingFile": "正在打开 <b>{filename}</b>",
+  "accounts.importProgress.readingFile": "Lucius 正在读取 <b>{filename}</b>",
+  "accounts.importProgress.yourFile": "您的文件"
 }
