@@ -7,8 +7,7 @@ from fastapi.testclient import TestClient
 from backend.db.auth_store import AuthStore
 from backend.db.trading_store import TradingStore
 from backend.services.trading_access import issue_access
-
-pytest_plugins = ["tests.db.test_trading_executor_runtime"]
+from tests.db.test_trading_executor_runtime import run as run
 
 
 def test_owner_reconciles_usage_and_participant_is_refused(run, monkeypatch):
