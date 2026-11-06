@@ -12,6 +12,8 @@
 
 import { describe, it, expect, afterEach, vi } from 'vitest'
 import { render, cleanup, screen, fireEvent, waitFor, act } from '@testing-library/react'
+import { IntlProvider } from 'react-intl'
+import { catalogs } from '../../../i18n/catalogs'
 import { ImportModal } from './ImportModal'
 import type { Account } from './types'
 
@@ -69,10 +71,10 @@ function preview(overrides: Record<string, unknown> = {}) {
   }
 }
 
-function open(props: Record<string, unknown> = {}) {
+function open(props: Record<string, unknown> = {}, chinese = false) {
   const onPreview =
     (props.onPreview as ReturnType<typeof vi.fn>) || vi.fn().mockResolvedValue(preview())
-  const r = render(
+  const modal = (
     <ImportModal
       open
       accounts={ACCOUNTS}
@@ -82,7 +84,16 @@ function open(props: Record<string, unknown> = {}) {
         vi.fn().mockResolvedValue({ created: 1, merged: 0, duplicates: 0, skipped: 0 }) as never
       }
       {...(props as object)}
-    />,
+    />
+  )
+  const r = render(
+    chinese ? (
+      <IntlProvider locale="zh-CN" messages={catalogs['zh-CN']}>
+        {modal}
+      </IntlProvider>
+    ) : (
+      modal
+    ),
   )
   return { ...r, onPreview }
 }
@@ -208,6 +219,32 @@ describe('Choose step — the unpicked dropzone (prototype DropStep, !picked)', 
 })
 
 describe('Choose step — the picked state (prototype DropStep, picked)', () => {
+  it('shows Chinese progress through the actual statement import flow', async () => {
+    vi.useFakeTimers()
+    try {
+      const { container } = open(
+        { onPreview: vi.fn().mockReturnValue(new Promise(() => {})) },
+        true,
+      )
+      pick(container, 'custom-statement.csv')
+      await act(async () => {
+        await Promise.resolve()
+      })
+      fireEvent.click(screen.getByRole('button', { name: 'Select account' }))
+      fireEvent.click(screen.getByRole('option', { name: /Riverside Bank/ }))
+      fireEvent.click(screen.getByRole('button', { name: /Read the statement/ }))
+      expect(document.body.querySelector('.imp3-phase')?.textContent).toBe('正在读取账单')
+      expect(document.body.textContent).toContain('custom-statement.csv')
+      act(() => {
+        vi.advanceTimersByTime(520 * 2)
+      })
+      expect(document.body.querySelector('.imp3-phase')?.textContent).toBe(
+        '正在根据账单自身余额核对',
+      )
+    } finally {
+      vi.useRealTimers()
+    }
+  })
   it('renders the format badge, name, size and Change; Change returns to the dropzone', async () => {
     const { container } = open()
     pick(container)
