@@ -20313,3 +20313,44 @@ body.hide-amounts .mf-lbl-amt {
   white-space: nowrap;
   font-variant-numeric: tabular-nums;
 }
+
+.trading-event {
+  padding-block: var(--space-4);
+  border-bottom: 1px solid var(--line);
+}
+.trading-code {
+  overflow: auto;
+  padding: var(--space-4);
+  background: var(--bg-2);
+  border-radius: var(--radius-sm);
+  font-size: var(--text-sm);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.trading-observation-panel {
+  min-width: 0;
+}
+.trading-market-chart {
+  height: 300px;
+  width: 100%;
+  overflow: hidden;
+}
+.trading-mandate-text {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.trading-work-stream {
+  max-height: 640px;
+  overflow: auto;
+  scroll-margin-top: var(--space-4);
+}
+.trading-event-selected {
+  background: color-mix(in srgb, var(--primary) 12%, transparent);
+  border-radius: var(--radius-sm);
+}
+.trading-definition-fields {
+  border: 0;
+  padding: 0;
+  margin: 0;
+  min-width: 0;
+}
