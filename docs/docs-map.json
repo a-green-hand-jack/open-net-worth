@@ -13,6 +13,10 @@
     { "glob": "backend/ai/permission*", "docs": ["docs/product/lucius/permissions.md", "docs/product/lucius/permissions-v2.md"] },
     { "glob": "backend/ai/auto_judge*", "docs": ["docs/product/lucius/permissions-v2.md"] },
     { "glob": "backend/ai/tools/_confirm_gate*", "docs": ["docs/product/lucius/permissions.md", "docs/product/lucius/permissions-v2.md", "docs/product/lucius/confirm-cards.md"] },
+    { "glob": "backend/services/trading/**", "docs": ["docs/product/features/trading-workspace.md", "docs/product/features/trading-evidence.md"] },
+    { "glob": "backend/services/trading*.py", "docs": ["docs/product/features/trading-delegation.md", "docs/product/features/trading-workspace.md"] },
+    { "glob": "frontend/src/components/tabs/trading/**", "docs": ["docs/product/features/trading-workspace.md", "docs/product/features/trading-evidence.md"] },
+    { "glob": "frontend/src/components/tabs/Trading.tsx", "docs": ["docs/product/features/trading-workspace.md"] },
     { "glob": "backend/services/tool_permissions*", "docs": ["docs/product/lucius/permissions.md", "docs/product/lucius/permissions-v2.md"] },
     { "glob": "backend/ai/tools/**", "docs": ["docs/product/lucius", "docs/ai"] },
     {

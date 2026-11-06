@@ -7,6 +7,7 @@ import pytest
 
 from backend.core.errors import ConflictError, NotFoundError
 from backend.core.trading_runtime import bind_trading_context
+from backend.db.trading_store import TradingStore, trading_transaction
 from backend.services.trading import (
     activity,
     delegation,
@@ -100,6 +101,37 @@ def test_missing_decision_is_explicit_and_other_run_is_not_readable(db_isolated)
     )
     with pytest.raises(NotFoundError):
         evidence.get_evidence(other, "order", order["id"])
+
+
+def test_unexplained_cash_makes_statement_pnl_unknown(db_isolated):
+    run_id = make_run()
+    account = performance.get_account(run_id)["items"][0]
+    with trading_transaction() as conn:
+        TradingStore("accounts").update_by_id(account["id"], {"cash": "990"}, conn=conn)
+    statement = statements.get_statement(run_id)
+    assert statement["realized_pnl"] is None
+    assert statement["accounts"][0]["cash_reconciled"] is False
+    assert Decimal(statement["accounts"][0]["expected_cash"]) == Decimal("1000")
+
+
+def test_sale_without_opening_cost_basis_is_unknown():
+    from backend.services.trading.accounting import execution_ledger
+
+    account = {"capital": "1000", "cash": "1100", "positions": {}}
+    fill = {
+        "id": "synthetic",
+        "order_id": "synthetic-order",
+        "instrument": INSTRUMENT,
+        "side": "sell",
+        "quantity": "1",
+        "price": "100",
+        "fees": "0",
+        "timestamp": T0,
+    }
+    result = execution_ledger(account, [fill])
+    assert result["realized_pnl"] is None
+    assert result["reconciled"] is False
+    assert Decimal(result["expected_cash"]) == Decimal("1100")
 
 
 def test_revoked_or_wrong_run_grants_cannot_read_evidence_or_statement(db_isolated):

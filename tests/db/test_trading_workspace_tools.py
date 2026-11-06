@@ -179,3 +179,103 @@ def test_paper_gateway_subscribes_with_verified_synthetic_quote(db_isolated, mon
     assert output["subscribed"] == 1
     assert output["refresh"]["received"] == 1
     assert output["market_data"]["items"][-1]["price"] == "75"
+
+
+class _RevokedResearchDispatched(AssertionError):
+    pass
+
+
+@pytest.mark.xfail(
+    strict=True,
+    raises=_RevokedResearchDispatched,
+    reason="Research can dispatch after participant grant revocation (PR #28)",
+)
+@pytest.mark.parametrize(
+    ("name", "arguments", "handler"),
+    [
+        ("search_trading_research", {"query": "synthetic"}, "web_search"),
+        ("fetch_trading_research", {"url": "https://example.com/"}, "fetch_page"),
+    ],
+)
+def test_gateway_revocation_before_research_prevents_external_request(
+    db_isolated, monkeypatch, name, arguments, handler
+):
+    from backend.ai.tools import misc
+    from backend.main import app
+    from backend.mcp import trading_gateway
+
+    now = datetime.now(timezone.utc)
+    run = asyncio.run(
+        delegation.create_delegation(
+            {
+                "workspace": {"name": "Synthetic"},
+                "environment": {
+                    "mode": "paper",
+                    "start_at": (now - timedelta(minutes=1)).isoformat(),
+                    "end_at": (now + timedelta(days=1)).isoformat(),
+                    "accounts": [{"capital": "1000"}],
+                },
+            }
+        )
+    )["run"]["id"]
+    token = issue_access(run)["token"]
+    tool_permissions.set_tool_permission("core", name, "always_allow")
+    observed = []
+
+    async def fake_external(data):
+        observed.append(data)
+        return "{}", None
+
+    monkeypatch.setattr(misc, handler, fake_external)
+    real_record = trading_gateway.record_work
+
+    def revoke_after_record(*args, **kwargs):
+        result = real_record(*args, **kwargs)
+        revoke_access(run)
+        return result
+
+    monkeypatch.setattr(trading_gateway, "record_work", revoke_after_record)
+    response = rpc(TestClient(app), run, token, name, arguments)
+    assert response.json()["result"]["isError"] is True
+    if observed:
+        raise _RevokedResearchDispatched("Research handler invoked after grant revocation")
+
+
+@pytest.mark.parametrize(
+    ("name", "arguments", "handler"),
+    [
+        ("search_trading_research", {"query": "synthetic"}, "web_search"),
+        ("fetch_trading_research", {"url": "https://example.com/"}, "fetch_page"),
+    ],
+)
+def test_gateway_valid_grant_allows_paper_research(
+    db_isolated, monkeypatch, name, arguments, handler
+):
+    from backend.ai.tools import misc
+    from backend.main import app
+
+    now = datetime.now(timezone.utc)
+    run = asyncio.run(
+        delegation.create_delegation(
+            {
+                "workspace": {"name": "Synthetic"},
+                "environment": {
+                    "mode": "paper",
+                    "start_at": (now - timedelta(minutes=1)).isoformat(),
+                    "end_at": (now + timedelta(days=1)).isoformat(),
+                    "accounts": [{"capital": "1000"}],
+                },
+            }
+        )
+    )["run"]["id"]
+    observed = []
+
+    async def fake_external(data):
+        observed.append(data)
+        return '{"result":"synthetic"}', None
+
+    monkeypatch.setattr(misc, handler, fake_external)
+    tool_permissions.set_tool_permission("core", name, "always_allow")
+    response = rpc(TestClient(app), run, issue_access(run)["token"], name, arguments)
+    assert unpack(response) == {"result": "synthetic"}
+    assert observed == [arguments]

@@ -115,3 +115,80 @@ def test_candle_requires_consistent_values_and_timezone():
                 "open": 1,
             }
         )
+
+
+@pytest.mark.parametrize(
+    "changes",
+    [
+        {"high": "99"},
+        {"low": "101"},
+        {"close": None},
+        {"close": "99"},
+        {"available_at": "2026-01-05T14:29:00Z"},
+    ],
+)
+def test_candle_rejects_inconsistent_or_impossible_records(changes):
+    candle = {
+        "instrument": INSTRUMENT,
+        "timestamp": T0,
+        "price": "100",
+        "open": "95",
+        "high": "105",
+        "low": "90",
+        "close": "100",
+        "volume": "50",
+        "interval": "1m",
+        "source": "synthetic-fixture",
+    }
+    with pytest.raises(ValueError):
+        Observation.model_validate({**candle, **changes})
+
+
+def test_quote_authority_is_disclosed_without_rewriting_observation(db_isolated):
+    current = run("paper")
+    current["workspace_snapshot"]["mandate"]["market_data_source"] = "yahoo"
+    current["observations"] = [observation(T0)]
+    TradingStore("runs").insert(current)
+    original = TradingStore("runs").required("run_synthetic")["observations"][0]
+    assert (
+        market.get_market_series("run_synthetic")["items"][0]["current_quote_authorized"] is False
+    )
+    authority = {
+        market.instrument_key(INSTRUMENT): {
+            "status": "verified",
+            "currency": "USD",
+            "timestamp": T0,
+            "price": "100",
+        }
+    }
+    TradingStore("runs").update_by_id("run_synthetic", {"market_quote_authority": authority})
+    assert market.get_market_series("run_synthetic")["items"][0]["current_quote_authorized"] is True
+    assert TradingStore("runs").required("run_synthetic")["observations"][0] == original
+
+
+def test_delayed_candle_series_preserves_source_and_availability(db_isolated):
+    current = run()
+    candle = Observation.model_validate(
+        {
+            "instrument": INSTRUMENT,
+            "timestamp": T0,
+            "available_at": T2,
+            "price": "100",
+            "open": "95",
+            "high": "105",
+            "low": "90",
+            "close": "100",
+            "volume": "50",
+            "interval": "1m",
+            "source": "synthetic-fixture",
+        }
+    ).model_dump(mode="json")
+    current["observations"] = [candle]
+    TradingStore("runs").insert(current)
+    assert market.get_market_series("run_synthetic")["total"] == 0
+    TradingStore("runs").update_by_id("run_synthetic", {"current_time": T2})
+    series = market.get_market_series("run_synthetic")
+    assert series["candle_count"] == 1
+    assert series["items"][0]["source"] == "synthetic-fixture"
+    assert market.instant(series["items"][0]["available_at"]) == market.instant(T2)
+    assert series["items"][0]["close"] == "100"

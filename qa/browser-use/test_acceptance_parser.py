@@ -184,6 +184,30 @@ Just some prose, no GWT lines.
         assert len(results) == 1
         assert results[0].then == ""
 
+    def test_trading_synthetic_spec_references_only_known_criteria(self) -> None:
+        from acceptance_check import _load_spec_acceptance_ids
+
+        root = Path(__file__).parent.parent.parent
+        trading_md = root / "docs/qa/acceptance/trading-workspace.md"
+        specs_dir = root / "qa/browser-use/synthetic-specs"
+        if not trading_md.exists() or not specs_dir.exists():
+            pytest.skip("trading acceptance assets not found")
+        criteria = {row.id for row in _parse_file(trading_md)}
+        specs = _load_spec_acceptance_ids(specs_dir)
+        assert "TRD-WORKSPACE" in specs
+        assert set(specs["TRD-WORKSPACE"]) <= criteria
+
+    def test_trading_acceptance_criteria_are_individually_discoverable(self) -> None:
+        trading_md = Path(__file__).parent.parent.parent / "docs/qa/acceptance/trading-workspace.md"
+        if not trading_md.exists():
+            pytest.skip("trading workspace acceptance checklist not found")
+        rows = _parse_file(trading_md)
+        by_id = {row.id: row for row in rows}
+        assert len(rows) == len(by_id) == 36
+        assert "human authorization" in by_id["TRD-01-06"].then
+        assert "no duplicate orders" in by_id["TRD-04-02"].then
+        assert "not recorded" in by_id["TRD-02-03"].then.lower()
+
     def test_real_acceptance_file_roundtrip(self) -> None:
         """Parse the actual accounts.md acceptance file and verify known IDs are present."""
         accounts_md = (
