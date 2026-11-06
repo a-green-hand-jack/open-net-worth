@@ -1,0 +1,6 @@
+{
+  "accounts.addRow.description": "描述",
+  "accounts.addRow.memo": "备注",
+  "accounts.addRow.toOutflow": "收入 — 点击切换为支出",
+  "accounts.addRow.toInflow": "支出 — 点击切换为收入"
+}

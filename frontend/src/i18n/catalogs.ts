@@ -1,4 +1,5 @@
 import type { Locale } from './locale'
+import addRowZh from '../components/tabs/accounts/add-row.zh-CN.json'
 import categoryCreateZh from '../components/tabs/accounts/category-create.zh-CN.json'
 import importResultZh from '../components/tabs/accounts/import-result.zh-CN.json'
 import statementNoticesZh from '../components/tabs/accounts/statement-notices.zh-CN.json'
@@ -127,6 +128,7 @@ export const catalogs: Record<Locale, Record<string, string> | undefined> = {
     ...statementNoticesZh,
     ...importResultZh,
     ...categoryCreateZh,
+    ...addRowZh,
     'auth.signingBackIn': '正在重新登录…',
     'auth.rateLimit': '尝试次数过多。请在 {minutes, plural, other {# 分钟}}后重试。',
     'settings.section.language': '界面语言',

@@ -19,6 +19,7 @@ import {
 } from './pickers'
 import { Button } from '../../ui/Button'
 import { localIso } from '../../../utils/format'
+import { useAppIntl } from '../../../i18n/useAppIntl'
 
 // ── AddData: what onAdd receives ──────────────────────────────────────────
 
@@ -81,6 +82,7 @@ export function AddRow({
   categories,
   onCreateCategory,
 }: AddRowProps) {
+  const { formatMessage: fm } = useAppIntl()
   const today = localIso()
   const defAcct = () => selectedId || accounts[0]?.id || ''
   const blank = (keep?: FormState): FormState => ({
@@ -258,7 +260,7 @@ export function AddRow({
             <input
               className="acct-addin"
               data-addfield
-              placeholder="Description"
+              placeholder={fm({ id: 'accounts.addRow.description', defaultMessage: 'Description' })}
               value={f.description}
               onChange={(e) => set('description', e.target.value)}
               onKeyDown={keyAdvance}
@@ -270,7 +272,7 @@ export function AddRow({
             <input
               className="acct-addin"
               data-addfield
-              placeholder="Memo"
+              placeholder={fm({ id: 'accounts.addRow.memo', defaultMessage: 'Memo' })}
               value={f.memo}
               onChange={(e) => set('memo', e.target.value)}
               onKeyDown={keyAdvance}
@@ -282,7 +284,17 @@ export function AddRow({
           <button
             type="button"
             className={'acct-addrow-sign ' + (f.inflow ? 'in' : 'out')}
-            title={f.inflow ? 'Inflow — click for outflow' : 'Outflow — click for inflow'}
+            title={
+              f.inflow
+                ? fm({
+                    id: 'accounts.addRow.toOutflow',
+                    defaultMessage: 'Inflow — click for outflow',
+                  })
+                : fm({
+                    id: 'accounts.addRow.toInflow',
+                    defaultMessage: 'Outflow — click for inflow',
+                  })
+            }
             onClick={() =>
               setF((s) => {
                 const ni = !s.inflow

@@ -8,6 +8,8 @@
 
 import { describe, it, expect, afterEach, beforeEach } from 'vitest'
 import { render, cleanup, fireEvent, within } from '@testing-library/react'
+import { IntlProvider } from 'react-intl'
+import { catalogs } from '../../../i18n/catalogs'
 import { Register } from './Register'
 import { ColumnsPicker, useColumnVisibility, REG_VIS_KEY, toggleableCols } from './columns'
 import type { Account, Txn } from './types'
@@ -227,6 +229,19 @@ describe('Register column-visibility picker', () => {
 })
 
 describe('AddRow tracks the visible column set', () => {
+  it('translates inline entry fields and the direction toggle', () => {
+    const { container } = render(
+      <IntlProvider locale="zh-CN" messages={catalogs['zh-CN']}>
+        <Harness txns={[makeTxn()]} adding />
+      </IntlProvider>,
+    )
+    expect(container.querySelector('input[placeholder="描述"]')).toBeTruthy()
+    expect(container.querySelector('input[placeholder="备注"]')).toBeTruthy()
+    const toggle = within(container).getByTitle('支出 — 点击切换为收入')
+    fireEvent.click(toggle)
+    expect(within(container).getByTitle('收入 — 点击切换为支出')).toBeTruthy()
+  })
+
   it('shows a Memo input by default and drops it when the memo column is hidden', () => {
     const { container } = render(<Harness txns={[makeTxn()]} adding />)
     expect(container.querySelector('input[placeholder="Memo"]')).toBeTruthy()
