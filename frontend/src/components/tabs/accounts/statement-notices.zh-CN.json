@@ -1,0 +1,9 @@
+{
+  "statements.notice.reading": "正在后台读取",
+  "statements.notice.fallback": "你的账单",
+  "statements.notice.dismiss": "关闭",
+  "statements.notice.ready": "可以查看",
+  "statements.notice.failed": "无法读取",
+  "statements.notice.stopped": "读取已停止",
+  "statements.notice.review": "查看"
+}

@@ -6,6 +6,8 @@
 
 import { describe, it, expect, afterEach, beforeEach, vi } from 'vitest'
 import { render, cleanup, screen, fireEvent, waitFor } from '@testing-library/react'
+import { IntlProvider } from 'react-intl'
+import { catalogs } from '../../../i18n/catalogs'
 import { BackgroundStatementNotices } from './BackgroundStatementNotices'
 import {
   backgroundStatements,
@@ -50,6 +52,30 @@ describe('BackgroundStatementNotices', () => {
     expect(onOpenAccounts).toHaveBeenCalledTimes(1)
     expect(takeStatementReview()).toEqual({ id: 's1', accountId: 'acc1', filename: 'oct.pdf' })
     await waitFor(() => expect(screen.queryByText('Ready to review')).toBeNull())
+  })
+
+  it('offers a translated review while preserving the statement identity', async () => {
+    trackBackgroundStatement({
+      id: 'synthetic-s',
+      accountId: 'synthetic-a',
+      filename: 'example.pdf',
+    })
+    status('ready')
+    const onOpenAccounts = vi.fn()
+    render(
+      <IntlProvider locale="zh-CN" messages={catalogs['zh-CN']}>
+        <BackgroundStatementNotices onOpenAccounts={onOpenAccounts} />
+      </IntlProvider>,
+    )
+    expect(await screen.findByText('可以查看')).toBeTruthy()
+    expect(screen.getByText('example.pdf')).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: '查看' }))
+    expect(onOpenAccounts).toHaveBeenCalledTimes(1)
+    expect(takeStatementReview()).toEqual({
+      id: 'synthetic-s',
+      accountId: 'synthetic-a',
+      filename: 'example.pdf',
+    })
   })
 
   it('a failed read says so, with no Review', async () => {
