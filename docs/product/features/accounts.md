@@ -222,6 +222,8 @@ The projected import outcome uses the interface language for built-in status bad
 transaction facts and user-supplied category names are unchanged.
 Transfer and source descriptions in import review follow the interface language while retaining
 the account names and direction.
+Import amount-difference descriptions follow the interface language while keeping the same
+figures and decision semantics.
 
 Account, category, payee and date picker controls follow the interface language. Account names,
 payees and category group names retain the text you entered.

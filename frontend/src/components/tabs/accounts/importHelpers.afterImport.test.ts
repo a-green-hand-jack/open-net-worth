@@ -228,6 +228,12 @@ describe('afterImportProjection', () => {
 // shared by the weak suggestion line and the match picker's option lines, so they can never
 // quote different numbers for the same pair.
 describe('driftPct / driftPhrase', () => {
+  it('localizes the difference while preserving the computed percentage', () => {
+    const intl = createIntl({ locale: 'zh-CN', messages: catalogs['zh-CN'] })
+    expect(driftPhrase(-18.8, -18.2, intl)).toBe('相差 3.3%')
+    expect(driftPhrase(-18.8, -18.8, intl)).toBe('金额相同')
+    expect(driftPhrase(null, -18.8, intl)).toBeNull()
+  })
   it('settled % off the ledger figure', () => {
     expect(driftPct(18.8, -18.2)!.toFixed(1)).toBe('3.3')
     expect(driftPhrase(-18.8, -18.2)).toBe('3.3% off')

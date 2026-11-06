@@ -2,6 +2,8 @@
 // helper. No React, no wire — plain fixtures against importHelpers exports.
 
 import { describe, it, expect } from 'vitest'
+import { createIntl } from 'react-intl'
+import { catalogs } from '../../../i18n/catalogs'
 import {
   coverageVerdict,
   amountsVerdict,
@@ -326,6 +328,20 @@ describe('linkedAmountDrift (the ONE Off-by predicate — owner motivation 2026-
 })
 
 describe('offByTitle (the marker tooltip — honest per effect)', () => {
+  it('explains skip and merge in Chinese without changing the amounts', () => {
+    const intl = createIntl({ locale: 'zh-CN', messages: catalogs['zh-CN'] })
+    const skip = offByTitle(
+      row({ effect: 'skip', amount: -148.3, existing: { amount: -150 } }),
+      intl,
+    )
+    expect(skip).toBe('已跳过：您的金额保持 -S$150.00，不采用账单金额 -S$148.30。')
+    const merge = offByTitle(
+      row({ effect: 'merge', amount: -200, existing: { amount: -200.5 }, mergeAdopts: false }),
+      intl,
+    )
+    expect(merge).toContain('账单结算金额为 -S$200.00')
+    expect(merge).toContain('您的记录为 -S$200.50')
+  })
   it('skip: yours stays, the statement figure is not adopted', () => {
     expect(offByTitle(row({ effect: 'skip', amount: -148.3, existing: { amount: -150 } }))).toBe(
       'Skipped — yours stays -S$150.00; the statement’s -S$148.30 is not adopted.',

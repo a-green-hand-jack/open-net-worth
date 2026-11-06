@@ -2995,7 +2995,7 @@ export function ImportModal({
     const drift = driftByIndex.get(i)
     if (!drift) return null
     return (
-      <span className="imp-offby" title={offByTitle(verdictInputs[i]!) || undefined}>
+      <span className="imp-offby" title={offByTitle(verdictInputs[i]!, intl) || undefined}>
         Off by {fCur(Math.abs(drift.diff), currency, { cents: true })}
       </span>
     )
@@ -4971,7 +4971,7 @@ export function ImportModal({
                   .filter((alt) => !pendingDelete[alt.id])
                   .map((alt) => ({
                     id: alt.id,
-                    line: matchOptionLine(alt.existing ?? {}, d.amount, d.currency),
+                    line: matchOptionLine(alt.existing ?? {}, d.amount, d.currency, intl),
                     selected: alt.id === resolved.id,
                     hint: alt.id === resolved.id ? '• current' : undefined,
                   }))
@@ -5231,8 +5231,8 @@ export function ImportModal({
                           <span className="imp3-arow-maybe-name">{ex.note || '—'}</span>
                           <span className="imp3-arow-maybe-facts">
                             <span>{ledgerDate ? ledgerDate.slice(5) : '—'}</span>
-                            {driftPhrase(d.amount, ledgerAmount) && (
-                              <span>{driftPhrase(d.amount, ledgerAmount)}</span>
+                            {driftPhrase(d.amount, ledgerAmount, intl) && (
+                              <span>{driftPhrase(d.amount, ledgerAmount, intl)}</span>
                             )}
                           </span>
                           <span className="imp3-arow-maybe-amt">

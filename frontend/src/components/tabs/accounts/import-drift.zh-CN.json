@@ -1,0 +1,6 @@
+{
+  "accounts.importDrift.merged": "账单结算金额为 {statement} • 您的记录为 {yours}；此次合并会关联两者，但保留您的数值（转账两侧及类型保持原样）。",
+  "accounts.importDrift.off": "相差 {percent}%",
+  "accounts.importDrift.same": "金额相同",
+  "accounts.importDrift.skipped": "已跳过：您的金额保持 {yours}，不采用账单金额 {statement}。"
+}

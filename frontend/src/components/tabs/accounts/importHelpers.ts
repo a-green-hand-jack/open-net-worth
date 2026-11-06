@@ -985,13 +985,32 @@ export function sameFigure(a?: number | null, b?: number | null): boolean {
  * (review); unique pairing in a complete statement window") and is never rendered anywhere
  * (owner, 2026-07-29). ONE implementation feeds both the weak suggestion line and the match
  * picker's option lines, so the two can never quote different drift for the same pair. */
+const importDriftMessages = defineMessages({
+  same: { id: 'accounts.importDrift.same', defaultMessage: 'same amount' },
+  off: { id: 'accounts.importDrift.off', defaultMessage: '{percent}% off' },
+  skipped: {
+    id: 'accounts.importDrift.skipped',
+    defaultMessage: 'Skipped — yours stays {yours}; the statement’s {statement} is not adopted.',
+  },
+  merged: {
+    id: 'accounts.importDrift.merged',
+    defaultMessage:
+      'Statement settled {statement} • yours says {yours} — this merge links them but keeps your figure (its legs/kind stay as booked).',
+  },
+})
+
 export function driftPhrase(
   statementAmount?: number | null,
   ledgerAmount?: number | null,
+  intl?: IntlShape,
 ): string | null {
   const pct = driftPct(statementAmount, ledgerAmount)
   if (pct == null) return null
-  return sameFigure(statementAmount, ledgerAmount) ? 'same amount' : `${pct.toFixed(1)}% off`
+  if (sameFigure(statementAmount, ledgerAmount))
+    return intl ? intl.formatMessage(importDriftMessages.same) : 'same amount'
+  return intl
+    ? intl.formatMessage(importDriftMessages.off as MessageDescriptor, { percent: pct.toFixed(1) })
+    : `${pct.toFixed(1)}% off`
 }
 
 /** One match-picker option line: `MM-DD · note · amount (same amount | X.X% off)`.
@@ -1003,6 +1022,7 @@ export function matchOptionLine(
   >,
   draftAmount: number,
   fallbackCurrency: string,
+  intl?: IntlShape,
 ): string {
   const bits: string[] = []
   if (row.date) bits.push(row.date.slice(5))
@@ -1014,7 +1034,7 @@ export function matchOptionLine(
     const original = originalCharge(row, ccy)
     bits.push(fCur(row.amount, ccy, { cents: true }) + (original ? ` (${original})` : ''))
   }
-  const drift = driftPhrase(draftAmount, row.amount)
+  const drift = driftPhrase(draftAmount, row.amount, intl)
   return bits.join(' • ') + (drift ? ` (${drift})` : '')
 }
 
@@ -1213,7 +1233,7 @@ export function linkedAmountDrift(
  * honestly per effect: a skip adopts nothing; a merge that reaches this marker is one the
  * kind gate keeps at your figures (an adopting merge projects the settled amount — no
  * drift, no marker). Null when the row carries no drift. */
-export function offByTitle(r: VerdictRowInput): string | null {
+export function offByTitle(r: VerdictRowInput, intl?: IntlShape): string | null {
   const drift = linkedAmountDrift(r)
   if (!drift) return null
   const stmt = fCur(drift.statement, r.currency, { cents: true })
@@ -1225,8 +1245,18 @@ export function offByTitle(r: VerdictRowInput): string | null {
     { cents: true },
   )
   if (r.effect === 'skip')
-    return `Skipped — yours stays ${yours}; the statement’s ${stmt} is not adopted.`
-  return `Statement settled ${stmt} • yours says ${yours} — this merge links them but keeps your figure (its legs/kind stay as booked).`
+    return intl
+      ? intl.formatMessage(importDriftMessages.skipped as MessageDescriptor, {
+          yours,
+          statement: stmt,
+        })
+      : `Skipped — yours stays ${yours}; the statement’s ${stmt} is not adopted.`
+  return intl
+    ? intl.formatMessage(importDriftMessages.merged as MessageDescriptor, {
+        yours,
+        statement: stmt,
+      })
+    : `Statement settled ${stmt} • yours says ${yours} — this merge links them but keeps your figure (its legs/kind stay as booked).`
 }
 
 /** Question 2 — "would the amounts match?" Projects each REPRESENTED row's post-commit
