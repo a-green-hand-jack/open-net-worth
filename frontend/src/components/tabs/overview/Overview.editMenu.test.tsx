@@ -7,6 +7,8 @@
 
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
+import { IntlProvider } from 'react-intl'
+import { catalogs } from '../../../i18n/catalogs'
 import type { ComputedRow } from '../../../types/portfolio'
 import { Overview } from './Overview'
 
@@ -73,6 +75,19 @@ describe('Dashboard widget "⋯ → Edit…"', () => {
     } as unknown as typeof ResizeObserver
   })
   afterEach(cleanup)
+
+  it('enters and cancels layout customization in Chinese', () => {
+    render(
+      <IntlProvider locale="zh-CN" messages={catalogs['zh-CN']}>
+        <Overview rows={rows} />
+      </IntlProvider>,
+    )
+    fireEvent.click(screen.getByRole('button', { name: '自定义概览' }))
+    expect(inCustomize()).toBe(true)
+    fireEvent.click(screen.getAllByRole('button', { name: '取消' })[0]!)
+    expect(inCustomize()).toBe(false)
+    expect(screen.getByRole('button', { name: '自定义概览' })).toBeTruthy()
+  })
 
   it('opens the settings without Customize, and Save leaves the page as it was', () => {
     render(<Overview rows={rows} />)

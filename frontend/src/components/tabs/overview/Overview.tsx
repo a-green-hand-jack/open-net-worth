@@ -203,8 +203,11 @@ export function Overview({
         >
           <div className="ov-pagehead">
             <PageHeader
-              title="Dashboard"
-              subtitle="Your complete financial picture"
+              title={intl.formatMessage({ id: 'nav.dashboard', defaultMessage: 'Dashboard' })}
+              subtitle={intl.formatMessage({
+                id: 'overview.subtitle',
+                defaultMessage: 'Your complete financial picture',
+              })}
               actions={
                 editing ? (
                   <span className="ov-page-actions">
@@ -216,21 +219,30 @@ export function Overview({
                         onClick={resetChanges}
                         disabled={!layout.isDirty}
                       >
-                        Reset changes
+                        {intl.formatMessage({
+                          id: 'overview.resetChanges',
+                          defaultMessage: 'Reset changes',
+                        })}
                       </Button>
                       <Button size="sm" variant="secondary" onClick={() => setAddingSection(true)}>
-                        Add section
+                        {intl.formatMessage({
+                          id: 'overview.addSection',
+                          defaultMessage: 'Add section',
+                        })}
                       </Button>
                       <Button size="sm" variant="secondary" onClick={() => setPickerOpen(true)}>
-                        Add widget
+                        {intl.formatMessage({
+                          id: 'overview.addWidget',
+                          defaultMessage: 'Add widget',
+                        })}
                       </Button>
                     </span>
                     <span className="ov-page-actions__commit">
                       <Button size="sm" variant="ghost" onClick={cancelCustomize}>
-                        Cancel
+                        {intl.formatMessage({ id: 'overview.cancel', defaultMessage: 'Cancel' })}
                       </Button>
                       <Button size="sm" variant="primary" onClick={saveCustomize}>
-                        Save
+                        {intl.formatMessage({ id: 'overview.save', defaultMessage: 'Save' })}
                       </Button>
                     </span>
                   </span>
@@ -239,12 +251,20 @@ export function Overview({
                     size="sm"
                     variant="secondary"
                     className="ov-customize-button"
-                    aria-label="Customize overview"
+                    aria-label={intl.formatMessage({
+                      id: 'overview.customizeAria',
+                      defaultMessage: 'Customize overview',
+                    })}
                     onClick={enterCustomize}
                     data-tour="setup-dashboard"
                   >
                     <Pencil size={15} strokeWidth={1.8} aria-hidden="true" />
-                    <span className="ov-customize-label">Customize</span>
+                    <span className="ov-customize-label">
+                      {intl.formatMessage({
+                        id: 'overview.customize',
+                        defaultMessage: 'Customize',
+                      })}
+                    </span>
                   </Button>
                 )
               }
@@ -263,15 +283,21 @@ export function Overview({
           </div>
 
           {editing && (
-            <div className="ov-mobile-edit-dock mb-anchored" aria-label="Customize actions">
+            <div
+              className="ov-mobile-edit-dock mb-anchored"
+              aria-label={intl.formatMessage({
+                id: 'overview.customizeActions',
+                defaultMessage: 'Customize actions',
+              })}
+            >
               <Button size="sm" variant="ghost" onClick={resetChanges} disabled={!layout.isDirty}>
-                Reset all
+                {intl.formatMessage({ id: 'overview.resetAll', defaultMessage: 'Reset all' })}
               </Button>
               <Button size="sm" variant="secondary" onClick={cancelCustomize}>
-                Cancel
+                {intl.formatMessage({ id: 'overview.cancel', defaultMessage: 'Cancel' })}
               </Button>
               <Button size="sm" variant="primary" onClick={saveCustomize}>
-                Save
+                {intl.formatMessage({ id: 'overview.save', defaultMessage: 'Save' })}
               </Button>
             </div>
           )}
@@ -285,14 +311,21 @@ export function Overview({
           {!layout.loading && !hasWidgets && (
             <div className="overview-empty">
               <Text as="h2" size="lg" weight={600}>
-                Build this view
+                {intl.formatMessage({
+                  id: 'overview.buildView',
+                  defaultMessage: 'Build this view',
+                })}
               </Text>
               <Text as="p" size="base" tone="muted">
-                Add the widgets you want to see, or let Lucius assemble a view for you.
+                {intl.formatMessage({
+                  id: 'overview.buildViewHelp',
+                  defaultMessage:
+                    'Add the widgets you want to see, or let Lucius assemble a view for you.',
+                })}
               </Text>
               <div className="overview-empty__actions">
                 <Button variant="primary" size="md" onClick={() => setPickerOpen(true)}>
-                  Add widget
+                  {intl.formatMessage({ id: 'overview.addWidget', defaultMessage: 'Add widget' })}
                 </Button>
                 {onAskLucius && (
                   <Button
