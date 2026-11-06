@@ -1,9 +1,10 @@
+// @vitest-environment jsdom
 import { createIntl } from 'react-intl'
 import { describe, expect, it } from 'vitest'
-import messages from '../zh-CN.messages.json'
+import { catalogs } from '../../../../i18n/LocaleProvider'
 import { reportLabel } from './reports'
 
-const intl = createIntl({ locale: 'zh-CN', messages })
+const intl = createIntl({ locale: 'zh-CN', messages: catalogs['zh-CN'] })
 
 describe('report label provenance', () => {
   it('translates only the server-marked generated labels', () => {
