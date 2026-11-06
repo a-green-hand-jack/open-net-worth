@@ -45,6 +45,9 @@ require reconciliation before they can be applied.
 A broker order awaiting a submission or cancellation receipt blocks additional broker submissions
 until the outstanding operation is resolved. Interrupted or conflicting broker operations keep
 the run in a reconciliation state.
+For simulated orders, the order-notional limit applies to the cumulative gross value of fills;
+fees are accounted for separately. A quote-based check cannot guarantee a live broker fill will
+stay within that limit.
 
 In Paper or Live runs, permitted participants can search public research, fetch a public research
 page, and request current Yahoo market data within the reviewed mandate and allocated account.

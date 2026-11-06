@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from decimal import localcontext
+
 from backend.db.trading_store import TradingStore
 from backend.services.trading.accounting import execution_ledger, unrealized_result
 from backend.services.trading.common import ACTIVE_ORDER_STATES, amount, instant
@@ -9,6 +11,12 @@ from backend.services.trading.market import environment_time, latest_quote
 
 
 def account_snapshot(run, account, *, conn=None):
+    with localcontext() as ctx:
+        ctx.prec = 600
+        return _account_snapshot(run, account, conn=conn)
+
+
+def _account_snapshot(run, account, *, conn=None):
     orders = TradingStore("orders").list_scope(run["id"], conn=conn)
     active = [
         order

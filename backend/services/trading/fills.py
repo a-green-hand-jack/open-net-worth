@@ -1,5 +1,7 @@
 """Idempotent fill application, shared by simulation and live reconciliation."""
 
+from decimal import ROUND_UP, localcontext
+
 from backend.core.errors import ConflictError, ValidationError
 from backend.db.trading_store import TradingStore
 from backend.services.trading.common import amount, event, identity, instant, uses_broker_execution
@@ -70,7 +72,10 @@ def apply_fill(conn, run, order, raw):
         account["id"], {"cash": str(cash), "positions": positions}, conn=conn
     )
     filled = amount(order["filled_quantity"]) + quantity
-    fraction = (amount(order["quantity"]) - filled) / amount(order["quantity"])
+    with localcontext() as ctx:
+        ctx.prec = 28
+        ctx.rounding = ROUND_UP
+        fraction = (amount(order["quantity"]) - filled) / amount(order["quantity"])
     order = TradingStore("orders").update_by_id(
         order["id"],
         {
