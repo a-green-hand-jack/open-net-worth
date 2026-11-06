@@ -1,6 +1,8 @@
 // @vitest-environment jsdom
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
+import { IntlProvider } from 'react-intl'
+import { catalogs } from '../../../../i18n/LocaleProvider'
 
 vi.mock('../../../../api/client', () => ({ authFetch: vi.fn() }))
 
@@ -23,6 +25,21 @@ beforeEach(() => {
 })
 
 afterEach(() => cleanup())
+
+it('saves the selected time limit in the Chinese interface', async () => {
+  const toast = vi.fn()
+  render(
+    <IntlProvider locale="zh-CN" messages={catalogs['zh-CN']}>
+      <TurnTimeLimitPanel toast={toast} />
+    </IntlProvider>,
+  )
+  const select = await screen.findByRole('combobox')
+  await waitFor(() => expect((select as HTMLSelectElement).value).toBe('1200'))
+  fireEvent.change(select, { target: { value: '0' } })
+  await waitFor(() => expect(toast).toHaveBeenCalledWith('回合时间限制：无限制'))
+  const put = mockAuthFetch.mock.calls.find(([, init]) => init?.method === 'PUT')
+  expect(JSON.parse(String(put?.[1]?.body))).toEqual({ seconds: 0 })
+})
 
 it('labels the choices, default and no limit included', () => {
   expect(turnTimeLimitLabel(1200, 1200)).toBe('20 minutes (default)')
