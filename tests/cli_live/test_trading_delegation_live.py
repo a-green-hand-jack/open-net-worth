@@ -11,6 +11,7 @@ from backend.ai.trading_runner_adapter import run_due_trading_agents
 from backend.core.trading_runtime import TRADING_TOOLS
 from backend.db.model_config_store import ModelConfigStore
 from backend.services import tool_permissions, trading
+from backend.services.trading import activity, workspaces
 from backend.services.trading.delegation import create_delegation, workspace_overview
 from backend.services.trading.work_records import workspace_files
 
@@ -86,7 +87,7 @@ async def test_real_lucius_conversation_previews_unsaved_workspace_for_shared_re
         draft = commands[-1]["command"]["args"]["delegation"]
         assert draft["workspace"]["instructions"] == mandate
         assert draft["environment"]["live_authorized"] is False
-        assert trading.list_workspaces()["items"] == []
+        assert workspaces.list_workspaces()["items"] == []
         output = os.environ.get("ONW_TRADING_LIVE_RECEIPT_DIR")
         if output:
             Path(output, "conversation-review.json").write_text(
@@ -205,7 +206,7 @@ async def test_real_provider_resumes_workspace_files_and_fills_without_manual_cy
         assert len(trading.list_orders(run_id)["items"]) == 1
         assert trading.list_fills(run_id)["total"] == 1
         assert trading.get_account(run_id)["items"][0]["cash"] == "899"
-        events = trading.list_events(run_id, limit=500)["items"]
+        events = activity.list_events(run_id, limit=500)["items"]
         assert any(e["kind"] == "agent_input" for e in events)
         assert any(e["kind"] == "agent_output" for e in events)
         assert any(e["kind"] == "agent_tool_call" for e in events)

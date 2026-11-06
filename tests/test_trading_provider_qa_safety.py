@@ -1,5 +1,6 @@
 """Safety checks for opt-in synthetic trading provider acceptance."""
 
+import ast
 import os
 import subprocess
 import sys
@@ -8,6 +9,27 @@ from pathlib import Path
 import pytest
 
 from tests.cli_live.conftest import _project_login_home
+
+
+def test_provider_scenarios_reference_available_trading_services():
+    from backend.services import trading
+    from backend.services.trading import activity, performance, workspaces
+
+    modules = {
+        "trading": trading,
+        "activity": activity,
+        "performance": performance,
+        "workspaces": workspaces,
+    }
+    for path in Path(__file__).parent.joinpath("cli_live").glob("test_trading*.py"):
+        tree = ast.parse(path.read_text())
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Attribute) and isinstance(node.value, ast.Name):
+                module = modules.get(node.value.id)
+                if module is not None:
+                    assert hasattr(module, node.attr), (
+                        f"{path.name}: missing {node.value.id}.{node.attr}"
+                    )
 
 
 @pytest.fixture

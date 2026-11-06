@@ -12,6 +12,7 @@ from backend.ai.models import codex_app_server
 from backend.ai.trading_runner_adapter import run_lucius_cycle
 from backend.db.model_config_store import ModelConfigStore
 from backend.services import tool_permissions, trading
+from backend.services.trading import activity, performance, workspaces
 
 MODELS = os.environ.get(
     "ONW_TRADING_LIVE_MODELS", "claude_cli:claude-sonnet-4-6,codex_cli:gpt-6.1-sol"
@@ -39,7 +40,7 @@ async def test_real_lucius_authors_strategy_and_books_synthetic_fill(
     config = ModelConfigStore()
     config.update_provider(provider_key, {"enabled": True})
     config.update({"default_model": model_ref})
-    workspace = trading.create_workspace(
+    workspace = workspaces.create_workspace(
         {
             "name": "Provider acceptance with synthetic capital",
             "agent_kind": "lucius",
@@ -63,7 +64,7 @@ async def test_real_lucius_authors_strategy_and_books_synthetic_fill(
         "asset_class": "stock",
         "currency": "USD",
     }
-    run = trading.create_run(
+    run = workspaces.create_run(
         workspace["id"],
         {
             "mode": "backtest",
@@ -104,7 +105,7 @@ async def test_real_lucius_authors_strategy_and_books_synthetic_fill(
         assert trading.get_account(run["id"])["items"][0]["cash"] == "899"
         final = trading.get_run(run["id"])
         assert final["usage_state"] == "settled", final.get("usage_state")
-        events = trading.list_events(run["id"], limit=500)["items"]
+        events = activity.list_events(run["id"], limit=500)["items"]
         assert any(row["kind"] == "script_finished" for row in events)
         assert any(row["kind"] == "agent_usage" for row in events)
     except BaseException as exc:
@@ -122,7 +123,7 @@ def _write_receipt(run_id: str, model_ref: str, result, error) -> None:
     if not output:
         return
     run = trading.get_run(run_id)
-    events = trading.list_events(run_id, limit=500)["items"]
+    events = activity.list_events(run_id, limit=500)["items"]
     receipt = {
         "model": model_ref,
         "run_id": run_id,
@@ -133,7 +134,7 @@ def _write_receipt(run_id: str, model_ref: str, result, error) -> None:
         "model_cost_usd": run["model_cost_usd"],
         "orders": trading.list_orders(run_id)["items"],
         "fills": trading.list_fills(run_id)["items"],
-        "performance": trading.get_performance(run_id),
+        "performance": performance.get_performance(run_id),
         "activity_kinds": [row["kind"] for row in events],
         "tool_activity": [row["payload"] for row in events if row["kind"] == "agent_activity"],
         "script_artifacts": [
