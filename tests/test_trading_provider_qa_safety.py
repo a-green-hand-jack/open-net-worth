@@ -55,6 +55,29 @@ def test_provider_scenario_setup_reaches_stubbed_cycle_without_login(
         )
 
 
+def test_delegation_scenario_setup_reaches_stubbed_scheduler_without_login(
+    db_isolated, tmp_path, monkeypatch
+):
+    from tests.cli_live import test_trading_delegation_live as scenario
+
+    class SchedulerReached(Exception):
+        pass
+
+    async def fake_scheduler(*args, **kwargs):
+        raise SchedulerReached
+
+    monkeypatch.setenv("CODEX_HOME", str(tmp_path))
+    monkeypatch.setenv("ONW_DELEGATION_MODEL", "codex_cli:synthetic")
+    monkeypatch.delenv("ONW_TRADING_LIVE_RECEIPT_DIR", raising=False)
+    monkeypatch.setattr(scenario, "run_due_trading_agents", fake_scheduler)
+    with pytest.raises(SchedulerReached):
+        asyncio.run(
+            scenario.test_real_provider_resumes_workspace_files_and_fills_without_manual_cycles(
+                db_isolated, None
+            )
+        )
+
+
 @pytest.fixture
 def project(tmp_path):
     subprocess.run(["git", "init", "--quiet", str(tmp_path)], check=True, timeout=10)
