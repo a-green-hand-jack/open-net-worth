@@ -5027,14 +5027,50 @@ export function ImportModal({
                 // decision CHIP still says Link/Import/Leave out: it names the outcome, and the
                 // outcome is identical across bands.
                 const chips: Array<[MatchAction, string]> = [
-                  ['merge', band === 'weak' ? 'Same one — link' : 'Link'],
-                  ['new', 'Import'],
-                  ['skip', 'Leave out'],
+                  [
+                    'merge',
+                    band === 'weak'
+                      ? intl.formatMessage({
+                          id: 'accounts.importDecision.weakLink',
+                          defaultMessage: 'Same one — link',
+                        })
+                      : intl.formatMessage({
+                          id: 'accounts.importDecision.link',
+                          defaultMessage: 'Link',
+                        }),
+                  ],
+                  [
+                    'new',
+                    intl.formatMessage({
+                      id: 'accounts.importDecision.import',
+                      defaultMessage: 'Import',
+                    }),
+                  ],
+                  [
+                    'skip',
+                    intl.formatMessage({
+                      id: 'accounts.importDecision.leave',
+                      defaultMessage: 'Leave out',
+                    }),
+                  ],
                 ]
                 // The handoff's rule: the closed row's verdict chip uses the EXACT wording of the
                 // override control underneath it, so the two can never disagree.
                 const decisionLabel =
-                  act === 'merge' ? 'Link' : act === 'new' ? 'Import' : 'Leave out'
+                  act === 'merge'
+                    ? intl.formatMessage({
+                        id: 'accounts.importDecision.link',
+                        defaultMessage: 'Link',
+                      })
+                    : act === 'new'
+                      ? intl.formatMessage({
+                          id: 'accounts.importDecision.import',
+                          defaultMessage: 'Import',
+                        })
+                      : intl.formatMessage({
+                          id: 'accounts.importDecision.leave',
+                          defaultMessage: 'Leave out',
+                        })
                 const effectiveCategory =
                   act === 'skip'
                     ? null

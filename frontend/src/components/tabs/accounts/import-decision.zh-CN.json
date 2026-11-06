@@ -1,0 +1,6 @@
+{
+  "accounts.importDecision.import": "导入",
+  "accounts.importDecision.leave": "排除",
+  "accounts.importDecision.link": "关联",
+  "accounts.importDecision.weakLink": "同一笔，关联"
+}

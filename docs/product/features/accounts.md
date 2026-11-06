@@ -224,6 +224,7 @@ Transfer and source descriptions in import review follow the interface language 
 the account names and direction.
 Import amount-difference descriptions follow the interface language while keeping the same
 figures and decision semantics.
+Matched-row decision controls use the interface language and keep their existing actions.
 
 Account, category, payee and date picker controls follow the interface language. Account names,
 payees and category group names retain the text you entered.

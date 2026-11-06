@@ -149,11 +149,28 @@ const matchedRow = () => openRow(document.querySelector('[data-draft-index="0"]'
 const decisionRadio = (name: string) => within(matchedRow()).getByRole('radio', { name })
 
 describe('ImportModal — import-dedup 3-way (decision commit)', () => {
+  it('submits the skip decision selected using the Chinese label', async () => {
+    const onDecisionCommit = commitMock()
+    await openPreview(onDecisionCommit, {}, true)
+    fireEvent.click(decisionRadio('排除'))
+    fireEvent.click(screen.getByRole('button', { name: 'Confirm' }))
+    await waitFor(() => expect(onDecisionCommit).toHaveBeenCalled())
+    expect(onDecisionCommit.mock.calls[0]![2]).toEqual([{ row: 0, action: 'skip' }])
+  })
+  it('submits the create decision selected using the Chinese label', async () => {
+    const onDecisionCommit = commitMock()
+    await openPreview(onDecisionCommit, {}, true)
+    fireEvent.click(decisionRadio('导入'))
+    fireEvent.click(screen.getByRole('button', { name: 'Confirm' }))
+    await waitFor(() => expect(onDecisionCommit).toHaveBeenCalled())
+    expect(onDecisionCommit.mock.calls[0]![2]).toEqual([{ row: 0, action: 'create' }])
+  })
   it('shows the matched kind in Chinese without changing the selected ledger identity', async () => {
     const onDecisionCommit = commitMock()
     await openPreview(onDecisionCommit, {}, true)
     expect(document.querySelector('.imp3-arow-match-facts')?.textContent).toContain('支出')
     expect(screen.getByText('Cinebar')).toBeTruthy()
+    expect(decisionRadio('关联')).toBeTruthy()
     fireEvent.click(screen.getByRole('button', { name: 'Confirm' }))
     await waitFor(() => expect(onDecisionCommit).toHaveBeenCalled())
     expect(onDecisionCommit.mock.calls[0]![2]).toEqual([
