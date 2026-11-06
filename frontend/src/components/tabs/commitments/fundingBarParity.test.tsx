@@ -99,6 +99,8 @@ describe('Funding bar parity — Funding tab vs. Overview digest', () => {
     /></IntlProvider>)
     expect(screen.getByText('下次付款')).toBeTruthy()
     expect(screen.getByText('所有付款均已完成。')).toBeTruthy()
+    expect(screen.getByText('尚无资金来源，可询问 Lucius 如何支付这些分期付款。')).toBeTruthy()
+    expect(screen.getByText('没有待处理事项。')).toBeTruthy()
     fireEvent.click(screen.getByText('完整计划'))
     expect(goTo).toHaveBeenCalledWith('schedule')
   })
@@ -116,6 +118,7 @@ describe('Funding bar parity — Funding tab vs. Overview digest', () => {
     expect(screen.getByText('Synthetic custom action')).toBeTruthy()
     fireEvent.click(screen.getByRole('button', { name: '标记完成' }))
     expect(updateAction).toHaveBeenCalledWith('a1', { status: 'done' })
+    expect(screen.getByRole('button', { name: '不会发生' })).toBeTruthy()
   })
 
   it('keeps an unfunded amount inside the money masking element', () => {
