@@ -8,6 +8,8 @@
  */
 
 import { Fragment, useEffect, useRef, useState, type ReactNode } from 'react'
+import { useAppIntl } from '../../../i18n/useAppIntl'
+import { useAccountTypeLabel } from './useAccountTypeLabel'
 import { useRouter } from '@tanstack/react-router'
 import { useChatComposerOptional } from '../../../state/chatComposer'
 import { StatementViewer, StatementsModal } from './StatementsSection'
@@ -33,7 +35,6 @@ import {
 import type { Account, LinkStatus } from './types'
 import { fCur } from './data'
 import { ReviewStrip, TxnCount } from './ReviewStrip'
-import { typeLabel } from './categories'
 import { fDate } from '../../../utils/format'
 import { daysSinceReconcile, isReconcileOverdue } from './reconcileCadence'
 
@@ -99,17 +100,23 @@ function AccountMenuItem({
 }
 
 function ImportStatementButton({ title, onClick }: { title: string; onClick: () => void }) {
+  const { formatMessage } = useAppIntl()
   return (
     <Button
       size="sm"
       variant="primary"
       className="acct-import-btn"
-      aria-label="Import statement"
+      aria-label={formatMessage({
+        id: 'accounts.importStatement',
+        defaultMessage: 'Import statement',
+      })}
       title={title}
       iconLeft={<Upload size={16} strokeWidth={1.75} aria-hidden="true" />}
       onClick={onClick}
     >
-      <span className="acct-import-label">Import statement</span>
+      <span className="acct-import-label">
+        {formatMessage({ id: 'accounts.importStatement', defaultMessage: 'Import statement' })}
+      </span>
     </Button>
   )
 }
@@ -167,6 +174,7 @@ interface ReconcilePopoverProps {
 /** Lives on the "Reconciled …" line under the balance — the action beside the status it
  *  changes, at every width (owner, 2026-10-26), instead of a header button + ⋯ menu entry. */
 function ReconcilePopover({ account, onReconcile }: ReconcilePopoverProps) {
+  const { formatMessage } = useAppIntl()
   const [open, setOpen] = useState(false)
   const [mode, setMode] = useState<'ask' | 'input'>('ask')
   const [val, setVal] = useState('')
@@ -208,7 +216,7 @@ function ReconcilePopover({ account, onReconcile }: ReconcilePopoverProps) {
         aria-expanded={open}
         onClick={() => (open ? close() : setOpen(true))}
       >
-        Reconcile
+        {formatMessage({ id: 'accounts.reconcile', defaultMessage: 'Reconcile' })}
       </button>
 
       {open && (
@@ -216,16 +224,24 @@ function ReconcilePopover({ account, onReconcile }: ReconcilePopoverProps) {
           {mode === 'ask' ? (
             <>
               <div className="acct-pop-q">
-                Is the real balance{' '}
-                <b className={'mask l' + (account.clearedBalance < 0 ? ' neg' : '')}>
-                  {fCur(account.clearedBalance, account.currency, { cents: true })}{' '}
-                  {account.currency}
-                </b>
-                ?
+                {formatMessage(
+                  {
+                    id: 'accounts.realBalanceQuestion',
+                    defaultMessage: 'Is the real balance <balance>{amount}</balance>?',
+                  },
+                  {
+                    amount: `${fCur(account.clearedBalance, account.currency, { cents: true })} ${account.currency}`,
+                    balance: (chunks) => (
+                      <b className={'mask l' + (account.clearedBalance < 0 ? ' neg' : '')}>
+                        {chunks}
+                      </b>
+                    ),
+                  },
+                )}
               </div>
               <div className="acct-pop-actions">
                 <Button size="sm" variant="ghost" onClick={() => setMode('input')}>
-                  No
+                  {formatMessage({ id: 'accounts.no', defaultMessage: 'No' })}
                 </Button>
                 <Button
                   size="sm"
@@ -235,33 +251,40 @@ function ReconcilePopover({ account, onReconcile }: ReconcilePopoverProps) {
                     close()
                   }}
                 >
-                  Yes, it matches
+                  {formatMessage({ id: 'accounts.yesMatches', defaultMessage: 'Yes, it matches' })}
                 </Button>
               </div>
             </>
           ) : (
             <>
-              <FormField label={`Real balance (${account.currency})`}>
+              <FormField
+                label={formatMessage(
+                  { id: 'accounts.realBalance', defaultMessage: 'Real balance ({currency})' },
+                  { currency: account.currency },
+                )}
+              >
                 <TextField
                   autoFocus
                   value={val}
-                  placeholder="actual"
+                  placeholder={formatMessage({ id: 'accounts.actual', defaultMessage: 'actual' })}
                   onChange={(e) => setVal(e.target.value)}
                 />
               </FormField>
               {has && (
                 <div className="acct-pop-diff">
-                  <span>Adjustment</span>
+                  <span>
+                    {formatMessage({ id: 'accounts.adjustment', defaultMessage: 'Adjustment' })}
+                  </span>
                   <b className={diff < 0 ? 'neg mask' : diff > 0 ? 'pos mask' : ''}>
                     {diff === 0
-                      ? 'In sync'
+                      ? formatMessage({ id: 'accounts.inSync', defaultMessage: 'In sync' })
                       : (diff > 0 ? '+' : '') + fCur(diff, account.currency, { cents: true })}
                   </b>
                 </div>
               )}
               <div className="acct-pop-actions">
                 <Button size="sm" variant="ghost" onClick={() => setMode('ask')}>
-                  Back
+                  {formatMessage({ id: 'accounts.back', defaultMessage: 'Back' })}
                 </Button>
                 <Button
                   size="sm"
@@ -272,7 +295,12 @@ function ReconcilePopover({ account, onReconcile }: ReconcilePopoverProps) {
                     close()
                   }}
                 >
-                  {diff === 0 ? 'Confirm' : 'Add adjustment'}
+                  {diff === 0
+                    ? formatMessage({ id: 'accounts.confirm', defaultMessage: 'Confirm' })
+                    : formatMessage({
+                        id: 'accounts.addAdjustment',
+                        defaultMessage: 'Add adjustment',
+                      })}
                 </Button>
               </div>
             </>
@@ -319,13 +347,6 @@ export interface AccountHeaderProps {
 
 // ── AccountHeader ─────────────────────────────────────────────────────────────
 
-const LINK_TITLE: Record<LinkStatus, (label: string) => string> = {
-  connected: (label) => `Linked to ${label} — open its connector`,
-  paused: (label) => `${label} is paused — nothing syncs into this account until you resume it`,
-  disconnected: (label) =>
-    `${label} was removed — nothing syncs into this account. Tap to set it up again.`,
-}
-
 export function AccountHeader({
   account,
   dueInfo,
@@ -350,6 +371,31 @@ export function AccountHeader({
   onReview,
   onStartReview,
 }: AccountHeaderProps) {
+  const { formatMessage } = useAppIntl()
+  const accountTypeLabel = useAccountTypeLabel()
+  const linkTitle = (status: LinkStatus, name: string) =>
+    status === 'connected'
+      ? formatMessage(
+          { id: 'accounts.linkConnected', defaultMessage: 'Linked to {name} — open its connector' },
+          { name },
+        )
+      : status === 'paused'
+        ? formatMessage(
+            {
+              id: 'accounts.linkPaused',
+              defaultMessage:
+                '{name} is paused — nothing syncs into this account until you resume it',
+            },
+            { name },
+          )
+        : formatMessage(
+            {
+              id: 'accounts.linkRemoved',
+              defaultMessage:
+                '{name} was removed — nothing syncs into this account. Tap to set it up again.',
+            },
+            { name },
+          )
   const chatComposer = useChatComposerOptional()
   // The connectors this account is linked to (server-derived label + state), one per connector.
   const linkedProviders = [
@@ -396,7 +442,10 @@ export function AccountHeader({
               onClick={onReopen}
               onMouseEnter={onReopenHover}
               onMouseLeave={onReopenLeave}
-              title="Show accounts"
+              title={formatMessage({
+                id: 'accounts.showAccounts',
+                defaultMessage: 'Show accounts',
+              })}
             >
               <ChevronRight size={16} strokeWidth={1.75} aria-hidden="true" />
             </button>
@@ -406,7 +455,7 @@ export function AccountHeader({
               {account.name}
             </div>
             <div className="acct-head-sub">
-              <span>{typeLabel(account.type)}</span>
+              <span>{accountTypeLabel(account.type)}</span>
               <span className="sep">•</span>
               <span>{account.currency}</span>
               {account.institution && (
@@ -431,12 +480,13 @@ export function AccountHeader({
                         ? 'acct-head-linked'
                         : 'acct-head-linked acct-head-linked--off'
                     }
-                    title={LINK_TITLE[status](label)}
+                    title={linkTitle(status, label)}
                     onClick={() => openConnector(source)}
                   >
                     <Link2 size={12} aria-hidden="true" />
                     {label}
-                    {status !== 'connected' && ` · ${status}`}
+                    {status !== 'connected' &&
+                      ` · ${status === 'paused' ? formatMessage({ id: 'accounts.linkStatusPaused', defaultMessage: 'paused' }) : formatMessage({ id: 'accounts.linkStatusDisconnected', defaultMessage: 'disconnected' })}`}
                   </button>
                 </Fragment>
               ))}
@@ -451,7 +501,7 @@ export function AccountHeader({
             variant="ghost"
             onClick={onManagePayees}
           >
-            Manage payees
+            {formatMessage({ id: 'accounts.managePayees', defaultMessage: 'Manage payees' })}
           </Button>
           <Button
             className="acct-head-collapsible"
@@ -459,16 +509,22 @@ export function AccountHeader({
             variant="ghost"
             onClick={onManageCategories}
           >
-            Manage categories
+            {formatMessage({
+              id: 'accounts.manageCategories',
+              defaultMessage: 'Manage categories',
+            })}
           </Button>
           <Button className="acct-head-collapsible" size="sm" variant="ghost" onClick={onImport}>
-            Import
+            {formatMessage({ id: 'accounts.import', defaultMessage: 'Import' })}
           </Button>
           <div className="acct-menu-wrap" ref={menuRef}>
             <button
               className="btn-ghost-icon"
               onClick={() => setMenuOpen((o) => !o)}
-              aria-label="More actions"
+              aria-label={formatMessage({
+                id: 'accounts.moreActions',
+                defaultMessage: 'More actions',
+              })}
             >
               <MoreHorizontal size={18} strokeWidth={1.75} aria-hidden="true" />
             </button>
@@ -483,7 +539,7 @@ export function AccountHeader({
                     onManagePayees()
                   }}
                 >
-                  Manage payees
+                  {formatMessage({ id: 'accounts.managePayees', defaultMessage: 'Manage payees' })}
                 </AccountMenuItem>
                 <AccountMenuItem
                   icon="categories"
@@ -493,7 +549,10 @@ export function AccountHeader({
                     onManageCategories()
                   }}
                 >
-                  Manage categories
+                  {formatMessage({
+                    id: 'accounts.manageCategories',
+                    defaultMessage: 'Manage categories',
+                  })}
                 </AccountMenuItem>
                 <AccountMenuItem
                   icon="import"
@@ -503,13 +562,16 @@ export function AccountHeader({
                     onImport()
                   }}
                 >
-                  Import
+                  {formatMessage({ id: 'accounts.import', defaultMessage: 'Import' })}
                 </AccountMenuItem>
                 {/* App-wide admin, like the two above — always in the menu, split from this
                     account's own actions below. */}
                 {onManageInstitutions && (
                   <AccountMenuItem icon="institutions" onClick={onManageInstitutions}>
-                    Manage institutions
+                    {formatMessage({
+                      id: 'accounts.manageInstitutions',
+                      defaultMessage: 'Manage institutions',
+                    })}
                   </AccountMenuItem>
                 )}
                 <div className={onManageInstitutions ? 'sep' : 'acct-menu-collapsible sep'} />
@@ -520,20 +582,29 @@ export function AccountHeader({
                     setShowStatements(true)
                   }}
                 >
-                  Statements
+                  {formatMessage({ id: 'accounts.statements', defaultMessage: 'Statements' })}
                 </AccountMenuItem>
                 <AccountMenuItem icon="export" onClick={onExport}>
-                  Export transactions
+                  {formatMessage({
+                    id: 'accounts.exportTransactions',
+                    defaultMessage: 'Export transactions',
+                  })}
                 </AccountMenuItem>
                 <AccountMenuItem icon="edit" onClick={onEdit}>
-                  Edit account
+                  {formatMessage({ id: 'accounts.editAccount', defaultMessage: 'Edit account' })}
                 </AccountMenuItem>
                 <div className="sep" />
                 <AccountMenuItem icon="archive" danger onClick={onArchive}>
-                  Archive account
+                  {formatMessage({
+                    id: 'accounts.archiveAccount',
+                    defaultMessage: 'Archive account',
+                  })}
                 </AccountMenuItem>
                 <AccountMenuItem icon="delete" danger onClick={onDelete}>
-                  Delete account
+                  {formatMessage({
+                    id: 'accounts.deleteAccount',
+                    defaultMessage: 'Delete account',
+                  })}
                 </AccountMenuItem>
               </div>
             )}
@@ -551,24 +622,52 @@ export function AccountHeader({
           <span className="grow">
             {dueInfo.source === 'statement' ? (
               <>
-                Congrats — this statement is <b>paid in full</b>
-                {dueInfo.totalDue != null && (
-                  <>
-                    {' '}
-                    (<span className="mask l">{fCur(dueInfo.totalDue, dueInfo.currency)}</span>)
-                  </>
+                {formatMessage(
+                  {
+                    id: 'accounts.statementPaid',
+                    defaultMessage:
+                      'Congrats — this statement is <strong>paid in full</strong>{amount}.',
+                  },
+                  {
+                    strong: (chunks) => <b>{chunks}</b>,
+                    amount:
+                      dueInfo.totalDue != null ? (
+                        <>
+                          {' '}
+                          (
+                          <span className="mask l">{fCur(dueInfo.totalDue, dueInfo.currency)}</span>
+                          )
+                        </>
+                      ) : (
+                        ''
+                      ),
+                  },
                 )}
-                .
                 {dueInfo.statementId && (
                   <button
                     type="button"
                     className="acct-alert-src"
-                    title="View the statement"
+                    title={formatMessage({
+                      id: 'accounts.viewStatement',
+                      defaultMessage: 'View the statement',
+                    })}
                     onClick={() => setViewStatement(true)}
                   >
                     {dueInfo.periodStart
-                      ? `Statement: ${fDate(dueInfo.periodStart, 'numeric')} → ${dueInfo.periodEnd ? fDate(dueInfo.periodEnd, 'numeric') : '…'}`
-                      : 'View statement'}
+                      ? formatMessage(
+                          {
+                            id: 'accounts.statementPeriod',
+                            defaultMessage: 'Statement: {start} → {end}',
+                          },
+                          {
+                            start: fDate(dueInfo.periodStart, 'numeric'),
+                            end: dueInfo.periodEnd ? fDate(dueInfo.periodEnd, 'numeric') : '…',
+                          },
+                        )
+                      : formatMessage({
+                          id: 'accounts.viewStatementShort',
+                          defaultMessage: 'View statement',
+                        })}
                   </button>
                 )}
               </>
@@ -577,23 +676,40 @@ export function AccountHeader({
               // total is only what it covers — never claim an estimated figure was "paid
               // in full" (the actual payment usually differs).
               <>
-                Congrats —{' '}
-                <b className="mask l">{fCur(dueInfo.paidAmount ?? 0, dueInfo.currency)}</b> paid
-                this cycle, covering your estimated balance
-                {dueInfo.totalDue != null && (
-                  <>
-                    {' '}
-                    of <span className="mask l">~{fCur(dueInfo.totalDue, dueInfo.currency)}</span>
-                  </>
+                {formatMessage(
+                  {
+                    id: 'accounts.estimatedPaid',
+                    defaultMessage:
+                      'Congrats — <strong>{paid}</strong> paid this cycle, covering your estimated balance{total}.',
+                  },
+                  {
+                    strong: (chunks) => <b className="mask l">{chunks}</b>,
+                    paid: fCur(dueInfo.paidAmount ?? 0, dueInfo.currency),
+                    total:
+                      dueInfo.totalDue != null
+                        ? formatMessage(
+                            { id: 'accounts.estimatedTotalSuffix', defaultMessage: ' of {total}' },
+                            {
+                              total: (
+                                <span className="mask l">
+                                  ~{fCur(dueInfo.totalDue, dueInfo.currency)}
+                                </span>
+                              ),
+                            },
+                          )
+                        : '',
+                  },
                 )}
-                .
               </>
             )}
           </span>
           {dueInfo.source !== 'statement' && (
             <span className="acct-alert-actions">
               <ImportStatementButton
-                title="Import the statement to confirm the exact figures"
+                title={formatMessage({
+                  id: 'accounts.importExact',
+                  defaultMessage: 'Import the statement to confirm the exact figures',
+                })}
                 onClick={onImport}
               />
             </span>
@@ -608,51 +724,94 @@ export function AccountHeader({
               // A newer cycle closed without its statement and the ledger estimate folds
               // to zero — never celebrate an unconfirmed estimate, just ask for the file.
               <>
-                Your
-                {dueInfo.missingCloseDate ? (
-                  <>
-                    {' '}
-                    <b>{fDate(dueInfo.missingCloseDate, 'numeric')}</b>
-                  </>
-                ) : (
-                  ' latest'
-                )}{' '}
-                statement isn't imported yet — import it to confirm the exact figures.
+                {dueInfo.missingCloseDate
+                  ? formatMessage(
+                      {
+                        id: 'accounts.missingStatementDated',
+                        defaultMessage:
+                          "Your <strong>{date}</strong> statement isn't imported yet — import it to confirm the exact figures.",
+                      },
+                      {
+                        strong: (chunks) => <b>{chunks}</b>,
+                        date: fDate(dueInfo.missingCloseDate, 'numeric'),
+                      },
+                    )
+                  : formatMessage({
+                      id: 'accounts.missingStatementLatest',
+                      defaultMessage:
+                        "Your latest statement isn't imported yet — import it to confirm the exact figures.",
+                    })}
               </>
             ) : (
               <>
-                {dueInfo.source !== 'statement' && <b className="acct-alert-est">Estimated</b>}
+                {dueInfo.source !== 'statement' && (
+                  <b className="acct-alert-est">
+                    {formatMessage({ id: 'accounts.estimated', defaultMessage: 'Estimated' })}
+                  </b>
+                )}
                 {dueInfo.partial ? (
                   <>
                     {' '}
-                    Paid <b className="mask l">{fCur(dueInfo.paidAmount ?? 0, dueInfo.currency)}</b>
-                    {dueInfo.totalDue != null && (
-                      <>
-                        {' '}
-                        of{' '}
-                        <span className="mask l">{fCur(dueInfo.totalDue, dueInfo.currency)}</span>
-                      </>
-                    )}{' '}
-                    — <b className="mask l">{fCur(dueInfo.amountDue, dueInfo.currency)}</b>{' '}
-                    still{' '}
+                    {formatMessage(
+                      {
+                        id: 'accounts.partialPayment',
+                        defaultMessage:
+                          'Paid <strong>{paid}</strong>{total} — <strong>{remaining}</strong> still ',
+                      },
+                      {
+                        strong: (chunks) => <b className="mask l">{chunks}</b>,
+                        paid: fCur(dueInfo.paidAmount ?? 0, dueInfo.currency),
+                        total:
+                          dueInfo.totalDue != null
+                            ? formatMessage(
+                                { id: 'accounts.ofTotal', defaultMessage: ' of {total}' },
+                                {
+                                  total: (
+                                    <span className="mask l">
+                                      {fCur(dueInfo.totalDue, dueInfo.currency)}
+                                    </span>
+                                  ),
+                                },
+                              )
+                            : '',
+                        remaining: fCur(dueInfo.amountDue, dueInfo.currency),
+                      },
+                    )}
                   </>
                 ) : (
                   <>
                     {' '}
-                    Payment of{' '}
-                    <b className="mask l">
-                      {dueInfo.source !== 'statement' ? '~' : ''}
-                      {fCur(dueInfo.amountDue, dueInfo.currency)}
-                    </b>{' '}
+                    {formatMessage(
+                      {
+                        id: 'accounts.paymentOf',
+                        defaultMessage: 'Payment of <strong>{amount}</strong> ',
+                      },
+                      {
+                        strong: (chunks) => <b className="mask l">{chunks}</b>,
+                        amount: `${dueInfo.source !== 'statement' ? '~' : ''}${fCur(dueInfo.amountDue, dueInfo.currency)}`,
+                      },
+                    )}
                   </>
                 )}
                 {dueInfo.days < 0 ? (
                   <>
-                    overdue by <b>{Math.abs(dueInfo.days)} days</b>
+                    {formatMessage(
+                      {
+                        id: 'accounts.overdueBy',
+                        defaultMessage: 'overdue by <strong>{count} days</strong>',
+                      },
+                      { strong: (chunks) => <b>{chunks}</b>, count: Math.abs(dueInfo.days) },
+                    )}
                   </>
                 ) : (
                   <>
-                    due in <b>{dueInfo.days} days</b>
+                    {formatMessage(
+                      {
+                        id: 'accounts.dueIn',
+                        defaultMessage: 'due in <strong>{count} days</strong>',
+                      },
+                      { strong: (chunks) => <b>{chunks}</b>, count: dueInfo.days },
+                    )}
                   </>
                 )}
                 {/* the next cycle's close is noise when THIS banner is about a closed-but-unimported cycle */}
@@ -661,7 +820,13 @@ export function AccountHeader({
                   !dueInfo.missingForCycle && (
                     <>
                       {' '}
-                      • statement closes in <b>{dueInfo.closeDays} days</b>
+                      {formatMessage(
+                        {
+                          id: 'accounts.statementClosesIn',
+                          defaultMessage: '• statement closes in <strong>{count} days</strong>',
+                        },
+                        { strong: (chunks) => <b>{chunks}</b>, count: dueInfo.closeDays },
+                      )}
                     </>
                   )}
                 {dueInfo.minPayment != null &&
@@ -669,39 +834,81 @@ export function AccountHeader({
                   ((dueInfo.paidAmount ?? 0) < dueInfo.minPayment ? (
                     <>
                       {' '}
-                      • minimum{' '}
-                      <b className="mask l">{fCur(dueInfo.minPayment, dueInfo.currency)}</b>
-                      {(dueInfo.paidAmount ?? 0) > 0 && ' not yet met'}
+                      {formatMessage(
+                        {
+                          id: 'accounts.minimum',
+                          defaultMessage: '• minimum <strong>{amount}</strong>{status}',
+                        },
+                        {
+                          strong: (chunks) => <b className="mask l">{chunks}</b>,
+                          amount: fCur(dueInfo.minPayment, dueInfo.currency),
+                          status:
+                            (dueInfo.paidAmount ?? 0) > 0
+                              ? formatMessage({
+                                  id: 'accounts.notYetMet',
+                                  defaultMessage: ' not yet met',
+                                })
+                              : '',
+                        },
+                      )}
                     </>
                   ) : (
-                    <> • minimum met</>
+                    <>
+                      {' '}
+                      {formatMessage({
+                        id: 'accounts.minimumMet',
+                        defaultMessage: '• minimum met',
+                      })}
+                    </>
                   ))}
                 .
                 {dueInfo.missingForCycle && (
                   <>
                     {' '}
-                    Your
-                    {dueInfo.missingCloseDate ? (
-                      <>
-                        {' '}
-                        <b>{fDate(dueInfo.missingCloseDate, 'numeric')}</b>
-                      </>
-                    ) : (
-                      ' latest'
-                    )}{' '}
-                    statement isn't imported yet — import it to confirm.
+                    {dueInfo.missingCloseDate
+                      ? formatMessage(
+                          {
+                            id: 'accounts.missingStatementShortDated',
+                            defaultMessage:
+                              "Your <strong>{date}</strong> statement isn't imported yet — import it to confirm.",
+                          },
+                          {
+                            strong: (chunks) => <b>{chunks}</b>,
+                            date: fDate(dueInfo.missingCloseDate, 'numeric'),
+                          },
+                        )
+                      : formatMessage({
+                          id: 'accounts.missingStatementShortLatest',
+                          defaultMessage:
+                            "Your latest statement isn't imported yet — import it to confirm.",
+                        })}
                   </>
                 )}
                 {dueInfo.source === 'statement' && dueInfo.statementId && (
                   <button
                     type="button"
                     className="acct-alert-src"
-                    title="Printed on your imported statement — view it"
+                    title={formatMessage({
+                      id: 'accounts.printedStatement',
+                      defaultMessage: 'Printed on your imported statement — view it',
+                    })}
                     onClick={() => setViewStatement(true)}
                   >
                     {dueInfo.periodStart
-                      ? `Statement: ${fDate(dueInfo.periodStart, 'numeric')} → ${dueInfo.periodEnd ? fDate(dueInfo.periodEnd, 'numeric') : '…'}`
-                      : 'View statement'}
+                      ? formatMessage(
+                          {
+                            id: 'accounts.statementPeriod',
+                            defaultMessage: 'Statement: {start} → {end}',
+                          },
+                          {
+                            start: fDate(dueInfo.periodStart, 'numeric'),
+                            end: dueInfo.periodEnd ? fDate(dueInfo.periodEnd, 'numeric') : '…',
+                          },
+                        )
+                      : formatMessage({
+                          id: 'accounts.viewStatementShort',
+                          defaultMessage: 'View statement',
+                        })}
                   </button>
                 )}
               </>
@@ -710,7 +917,11 @@ export function AccountHeader({
           <span className="acct-alert-actions">
             {dueInfo.source !== 'statement' && (
               <ImportStatementButton
-                title="These figures are estimated from your ledger and cycle settings — the statement carries the exact due date, amount and minimum"
+                title={formatMessage({
+                  id: 'accounts.estimatedFiguresHelp',
+                  defaultMessage:
+                    'These figures are estimated from your ledger and cycle settings — the statement carries the exact due date, amount and minimum',
+                })}
                 onClick={onImport}
               />
             )}
@@ -720,7 +931,10 @@ export function AccountHeader({
                 variant="primary"
                 className="fi-lucius"
                 iconLeft={<Spark size={15} ariaHidden />}
-                title="Ask Lucius to set a payment reminder"
+                title={formatMessage({
+                  id: 'accounts.askPaymentReminder',
+                  defaultMessage: 'Ask Lucius to set a payment reminder',
+                })}
                 onClick={() => {
                   const due = dueInfo.dueDate
                     ? ` by ${dueInfo.dueDate}`
@@ -741,7 +955,7 @@ export function AccountHeader({
                   window.dispatchEvent(new Event('lx-dock-open'))
                 }}
               >
-                Remind me
+                {formatMessage({ id: 'accounts.remindMe', defaultMessage: 'Remind me' })}
               </Button>
             )}
           </span>
@@ -784,15 +998,28 @@ export function AccountHeader({
       <div className="acct-bal">
         <div className="acct-bal-card">
           <div className="acct-bal-k">
-            {account.kind === 'liability' ? 'Balance owed' : 'Balance'}
-            <BalanceTermsInfo total="Working balance" meaning="the two together." />
+            {account.kind === 'liability'
+              ? formatMessage({ id: 'accounts.balanceOwed', defaultMessage: 'Balance owed' })
+              : formatMessage({ id: 'accounts.balance', defaultMessage: 'Balance' })}
+            <BalanceTermsInfo
+              total={formatMessage({
+                id: 'accounts.workingBalance',
+                defaultMessage: 'Working balance',
+              })}
+              meaning={formatMessage({
+                id: 'accounts.twoTogether',
+                defaultMessage: 'the two together.',
+              })}
+            />
           </div>
           <div className="acct-bal-breakdown">
             <div className="acct-bal-part">
               <div className={'acct-bal-fig mask' + (account.clearedBalance > 0 ? ' pos' : '')}>
                 {fCur(account.clearedBalance, account.currency, { cents: true })}
               </div>
-              <div className="acct-bal-lbl">Cleared</div>
+              <div className="acct-bal-lbl">
+                {formatMessage({ id: 'accounts.cleared', defaultMessage: 'Cleared' })}
+              </div>
             </div>
             <div className="acct-bal-grp">
               <span className="acct-bal-op">+</span>
@@ -800,7 +1027,9 @@ export function AccountHeader({
                 <div className={'acct-bal-fig mask' + (pending > 0 ? ' pos' : '')}>
                   {fCur(pending, account.currency, { cents: true })}
                 </div>
-                <div className="acct-bal-lbl">Uncleared</div>
+                <div className="acct-bal-lbl">
+                  {formatMessage({ id: 'accounts.uncleared', defaultMessage: 'Uncleared' })}
+                </div>
               </div>
             </div>
             <div className="acct-bal-grp">
@@ -809,7 +1038,12 @@ export function AccountHeader({
                 <div className={'acct-bal-fig work mask' + (account.balance > 0 ? ' pos' : '')}>
                   {fCur(account.balance, account.currency, { cents: true })}
                 </div>
-                <div className="acct-bal-lbl">Working balance</div>
+                <div className="acct-bal-lbl">
+                  {formatMessage({
+                    id: 'accounts.workingBalance',
+                    defaultMessage: 'Working balance',
+                  })}
+                </div>
               </div>
             </div>
           </div>
@@ -821,23 +1055,42 @@ export function AccountHeader({
                 {account.lastReconciled && isReconcileOverdue(account.lastReconciled) ? (
                   <span
                     className="acct-recon-stat"
-                    title="Reconcile at least once a month, so a gap is still easy to trace."
+                    title={formatMessage({
+                      id: 'accounts.reconcileAdvice',
+                      defaultMessage:
+                        'Reconcile at least once a month, so a gap is still easy to trace.',
+                    })}
                   >
                     <ClockAlert size={14} className="warn" aria-hidden="true" />
-                    Reconciled {fDate(account.lastReconciled, 'numeric', 'auto')}{' '}
+                    {formatMessage(
+                      { id: 'accounts.reconciledDate', defaultMessage: 'Reconciled {date}' },
+                      { date: fDate(account.lastReconciled, 'numeric', 'auto') },
+                    )}{' '}
                     <span className="warn">
-                      ({daysSinceReconcile(account.lastReconciled)} days ago)
+                      {formatMessage(
+                        {
+                          id: 'accounts.daysAgo',
+                          defaultMessage: '({count, plural, one {# day ago} other {# days ago}})',
+                        },
+                        { count: daysSinceReconcile(account.lastReconciled) },
+                      )}
                     </span>
                   </span>
                 ) : account.lastReconciled ? (
                   <>
                     <CircleCheck size={14} className="ok" aria-hidden="true" />
-                    Reconciled {fDate(account.lastReconciled, 'numeric', 'auto')}
+                    {formatMessage(
+                      { id: 'accounts.reconciledDate', defaultMessage: 'Reconciled {date}' },
+                      { date: fDate(account.lastReconciled, 'numeric', 'auto') },
+                    )}
                   </>
                 ) : (
                   <>
                     <ClockAlert size={14} className="warn" aria-hidden="true" />
-                    Never reconciled
+                    {formatMessage({
+                      id: 'accounts.neverReconciled',
+                      defaultMessage: 'Never reconciled',
+                    })}
                   </>
                 )}
               </span>

@@ -22,6 +22,8 @@
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { IntlProvider } from 'react-intl'
+import { catalogs } from '../../../i18n/catalogs'
 import { AccountHeader } from './AccountHeader'
 import type { DueInfo } from './AccountHeader'
 import { AccountsTab } from './AccountsTab'
@@ -47,8 +49,8 @@ const API_ACCOUNT: ApiAccount = {
 const ACCOUNT = fromApiAccount(API_ACCOUNT)
 const noop = () => {}
 
-function renderHeader(dueInfo: DueInfo | null) {
-  return render(
+function renderHeader(dueInfo: DueInfo | null, chinese = false) {
+  const header = (
     <AccountHeader
       account={ACCOUNT}
       dueInfo={dueInfo}
@@ -68,12 +70,42 @@ function renderHeader(dueInfo: DueInfo | null) {
       onReconcile={noop}
       onReview={noop}
       onStartReview={noop}
-    />,
+    />
+  )
+  return render(
+    chinese ? (
+      <IntlProvider locale="zh-CN" messages={catalogs['zh-CN']}>
+        {header}
+      </IntlProvider>
+    ) : (
+      header
+    ),
   )
 }
 
 describe('AccountHeader credit-card due banner (CC1)', () => {
   afterEach(cleanup)
+
+  it('localizes the paid estimate while keeping actual and estimated amounts maskable', () => {
+    const { container } = renderHeader(
+      {
+        amountDue: 0,
+        currency: 'SGD',
+        days: 0,
+        closeDays: null,
+        partial: false,
+        settled: true,
+        totalDue: 1166.98,
+        paidAmount: 1518.96,
+        source: 'config',
+      },
+      true,
+    )
+    expect(container.textContent).toContain('Amex')
+    expect(container.textContent).toContain('~S$1,166.98')
+    expect(screen.getByText('S$1,518.96').classList.contains('mask')).toBe(true)
+    expect(screen.getByText('~S$1,166.98').classList.contains('mask')).toBe(true)
+  })
 
   it('hides the banner entirely when dueInfo is null (e.g. a fully-paid statement)', () => {
     renderHeader(null)

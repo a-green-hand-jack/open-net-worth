@@ -213,6 +213,8 @@ Account, category, payee and date picker controls follow the interface language.
 payees and category group names retain the text you entered.
 Account creation and editing forms also follow the interface language; the saved account name,
 type, currency and balance retain the values you choose.
+Account header, reconciliation and due-payment controls follow the interface language while
+continuing to honor amount hiding.
 
 ## Related pages
 
