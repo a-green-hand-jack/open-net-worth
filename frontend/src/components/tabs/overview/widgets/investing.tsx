@@ -264,11 +264,11 @@ const Fx: ComponentType<WidgetContentProps> = ({ instance, def, onPatch }) => {
                   ? exposureByCcy.get(b)! < 0
                     ? formatMessage(
                         { id: 'overview.fx.owed', defaultMessage: '{amount} owed' },
-                        { amount: fBase(-exposureByCcy.get(b)!) },
+                        { amount: <span className="money">{fBase(-exposureByCcy.get(b)!)}</span> },
                       )
                     : formatMessage(
                         { id: 'overview.fx.held', defaultMessage: '{amount} held' },
-                        { amount: fBase(exposureByCcy.get(b)!) },
+                        { amount: <span className="money">{fBase(exposureByCcy.get(b)!)}</span> },
                       )
                   : formatMessage({ id: 'overview.fx.watching', defaultMessage: 'Watching' })}
               </span>

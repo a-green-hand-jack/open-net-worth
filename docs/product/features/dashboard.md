@@ -79,6 +79,7 @@ on its name (the first view can't be deleted).
 New built-in view names and blank section names follow your display language. Names you enter,
 and older saved names without a known origin, stay as written.
 If a saved name no longer matches its default, it stays as written even if an old default marker remains.
+The foreign-exchange widget hides held and owed amounts when amounts are hidden.
 
 **Widget menu** — outside Customize mode, each widget's **⋯** menu offers **Edit…** (the same
 settings as **Edit** in Customize — title, chart type, categories and so on), **Display…** (accent

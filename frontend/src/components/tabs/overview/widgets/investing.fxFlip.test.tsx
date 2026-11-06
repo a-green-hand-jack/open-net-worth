@@ -96,6 +96,17 @@ describe('FX rate rows', () => {
   it('still says held for a positive position', async () => {
     serve()
     renderFx({ pairs: [] })
-    await screen.findByText(/held$/, { selector: '.ov-fx-note' })
+    const note = await screen.findByText(/held$/, { selector: '.ov-fx-note' })
+    expect(note.querySelector('.money')?.textContent).toBeTruthy()
+    expect(note.querySelector('.money')?.textContent).not.toContain('held')
+  })
+
+  it('marks the owed amount for privacy masking without masking its label', async () => {
+    serve(-362660)
+    renderFx({ pairs: [] })
+    const note = await screen.findByText(/owed$/, { selector: '.ov-fx-note' })
+    expect(note.querySelector('.money')?.textContent).toBeTruthy()
+    expect(note.querySelector('.money')?.textContent).not.toContain('owed')
+    expect(note.classList.contains('money')).toBe(false)
   })
 })
