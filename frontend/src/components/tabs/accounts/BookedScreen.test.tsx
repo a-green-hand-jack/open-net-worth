@@ -155,4 +155,34 @@ describe('BookedScreen', () => {
     expect(p.onUndo).toHaveBeenCalledWith('batch-synthetic')
     expect(await screen.findByText('已撤销导入')).toBeTruthy()
   })
+
+  it('keeps review counts and server error details in Chinese', () => {
+    const onMarkAllReviewed = vi.fn()
+    renderBooked(
+      {
+        result: {
+          created: 2,
+          merged: 3,
+          linkedNeedsReview: 1,
+          duplicates: 1,
+          unreadable: 2,
+          skipped: 0,
+          accounts: 1,
+          batchId: 'b1',
+        },
+        refusedDuplicates: [{ date: '2026-01-02', description: 'Synthetic payee' }],
+        deleteErrors: [{ id: 'row-1', error: 'Synthetic server refusal' }],
+        onMarkAllReviewed,
+      },
+      true,
+    )
+    expect(screen.getByText('2 条新记录和1 条已关联记录需要在账户明细中审核')).toBeTruthy()
+    expect(screen.getByText('文件中有 2 条记录在读取时被跳过')).toBeTruthy()
+    expect(screen.getByText(/Synthetic payee/).textContent).toContain('2026-01-02')
+    expect(screen.getByText(/Synthetic server refusal/).textContent).toContain(
+      '无法删除 1 条标记的交易',
+    )
+    fireEvent.click(screen.getByRole('button', { name: '全部标记为已审核' }))
+    expect(onMarkAllReviewed).toHaveBeenCalledTimes(1)
+  })
 })
