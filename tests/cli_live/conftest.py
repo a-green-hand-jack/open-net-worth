@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import os
 import shutil
+import subprocess
 from pathlib import Path
 
 import pytest
@@ -81,6 +82,45 @@ def check_snapshot(name: str, observed: dict, differ) -> list[str]:
     if diff.notes:
         warnings.warn(f"{name} snapshot drift:\n  " + "\n  ".join(diff.notes), stacklevel=2)
     return diff.notes
+
+
+def _project_login_home(root: Path, raw: str) -> Path:
+    """Require an existing, ignored, project-local login directory; never inspect credentials."""
+    path = Path(raw).expanduser()
+    if not path.is_absolute():
+        raise ValueError("Select an absolute project-owned login directory")
+    root = root.resolve()
+    path = path.resolve()
+    if path == root or not path.is_relative_to(root) or not path.is_dir():
+        raise ValueError("Login directory must be inside this project")
+    if (path / "auth.json").is_symlink():
+        raise ValueError("Project login must not use a linked auth file")
+    ignored = subprocess.run(
+        ["git", "-C", str(root), "check-ignore", "--quiet", "--", str(path.relative_to(root))],
+        timeout=5,
+        check=False,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+    )
+    if ignored.returncode != 0:
+        raise ValueError("Project login directory must be gitignored")
+    return path
+
+
+@pytest.fixture
+def project_cli_cache(monkeypatch):
+    from backend.ai.models import codex_home
+
+    root = Path(__file__).resolve().parents[2]
+    selected = {}
+    for key in ("CODEX_HOME", "CLAUDE_CONFIG_DIR"):
+        raw = os.environ.get(key)
+        if raw:
+            selected[key] = _project_login_home(root, raw)
+    if "CODEX_HOME" in selected:
+        cache = selected["CODEX_HOME"] / "onw-managed-cli"
+        cache.mkdir(mode=0o700, parents=True, exist_ok=True)
+        monkeypatch.setattr(codex_home, "_HOME_DIR", cache)
 
 
 @pytest.fixture

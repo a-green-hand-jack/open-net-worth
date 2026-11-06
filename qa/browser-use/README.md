@@ -122,6 +122,17 @@ is synthetic; the operator must ensure that before opting in. The test changes
 watchlist and tool-permission settings and creates synthetic trading records.
 Screenshots and logs stay under the ignored `qa/browser-use/artifacts/` directory.
 
+### External provider acceptance
+
+`TRD-EXTERNAL-PROVIDER` is a separate opt-in synthetic-book fixture in `synthetic-specs/`.
+It invokes a real model and may consume provider usage; it does not place orders with a real broker.
+The caller must explicitly set both `ONW_TRADING_SYNTHETIC_QA=1` and
+`ONW_TRADING_PROVIDER_QA=1`, select the project-owned login in
+`CODEX_HOME`, and use an attested isolated QA instance. The live CLI tests reject selected login
+directories outside the repository, non-gitignored directories and linked `auth.json` files; this
+checks path isolation, not who owns the credentials. The provider scenario has not been validated
+at the current split head. The fixture uses `uv` with the repository development requirements.
+
 ## Environment variables
 
 | Variable | Default | Description |

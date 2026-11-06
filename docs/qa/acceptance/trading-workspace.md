@@ -170,7 +170,6 @@ Use a synthetic, isolated QA instance on ports 8090–8099. Never use the person
 `frontend/src/components/tabs/trading/Trading.interactions.test.tsx` and the synthetic browser
 harness `frontend/qa/trading-workspace.test.mjs` are present in the split branch. Their presence
 does not prove they passed at the current head or that they cover every criterion above. The
-original branch also contained an opt-in `tests/cli_live/test_trading_delegation_live.py`; that
-file is not currently in the split branch, so its provider-backed scenario remains to be reconciled.
-Synthetic tests do not establish authenticated funded broker acceptance or the owner's final UI
-sign-off.
+original branch's opt-in `tests/cli_live/test_trading_delegation_live.py` is present again;
+its provider-backed scenarios have not been validated on this split head. Synthetic tests do not
+establish authenticated funded broker acceptance or the owner's final UI sign-off.
