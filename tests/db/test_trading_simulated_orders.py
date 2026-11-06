@@ -11,6 +11,7 @@ import pytest
 from backend.core.errors import ConflictError
 from backend.db.account_store import AccountStore
 from backend.db.trading_store import TradingStore, trading_transaction
+from backend.db.transaction_store import TransactionStore
 from backend.services.trading import execution, lifecycle, market, performance, workspaces
 
 T0 = "2026-01-05T14:30:00+00:00"
@@ -71,6 +72,76 @@ def test_replay_reserves_cash_fills_in_steps_and_never_writes_real_book(db_isola
     assert Decimal(account["cash"]) == Decimal("660")
     assert performance.get_performance(run_id)["equity"] == 1020
     assert AccountStore().all() == real_accounts
+
+
+def test_stock_and_crypto_use_separate_currency_accounts_without_real_ledger_writes(db_isolated):
+    stock = {
+        "symbol": "ACME",
+        "venue": "synthetic-stock",
+        "asset_class": "stock",
+        "currency": "USD",
+    }
+    crypto = {
+        "symbol": "EXAMPLE/EUR",
+        "venue": "synthetic-crypto",
+        "asset_class": "crypto",
+        "currency": "EUR",
+    }
+    workspace = workspaces.create_workspace(
+        {
+            "name": "Cross-market synthetic mandate",
+            "mandate": {"instruments": [stock, crypto], "fee_bps": "100"},
+        }
+    )
+    run = workspaces.create_run(
+        workspace["id"],
+        {
+            "mode": "backtest",
+            "start_at": T0,
+            "end_at": END,
+            "accounts": [
+                {
+                    "name": "Synthetic stocks",
+                    "venue": stock["venue"],
+                    "capital": "1000",
+                    "currency": "USD",
+                },
+                {
+                    "name": "Synthetic crypto",
+                    "venue": crypto["venue"],
+                    "capital": "1000",
+                    "currency": "EUR",
+                },
+            ],
+            "fx_rates": {"USD": "1", "EUR": "1.1"},
+            "observations": [
+                {"instrument": instrument, "timestamp": stamp, "price": price}
+                for instrument, initial, final in [(stock, "100", "101"), (crypto, "10", "11")]
+                for stamp, price in [(T0, initial), (T1, final)]
+            ],
+        },
+    )
+    call(lifecycle.apply_run_action(run["id"], {"action": "start"}))
+    real_transactions = TransactionStore().all()
+    for account, instrument in zip(performance.get_account(run["id"])["items"], [stock, crypto]):
+        call(
+            execution.submit_order(
+                run["id"],
+                {
+                    "account_id": account["id"],
+                    "instrument": instrument,
+                    "side": "buy",
+                    "quantity": "1",
+                    "request_id": "cross-market",
+                },
+            )
+        )
+    call(lifecycle.apply_run_action(run["id"], {"action": "advance", "until": T1}))
+    assert {
+        fill["instrument"]["asset_class"] for fill in execution.list_fills(run["id"])["items"]
+    } == {"stock", "crypto"}
+    assert performance.get_performance(run["id"])["equity"] == pytest.approx(2098.869)
+    assert TransactionStore().all() == real_transactions
 
 
 def test_request_identity_and_reservation_prevent_duplicate_or_overspending(db_isolated):
