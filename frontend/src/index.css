@@ -16,6 +16,7 @@
   initial-value: 1;
 }
 
+
 @layer reset {
   /* ── Reset ──
    Design tokens (the root custom properties) are GENERATED from
@@ -20283,4 +20284,32 @@ body.hide-amounts .mf-lbl-amt {
   .imp-table .imp-table__num {
     text-align: right;
   }
+}
+
+
+.trading-table-wrap {
+  max-width: 100%;
+  overflow-x: auto;
+}
+.trading-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--text-sm);
+}
+.trading-table th,
+.trading-table td {
+  padding: var(--space-3) var(--space-4);
+  border-bottom: 1px solid var(--line);
+  text-align: left;
+  vertical-align: top;
+}
+.trading-table th {
+  color: var(--muted);
+  font-weight: 500;
+  white-space: nowrap;
+}
+.trading-table .trading-number {
+  text-align: right;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
 }

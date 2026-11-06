@@ -14,6 +14,18 @@ accepts only that grant and offers run-scoped trading tools; it cannot use gener
 or choose a different run in its arguments. An owner can revoke or rotate the grant, and the
 owner's tool permissions still apply.
 
+An authenticated owner can review a proposed delegation at
+`POST /api/trading/delegations/review` before creating it with `POST /api/trading/delegations`.
+The workspace endpoints provide an overview, pause or resume actions, and reviewed mandate
+amendments. A participant grant does not authorize those owner controls.
+The owner API also exposes the run's accounts, market observations, orders, fills and performance;
+simulated and live orders both pass through the trading service's existing execution checks.
+The run's statement and linked evidence endpoints show recorded order, fill and decision links;
+the observations shown for a decision are limited to what was available at that decision time.
+Comparisons require matching scenarios; they stop ranking runs when valuations are incomplete,
+historical clocks diverge or a mandate changes. Historical comparisons cannot eliminate model
+knowledge of later events.
+
 When allowed by the owner, a participant can write versioned research or code files, read saved
 versions, and record the work it actually performed. These files are workspace records rather
 than host filesystem paths; credential filtering is defensive and cannot detect every secret.
