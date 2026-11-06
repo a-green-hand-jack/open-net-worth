@@ -185,7 +185,7 @@ def _apply_account_result(conn, run, account, result):
     return clean
 
 
-def recover_runs(*, boot_owned=False):
+def recover_runs(*, boot_owned=False, recover_brokers=True):
     changed = []
     with trading_transaction() as conn:
         for run in TradingStore("runs").all(conn=conn):
@@ -222,6 +222,8 @@ def recover_runs(*, boot_owned=False):
                         else "Persistent workspace is ready to continue.",
                     },
                 )
+            if not recover_brokers:
+                continue
             for order in TradingStore("orders").list_scope(run["id"], conn=conn):
                 if order["status"] == "submitting":
                     TradingStore("orders").update_by_id(

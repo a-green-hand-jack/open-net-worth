@@ -98,6 +98,7 @@ from backend.api.assets_api import router as assets_router
 from backend.api.auth import router as auth_router
 from backend.api.automations import router as automations_router
 from backend.api.backup import router as backup_router
+from backend.api.binance_api import router as binance_router
 from backend.api.briefing import router as briefing_router
 from backend.api.budgets import router as budgets_router
 from backend.api.builder import router as builder_router
@@ -198,6 +199,7 @@ from backend.api.sql_query import router as sql_query_router
 from backend.api.statement_parse_api import router as statement_parse_router
 from backend.api.terminal import router as terminal_router
 from backend.api.tool_permissions import router as tool_permissions_router
+from backend.api.trading_executor_api import router as trading_executor_router
 from backend.api.trading_grants_api import router as trading_grants_router
 from backend.api.upload import router as upload_router
 from backend.api.vault import router as vault_router
@@ -656,6 +658,11 @@ async def lifespan(app: FastAPI):
 
     register_automation_adapters()
 
+    from backend.ai.trading_runner_adapter import run_lucius_cycle
+    from backend.core.trading_runtime import register_trading_runner
+
+    register_trading_runner(run_lucius_cycle)
+
     # Boot recovery for server-owned turns (concurrent-conversations RFC Phase 3), modelled
     # on recover_automation_runs just above: a conversation whose last_turn_status is still
     # "running" in a FRESH process was interrupted by a crash (a clean shutdown rewrites it
@@ -696,6 +703,9 @@ async def lifespan(app: FastAPI):
 
         _SCHEDULER_LOCK_HANDLE = open(DATA_DIR / "scheduler.lock", "a+", encoding="utf-8")
         lock_exclusive(_SCHEDULER_LOCK_HANDLE)
+        from backend.services.trading.reconciliation import recover_runs
+
+        await asyncio.to_thread(recover_runs)
         start()
         _log.info("scheduler: started (this worker owns the scheduler lock)")
         # Memory is written when a conversation goes idle and tidied once a day. Like the
@@ -888,6 +898,7 @@ async def lifespan(app: FastAPI):
 
     await cancel_memory_extractions()
     unregister_automation_adapters()
+    register_trading_runner(None)
     await telegram_bot.stop()
     from backend.connectors.voice import service as voice_service
 
@@ -1175,6 +1186,8 @@ app.include_router(vault_router)
 app.include_router(assets_router)
 app.include_router(automations_router)
 app.include_router(trading_grants_router)
+app.include_router(binance_router)
+app.include_router(trading_executor_router)
 app.include_router(trading_gateway_router)
 app.include_router(ibkr_router)
 app.include_router(yodlee_router)

@@ -9,6 +9,7 @@ from backend.services.connector_catalog import CATALOG
 
 def test_catalog_lists_every_kind_the_migration_creates():
     assert set(CATALOG) == {
+        "binance",
         "email",
         "webhook",
         "telegram",

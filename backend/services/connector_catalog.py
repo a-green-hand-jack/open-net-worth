@@ -160,6 +160,14 @@ def _needs(secrets: tuple[str, ...] = (), config: tuple[str, ...] = ()) -> Calla
     return configured
 
 
+def _binance_configured(row: Row, have: Have) -> bool:
+    return bool(
+        {"api_key", "api_secret"} <= have
+        and row["config"].get("broker_account_id")
+        and row["config"].get("isolated_account") is True
+    )
+
+
 def _plaid_configured(row: Row, have: Have) -> bool:
     """Keys plus at least one linked bank — the multi-bank list, or the legacy single token."""
     return bool(
@@ -444,6 +452,19 @@ def _kind(kind: str, label: str, configured: Callable, **options) -> ConnectorKi
 
 
 _KINDS: tuple[ConnectorKind, ...] = (
+    _kind(
+        "binance",
+        "Binance Spot",
+        _binance_configured,
+        secret_fields=_secrets(minted=("api_key", "api_secret")),
+        config_keys=(
+            "environment",
+            "quote_currency",
+            "account_scope",
+            "isolated_account",
+            "broker_account_id",
+        ),
+    ),
     _kind(
         "email",
         "Email",

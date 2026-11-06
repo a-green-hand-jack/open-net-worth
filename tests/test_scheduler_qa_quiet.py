@@ -13,7 +13,14 @@ import pytest
 import backend.scheduler as scheduler
 from tests.test_scheduler_no_ingest_job import fake_scheduler  # noqa: F401
 
-_OUTWARD = {"price_check", "intel_scan", "analysis_sweep", "rss_poll_slow", "refresh_dividend_meta"}
+_OUTWARD = {
+    "price_check",
+    "intel_scan",
+    "analysis_sweep",
+    "rss_poll_slow",
+    "refresh_dividend_meta",
+    "trading_workspaces",
+}
 
 
 def _qa_mode(monkeypatch, on: bool) -> None:
