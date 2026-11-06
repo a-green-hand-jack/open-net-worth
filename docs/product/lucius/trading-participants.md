@@ -40,8 +40,8 @@ An allowed participant can run a strategy in the isolated container; its order i
 through the run's permission and order checks. This requires Docker and the pinned sandbox image.
 Order permission is rechecked for each strategy order and before an unsent broker order enters
 submission. Revoking permission cannot recall a broker submission already in progress.
-Conflicting terminal order receipts or changed broker order IDs require reconciliation before
-they can be applied.
+Receipts that contradict a rejected, canceled, or expired order, or change its broker order ID,
+require reconciliation before they can be applied.
 
 In Paper or Live runs, permitted participants can search public research, fetch a public research
 page, and request current Yahoo market data within the reviewed mandate and allocated account.
