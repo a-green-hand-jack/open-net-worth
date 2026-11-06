@@ -170,6 +170,9 @@ describe('ImportModal — import-dedup 3-way (decision commit)', () => {
     await openPreview(onDecisionCommit, {}, true)
     expect(document.querySelector('.imp3-arow-match-facts')?.textContent).toContain('支出')
     expect(screen.getByText('Cinebar')).toBeTruthy()
+    expect(
+      document.querySelector('[data-draft-index="0"] .imp3-arow-line')?.getAttribute('aria-label'),
+    ).toContain('展开详情')
     expect(decisionRadio('关联')).toBeTruthy()
     fireEvent.click(screen.getByRole('button', { name: 'Confirm' }))
     await waitFor(() => expect(onDecisionCommit).toHaveBeenCalled())

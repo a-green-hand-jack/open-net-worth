@@ -1,6 +1,12 @@
 {
+  "accounts.importDecision.collapse": "收起详情",
+  "accounts.importDecision.expand": "展开详情",
   "accounts.importDecision.import": "导入",
   "accounts.importDecision.leave": "排除",
   "accounts.importDecision.link": "关联",
+  "accounts.importDecision.matchedLabel": "{title}，{decision}，{category}，{amount}。有匹配的账簿交易。{action}",
+  "accounts.importDecision.needDecision": "需要决定",
+  "accounts.importDecision.transfer": "转账",
+  "accounts.importDecision.uncategorized": "未分类",
   "accounts.importDecision.weakLink": "同一笔，关联"
 }

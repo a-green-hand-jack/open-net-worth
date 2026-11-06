@@ -1,4 +1,5 @@
 import type { Locale } from './locale'
+import importReceiptZh from '../components/tabs/accounts/import-receipt.zh-CN.json'
 import importDecisionZh from '../components/tabs/accounts/import-decision.zh-CN.json'
 import importDriftZh from '../components/tabs/accounts/import-drift.zh-CN.json'
 import importLineZh from '../components/tabs/accounts/import-line.zh-CN.json'
@@ -76,6 +77,7 @@ import accountReviewSummaryZh from '../components/tabs/accounts/review-summary.z
 export const catalogs: Record<Locale, Record<string, string> | undefined> = {
   en: undefined,
   'zh-CN': {
+    ...importReceiptZh,
     ...importDecisionZh,
     ...importDriftZh,
     ...importLineZh,

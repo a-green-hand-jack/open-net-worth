@@ -5082,10 +5082,17 @@ export function ImportModal({
                   act === 'skip'
                     ? '—'
                     : isTransfer
-                      ? stmtTransfer || 'Transfer'
+                      ? stmtTransfer ||
+                        intl.formatMessage({
+                          id: 'accounts.importDecision.transfer',
+                          defaultMessage: 'Transfer',
+                        })
                       : effectiveCategory
                         ? catMapProp[effectiveCategory]?.label || effectiveCategory
-                        : 'Uncategorized'
+                        : intl.formatMessage({
+                            id: 'accounts.importDecision.uncategorized',
+                            defaultMessage: 'Uncategorized',
+                          })
                 // Off-by rows expand by default under their own filter — the whole point of that
                 // view is to review the drift without an extra click per row; an explicit
                 // collapse still overrides it.
@@ -5113,7 +5120,10 @@ export function ImportModal({
                 const dateDrifts = !!ledgerDate && ledgerDate !== d.date
                 const triggerDecision =
                   band === 'review' && !queueDecided[d.rowIndex ?? i]
-                    ? 'Needs decision'
+                    ? intl.formatMessage({
+                        id: 'accounts.importDecision.needDecision',
+                        defaultMessage: 'Needs decision',
+                      })
                     : decisionLabel
                 return (
                   <article
@@ -5126,7 +5136,28 @@ export function ImportModal({
                       tabIndex={0}
                       className="imp3-arow-line"
                       aria-expanded={expanded}
-                      aria-label={`${rowTitle(d)}, ${triggerDecision}, ${categoryLabel}, ${fCur(d.amount, d.currency, { cents: true })}. Matched ledger transaction available. ${expanded ? 'Collapse details' : 'Expand details'}`}
+                      aria-label={intl.formatMessage(
+                        {
+                          id: 'accounts.importDecision.matchedLabel',
+                          defaultMessage:
+                            '{title}, {decision}, {category}, {amount}. Matched ledger transaction available. {action}',
+                        },
+                        {
+                          title: rowTitle(d),
+                          decision: triggerDecision,
+                          category: categoryLabel,
+                          amount: fCur(d.amount, d.currency, { cents: true }),
+                          action: expanded
+                            ? intl.formatMessage({
+                                id: 'accounts.importDecision.collapse',
+                                defaultMessage: 'Collapse details',
+                              })
+                            : intl.formatMessage({
+                                id: 'accounts.importDecision.expand',
+                                defaultMessage: 'Expand details',
+                              }),
+                        },
+                      )}
                       onClick={() =>
                         setExpandedRows((rows) => ({ ...rows, [d.rowIndex ?? i]: !expanded }))
                       }
@@ -6093,10 +6124,19 @@ export function ImportModal({
                                   }
                                 >
                                   {action === 'merge'
-                                    ? 'will link'
+                                    ? intl.formatMessage({
+                                        id: 'accounts.importReceipt.willLink',
+                                        defaultMessage: 'will link',
+                                      })
                                     : action === 'new'
-                                      ? 'importing as new'
-                                      : 'left out'}
+                                      ? intl.formatMessage({
+                                          id: 'accounts.importReceipt.new',
+                                          defaultMessage: 'importing as new',
+                                        })
+                                      : intl.formatMessage({
+                                          id: 'accounts.importReceipt.left',
+                                          defaultMessage: 'left out',
+                                        })}
                                 </span>
                                 {existing &&
                                   ` • ${existingTxnLine(existing, accounts, catMapProp, d.currency, { anchorAccountId: d.destId || accountId, counterHint: d.routed?.to_account_id, intl })}`}
@@ -6195,10 +6235,19 @@ export function ImportModal({
                                       }
                                     >
                                       {action === 'merge'
-                                        ? 'will link'
+                                        ? intl.formatMessage({
+                                            id: 'accounts.importReceipt.willLink',
+                                            defaultMessage: 'will link',
+                                          })
                                         : action === 'new'
-                                          ? 'importing as new'
-                                          : 'left out'}
+                                          ? intl.formatMessage({
+                                              id: 'accounts.importReceipt.new',
+                                              defaultMessage: 'importing as new',
+                                            })
+                                          : intl.formatMessage({
+                                              id: 'accounts.importReceipt.left',
+                                              defaultMessage: 'left out',
+                                            })}
                                     </span>
                                     {outcome && <span> • {outcome}</span>}
                                     {offByChip(i, d.currency)}
