@@ -1,5 +1,7 @@
 """Server-owned mandate lifecycle and bounded environment advancement."""
 
+from uuid import uuid4
+
 from backend.core.errors import ConflictError, ValidationError
 from backend.db.trading_store import TradingStore, trading_transaction
 from backend.models.trading import RunAction
@@ -37,6 +39,7 @@ async def apply_run_action(run_id, data):
 async def _start(run_id, action):
     run = TradingStore("runs").required(run_id)
     expected = "ready" if action == "start" else "paused"
+    attempt = run.get("reconciliation_attempt")
     if run["state"] != expected:
         raise ConflictError(f"Run must be {expected} to {action}")
     if run["workspace_snapshot"]["agent_kind"] == "script" and not run.get("agent_script_source"):
@@ -51,7 +54,7 @@ async def _start(run_id, action):
     )
     with trading_transaction() as conn:
         run = TradingStore("runs").required(run_id, conn=conn)
-        if run["state"] != expected:
+        if run["state"] != expected or run.get("reconciliation_attempt") != attempt:
             raise ConflictError("Run state changed during activation")
         if run["workspace_snapshot"]["agent_kind"] == "script" and not run.get(
             "agent_script_source"
@@ -147,11 +150,14 @@ async def _stop(run_id, action):
         if run["state"] in {"stopped", "completed"}:
             return public_run(run)
         target = "paused" if action == "pause" else "stopped"
+        reconciliation_attempt = uuid4().hex
+        was_unresolved = run["state"] == "needs_reconciliation"
         run = TradingStore("runs").update_by_id(
             run_id,
             {
-                "state": "paused" if action == "pause" else "stopping",
+                "state": "needs_reconciliation" if was_unresolved else "stopping",
                 "desired_state": target,
+                "reconciliation_attempt": reconciliation_attempt,
                 "current_time": environment_time(run).isoformat(),
                 "updated_at": now(),
             },
@@ -164,7 +170,7 @@ async def _stop(run_id, action):
             if row["status"] in ACTIVE_ORDER_STATES
         ]
     for order in orders:
-        await cancel_order(run_id, order["id"])
+        await cancel_order(run_id, order["id"], _reconciliation_attempt=reconciliation_attempt)
     from backend.services.trading.book_projection import (
         has_unresolved_book_fills,
         project_live_fills,
@@ -174,6 +180,8 @@ async def _stop(run_id, action):
         project_live_fills(run_id)
     with trading_transaction() as conn:
         run = TradingStore("runs").required(run_id, conn=conn)
+        if run.get("reconciliation_attempt") != reconciliation_attempt or was_unresolved:
+            return public_run(run)
         outstanding = any(
             row["status"] in ACTIVE_ORDER_STATES
             for row in TradingStore("orders").list_scope(run_id, conn=conn)

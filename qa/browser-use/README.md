@@ -107,6 +107,21 @@ python3 qa/browser-use/runner.py --headed --specs PL-01
 
 Screenshots are saved to `qa/browser-use/artifacts/`.
 
+### Trading workspace acceptance
+
+`TRD-WORKSPACE` is a fixture-only browser test for a **disposable synthetic book**.
+Do not use the ordinary `make qa-e2e` data clone for this spec: that flow copies the
+operator's book. Start an attested QA instance with an empty synthetic book using the
+isolated QA lifecycle, then set `ONW_TRADING_SYNTHETIC_QA=1` for the runner. This
+spec lives in `synthetic-specs/` so the default all-spec run does not select it.
+Select it explicitly with `--specs-dir qa/browser-use/synthetic-specs` and
+`--specs TRD-WORKSPACE`. The fixture refuses to run without this explicit opt-in
+and rejects books containing
+automations or trading runs. These checks do not establish that the rest of a book
+is synthetic; the operator must ensure that before opting in. The test changes
+watchlist and tool-permission settings and creates synthetic trading records.
+Screenshots and logs stay under the ignored `qa/browser-use/artifacts/` directory.
+
 ## Environment variables
 
 | Variable | Default | Description |

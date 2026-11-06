@@ -1,13 +1,29 @@
 """Observation-driven paper/replay matching, with explicit liquidity and slippage."""
 
+from decimal import ROUND_DOWN, Decimal, localcontext
+from fractions import Fraction
+
 from backend.db.trading_store import TradingStore
-from backend.services.trading.common import ACTIVE_ORDER_STATES, amount, identity, instant
+from backend.services.trading.common import (
+    ACTIVE_ORDER_STATES,
+    amount,
+    bounded_fraction,
+    event,
+    identity,
+    instant,
+)
 from backend.services.trading.fills import apply_fill
 from backend.services.trading.market import available_observations, instrument_key
 from backend.services.trading.quote_authority import quote_is_authorized
 
 
 def match_orders(conn, run):
+    with localcontext() as ctx:
+        ctx.prec = 600
+        return _match_orders(conn, run)
+
+
+def _match_orders(conn, run):
     observations = available_observations(run)
     if run["mode"] == "paper":
         latest = {}
@@ -18,6 +34,13 @@ def match_orders(conn, run):
         observations = list(latest.values())
     orders = TradingStore("orders").list_scope(run["id"], conn=conn)
     fills = TradingStore("fills").list_scope(run["id"], conn=conn)
+    spent_by_order = {}
+    if run["workspace_snapshot"]["mandate"].get("max_order_notional") is not None:
+        for fill in fills:
+            order_id = fill["order_id"]
+            spent_by_order[order_id] = spent_by_order.get(order_id, Fraction(0)) + (
+                bounded_fraction(fill["quantity"]) * bounded_fraction(fill["price"])
+            )
     for observation in observations:
         used = sum(
             (
@@ -30,7 +53,17 @@ def match_orders(conn, run):
         for order in orders:
             if not _eligible(run, order, observation):
                 continue
-            order, consumed = _match(conn, run, order, observation, used)
+            with localcontext() as ctx:
+                ctx.prec = 600
+                order, consumed, spent = _match(
+                    conn,
+                    run,
+                    order,
+                    observation,
+                    used,
+                    spent_by_order.get(order["id"], Fraction(0)),
+                )
+            spent_by_order[order["id"]] = spent
             used += consumed
             orders = [order if row["id"] == order["id"] else row for row in orders]
 
@@ -57,8 +90,11 @@ def _eligible(run, order, observation):
     )
 
 
-def _match(conn, run, order, observation, used):
+def _match(conn, run, order, observation, used, spent):
     mandate = run["workspace_snapshot"]["mandate"]
+    cap = mandate.get("max_order_notional")
+    if cap is not None:
+        bounded_fraction(observation["price"])
     slip = amount(mandate["slippage_bps"]) / 10000
     price = amount(observation["price"]) * (1 + slip if order["side"] == "buy" else 1 - slip)
     limit = order.get("limit_price")
@@ -66,8 +102,15 @@ def _match(conn, run, order, observation, used):
         (order["side"] == "buy" and price > amount(limit))
         or (order["side"] == "sell" and price < amount(limit))
     ):
-        return order, amount(0)
+        return order, amount(0), spent
     quantity = amount(order["quantity"]) - amount(order["filled_quantity"])
+    if cap is not None:
+        remaining = max(Fraction(0), bounded_fraction(cap) - spent)
+        cap_quantity = remaining / bounded_fraction(price)
+        with localcontext() as ctx:
+            ctx.prec = 28
+            ctx.rounding = ROUND_DOWN
+            quantity = min(quantity, Decimal(cap_quantity.numerator) / cap_quantity.denominator)
     if observation["volume"] is not None:
         quantity = min(
             quantity,
@@ -90,11 +133,17 @@ def _match(conn, run, order, observation, used):
             ),
             amount(0),
         )
-        quantity = min(
-            quantity, max(amount(0), amount(account["cash"]) - reserved) / (price * (1 + fee_rate))
-        )
+        available_cash = max(amount(0), amount(account["cash"]) - reserved)
+        unit_cost = price * (1 + fee_rate)
+        with localcontext() as ctx:
+            ctx.prec = 28
+            ctx.rounding = ROUND_DOWN
+            affordable_quantity = available_cash / unit_cost
+        quantity = min(quantity, affordable_quantity)
     if quantity <= 0:
-        return order, amount(0)
+        return order, amount(0), spent
+    if cap is not None:
+        fill_notional = bounded_fraction(quantity) * bounded_fraction(price)
     raw = {
         "execution_id": identity(order["id"], _observation_id(observation)),
         "quantity": str(quantity),
@@ -107,7 +156,18 @@ def _match(conn, run, order, observation, used):
         "broker_order_id": order["id"],
     }
     order = apply_fill(conn, run, order, raw)
+    if cap is not None and order["status"] == "partially_filled":
+        exhausted = spent + fill_notional >= bounded_fraction(cap)
+        if exhausted:
+            order = TradingStore("orders").update_by_id(
+                order["id"],
+                {"status": "canceled", "reserved_cash": "0", "reserved_quantity": "0"},
+                conn=conn,
+            )
+            event(conn, run, "order_canceled", {"order_id": order["id"], "reason": "notional_cap"})
     order = TradingStore("orders").update_by_id(
         order["id"], {"last_match_timestamp": observation["timestamp"]}, conn=conn
     )
-    return order, quantity
+    if cap is not None:
+        spent += fill_notional
+    return order, quantity, spent

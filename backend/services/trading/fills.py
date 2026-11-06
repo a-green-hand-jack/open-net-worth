@@ -1,5 +1,7 @@
 """Idempotent fill application, shared by simulation and live reconciliation."""
 
+from decimal import ROUND_UP, localcontext
+
 from backend.core.errors import ConflictError, ValidationError
 from backend.db.trading_store import TradingStore
 from backend.services.trading.common import amount, event, identity, instant, uses_broker_execution
@@ -8,6 +10,12 @@ from backend.services.trading.market import instrument_key
 
 
 def apply_fill(conn, run, order, raw):
+    with localcontext() as ctx:
+        ctx.prec = 28 if uses_broker_execution(run) else 600
+        return _apply_fill(conn, run, order, raw)
+
+
+def _apply_fill(conn, run, order, raw):
     base_fee = base_fee_quantity(raw)
     if not isinstance(raw.get("execution_id"), str) or not raw["execution_id"]:
         raise ValidationError("Broker fill needs a stable execution identity")
@@ -70,7 +78,10 @@ def apply_fill(conn, run, order, raw):
         account["id"], {"cash": str(cash), "positions": positions}, conn=conn
     )
     filled = amount(order["filled_quantity"]) + quantity
-    fraction = (amount(order["quantity"]) - filled) / amount(order["quantity"])
+    with localcontext() as ctx:
+        ctx.prec = 28
+        ctx.rounding = ROUND_UP
+        fraction = (amount(order["quantity"]) - filled) / amount(order["quantity"])
     order = TradingStore("orders").update_by_id(
         order["id"],
         {
@@ -83,6 +94,7 @@ def apply_fill(conn, run, order, raw):
     )
     fill = {
         **raw,
+        "accounting_precision": 28 if uses_broker_execution(run) else 600,
         "id": fill_id,
         "scope_id": run["id"],
         "run_id": run["id"],
@@ -122,6 +134,13 @@ def apply_receipt(conn, run, order, receipt):
     }
     if receipt.get("status") not in allowed or not receipt.get("broker_order_id"):
         raise ValidationError("Invalid broker order receipt")
+    terminal = {"rejected", "canceled", "expired"}
+    if order["status"] in terminal and receipt["status"] != order["status"]:
+        raise ConflictError(
+            "Broker receipt contradicts a terminal order; reconcile before continuing"
+        )
+    if order.get("broker_order_id") and order["broker_order_id"] != receipt["broker_order_id"]:
+        raise ConflictError("Broker order identity changed; reconcile before continuing")
     order = TradingStore("orders").update_by_id(
         order["id"], {"broker_order_id": receipt["broker_order_id"]}, conn=conn
     )

@@ -22,6 +22,7 @@ An authenticated owner can review a proposed delegation at
 `POST /api/trading/delegations/review` before creating it with `POST /api/trading/delegations`.
 The workspace endpoints provide an overview, pause or resume actions, and reviewed mandate
 amendments. A participant grant does not authorize those owner controls.
+After a mandate amendment is saved, the open workspace refreshes to show the updated mandate.
 Lucius can prepare an unsaved delegation for the owner's review, but cannot grant live trading
 authority through that preview. Funding must be supplied explicitly in the reviewed draft.
 The owner API also exposes the run's accounts, market observations, orders, fills and performance;
@@ -37,6 +38,18 @@ versions, and record the work it actually performed. These files are workspace r
 than host filesystem paths; credential filtering is defensive and cannot detect every secret.
 An allowed participant can run a strategy in the isolated container; its order intents still pass
 through the run's permission and order checks. This requires Docker and the pinned sandbox image.
+Order permission is rechecked for each strategy order and before an unsent broker order enters
+submission. Revoking permission cannot recall a broker submission already in progress.
+Receipts that contradict a rejected, canceled, or expired order, or change its broker order ID,
+require reconciliation before they can be applied.
+A broker order awaiting a submission or cancellation receipt blocks additional broker submissions
+until the outstanding operation is resolved. Interrupted or conflicting broker operations keep
+the run in a reconciliation state.
+For simulated orders, the order-notional limit applies to the cumulative gross value of fills;
+fees are accounted for separately. The pre-submission check compares the stated quantity and
+reference price without rounding their product. A quote-based check cannot guarantee a live
+broker fill will stay within that limit.
+Simulated account statements reconstruct cash and positions from the recorded fills.
 
 In Paper or Live runs, permitted participants can search public research, fetch a public research
 page, and request current Yahoo market data within the reviewed mandate and allocated account.

@@ -282,7 +282,11 @@ def test_total_tool_schemas_size_under_budget(tool_schemas):
     # Eight run-scoped trading tools add about 3k registry characters; the separate
     # default-offer budget remains unchanged.
     # Three workspace file/work-record tools add about 1.2k more registry characters.
-    budget = 484_000
+    # The three scoped market and research tools add about 1.2k characters; the
+    # default-offer budget remains unchanged. Measured total: 485,187 characters.
+    # Workspace listing and delegation preview add 6,177 characters, mostly the
+    # reviewed delegation schema. Measured total: 491,368 characters.
+    budget = 493_000
     assert total < budget, (
         f"TOOL_SCHEMAS json.dumps size is {total:,} chars — over the {budget:,}-char budget. "
         "Shorten a tool description or raise the budget intentionally (with a comment)."

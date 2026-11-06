@@ -111,6 +111,8 @@ import logging
 from datetime import datetime, timezone
 from typing import Optional
 
+from sqlalchemy import select
+
 from backend.db.payload_store import PayloadTableStore
 from backend.db.tables import tool_permissions
 
@@ -139,6 +141,16 @@ class ToolPermissionStore(PayloadTableStore):
         super().__init__(tool_permissions, engine=engine)
 
     # ── Reads ─────────────────────────────────────────────────────────────────
+
+    def get_level_for_update(self, connector_id: str, tool: str, *, conn) -> Optional[str]:
+        """Lock an existing permission row until the caller's transaction ends."""
+        query = (
+            select(self._table.c.payload)
+            .where(self._table.c.id == permission_key(connector_id, tool))
+            .with_for_update()
+        )
+        row = conn.execute(query).scalar_one_or_none()
+        return row.get("level") if row else None
 
     def get_level(self, connector_id: str, tool: str) -> Optional[str]:
         """This pair's STORED level, or ``None`` when the user has never decided about it.

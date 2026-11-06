@@ -277,13 +277,15 @@ def test_every_dispatch_site_consults_the_permission_store():
 
     That test pinned a GAP (one caller: external MCP) so it could not silently change. The
     gap is now closed, and what has to be pinned instead is the closure: this app has
-    exactly TWO dispatch paths, and BOTH read the permission store.
+    the dispatch paths and the additional strategy-order guard read the permission store.
 
       * internal tools -> ``ai/tools/registry.dispatch`` -> ``ai.permissions.engine()`` ->
         ``_confirm_gate.effective_level`` (``_confirm_gate_v2`` when ``permissions_v2`` is on)
       * external MCP   -> ``mcp/client_manager``
+      * strategy intents -> ``services/trading_scripts`` requires always-allow before
+        directly calling the trading order service
 
-    A THIRD reader appearing is not automatically wrong — but it is a new place a permission
+    Another reader appearing is not automatically wrong — but it is a new place a permission
     decision is interpreted, and it must be reviewed rather than merged unnoticed. That is
     the same protection the original test gave, aimed at the invariant that now holds.
 
@@ -295,7 +297,7 @@ def test_every_dispatch_site_consults_the_permission_store():
     import pathlib
 
     backend = pathlib.Path(__file__).resolve().parents[1] / "backend"
-    reads = {"get_tool_permission", "stored_tool_level", "yolo_enabled"}
+    reads = {"get_tool_permission", "stored_tool_level", "yolo_enabled", "get_level_for_update"}
     # Not dispatch sites, and each excluded for a stated reason rather than because it was
     # inconvenient. Keyed on the RELATIVE path: `api/tool_permissions.py` and
     # `services/tool_permissions.py` share a basename, and excluding the API layer by
@@ -345,6 +347,10 @@ def test_every_dispatch_site_consults_the_permission_store():
         "ai/tools/_confirm_gate.py",
         "ai/tools/_confirm_gate_v2.py",
         "mcp/client_manager.py",
+        # Strategy output bypasses tool dispatch and therefore requires an explicit
+        # always-allow order permission before it reaches the trading order choke.
+        "services/trading_scripts.py",
+        "services/trading/execution.py",
     }, (
         "the permission store is read somewhere new. Every dispatch site MUST consult it, "
         "and every consulting site must be a dispatch site — review this addition rather "

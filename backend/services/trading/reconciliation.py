@@ -1,6 +1,8 @@
 """Broker receipts are execution evidence; account snapshots detect unexplained activity."""
 
-from backend.core.errors import ConflictError
+from uuid import uuid4
+
+from backend.core.errors import ConflictError, ValidationError
 from backend.db.trading_store import TradingStore, trading_transaction
 from backend.services.trading.common import (
     ACTIVE_ORDER_STATES,
@@ -45,8 +47,9 @@ async def reconcile_run(run_id):
             raise ConflictError("Only broker-executed runs use broker reconciliation")
         if run["state"] == "ready":
             raise ConflictError("Start the live mandate before reconciling its executions")
+        attempt = uuid4().hex
         run = TradingStore("runs").update_by_id(
-            run_id, {"state": "needs_reconciliation"}, conn=conn
+            run_id, {"state": "needs_reconciliation", "reconciliation_attempt": attempt}, conn=conn
         )
         accounts = TradingStore("accounts").list_scope(run_id, conn=conn)
         orders = TradingStore("orders").list_scope(run_id, conn=conn)
@@ -63,6 +66,11 @@ async def reconcile_run(run_id):
             )
         except Exception as exc:
             with trading_transaction() as conn:
+                run = TradingStore("runs").update_by_id(
+                    run_id,
+                    {"state": "needs_reconciliation", "reconciliation_attempt": uuid4().hex},
+                    conn=conn,
+                )
                 event(
                     conn,
                     run,
@@ -70,41 +78,66 @@ async def reconcile_run(run_id):
                     {"account_id": account["id"], "reason": type(exc).__name__},
                 )
             return public_run(run)
-    with trading_transaction() as conn:
-        run = TradingStore("runs").required(run_id, conn=conn)
-        run = TradingStore("runs").update_by_id(
-            run_id, {"current_time": environment_time(run).isoformat()}, conn=conn
-        )
-        clean = True
-        for account, result in results:
-            clean = _apply_account_result(conn, run, account, result) and clean
-        unresolved = any(
-            row["status"] in {"submitting", "submission_unknown", "cancel_pending", "pending"}
-            for row in TradingStore("orders").list_scope(run_id, conn=conn)
-        )
-        desired = run.get("desired_state", "paused")
-        outstanding = any(
-            row["status"] in ACTIVE_ORDER_STATES
-            for row in TradingStore("orders").list_scope(run_id, conn=conn)
-        )
-        state = (
-            desired
-            if clean and not unresolved and (desired == "running" or not outstanding)
-            else "needs_reconciliation"
-        )
-        run = TradingStore("runs").update_by_id(run_id, {"state": state}, conn=conn)
-        event(conn, run, "reconciled" if clean else "outside_account_activity", {"state": state})
-        snapshot_performance(conn, run)
+    try:
+        with trading_transaction() as conn:
+            run = TradingStore("runs").required(run_id, conn=conn)
+            if run.get("reconciliation_attempt") != attempt:
+                run = TradingStore("runs").update_by_id(
+                    run_id,
+                    {"state": "needs_reconciliation", "reconciliation_attempt": uuid4().hex},
+                    conn=conn,
+                )
+                event(conn, run, "reconciliation_failed", {"reason": "superseded_attempt"})
+                return public_run(run)
+            run = TradingStore("runs").update_by_id(
+                run_id, {"current_time": environment_time(run).isoformat()}, conn=conn
+            )
+            clean = True
+            for account, result in results:
+                clean = _apply_account_result(conn, run, account, result) and clean
+            unresolved = any(
+                row["status"] in {"submitting", "submission_unknown", "cancel_pending", "pending"}
+                for row in TradingStore("orders").list_scope(run_id, conn=conn)
+            )
+            desired = run.get("desired_state", "paused")
+            outstanding = any(
+                row["status"] in ACTIVE_ORDER_STATES
+                for row in TradingStore("orders").list_scope(run_id, conn=conn)
+            )
+            state = (
+                desired
+                if clean and not unresolved and (desired == "running" or not outstanding)
+                else "needs_reconciliation"
+            )
+            run = TradingStore("runs").update_by_id(run_id, {"state": state}, conn=conn)
+            event(
+                conn, run, "reconciled" if clean else "outside_account_activity", {"state": state}
+            )
+            snapshot_performance(conn, run)
+    except (ConflictError, ValidationError) as exc:
+        with trading_transaction() as conn:
+            run = TradingStore("runs").update_by_id(
+                run_id,
+                {"state": "needs_reconciliation", "reconciliation_attempt": uuid4().hex},
+                conn=conn,
+            )
+            event(
+                conn,
+                run,
+                "reconciliation_failed",
+                {"reason": type(exc).__name__, "phase": "receipt"},
+            )
+        return public_run(run)
     from backend.services.trading.book_projection import project_live_fills
 
     if run["mode"] == "live":
         project_live_fills(run_id)
     if desired != "running":
-        await _drive_stop_policy(run_id, clean)
+        await _drive_stop_policy(run_id, clean, attempt)
     return public_run(TradingStore("runs").required(run_id))
 
 
-async def _drive_stop_policy(run_id, account_matched):
+async def _drive_stop_policy(run_id, account_matched, attempt):
     from backend.services.trading.book_projection import (
         has_unresolved_book_fills,
         project_live_fills,
@@ -115,7 +148,7 @@ async def _drive_stop_policy(run_id, account_matched):
     canceled = False
     for order in orders:
         if order["status"] in {"open", "partially_filled"} and order.get("broker_order_id"):
-            await cancel_order(run_id, order["id"])
+            await cancel_order(run_id, order["id"], _reconciliation_attempt=attempt)
             canceled = True
     if canceled:
         run = TradingStore("runs").required(run_id)
@@ -130,7 +163,11 @@ async def _drive_stop_policy(run_id, account_matched):
             account_matched = account_matched and account_matches(account, actual)
     with trading_transaction() as conn:
         run = TradingStore("runs").required(run_id, conn=conn)
-        if run.get("desired_state") == "running" or not account_matched:
+        if (
+            run.get("reconciliation_attempt") != attempt
+            or run.get("desired_state") == "running"
+            or not account_matched
+        ):
             return
         outstanding = any(
             order["status"] in ACTIVE_ORDER_STATES

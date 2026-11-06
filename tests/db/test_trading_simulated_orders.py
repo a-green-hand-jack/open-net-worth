@@ -1,15 +1,27 @@
 """End-to-end synthetic order accounting through the run's simulated clock."""
 
 import asyncio
+from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timedelta, timezone
-from decimal import Decimal
+from decimal import Decimal, localcontext
+from fractions import Fraction
+from threading import Barrier
 
 import pytest
 
-from backend.core.errors import ConflictError
+from backend.core.errors import ConflictError, ValidationError
 from backend.db.account_store import AccountStore
-from backend.db.trading_store import TradingStore
-from backend.services.trading import execution, lifecycle, performance, workspaces
+from backend.db.trading_store import TradingStore, trading_transaction
+from backend.db.transaction_store import TransactionStore
+from backend.services.trading import (
+    execution,
+    lifecycle,
+    market,
+    performance,
+    statements,
+    workspaces,
+)
+from backend.services.trading.accounting import execution_ledger
 
 T0 = "2026-01-05T14:30:00+00:00"
 T1 = "2026-01-05T14:31:00+00:00"
@@ -71,6 +83,76 @@ def test_replay_reserves_cash_fills_in_steps_and_never_writes_real_book(db_isola
     assert AccountStore().all() == real_accounts
 
 
+def test_stock_and_crypto_use_separate_currency_accounts_without_real_ledger_writes(db_isolated):
+    stock = {
+        "symbol": "ACME",
+        "venue": "synthetic-stock",
+        "asset_class": "stock",
+        "currency": "USD",
+    }
+    crypto = {
+        "symbol": "EXAMPLE/EUR",
+        "venue": "synthetic-crypto",
+        "asset_class": "crypto",
+        "currency": "EUR",
+    }
+    workspace = workspaces.create_workspace(
+        {
+            "name": "Cross-market synthetic mandate",
+            "mandate": {"instruments": [stock, crypto], "fee_bps": "100"},
+        }
+    )
+    run = workspaces.create_run(
+        workspace["id"],
+        {
+            "mode": "backtest",
+            "start_at": T0,
+            "end_at": END,
+            "accounts": [
+                {
+                    "name": "Synthetic stocks",
+                    "venue": stock["venue"],
+                    "capital": "1000",
+                    "currency": "USD",
+                },
+                {
+                    "name": "Synthetic crypto",
+                    "venue": crypto["venue"],
+                    "capital": "1000",
+                    "currency": "EUR",
+                },
+            ],
+            "fx_rates": {"USD": "1", "EUR": "1.1"},
+            "observations": [
+                {"instrument": instrument, "timestamp": stamp, "price": price}
+                for instrument, initial, final in [(stock, "100", "101"), (crypto, "10", "11")]
+                for stamp, price in [(T0, initial), (T1, final)]
+            ],
+        },
+    )
+    call(lifecycle.apply_run_action(run["id"], {"action": "start"}))
+    real_transactions = TransactionStore().all()
+    for account, instrument in zip(performance.get_account(run["id"])["items"], [stock, crypto]):
+        call(
+            execution.submit_order(
+                run["id"],
+                {
+                    "account_id": account["id"],
+                    "instrument": instrument,
+                    "side": "buy",
+                    "quantity": "1",
+                    "request_id": "cross-market",
+                },
+            )
+        )
+    call(lifecycle.apply_run_action(run["id"], {"action": "advance", "until": T1}))
+    assert {
+        fill["instrument"]["asset_class"] for fill in execution.list_fills(run["id"])["items"]
+    } == {"stock", "crypto"}
+    assert performance.get_performance(run["id"])["equity"] == pytest.approx(2098.869)
+    assert TransactionStore().all() == real_transactions
+
+
 def test_request_identity_and_reservation_prevent_duplicate_or_overspending(db_isolated):
     run_id, account_id = setup_run()
     first = call(execution.submit_order(run_id, order(account_id)))
@@ -80,6 +162,451 @@ def test_request_identity_and_reservation_prevent_duplicate_or_overspending(db_i
     with pytest.raises(ConflictError):
         call(execution.submit_order(run_id, order(account_id, request_id="second", quantity="8")))
     assert execution.list_orders(run_id)["total"] == 1
+
+
+@pytest.mark.timeout(30)
+def test_concurrent_identical_requests_create_one_order_and_one_reservation(db_isolated):
+    run_id, account_id = setup_run()
+    start = Barrier(2, timeout=5)
+
+    def submit():
+        start.wait()
+        return call(execution.submit_order(run_id, order(account_id)))
+
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        futures = [pool.submit(submit) for _ in range(2)]
+        results = [future.result(timeout=20) for future in futures]
+    assert results[0]["id"] == results[1]["id"]
+    assert execution.list_orders(run_id)["total"] == 1
+    assert Decimal(performance.get_account(run_id)["items"][0]["available_cash"]) == Decimal("700")
+
+
+@pytest.mark.timeout(30)
+def test_concurrent_distinct_orders_cannot_reserve_more_than_cash(db_isolated):
+    run_id, account_id = setup_run()
+    start = Barrier(2, timeout=5)
+
+    def submit(request_id):
+        start.wait()
+        try:
+            return call(execution.submit_order(run_id, order(account_id, request_id, "8")))
+        except ConflictError as exc:
+            return str(exc)
+
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        futures = [pool.submit(submit, f"request-{i}") for i in range(2)]
+        results = [future.result(timeout=20) for future in futures]
+    rejected = [result for result in results if isinstance(result, str)]
+    assert len(rejected) == 1
+    assert "Insufficient" in rejected[0]
+    assert execution.list_orders(run_id)["total"] == 1
+    assert Decimal(performance.get_account(run_id)["items"][0]["available_cash"]) == Decimal("200")
+
+
+def test_marketable_sell_limit_cannot_understate_order_notional(db_isolated):
+    stamp = datetime.now(timezone.utc)
+    workspace = workspaces.create_workspace(
+        {"name": "Synthetic", "mandate": {"max_order_notional": "100"}}
+    )
+    run = workspaces.create_run(
+        workspace["id"],
+        {
+            "mode": "paper",
+            "start_at": (stamp - timedelta(minutes=1)).isoformat(),
+            "end_at": (stamp + timedelta(days=1)).isoformat(),
+            "accounts": [{"capital": "1000"}],
+            "observations": [
+                {"instrument": INSTRUMENT, "timestamp": stamp.isoformat(), "price": "100"}
+            ],
+        },
+    )
+    call(lifecycle.apply_run_action(run["id"], {"action": "start"}))
+    account_id = performance.get_account(run["id"])["items"][0]["id"]
+    for i in range(10):
+        call(
+            execution.submit_order(
+                run["id"], order(account_id, request_id=f"buy-{i}", quantity="1")
+            )
+        )
+    sell = {
+        **order(account_id, request_id="sell-all", quantity="10"),
+        "side": "sell",
+        "order_type": "limit",
+        "limit_price": "1",
+    }
+    with pytest.raises(ConflictError, match="notional"):
+        call(execution.submit_order(run["id"], sell))
+
+
+def test_preflight_rejects_notional_over_cap_without_decimal_rounding(db_isolated):
+    run_id, account_id = setup_run()
+    with trading_transaction() as conn:
+        run = TradingStore("runs").required(run_id, conn=conn)
+        snapshot = {**run["workspace_snapshot"]}
+        snapshot["mandate"] = {**snapshot["mandate"], "max_order_notional": "100"}
+        TradingStore("runs").update_by_id(run_id, {"workspace_snapshot": snapshot}, conn=conn)
+    with pytest.raises(ConflictError, match="notional"):
+        call(
+            execution.submit_order(
+                run_id, order(account_id, quantity="1.0000000000000000000000000001")
+            )
+        )
+    assert execution.list_orders(run_id)["total"] == 0
+    assert call(execution.submit_order(run_id, order(account_id, quantity="1")))["status"] == "open"
+    with pytest.raises(ValidationError, match="supported precision"):
+        call(execution.submit_order(run_id, order(account_id, "tiny", "1e-129")))
+
+
+def test_backtest_partial_fills_stay_within_order_notional_cap(db_isolated):
+    run_id, account_id = setup_run()
+    with trading_transaction() as conn:
+        run = TradingStore("runs").required(run_id, conn=conn)
+        snapshot = {**run["workspace_snapshot"]}
+        snapshot["mandate"] = {**snapshot["mandate"], "max_order_notional": "300"}
+        TradingStore("runs").update_by_id(run_id, {"workspace_snapshot": snapshot}, conn=conn)
+    call(execution.submit_order(run_id, order(account_id)))
+    call(lifecycle.apply_run_action(run_id, {"action": "advance"}))
+    call(lifecycle.apply_run_action(run_id, {"action": "advance"}))
+    fills = execution.list_fills(run_id)["items"]
+    assert len(fills) == 2
+    with localcontext() as ctx:
+        ctx.prec = 80
+        assert sum(Decimal(fill["quantity"]) * Decimal(fill["price"]) for fill in fills) <= Decimal(
+            "300"
+        )
+    account = TradingStore("accounts").required(account_id)
+    actual_quantity = Fraction(Decimal(next(iter(account["positions"].values()))["quantity"]))
+    actual_cash = Fraction(Decimal(account["cash"]))
+    filled_quantity = sum(Fraction(Decimal(fill["quantity"])) for fill in fills)
+    spent = sum(
+        Fraction(Decimal(fill["quantity"])) * Fraction(Decimal(fill["price"])) for fill in fills
+    )
+    assert actual_cash == Fraction(1000) - spent
+    assert actual_quantity == filled_quantity
+    assert all(fill["accounting_precision"] == 600 for fill in fills)
+    assert execution_ledger(account, fills)["reconciled"] is True
+    historical_fills = [dict(fill) for fill in fills]
+    historical_fills[0].pop("accounting_precision")
+    assert execution_ledger(account, historical_fills)["reconciled"] is True
+    historical_fills[0]["accounting_precision"] = 601
+    with pytest.raises(ValidationError, match="Unsupported fill accounting precision"):
+        execution_ledger(account, historical_fills)
+    displayed = performance.get_account(run_id)["items"][0]
+    displayed_position = next(iter(displayed["positions"].values()))
+    available_quantity = Fraction(Decimal(displayed_position["available_quantity"]))
+    assert available_quantity == actual_quantity
+    assert Fraction(Decimal(displayed["available_cash"])) == actual_cash - Fraction(
+        Decimal(displayed["reserved_cash"])
+    )
+    saved_order = execution.list_orders(run_id)["items"][0]
+    reservation = Fraction(Decimal(saved_order["reserved_cash"]))
+    initial_reservation = Fraction(Decimal(saved_order["initial_reserved_cash"]))
+    expected_reservation = initial_reservation * (Fraction(3) - filled_quantity) / 3
+    assert reservation >= expected_reservation
+    assert len(Decimal(saved_order["reserved_cash"]).as_tuple().digits) <= 128
+
+
+def test_capped_partial_buy_then_partial_sell_reconstructs_ledger(db_isolated):
+    workspace = workspaces.create_workspace(
+        {"name": "Synthetic", "mandate": {"max_order_notional": "300"}}
+    )
+    t3 = "2026-01-05T14:33:00+00:00"
+    run = workspaces.create_run(
+        workspace["id"],
+        {
+            "mode": "backtest",
+            "start_at": T0,
+            "end_at": END,
+            "accounts": [{"capital": "1000"}],
+            "observations": [
+                {"instrument": INSTRUMENT, "timestamp": T0, "price": "100", "volume": "10"},
+                {"instrument": INSTRUMENT, "timestamp": T1, "price": "110", "volume": "2"},
+                {"instrument": INSTRUMENT, "timestamp": T2, "price": "120", "volume": "10"},
+                {"instrument": INSTRUMENT, "timestamp": t3, "price": "150", "volume": "10"},
+            ],
+        },
+    )
+    call(lifecycle.apply_run_action(run["id"], {"action": "start"}))
+    account_id = performance.get_account(run["id"])["items"][0]["id"]
+    call(execution.submit_order(run["id"], order(account_id)))
+    call(lifecycle.apply_run_action(run["id"], {"action": "advance"}))
+    call(lifecycle.apply_run_action(run["id"], {"action": "advance"}))
+    sell = {**order(account_id, "synthetic-sell", "1"), "side": "sell"}
+    call(execution.submit_order(run["id"], sell))
+    call(lifecycle.apply_run_action(run["id"], {"action": "advance"}))
+    fills = execution.list_fills(run["id"])["items"]
+    account = TradingStore("accounts").required(account_id)
+    assert sum(fill["side"] == "sell" for fill in fills) == 1
+    assert sum(fill["side"] == "buy" for fill in fills) >= 2
+    ledger = execution_ledger(account, fills)
+    assert ledger["reconciled"] is True
+    assert ledger["realized_pnl"] is not None
+    statement = statements.get_statement(run["id"])["accounts"][0]
+    assert statement["cash_reconciled"] is True
+    assert Decimal(statement["realized_pnl"]) == ledger["realized_pnl"]
+    assert Fraction(Decimal(account["cash"])) == Fraction(1000) + sum(
+        (
+            Fraction(Decimal(f["quantity"]))
+            * Fraction(Decimal(f["price"]))
+            * (1 if f["side"] == "sell" else -1)
+            for f in fills
+        ),
+        Fraction(0),
+    )
+
+
+@pytest.mark.parametrize("fee_bps", ["0", "25"])
+def test_cash_limited_replay_fill_is_bounded_and_affordable(db_isolated, fee_bps):
+    workspace = workspaces.create_workspace({"name": "Synthetic", "mandate": {"fee_bps": fee_bps}})
+    run = workspaces.create_run(
+        workspace["id"],
+        {
+            "mode": "backtest",
+            "start_at": T0,
+            "end_at": END,
+            "accounts": [{"capital": "1000"}],
+            "observations": [
+                {"instrument": INSTRUMENT, "timestamp": T0, "price": "100", "volume": "10"},
+                {"instrument": INSTRUMENT, "timestamp": T1, "price": "400.3", "volume": "10"},
+            ],
+        },
+    )
+    call(lifecycle.apply_run_action(run["id"], {"action": "start"}))
+    account_id = performance.get_account(run["id"])["items"][0]["id"]
+    call(execution.submit_order(run["id"], order(account_id)))
+    call(lifecycle.apply_run_action(run["id"], {"action": "advance"}))
+    fill = execution.list_fills(run["id"])["items"][0]
+    quantity = Decimal(fill["quantity"])
+    assert len(quantity.as_tuple().digits) <= 28
+    gross = Fraction(quantity) * Fraction(Decimal(fill["price"]))
+    fees = Fraction(Decimal(fill["fees"]))
+    assert gross + fees <= Fraction(1000)
+    account = TradingStore("accounts").required(account_id)
+    assert Fraction(Decimal(account["cash"])) == Fraction(1000) - gross - fees
+
+
+def test_shared_observation_volume_is_not_overfilled_by_rounding(db_isolated):
+    workspace = workspaces.create_workspace({"name": "Synthetic"})
+    run = workspaces.create_run(
+        workspace["id"],
+        {
+            "mode": "backtest",
+            "start_at": T0,
+            "end_at": END,
+            "accounts": [{"capital": "1000"}],
+            "observations": [
+                {"instrument": INSTRUMENT, "timestamp": T0, "price": "100", "volume": "10"},
+                {"instrument": INSTRUMENT, "timestamp": T1, "price": "100", "volume": "1"},
+            ],
+        },
+    )
+    call(lifecycle.apply_run_action(run["id"], {"action": "start"}))
+    account_id = performance.get_account(run["id"])["items"][0]["id"]
+    call(
+        execution.submit_order(
+            run["id"], order(account_id, "first", "0.66666666666666666666666666665")
+        )
+    )
+    call(
+        execution.submit_order(
+            run["id"], order(account_id, "second", "0.3333333333333333333333333334")
+        )
+    )
+    call(lifecycle.apply_run_action(run["id"], {"action": "advance"}))
+    fills = execution.list_fills(run["id"])["items"]
+    assert len(fills) == 2
+    assert sum(Fraction(Decimal(fill["quantity"])) for fill in fills) <= Fraction(1)
+
+
+def test_backtest_notional_cap_is_per_order(db_isolated):
+    run_id, account_id = setup_run()
+    with trading_transaction() as conn:
+        run = TradingStore("runs").required(run_id, conn=conn)
+        snapshot = {**run["workspace_snapshot"]}
+        snapshot["mandate"] = {**snapshot["mandate"], "max_order_notional": "150"}
+        TradingStore("runs").update_by_id(run_id, {"workspace_snapshot": snapshot}, conn=conn)
+    call(execution.submit_order(run_id, order(account_id, "first", "1")))
+    call(execution.submit_order(run_id, order(account_id, "second", "1")))
+    call(lifecycle.apply_run_action(run_id, {"action": "advance"}))
+    assert all(item["status"] == "filled" for item in execution.list_orders(run_id)["items"])
+
+
+def test_extreme_observation_exponent_is_refused_before_exact_arithmetic(db_isolated):
+    workspace = workspaces.create_workspace(
+        {"name": "Synthetic", "mandate": {"max_order_notional": "300"}}
+    )
+    run = workspaces.create_run(
+        workspace["id"],
+        {
+            "mode": "backtest",
+            "start_at": T0,
+            "end_at": END,
+            "accounts": [{"capital": "1000"}],
+            "observations": [
+                {"instrument": INSTRUMENT, "timestamp": T0, "price": "100"},
+                {"instrument": INSTRUMENT, "timestamp": T1, "price": "1e-1000000000"},
+            ],
+        },
+    )
+    call(lifecycle.apply_run_action(run["id"], {"action": "start"}))
+    account_id = performance.get_account(run["id"])["items"][0]["id"]
+    call(execution.submit_order(run["id"], order(account_id)))
+    with pytest.raises(ValidationError, match="supported precision"):
+        call(lifecycle.apply_run_action(run["id"], {"action": "advance"}))
+    assert execution.list_fills(run["id"])["total"] == 0
+
+
+def test_extreme_persisted_fill_is_refused_before_exact_arithmetic(db_isolated):
+    run_id, account_id = setup_run()
+    with trading_transaction() as conn:
+        run = TradingStore("runs").required(run_id, conn=conn)
+        snapshot = {**run["workspace_snapshot"]}
+        snapshot["mandate"] = {**snapshot["mandate"], "max_order_notional": "300"}
+        TradingStore("runs").update_by_id(run_id, {"workspace_snapshot": snapshot}, conn=conn)
+    call(execution.submit_order(run_id, order(account_id)))
+    call(lifecycle.apply_run_action(run_id, {"action": "advance"}))
+    fill = execution.list_fills(run_id)["items"][0]
+    with trading_transaction() as conn:
+        TradingStore("fills").update_by_id(fill["id"], {"price": "1e-1000000000"}, conn=conn)
+    with pytest.raises(ValidationError, match="supported precision"):
+        call(lifecycle.apply_run_action(run_id, {"action": "advance"}))
+    assert execution.list_fills(run_id)["total"] == 1
+
+
+def test_unrepresentable_derived_quantity_is_refused_before_fill(db_isolated):
+    workspace = workspaces.create_workspace(
+        {"name": "Synthetic", "mandate": {"max_order_notional": "1e-128"}}
+    )
+    run = workspaces.create_run(
+        workspace["id"],
+        {
+            "mode": "backtest",
+            "start_at": T0,
+            "end_at": END,
+            "accounts": [{"capital": "1000"}],
+            "observations": [
+                {"instrument": INSTRUMENT, "timestamp": T0, "price": "1e-128"},
+                {"instrument": INSTRUMENT, "timestamp": T1, "price": "1e128"},
+            ],
+        },
+    )
+    call(lifecycle.apply_run_action(run["id"], {"action": "start"}))
+    account_id = performance.get_account(run["id"])["items"][0]["id"]
+    call(execution.submit_order(run["id"], order(account_id, quantity="1")))
+    with pytest.raises(ValidationError, match="supported precision"):
+        call(lifecycle.apply_run_action(run["id"], {"action": "advance"}))
+    assert execution.list_fills(run["id"])["total"] == 0
+
+
+def test_small_positive_notional_remainder_can_fill_at_a_later_price(db_isolated):
+    workspace = workspaces.create_workspace(
+        {"name": "Synthetic", "mandate": {"max_order_notional": "300"}}
+    )
+    run = workspaces.create_run(
+        workspace["id"],
+        {
+            "mode": "backtest",
+            "start_at": T0,
+            "end_at": END,
+            "accounts": [{"capital": "1000"}],
+            "observations": [
+                {"instrument": INSTRUMENT, "timestamp": T0, "price": "100", "volume": "10"},
+                {"instrument": INSTRUMENT, "timestamp": T1, "price": "110", "volume": "2"},
+                {"instrument": INSTRUMENT, "timestamp": T2, "price": "120", "volume": "10"},
+                {
+                    "instrument": INSTRUMENT,
+                    "timestamp": "2026-01-05T14:33:00+00:00",
+                    "price": "0.000000000000000000000000001",
+                    "volume": "10",
+                },
+            ],
+        },
+    )
+    call(lifecycle.apply_run_action(run["id"], {"action": "start"}))
+    account_id = performance.get_account(run["id"])["items"][0]["id"]
+    call(execution.submit_order(run["id"], order(account_id)))
+    for _ in range(3):
+        call(lifecycle.apply_run_action(run["id"], {"action": "advance"}))
+    result = execution.list_fills(run["id"])
+    assert result["total"] == 3
+    with localcontext() as ctx:
+        ctx.prec = 100
+        assert sum(Decimal(f["quantity"]) * Decimal(f["price"]) for f in result["items"]) <= 300
+
+
+def test_exhausted_notional_cap_releases_remaining_reservation(db_isolated):
+    workspace = workspaces.create_workspace(
+        {"name": "Synthetic", "mandate": {"max_order_notional": "300"}}
+    )
+    run = workspaces.create_run(
+        workspace["id"],
+        {
+            "mode": "backtest",
+            "start_at": T0,
+            "end_at": END,
+            "accounts": [{"capital": "1000"}],
+            "observations": [
+                {"instrument": INSTRUMENT, "timestamp": T0, "price": "100", "volume": "10"},
+                {"instrument": INSTRUMENT, "timestamp": T1, "price": "150", "volume": "2"},
+            ],
+        },
+    )
+    call(lifecycle.apply_run_action(run["id"], {"action": "start"}))
+    account_id = performance.get_account(run["id"])["items"][0]["id"]
+    call(execution.submit_order(run["id"], order(account_id)))
+    call(lifecycle.apply_run_action(run["id"], {"action": "advance"}))
+    result = execution.list_orders(run["id"])["items"][0]
+    assert result["status"] not in {"open", "partially_filled"}
+    assert Decimal(result["reserved_cash"]) == 0
+
+
+def test_stopped_paper_run_retains_final_valuation_after_quote_expiry(db_isolated, monkeypatch):
+    stamp = datetime.now(timezone.utc)
+    workspace = workspaces.create_workspace({"name": "Synthetic"})
+    run = workspaces.create_run(
+        workspace["id"],
+        {
+            "mode": "paper",
+            "start_at": (stamp - timedelta(minutes=1)).isoformat(),
+            "end_at": (stamp + timedelta(days=1)).isoformat(),
+            "accounts": [{"capital": "1000"}],
+            "observations": [
+                {"instrument": INSTRUMENT, "timestamp": stamp.isoformat(), "price": "100"}
+            ],
+        },
+    )
+    call(lifecycle.apply_run_action(run["id"], {"action": "start"}))
+    account_id = performance.get_account(run["id"])["items"][0]["id"]
+    call(execution.submit_order(run["id"], order(account_id, quantity="1")))
+    call(lifecycle.apply_run_action(run["id"], {"action": "stop"}))
+    before = performance.get_performance(run["id"])
+    monkeypatch.setattr(market, "now", lambda: (stamp + timedelta(days=1)).isoformat())
+    after = performance.get_performance(run["id"])
+    assert after["valuation_complete"]
+    assert after["equity"] == before["equity"]
+    assert after["as_of"] == before["as_of"]
+
+
+def test_lifetime_drawdown_survives_bounded_valuation_history(db_isolated):
+    run_id, _ = setup_run()
+    run = workspaces.get_run(run_id)
+    with trading_transaction() as conn:
+        TradingStore("runs").update_by_id(
+            run_id,
+            {
+                "lifetime_peak_equity": "1200",
+                "lifetime_max_drawdown_pct": "25",
+                "valuation_history": [{"timestamp": run["current_time"], "equity": 1000}],
+            },
+            conn=conn,
+        )
+    assert performance.get_performance(run_id)["max_drawdown_pct"] == 25
+
+
+def test_day_order_requires_verified_session_calendar(db_isolated):
+    run_id, account_id = setup_run()
+    with pytest.raises(ConflictError, match="verified session calendar"):
+        call(execution.submit_order(run_id, {**order(account_id), "time_in_force": "day"}))
 
 
 def test_pause_cancels_open_orders_and_releases_reservation(db_isolated):
