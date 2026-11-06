@@ -5,11 +5,13 @@
 
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { IntlProvider } from 'react-intl'
+import { catalogs } from '../../../i18n/catalogs'
 import { BookedScreen, type BookedScreenProps } from './BookedScreen'
 
 afterEach(cleanup)
 
-function renderBooked(over: Partial<BookedScreenProps> = {}) {
+function renderBooked(over: Partial<BookedScreenProps> = {}, chinese = false) {
   const props: BookedScreenProps = {
     result: {
       created: 21,
@@ -35,7 +37,15 @@ function renderBooked(over: Partial<BookedScreenProps> = {}) {
     onDone: vi.fn(),
     ...over,
   }
-  render(<BookedScreen {...props} />)
+  render(
+    chinese ? (
+      <IntlProvider locale="zh-CN" messages={catalogs['zh-CN']}>
+        <BookedScreen {...props} />
+      </IntlProvider>
+    ) : (
+      <BookedScreen {...props} />
+    ),
+  )
   return props
 }
 
@@ -114,5 +124,35 @@ describe('BookedScreen', () => {
     expect(screen.getByRole('alertdialog').textContent).toContain(
       'The 1 entry you deleted comes back.',
     )
+  })
+
+  it('explains undo in Chinese and preserves the batch identity', async () => {
+    const p = renderBooked(
+      {
+        result: {
+          created: 2,
+          merged: 1,
+          deleted: 1,
+          duplicates: 0,
+          skipped: 0,
+          accounts: 1,
+          batchId: 'batch-synthetic',
+        },
+      },
+      true,
+    )
+    expect(screen.getByText('已导入 momo.pdf')).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: '撤销导入' }))
+    const panel = screen.getByRole('alertdialog', { name: '撤销此次导入？' })
+    expect(panel.textContent).toContain(
+      '将移除 2 条新增记录，并将 1 条关联记录恢复到原来的状态。账单将返回待查看状态。 你删除的 1 条记录将恢复。',
+    )
+    fireEvent.click(
+      screen
+        .getAllByRole('button', { name: '撤销导入' })
+        .find((button) => button.className === 'imp3-undo-go')!,
+    )
+    expect(p.onUndo).toHaveBeenCalledWith('batch-synthetic')
+    expect(await screen.findByText('已撤销导入')).toBeTruthy()
   })
 })

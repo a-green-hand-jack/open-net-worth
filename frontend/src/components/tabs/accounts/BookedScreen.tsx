@@ -1,4 +1,5 @@
 import { useState, type ReactNode } from 'react'
+import { useAppIntl } from '../../../i18n/useAppIntl'
 import { Ic, Spark, I_CHECK, I_WARN } from './importIcons'
 
 export interface BookedResult {
@@ -43,11 +44,10 @@ export interface BookedScreenProps {
   onDone: () => void
 }
 
-const plural = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? one : many}`
-
 type UndoState = 'idle' | 'confirm' | 'pending' | 'error'
 
 export function BookedScreen(p: BookedScreenProps) {
+  const { formatMessage: fm } = useAppIntl()
   const [undo, setUndo] = useState<UndoState>('idle')
   const [undoError, setUndoError] = useState('')
   const [undone, setUndone] = useState<UndoOutcome | null>(null)
@@ -57,8 +57,24 @@ export function BookedScreen(p: BookedScreenProps) {
   const batchId = r.batchId
   const linkedToReview = r.linkedNeedsReview ?? 0
   const toReview = [
-    r.created > 0 ? plural(r.created, 'new row') : '',
-    linkedToReview > 0 ? plural(linkedToReview, 'linked entry', 'linked entries') : '',
+    r.created > 0
+      ? fm(
+          {
+            id: 'import.result.newRows',
+            defaultMessage: '{count, plural, one {# new row} other {# new rows}}',
+          },
+          { count: r.created },
+        )
+      : '',
+    linkedToReview > 0
+      ? fm(
+          {
+            id: 'import.result.linkedEntries',
+            defaultMessage: '{count, plural, one {# linked entry} other {# linked entries}}',
+          },
+          { count: linkedToReview },
+        )
+      : '',
   ].filter(Boolean)
 
   async function runUndo() {
@@ -69,7 +85,11 @@ export function BookedScreen(p: BookedScreenProps) {
       setUndone(await p.onUndo(batchId))
     } catch (e) {
       setUndo('error')
-      setUndoError(e instanceof Error && e.message ? e.message : 'Could not undo — try again.')
+      setUndoError(
+        e instanceof Error && e.message
+          ? e.message
+          : fm({ id: 'import.result.undoFailed', defaultMessage: 'Could not undo — try again.' }),
+      )
     }
   }
 
@@ -82,15 +102,39 @@ export function BookedScreen(p: BookedScreenProps) {
           <Ic d={I_CHECK} size={16} sw={2.6} />
         </span>
         <div className="imp3-booked-titles">
-          <div className="imp3-booked-t">Imported {p.filename}</div>
+          <div className="imp3-booked-t">
+            {fm(
+              { id: 'import.result.imported', defaultMessage: 'Imported {filename}' },
+              { filename: p.filename },
+            )}
+          </div>
           {p.context && <div className="imp3-booked-sub">{p.context}</div>}
         </div>
       </div>
 
       <div className="imp3-booked-stats">
-        <Stat n={r.created} label="added" sub={transfers > 0 ? `${transfers} as transfers` : ''} />
-        <Stat n={linked} label="linked" sub="to entries you had" />
-        <Stat n={r.leftOut ?? r.skipped} label="left out" sub="by you" />
+        <Stat
+          n={r.created}
+          label={fm({ id: 'import.result.added', defaultMessage: 'added' })}
+          sub={
+            transfers > 0
+              ? fm(
+                  { id: 'import.result.transfers', defaultMessage: '{count} as transfers' },
+                  { count: transfers },
+                )
+              : ''
+          }
+        />
+        <Stat
+          n={linked}
+          label={fm({ id: 'import.result.linked', defaultMessage: 'linked' })}
+          sub={fm({ id: 'import.result.toExisting', defaultMessage: 'to entries you had' })}
+        />
+        <Stat
+          n={r.leftOut ?? r.skipped}
+          label={fm({ id: 'import.result.leftOut', defaultMessage: 'left out' })}
+          sub={fm({ id: 'import.result.byYou', defaultMessage: 'by you' })}
+        />
       </div>
 
       <div className="imp3-booked-lines">
@@ -98,46 +142,112 @@ export function BookedScreen(p: BookedScreenProps) {
           <div className="imp3-booked-line">
             <span className="imp3-booked-bullet" aria-hidden="true" />
             <span>
-              {plural(r.unreadable ?? 0, 'row')} in the file {r.unreadable === 1 ? 'was' : 'were'}{' '}
-              skipped when it was read
+              {fm(
+                {
+                  id: 'import.result.unreadable',
+                  defaultMessage:
+                    '{count, plural, one {# row in the file was} other {# rows in the file were}} skipped when it was read',
+                },
+                { count: r.unreadable ?? 0 },
+              )}
             </span>
           </div>
         )}
         {r.duplicates > 0 && (
           <div className="imp3-booked-line">
             <span className="imp3-booked-bullet" aria-hidden="true" />
-            <span>{plural(r.duplicates, 'row')} already imported earlier — skipped</span>
+            <span>
+              {fm(
+                {
+                  id: 'import.result.duplicates',
+                  defaultMessage:
+                    '{count, plural, one {# row} other {# rows}} already imported earlier — skipped',
+                },
+                { count: r.duplicates },
+              )}
+            </span>
           </div>
         )}
         {(r.deleted ?? 0) > 0 && (
           <div className="imp3-booked-line">
             <span className="imp3-booked-bullet" aria-hidden="true" />
-            <span>{plural(r.deleted ?? 0, 'row')} deleted from your ledger, as you marked</span>
+            <span>
+              {fm(
+                {
+                  id: 'import.result.deleted',
+                  defaultMessage:
+                    '{count, plural, one {# row} other {# rows}} deleted from your ledger, as you marked',
+                },
+                { count: r.deleted ?? 0 },
+              )}
+            </span>
           </div>
         )}
         {p.refusedDuplicates.length > 0 && (
           <WarnLine>
-            {plural(p.refusedDuplicates.length, 'row')} not imported — already in your ledger:{' '}
+            {fm(
+              {
+                id: 'import.result.refused',
+                defaultMessage:
+                  '{count, plural, one {# row} other {# rows}} not imported — already in your ledger: ',
+              },
+              { count: p.refusedDuplicates.length },
+            )}
             {p.refusedDuplicates
-              .map((d) => `${d.date ?? ''} ${d.description ?? ''}`.trim() || '(unnamed row)')
+              .map(
+                (d) =>
+                  `${d.date ?? ''} ${d.description ?? ''}`.trim() ||
+                  fm({ id: 'import.result.unnamed', defaultMessage: '(unnamed row)' }),
+              )
               .join('; ')}
           </WarnLine>
         )}
         {p.deleteErrors.length > 0 && (
           <WarnLine>
-            {plural(p.deleteErrors.length, 'marked transaction')} could not be deleted —{' '}
+            {fm(
+              {
+                id: 'import.result.deleteErrors',
+                defaultMessage:
+                  '{count, plural, one {# marked transaction} other {# marked transactions}} could not be deleted — ',
+              },
+              { count: p.deleteErrors.length },
+            )}
             {p.deleteErrors.map((e) => e.error).join('; ')}
           </WarnLine>
         )}
         {toReview.length > 0 && batchId && p.onMarkAllReviewed && (
           <div className="imp3-booked-line review">
             {p.reviewMarkState === 'done' ? (
-              <span className="imp3-booked-good">✓ {toReview.join(' and ')} marked reviewed</span>
+              <span className="imp3-booked-good">
+                ✓{' '}
+                {fm(
+                  { id: 'import.result.markedReviewed', defaultMessage: '{rows} marked reviewed' },
+                  {
+                    rows: fm(
+                      { id: 'import.result.join', defaultMessage: '{items}' },
+                      {
+                        items: toReview.join(
+                          fm({ id: 'import.result.and', defaultMessage: ' and ' }),
+                        ),
+                      },
+                    ),
+                  },
+                )}
+              </span>
             ) : (
               <>
                 <span>
-                  {toReview.join(' and ')} {r.created + linkedToReview === 1 ? 'needs' : 'need'}{' '}
-                  review in the register
+                  {fm(
+                    {
+                      id: 'import.result.needsReview',
+                      defaultMessage:
+                        '{rows} {count, plural, one {needs} other {need}} review in the register',
+                    },
+                    {
+                      rows: toReview.join(fm({ id: 'import.result.and', defaultMessage: ' and ' })),
+                      count: r.created + linkedToReview,
+                    },
+                  )}
                 </span>
                 <button
                   type="button"
@@ -145,7 +255,9 @@ export function BookedScreen(p: BookedScreenProps) {
                   disabled={p.reviewMarkState === 'pending'}
                   onClick={p.onMarkAllReviewed}
                 >
-                  {p.reviewMarkState === 'pending' ? 'Marking…' : 'Mark all reviewed'}
+                  {p.reviewMarkState === 'pending'
+                    ? fm({ id: 'import.result.marking', defaultMessage: 'Marking…' })
+                    : fm({ id: 'import.result.markAll', defaultMessage: 'Mark all reviewed' })}
                 </button>
               </>
             )}
@@ -154,22 +266,58 @@ export function BookedScreen(p: BookedScreenProps) {
         {p.taught && (
           <div className="imp3-booked-line lucius">
             <Spark size={14} />
-            <span>Lucius saved your instruction — the next import applies it automatically.</span>
+            <span>
+              {fm({
+                id: 'import.result.taught',
+                defaultMessage:
+                  'Lucius saved your instruction — the next import applies it automatically.',
+              })}
+            </span>
           </div>
         )}
         {p.reviewMarkError && <div className="imp3-done-err">{p.reviewMarkError}</div>}
       </div>
 
       {(undo === 'confirm' || undo === 'pending' || undo === 'error') && (
-        <div className="imp3-undo" role="alertdialog" aria-label="Undo this import?">
-          <div className="imp3-undo-t">Undo this import?</div>
+        <div
+          className="imp3-undo"
+          role="alertdialog"
+          aria-label={fm({ id: 'import.result.undoTitle', defaultMessage: 'Undo this import?' })}
+        >
+          <div className="imp3-undo-t">
+            {fm({ id: 'import.result.undoTitle', defaultMessage: 'Undo this import?' })}
+          </div>
           <div className="imp3-undo-d">
-            The {plural(r.created, 'added row')} {r.created === 1 ? 'is' : 'are'} removed
+            {fm(
+              {
+                id: 'import.result.undoAdded',
+                defaultMessage:
+                  'The {count, plural, one {# added row is} other {# added rows are}} removed',
+              },
+              { count: r.created },
+            )}
             {linked > 0 &&
-              ` and the ${plural(linked, 'linked entry', 'linked entries')} go${linked === 1 ? 'es' : ''} back to how ${linked === 1 ? 'it was' : 'they were'}`}
-            . The statement returns to Ready to review.
+              fm(
+                {
+                  id: 'import.result.undoLinked',
+                  defaultMessage:
+                    ' and the {count, plural, one {# linked entry goes back to how it was} other {# linked entries go back to how they were}}',
+                },
+                { count: linked },
+              )}
+            {fm({
+              id: 'import.result.undoReady',
+              defaultMessage: '. The statement returns to Ready to review.',
+            })}
             {(r.deleted ?? 0) > 0 &&
-              ` The ${plural(r.deleted ?? 0, 'entry', 'entries')} you deleted ${r.deleted === 1 ? 'comes' : 'come'} back.`}
+              fm(
+                {
+                  id: 'import.result.undoDeleted',
+                  defaultMessage:
+                    ' The {count, plural, one {# entry you deleted comes} other {# entries you deleted come}} back.',
+                },
+                { count: r.deleted ?? 0 },
+              )}
           </div>
           {undo === 'error' && <div className="imp3-done-err">{undoError}</div>}
           <div className="imp3-undo-acts">
@@ -179,7 +327,7 @@ export function BookedScreen(p: BookedScreenProps) {
               disabled={undo === 'pending'}
               onClick={() => setUndo('idle')}
             >
-              Keep it
+              {fm({ id: 'import.result.keep', defaultMessage: 'Keep it' })}
             </button>
             <button
               type="button"
@@ -187,7 +335,9 @@ export function BookedScreen(p: BookedScreenProps) {
               disabled={undo === 'pending'}
               onClick={runUndo}
             >
-              {undo === 'pending' ? 'Undoing…' : 'Undo import'}
+              {undo === 'pending'
+                ? fm({ id: 'import.result.undoing', defaultMessage: 'Undoing…' })
+                : fm({ id: 'import.result.undo', defaultMessage: 'Undo import' })}
             </button>
           </div>
         </div>
@@ -197,21 +347,21 @@ export function BookedScreen(p: BookedScreenProps) {
         <div className="imp3-booked-foot-l">
           {batchId && p.onUndo && undo === 'idle' && (
             <button type="button" className="imp3-undo-btn" onClick={() => setUndo('confirm')}>
-              Undo import
+              {fm({ id: 'import.result.undo', defaultMessage: 'Undo import' })}
             </button>
           )}
           <button type="button" className="imp3-done-another" onClick={p.onImportAnother}>
-            Import another
+            {fm({ id: 'import.result.another', defaultMessage: 'Import another' })}
           </button>
         </div>
         <div className="imp3-booked-foot-r">
           {batchId && p.onViewInRegister && (
             <button type="button" className="imp3-btn2" onClick={p.onViewInRegister}>
-              View in register
+              {fm({ id: 'import.result.register', defaultMessage: 'View in register' })}
             </button>
           )}
           <button type="button" className="imp3-lubtn" onClick={p.onDone}>
-            Done
+            {fm({ id: 'import.result.done', defaultMessage: 'Done' })}
           </button>
         </div>
       </div>
@@ -239,10 +389,37 @@ function WarnLine({ children }: { children: ReactNode }) {
 }
 
 function UndoneScreen(p: BookedScreenProps & { undone: UndoOutcome }) {
+  const { formatMessage: fm } = useAppIntl()
   const { deleted, unmerged, restored = 0 } = p.undone
-  const parts = [`${plural(deleted, 'row')} removed`]
-  if (unmerged > 0) parts.push(`${plural(unmerged, 'entry', 'entries')} restored`)
-  if (restored > 0) parts.push(`${plural(restored, 'deleted entry', 'deleted entries')} back`)
+  const parts = [
+    fm(
+      {
+        id: 'import.result.removedRows',
+        defaultMessage: '{count, plural, one {# row} other {# rows}} removed',
+      },
+      { count: deleted },
+    ),
+  ]
+  if (unmerged > 0)
+    parts.push(
+      fm(
+        {
+          id: 'import.result.restoredEntries',
+          defaultMessage: '{count, plural, one {# entry} other {# entries}} restored',
+        },
+        { count: unmerged },
+      ),
+    )
+  if (restored > 0)
+    parts.push(
+      fm(
+        {
+          id: 'import.result.deletedBack',
+          defaultMessage: '{count, plural, one {# deleted entry} other {# deleted entries}} back',
+        },
+        { count: restored },
+      ),
+    )
   return (
     <div className="imp3-booked">
       <div className="imp3-booked-head">
@@ -250,9 +427,17 @@ function UndoneScreen(p: BookedScreenProps & { undone: UndoOutcome }) {
           <Ic d={I_CHECK} size={16} sw={2.6} />
         </span>
         <div className="imp3-booked-titles">
-          <div className="imp3-booked-t">Import undone</div>
+          <div className="imp3-booked-t">
+            {fm({ id: 'import.result.undone', defaultMessage: 'Import undone' })}
+          </div>
           <div className="imp3-booked-sub">
-            {parts.join(' · ')}. {p.filename} is ready to review again.
+            {fm(
+              {
+                id: 'import.result.reviewAgainMessage',
+                defaultMessage: '{parts}. {filename} is ready to review again.',
+              },
+              { parts: parts.join(' · '), filename: p.filename },
+            )}
           </div>
         </div>
       </div>
@@ -260,10 +445,10 @@ function UndoneScreen(p: BookedScreenProps & { undone: UndoOutcome }) {
         <div className="imp3-booked-foot-l" />
         <div className="imp3-booked-foot-r">
           <button type="button" className="imp3-btn2" onClick={p.onDone}>
-            Done
+            {fm({ id: 'import.result.done', defaultMessage: 'Done' })}
           </button>
           <button type="button" className="imp3-lubtn" onClick={p.onReviewAgain}>
-            Review again
+            {fm({ id: 'import.result.reviewAgain', defaultMessage: 'Review again' })}
           </button>
         </div>
       </div>
