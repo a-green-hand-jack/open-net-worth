@@ -1,0 +1,10 @@
+{
+  "accounts.importProjection.cleared": "已结清 ✓",
+  "accounts.importProjection.linked": "已关联 ✓",
+  "accounts.importProjection.referenceAttached": "参考号已附加",
+  "accounts.importProjection.referenceLinked": "参考号已关联",
+  "accounts.importProjection.stays": "您的记录保持原样",
+  "accounts.importProjection.transfer": "转为转账",
+  "accounts.importProjection.two": "2 条记录",
+  "accounts.importProjection.uncategorized": "未分类"
+}

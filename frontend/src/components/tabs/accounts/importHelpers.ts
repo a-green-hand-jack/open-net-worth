@@ -1280,7 +1280,25 @@ export interface AfterProjection {
  *   unchanged plus the statement row booked as its own transaction.
  *
  * Pure — unit-testable without React; the caller resolves category labels via `catMap`. */
+const projectionMessages = defineMessages({
+  uncategorized: { id: 'accounts.importProjection.uncategorized', defaultMessage: 'Uncategorized' },
+  stays: { id: 'accounts.importProjection.stays', defaultMessage: 'yours stays as-is' },
+  two: { id: 'accounts.importProjection.two', defaultMessage: '2 records' },
+  linked: { id: 'accounts.importProjection.linked', defaultMessage: 'linked ✓' },
+  transfer: { id: 'accounts.importProjection.transfer', defaultMessage: 'becomes a transfer' },
+  cleared: { id: 'accounts.importProjection.cleared', defaultMessage: 'cleared ✓' },
+  referenceLinked: {
+    id: 'accounts.importProjection.referenceLinked',
+    defaultMessage: 'reference linked',
+  },
+  referenceAttached: {
+    id: 'accounts.importProjection.referenceAttached',
+    defaultMessage: 'reference attached',
+  },
+})
+
 export function afterImportProjection(args: {
+  intl?: IntlShape
   action: 'skip' | 'merge' | 'new'
   draft: Pick<
     ImportPreviewDraft,
@@ -1308,9 +1326,12 @@ export function afterImportProjection(args: {
   accounts?: Array<{ id: string; name: string }>
   anchorAccountId?: string
 }): AfterProjection {
-  const { action, draft, existing, flagType, catMap, accounts = [], anchorAccountId } = args
+  const { action, draft, existing, flagType, catMap, accounts = [], anchorAccountId, intl } = args
+  const text = (key: keyof typeof projectionMessages) =>
+    intl ? intl.formatMessage(projectionMessages[key]) : projectionMessages[key].defaultMessage
   const fmt = (v: number, ccy?: string | null) => fCur(v, ccy || draft.currency, { cents: true })
-  const catLabel = (key?: string | null) => (key ? catMap[key]?.label || key : 'Uncategorized')
+  const catLabel = (key?: string | null) =>
+    key ? catMap[key]?.label || key : text('uncategorized')
   // Transfer identity for the category slot: an existing kind=transfer record (the routed
   // draft's own to-leg is the counter hint when the from-leg IS the anchor) and a routed
   // draft's NEW record both name their legs; "Uncategorized" never applies to a transfer.
@@ -1339,7 +1360,7 @@ export function afterImportProjection(args: {
     badges: [],
   }
   if (action === 'skip')
-    return { records: [{ ...existingRecord, badges: ['yours stays as-is'] }], count: null }
+    return { records: [{ ...existingRecord, badges: [text('stays')] }], count: null }
   if (action === 'new') {
     const oa = draft.original_amount ?? draft.origAmount
     const oc = draft.original_currency ?? draft.origCurrency
@@ -1354,7 +1375,7 @@ export function afterImportProjection(args: {
         : {}),
       badges: [],
     }
-    return { records: [existingRecord, newRecord], count: '2 records' }
+    return { records: [existingRecord, newRecord], count: text('two') }
   }
   // merge — kind-gate mirror of apply_import_merge: a transfer target keeps its legs whole.
   if (flagType === 'transfer_leg_echo' || existing.kind === 'transfer') {
@@ -1381,7 +1402,7 @@ export function afterImportProjection(args: {
           },
         }
       : existingRecord
-    return { records: [{ ...record, badges: ['linked ✓'] }], count: null }
+    return { records: [{ ...record, badges: [text('linked')] }], count: null }
   }
   // transfer_pair: NEITHER side is a transfer yet — apply_import_transfer_pair_merge builds
   // ONE, direction-aware (backend/services/ledger.py). Mirror that here rather than falling
@@ -1426,7 +1447,7 @@ export function afterImportProjection(args: {
               ? fmt(debitAmt, debitCcy)
               : `${fmt(debitAmt, debitCcy)} → ${fmt(creditAmt, creditCcy)}`,
           },
-          badges: ['becomes a transfer', 'cleared ✓'],
+          badges: [text('transfer'), text('cleared')],
         },
       ],
       count: null,
@@ -1440,7 +1461,9 @@ export function afterImportProjection(args: {
     : {}
   if (!mergeAdoptsStatementFacts(draft.kind, existing.kind, flagType)) {
     return {
-      records: [{ ...existingRecord, ...gapFilled, badges: ['cleared ✓', 'reference linked'] }],
+      records: [
+        { ...existingRecord, ...gapFilled, badges: [text('cleared'), text('referenceLinked')] },
+      ],
       count: null,
     }
   }
@@ -1462,7 +1485,7 @@ export function afterImportProjection(args: {
           ...(amountChanged ? { old: fmt(existing.amount!, existing.currency) } : {}),
         },
         ...(addsOriginal ? gapFilled : exOriginal ? { original: exOriginal } : {}),
-        badges: ['cleared ✓', 'reference attached'],
+        badges: [text('cleared'), text('referenceAttached')],
       },
     ],
     count: null,

@@ -5002,6 +5002,7 @@ export function ImportModal({
                     ? transferLine(ex, accounts, catMapProp, { compact: true, ...transferCtx })
                     : null)
                 const proj = afterImportProjection({
+                  intl,
                   action: act,
                   draft: d,
                   existing: ex,
@@ -6399,6 +6400,7 @@ export function ImportModal({
                 }
                 const projection = resolved
                   ? afterImportProjection({
+                      intl,
                       action,
                       draft: d,
                       existing: resolved.summary,

@@ -8,6 +8,8 @@
 import { describe, it, expect } from 'vitest'
 import { afterImportProjection, driftPhrase, driftPct } from './importHelpers'
 import type { ImportPreviewDraft } from './importHelpers'
+import { createIntl } from 'react-intl'
+import { catalogs } from '../../../i18n/catalogs'
 
 const catMap = { cat_subs: { label: 'Subscriptions' } }
 
@@ -31,6 +33,31 @@ const existing = {
 }
 
 describe('afterImportProjection', () => {
+  it('localizes decisions without changing projected transaction facts', () => {
+    const intl = createIntl({ locale: 'zh-CN', messages: catalogs['zh-CN'] })
+    const en = afterImportProjection({
+      action: 'merge',
+      draft,
+      existing,
+      flagType: 'near_duplicate',
+      catMap,
+    })
+    const zh = afterImportProjection({
+      action: 'merge',
+      draft,
+      existing,
+      flagType: 'near_duplicate',
+      catMap,
+      intl,
+    })
+    expect(zh.records[0]!.badges).toEqual(['已结清 ✓', '参考号已附加'])
+    expect({ ...zh.records[0], badges: [] }).toEqual({ ...en.records[0], badges: [] })
+    const skip = afterImportProjection({ action: 'skip', draft, existing, catMap, intl })
+    expect(skip.records[0]!.badges).toEqual(['您的记录保持原样'])
+    const create = afterImportProjection({ action: 'new', draft, existing, catMap, intl })
+    expect(create.count).toBe('2 条记录')
+    expect(create.records[1]!.category).toBe('未分类')
+  })
   it('skip → ONE record, byte-unchanged, labeled "yours stays as-is"', () => {
     const p = afterImportProjection({ action: 'skip', draft, existing, catMap })
     expect(p.count).toBeNull()

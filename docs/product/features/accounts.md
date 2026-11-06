@@ -218,6 +218,8 @@ The statement upload entry, account selectors, source options and reading instru
 follow the interface language; your account names and instruction text remain unchanged.
 Built-in import review flags and matched transaction kinds follow the interface language;
 unknown server-provided labels remain unchanged.
+The projected import outcome uses the interface language for built-in status badges and counts;
+transaction facts and user-supplied category names are unchanged.
 
 Account, category, payee and date picker controls follow the interface language. Account names,
 payees and category group names retain the text you entered.
