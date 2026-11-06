@@ -7,14 +7,9 @@
 import { useState } from 'react'
 import { Button, Modal, NumberField, Select } from '../../ui'
 import type { WidgetAlert } from './types'
+import { useAppIntl } from '../../../i18n/useAppIntl'
 
-const OPS: Array<{ value: WidgetAlert['op']; label: string }> = [
-  { value: '>', label: 'is greater than' },
-  { value: '<', label: 'is less than' },
-  { value: '>=', label: 'is at least' },
-  { value: '<=', label: 'is at most' },
-  { value: '==', label: 'equals' },
-]
+const OPS: WidgetAlert['op'][] = ['>', '<', '>=', '<=', '==']
 
 export interface WidgetAlertDialogProps {
   open: boolean
@@ -24,6 +19,14 @@ export interface WidgetAlertDialogProps {
 }
 
 export function WidgetAlertDialog({ open, onClose, alert, onSave }: WidgetAlertDialogProps) {
+  const { formatMessage } = useAppIntl()
+  const labels: Record<WidgetAlert['op'], string> = {
+    '>': formatMessage({ id: 'overview.alert.greater', defaultMessage: 'is greater than' }),
+    '<': formatMessage({ id: 'overview.alert.less', defaultMessage: 'is less than' }),
+    '>=': formatMessage({ id: 'overview.alert.atLeast', defaultMessage: 'is at least' }),
+    '<=': formatMessage({ id: 'overview.alert.atMost', defaultMessage: 'is at most' }),
+    '==': formatMessage({ id: 'overview.alert.equals', defaultMessage: 'equals' }),
+  }
   const [op, setOp] = useState<WidgetAlert['op']>(alert?.op || '>')
   const [value, setValue] = useState<string>(alert?.value != null ? String(alert.value) : '')
 
@@ -39,19 +42,37 @@ export function WidgetAlertDialog({ open, onClose, alert, onSave }: WidgetAlertD
   }
 
   return (
-    <Modal open={open} onClose={onClose} title="Set alert" size="sm">
+    <Modal
+      open={open}
+      onClose={onClose}
+      title={formatMessage({ id: 'overview.alert.title', defaultMessage: 'Set alert' })}
+      size="sm"
+    >
       <div className="ov-alert-dialog">
-        <p className="ov-alert-copy">Lucius pings you when this crosses your threshold.</p>
+        <p className="ov-alert-copy">
+          {formatMessage({
+            id: 'overview.alert.help',
+            defaultMessage: 'Lucius pings you when this crosses your threshold.',
+          })}
+        </p>
         <div className="ov-alert-row">
-          <span>Notify me when it</span>
+          <span>
+            {formatMessage({ id: 'overview.alert.notify', defaultMessage: 'Notify me when it' })}
+          </span>
           <Select
-            aria-label="Comparison"
+            aria-label={formatMessage({
+              id: 'overview.alert.comparison',
+              defaultMessage: 'Comparison',
+            })}
             value={op}
             onChange={(e) => setOp(e.target.value as WidgetAlert['op'])}
-            options={OPS.map((o) => ({ value: o.value, label: o.label }))}
+            options={OPS.map((value) => ({ value, label: labels[value] }))}
           />
           <NumberField
-            aria-label="Threshold value"
+            aria-label={formatMessage({
+              id: 'overview.alert.threshold',
+              defaultMessage: 'Threshold value',
+            })}
             value={value}
             onChange={(e) => setValue(e.target.value)}
             placeholder="0"
@@ -60,14 +81,14 @@ export function WidgetAlertDialog({ open, onClose, alert, onSave }: WidgetAlertD
         <div className="ov-alert-actions">
           {alert && (
             <Button size="sm" variant="ghost" onClick={remove}>
-              Remove alert
+              {formatMessage({ id: 'overview.alert.remove', defaultMessage: 'Remove alert' })}
             </Button>
           )}
           <Button size="sm" variant="secondary" onClick={onClose}>
-            Cancel
+            {formatMessage({ id: 'overview.cancel', defaultMessage: 'Cancel' })}
           </Button>
           <Button size="sm" variant="primary" onClick={save} disabled={!value.trim()}>
-            Save
+            {formatMessage({ id: 'overview.save', defaultMessage: 'Save' })}
           </Button>
         </div>
       </div>
