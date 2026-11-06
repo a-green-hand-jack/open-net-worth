@@ -315,6 +315,7 @@ export interface PortfolioReturns {
   end: string
   effective_start: string // actual window start after clamping to inception / price_floor
   label: string // "Since 2026-03-01" when clamped; standard label otherwise
+  label_message?: { id: string; params: Record<string, unknown> } | null
   annualized: boolean // true iff effective span ≥ 360 days
   base_currency: string
   // Fractions (not %); the UI multiplies by 100. null = not enough history.

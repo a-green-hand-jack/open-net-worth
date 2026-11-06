@@ -259,6 +259,8 @@ Budget progress, spending pace and liability widget controls follow the interfac
 budget and account names retain their original text.
 Net worth chart labels, asset classes and breakdown controls follow the interface language;
 institution names remain as entered.
+Investment widget controls and status labels follow the interface language; instrument and
+account names remain unchanged.
 
 ## Related pages
 

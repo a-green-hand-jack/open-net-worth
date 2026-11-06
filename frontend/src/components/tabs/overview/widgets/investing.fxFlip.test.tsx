@@ -6,6 +6,8 @@
 
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
+import { IntlProvider } from 'react-intl'
+import { catalogs } from '../../../../i18n/catalogs'
 
 const authFetch = vi.hoisted(() => vi.fn())
 vi.mock('../../../../api/client', () => ({ authFetch }))
@@ -97,5 +99,22 @@ describe('FX rate rows', () => {
     serve()
     renderFx({ pairs: [] })
     await screen.findByText(/held$/, { selector: '.ov-fx-note' })
+  })
+
+  it('translates the exposure while keeping its amount maskable', async () => {
+    serve(-362660)
+    const Comp = investingWidgetComponents.fx!
+    const def = WIDGET_DEFINITIONS.find((d) => d.defId === 'fx')!
+    render(
+      <IntlProvider locale="zh-CN" messages={catalogs['zh-CN']}>
+        <Comp
+          instance={{ instanceId: 'w', defId: 'fx', x: 0, y: 0, w: 4, h: 112, config: {} }}
+          def={def}
+          onPatch={vi.fn()}
+        />
+      </IntlProvider>,
+    )
+    const note = await screen.findByText(/欠款/, { selector: '.ov-fx-note' })
+    expect(note.querySelector('.money')).not.toBeNull()
   })
 })

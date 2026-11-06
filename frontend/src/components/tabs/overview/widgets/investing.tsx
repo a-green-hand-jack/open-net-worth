@@ -1,3 +1,4 @@
+import { fFixed } from '../../../../utils/format'
 // Overview v2 — Investing widget group (beyond net worth/movers): FX rates,
 // dividends, holdings map (treemap), allocation drift, performance vs
 // benchmark, unrealized gains, dividend forecast.
@@ -45,6 +46,9 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import type { ComponentType } from 'react'
+import { useAppIntl } from '../../../../i18n/useAppIntl'
+import type { IntlShape } from 'react-intl'
+import { assetClassLabel } from '../assetClassMessages'
 import { ArrowLeftRight, ArrowRight } from 'lucide-react'
 import { authFetch } from '../../../../api/client'
 import { fetchReturns } from '../../../../api/portfolio'
@@ -56,7 +60,7 @@ import type {
   ReturnPeriod,
 } from '../../../../types/portfolio'
 import type { TreemapFacet } from '../../../../types/aggregates'
-import { ASSET_CLASS_COLOR, ASSET_CLASS_LABEL, paletteColor } from '../../../../utils/constants'
+import { ASSET_CLASS_COLOR, paletteColor } from '../../../../utils/constants'
 import { useMaskText } from '../../../../utils/amountMask'
 import { fBase, fDate, fPct, fPrice, getBaseCurrency, plClass } from '../../../../utils/format'
 import { MaskedText, Money, SegmentedControl, Text } from '../../../ui'
@@ -143,11 +147,8 @@ function parseFlipped(raw: unknown): Set<string> {
 
 /** What the book holds in a currency, net of what it owes in it: a net-negative position (an
  *  overdrawn wallet, a loan in that currency) is owed, never a negative amount "held". */
-function heldNote(net: number): string {
-  return net < 0 ? `${fBase(-net)} owed` : `${fBase(net)} held`
-}
-
 const Fx: ComponentType<WidgetContentProps> = ({ instance, def, onPatch }) => {
+  const { formatMessage } = useAppIntl()
   const { analytics: portfolio } = useAnalytics()
   const base = getBaseCurrency()
 
@@ -217,7 +218,15 @@ const Fx: ComponentType<WidgetContentProps> = ({ instance, def, onPatch }) => {
   if (!pairs.length) {
     return (
       <WidgetShell title={instance.title} base={def.title}>
-        <WidgetPlaceholder detail={<>All your holdings are in {base} — nothing to convert.</>} />
+        <WidgetPlaceholder
+          detail={formatMessage(
+            {
+              id: 'overview.fx.empty',
+              defaultMessage: 'All your holdings are in {base} — nothing to convert.',
+            },
+            { base },
+          )}
+        />
       </WidgetShell>
     )
   }
@@ -236,14 +245,37 @@ const Fx: ComponentType<WidgetContentProps> = ({ instance, def, onPatch }) => {
                 type="button"
                 className="ov-fx-pair"
                 onClick={() => toggleFlip(key)}
-                title={`Show ${from} per ${to}`}
-                aria-label={`${from} / ${to}. Show ${from} per ${to} instead`}
+                title={formatMessage(
+                  { id: 'overview.fx.showPair', defaultMessage: 'Show {from} per {to}' },
+                  { from, to },
+                )}
+                aria-label={formatMessage(
+                  {
+                    id: 'overview.fx.flipPair',
+                    defaultMessage: '{from} / {to}. Show {from} per {to} instead',
+                  },
+                  { from, to },
+                )}
               >
                 {from} / {to}
                 <ArrowLeftRight size={12} aria-hidden="true" className="ov-fx-flip" />
               </button>
               <span className="ov-fx-note">
-                {held ? <MaskedText>{heldNote(exposureByCcy.get(b)!)}</MaskedText> : 'Watching'}
+                {held ? (
+                  <MaskedText>
+                    {exposureByCcy.get(b)! < 0
+                      ? formatMessage(
+                          { id: 'overview.fx.owed', defaultMessage: '{amount} owed' },
+                          { amount: fBase(-exposureByCcy.get(b)!) },
+                        )
+                      : formatMessage(
+                          { id: 'overview.fx.held', defaultMessage: '{amount} held' },
+                          { amount: fBase(exposureByCcy.get(b)!) },
+                        )}
+                  </MaskedText>
+                ) : (
+                  formatMessage({ id: 'overview.fx.watching', defaultMessage: 'Watching' })
+                )}
               </span>
               <span className="ov-fx-rate money">
                 {rate != null ? `${fPrice(rate, 4)} ${to}` : loading ? '…' : '—'}
@@ -254,11 +286,14 @@ const Fx: ComponentType<WidgetContentProps> = ({ instance, def, onPatch }) => {
       </div>
       {error && !Object.keys(fx).length && (
         <Text as="p" size="xs" tone="bad">
-          Couldn't fetch live rates.
+          {formatMessage({ id: 'overview.fx.error', defaultMessage: "Couldn't fetch live rates." })}
         </Text>
       )}
       <Text as="p" size="xs" tone="faint">
-        Live mid rates. Day-over-day change isn't tracked for currencies yet.
+        {formatMessage({
+          id: 'overview.fx.help',
+          defaultMessage: "Live mid rates. Day-over-day change isn't tracked for currencies yet.",
+        })}
       </Text>
     </WidgetShell>
   )
@@ -267,6 +302,7 @@ const Fx: ComponentType<WidgetContentProps> = ({ instance, def, onPatch }) => {
 // ── Dividends ────────────────────────────────────────────────────────────────
 
 const Dividends: ComponentType<WidgetContentProps> = ({ instance, def, onNavigate }) => {
+  const { formatMessage } = useAppIntl()
   // "Received YTD" is summed server-side (`GET /api/income`'s own summary exposes trailing-12m
   // and all-time, never year-to-date — which is why this used to be a client-side reduce over
   // the raw event list), and the upcoming feed arrives already filtered to dividends and
@@ -284,15 +320,27 @@ const Dividends: ComponentType<WidgetContentProps> = ({ instance, def, onNavigat
       base={def.title}
       meta={
         <>
-          <Money as="span">{fBase(ytd)}</Money> received YTD
+          {formatMessage(
+            { id: 'overview.dividends.ytd', defaultMessage: '{amount} received YTD' },
+            { amount: <Money as="span">{fBase(ytd)}</Money> },
+          )}
         </>
       }
-      footer={sourceFooter(def, onNavigate, 'Dividend history')}
+      footer={sourceFooter(
+        def,
+        onNavigate,
+        formatMessage({ id: 'overview.dividends.history', defaultMessage: 'Dividend history' }),
+      )}
     >
       {loading ? (
         <WidgetSkeleton rows={3} />
       ) : upcoming.length === 0 ? (
-        <WidgetPlaceholder detail={<>No upcoming dividend payments in the next 90 days.</>} />
+        <WidgetPlaceholder
+          detail={formatMessage({
+            id: 'overview.dividends.empty',
+            defaultMessage: 'No upcoming dividend payments in the next 90 days.',
+          })}
+        />
       ) : (
         <div className="ov-div-list">
           {visible.map((p) => (
@@ -301,13 +349,25 @@ const Dividends: ComponentType<WidgetContentProps> = ({ instance, def, onNavigat
               <span className="ov-sym">{p.symbol}</span>
               <span className="ov-up-lbl">
                 {p.name}
-                {p.status === 'estimated' && <span> • est.</span>}
+                {p.status === 'estimated' && (
+                  <span>
+                    {formatMessage({
+                      id: 'overview.dividends.estimated',
+                      defaultMessage: ' • est.',
+                    })}
+                  </span>
+                )}
               </span>
               <span className="ov-up-amt money pos">+{fBase(p.amount_base)}</span>
             </div>
           ))}
           {upcoming.length > visible.length && (
-            <div className="ov-more">+{upcoming.length - visible.length} more expected</div>
+            <div className="ov-more">
+              {formatMessage(
+                { id: 'overview.dividends.more', defaultMessage: '+{count} more expected' },
+                { count: upcoming.length - visible.length },
+              )}
+            </div>
           )}
         </div>
       )}
@@ -355,8 +415,8 @@ interface TreemapGroup {
   leaves: TreemapLeaf[]
 }
 
-function facetLabel(key: string, facet: GroupFacet): string {
-  if (facet === 'Asset type') return ASSET_CLASS_LABEL[key] ?? key
+function facetLabel(intl: IntlShape, key: string, facet: GroupFacet): string {
+  if (facet === 'Asset type') return assetClassLabel(intl, key)
   return key
 }
 
@@ -366,27 +426,51 @@ function facetColor(key: string, facet: GroupFacet): string {
 }
 
 function signed(n: number, digits = 1): string {
-  return (n >= 0 ? '+' : '') + n.toFixed(digits)
+  return (n >= 0 ? '+' : '') + fFixed(n, digits)
 }
 
 // The popup behind a tile (hover, or a tap on touch). Every figure here is a server-computed
 // row field rendered verbatim — the tile itself may show none of it once it is too small to
 // carry text, so this is where a holding's detail lives.
-function treemapTip(l: TreemapLeaf): string {
+function treemapTip(intl: IntlShape, l: TreemapLeaf): string {
+  const { formatMessage } = intl
   const r = l.row
   const lines = [r.label]
-  const where = l.positions > 1 ? `${l.positions} accounts` : (r.account_name ?? '')
+  const where =
+    l.positions > 1
+      ? formatMessage(
+          { id: 'overview.treemap.accounts', defaultMessage: '{count} accounts' },
+          { count: l.positions },
+        )
+      : (r.account_name ?? '')
   const who = [l.sym !== r.label ? l.sym : '', where].filter(Boolean).join(' · ')
   if (who) lines.push(who)
-  lines.push(`${fBase(l.value)} • ${l.pctOfShown.toFixed(1)}% of shown`)
+  lines.push(
+    formatMessage(
+      { id: 'overview.treemap.share', defaultMessage: '{amount} • {percent}% of shown' },
+      { amount: fBase(l.value), percent: fFixed(l.pctOfShown, 1) },
+    ),
+  )
   if (r.day_change_pct != null) {
     const money = l.dayPl != null ? ` (${fBase(l.dayPl)})` : ''
-    lines.push(`${signed(r.day_change_pct)}% today${money}`)
+    lines.push(
+      formatMessage(
+        { id: 'overview.treemap.today', defaultMessage: '{percent}% today{money}' },
+        { percent: signed(r.day_change_pct), money },
+      ),
+    )
   } else {
-    lines.push('No daily move data')
+    lines.push(
+      formatMessage({ id: 'overview.treemap.noMove', defaultMessage: 'No daily move data' }),
+    )
   }
   if (l.pl != null && l.plPct != null) {
-    lines.push(`Unrealized ${fBase(l.pl)} (${signed(l.plPct)}%)`)
+    lines.push(
+      formatMessage(
+        { id: 'overview.treemap.unrealized', defaultMessage: 'Unrealized {amount} ({percent}%)' },
+        { amount: fBase(l.pl), percent: signed(l.plPct) },
+      ),
+    )
   }
   return lines.join('\n')
 }
@@ -404,6 +488,14 @@ const HoldingsMap: ComponentType<WidgetContentProps> = ({
   onPatch,
   onOpenAsset,
 }) => {
+  const intl = useAppIntl()
+  const { formatMessage } = intl
+  const groupLabels: Record<GroupFacet, string> = {
+    Sector: formatMessage({ id: 'overview.option.sector', defaultMessage: 'Sector' }),
+    'Asset type': formatMessage({ id: 'overview.treemap.type', defaultMessage: 'Type' }),
+    Account: formatMessage({ id: 'overview.option.account', defaultMessage: 'Account' }),
+    None: formatMessage({ id: 'overview.none', defaultMessage: 'None' }),
+  }
   const { analytics: portfolio, loading } = useAnalytics()
   const { rows } = useValuedRows()
   const facet = (
@@ -420,7 +512,7 @@ const HoldingsMap: ComponentType<WidgetContentProps> = ({
     () =>
       (map?.groups[FACET_KEY[facet]] ?? []).map((g) => ({
         key: g.key,
-        label: facetLabel(g.key, facet),
+        label: facetLabel(intl, g.key, facet),
         color: facetColor(g.key, facet),
         total: g.total,
         leaves: g.leaves
@@ -441,7 +533,7 @@ const HoldingsMap: ComponentType<WidgetContentProps> = ({
           })
           .filter((l): l is NonNullable<typeof l> => l !== null) as TreemapLeaf[],
       })),
-    [map, facet, rowByKey],
+    [map, facet, rowByKey, intl],
   )
   const shown = map?.shown ?? 0
   const total = map?.holdings ?? 0
@@ -458,7 +550,12 @@ const HoldingsMap: ComponentType<WidgetContentProps> = ({
   if (!groups.length) {
     return (
       <WidgetShell title={instance.title} base={def.title}>
-        <WidgetPlaceholder detail="No priced holdings yet — add positions to see the map." />
+        <WidgetPlaceholder
+          detail={formatMessage({
+            id: 'overview.treemap.empty',
+            defaultMessage: 'No priced holdings yet — add positions to see the map.',
+          })}
+        />
       </WidgetShell>
     )
   }
@@ -468,20 +565,29 @@ const HoldingsMap: ComponentType<WidgetContentProps> = ({
       title={instance.title}
       base={def.title}
       fill
-      subtitle="Size = value • color = today's move"
+      subtitle={formatMessage({
+        id: 'overview.treemap.subtitle',
+        defaultMessage: "Size = value • color = today's move",
+      })}
       meta={<Money as="span">{fBase(shownTotal)}</Money>}
       actions={
         <ChartToggleMenu
-          ariaLabel="Group by"
+          ariaLabel={formatMessage({ id: 'overview.setting.group', defaultMessage: 'Group by' })}
           value={facet}
           onChange={(v) => onPatch({ config: { ...instance.config, group: v } })}
-          options={GROUP_OPTIONS}
+          options={GROUP_OPTIONS.map((o) => ({ ...o, label: groupLabels[o.value] }))}
         />
       }
       footer={
         total > shown ? (
           <Text as="p" size="xs" tone="faint">
-            Showing the top {shown} holdings by value.
+            {formatMessage(
+              {
+                id: 'overview.treemap.showing',
+                defaultMessage: 'Showing the top {count} holdings by value.',
+              },
+              { count: shown },
+            )}
           </Text>
         ) : undefined
       }
@@ -510,9 +616,16 @@ const HoldingsMap: ComponentType<WidgetContentProps> = ({
                     className={`ov-treemap-tile${clickable ? ' ov-treemap-tile--clickable' : ''}`}
                     style={{ flexGrow: Math.max(l.value, 1), background: heatBg(chg) }}
                     aria-label={l.row.label}
-                    data-tip={treemapTip(l)}
+                    data-tip={treemapTip(intl, l)}
                     data-tip-color={g.color}
-                    data-tip-tap={clickable ? 'Tap again to open' : undefined}
+                    data-tip-tap={
+                      clickable
+                        ? formatMessage({
+                            id: 'overview.treemap.tapAgain',
+                            defaultMessage: 'Tap again to open',
+                          })
+                        : undefined
+                    }
                     onClick={
                       clickable
                         ? () => onOpenAsset!(l.row.ticker || l.row.symbol || l.sym)
@@ -524,7 +637,7 @@ const HoldingsMap: ComponentType<WidgetContentProps> = ({
                     <span className="ov-treemap-tile-sym">{l.sym}</span>
                     {chg != null && (
                       <span className="ov-treemap-tile-chg">
-                        {(chg >= 0 ? '+' : '') + chg.toFixed(1)}%
+                        {(chg >= 0 ? '+' : '') + fFixed(chg, 1)}%
                       </span>
                     )}
                   </div>
@@ -542,6 +655,8 @@ const HoldingsMap: ComponentType<WidgetContentProps> = ({
 
 const AllocationDrift: ComponentType<WidgetContentProps> = ({ instance, def }) => {
   const maskText = useMaskText()
+  const intl = useAppIntl()
+  const { formatMessage } = intl
   // Actual-vs-target shares, the drift in percentage points, AND the trade that would close
   // each gap are all computed server-side against the profile's target allocation — the same
   // `threshold_pp` (rebalance.DRIFT_FLAG_PP) the Investments tab's Rebalance panel uses.
@@ -554,14 +669,25 @@ const AllocationDrift: ComponentType<WidgetContentProps> = ({ instance, def }) =
   if (total <= 0) {
     return (
       <WidgetShell title={instance.title} base={def.title}>
-        <WidgetPlaceholder detail={<>Add investment holdings to see allocation drift.</>} />
+        <WidgetPlaceholder
+          detail={formatMessage({
+            id: 'overview.drift.empty',
+            defaultMessage: 'Add investment holdings to see allocation drift.',
+          })}
+        />
       </WidgetShell>
     )
   }
   if (!hasTargets) {
     return (
       <WidgetShell title={instance.title} base={def.title}>
-        <WidgetPlaceholder detail="Set a target asset mix in Investments → Holdings → Allocation to see drift." />
+        <WidgetPlaceholder
+          detail={formatMessage({
+            id: 'overview.drift.noTarget',
+            defaultMessage:
+              'Set a target asset mix in Investments → Holdings → Allocation to see drift.',
+          })}
+        />
       </WidgetShell>
     )
   }
@@ -577,13 +703,38 @@ const AllocationDrift: ComponentType<WidgetContentProps> = ({ instance, def }) =
       footer={
         topTrade ? (
           <Text as="p" size="xs" tone="muted">
-            {topTrade.drift_pp > 0 ? 'Trim' : 'Top up'}{' '}
-            {ASSET_CLASS_LABEL[topTrade.key] ?? topTrade.key} by ~
-            <Money as="span"> {fBase(Math.abs(topTrade.trade_base))}</Money> to reach target.
+            {topTrade.drift_pp > 0
+              ? formatMessage(
+                  {
+                    id: 'overview.drift.trim',
+                    defaultMessage: 'Trim {asset} by ~{amount} to reach target.',
+                  },
+                  {
+                    asset: assetClassLabel(intl, topTrade.key),
+                    amount: <Money as="span">{fBase(Math.abs(topTrade.trade_base))}</Money>,
+                  },
+                )
+              : formatMessage(
+                  {
+                    id: 'overview.drift.topUp',
+                    defaultMessage: 'Top up {asset} by ~{amount} to reach target.',
+                  },
+                  {
+                    asset: assetClassLabel(intl, topTrade.key),
+                    amount: <Money as="span">{fBase(Math.abs(topTrade.trade_base))}</Money>,
+                  },
+                )}
           </Text>
         ) : (
           <Text as="p" size="xs" tone="faint">
-            You're within {thresholdPp}pp of every target — no rebalancing needed.
+            {formatMessage(
+              {
+                id: 'overview.drift.within',
+                defaultMessage:
+                  "You're within {threshold}pp of every target — no rebalancing needed.",
+              },
+              { threshold: thresholdPp },
+            )}
           </Text>
         )
       }
@@ -596,16 +747,22 @@ const AllocationDrift: ComponentType<WidgetContentProps> = ({ instance, def }) =
                 className="ov-drift-dot"
                 style={{ background: ASSET_CLASS_COLOR[r.key] ?? 'var(--accent)' }}
               />
-              <span className="ov-drift-label">{ASSET_CLASS_LABEL[r.key] ?? r.key}</span>
+              <span className="ov-drift-label">{assetClassLabel(intl, r.key)}</span>
               <span className="ov-drift-delta money">
                 {r.drift_pp > 0 ? '+' : ''}
-                {r.drift_pp.toFixed(1)}pp
+                {fFixed(r.drift_pp, 1)}pp
               </span>
             </div>
             <div
               className="ov-drift-track"
               title={maskText(
-                `Actual ${r.current_pct.toFixed(1)}% • target ${r.target_pct.toFixed(1)}%`,
+                formatMessage(
+                  {
+                    id: 'overview.drift.actualTarget',
+                    defaultMessage: 'Actual {actual}% • target {target}%',
+                  },
+                  { actual: fFixed(r.current_pct, 1), target: fFixed(r.target_pct, 1) },
+                ),
               )}
             >
               <div className="ov-drift-center" />
@@ -616,10 +773,16 @@ const AllocationDrift: ComponentType<WidgetContentProps> = ({ instance, def }) =
             </div>
             <div className="ov-drift-nums">
               <span>
-                <span className="money">{r.current_pct.toFixed(1)}%</span> now
+                {formatMessage(
+                  { id: 'overview.drift.now', defaultMessage: '{percent} now' },
+                  { percent: <span className="money">{fFixed(r.current_pct, 1)}%</span> },
+                )}
               </span>
               <span className="ov-drift-tgt">
-                <span className="money">{r.target_pct.toFixed(1)}%</span> target
+                {formatMessage(
+                  { id: 'overview.drift.target', defaultMessage: '{percent} target' },
+                  { percent: <span className="money">{fFixed(r.target_pct, 1)}%</span> },
+                )}
               </span>
             </div>
           </div>
@@ -666,7 +829,72 @@ function useReturnsData(period: ReturnPeriod, benchmark: string): JsonState<Port
   return state
 }
 
+export function returnsLabel(intl: IntlShape, data: PortfolioReturns): string {
+  if (intl.locale === 'en' || intl.locale.startsWith('en-')) return data.label
+  const message = data.label_message
+  if (
+    !message ||
+    !message.params ||
+    typeof message.params !== 'object' ||
+    Array.isArray(message.params) ||
+    Object.keys(message.params).length !== 1
+  )
+    return data.label
+  if (
+    message.id === 'returns.label.since' &&
+    typeof message.params.date === 'string' &&
+    /^\d{4}-\d{2}-\d{2}$/.test(message.params.date)
+  ) {
+    return intl.formatMessage(
+      { id: 'overview.performance.since', defaultMessage: 'Since {date}' },
+      { date: fDate(message.params.date) },
+    )
+  }
+  if (message.id === 'returns.label.period' && typeof message.params.period === 'string') {
+    switch (message.params.period) {
+      case '7D':
+        return intl.formatMessage({
+          id: 'overview.performance.period7d',
+          defaultMessage: 'Last 7 days',
+        })
+      case '1M':
+        return intl.formatMessage({
+          id: 'overview.performance.period1m',
+          defaultMessage: 'Last 1 month',
+        })
+      case '3M':
+        return intl.formatMessage({
+          id: 'overview.performance.period3m',
+          defaultMessage: 'Last 3 months',
+        })
+      case 'YTD':
+        return intl.formatMessage({
+          id: 'overview.performance.periodYtd',
+          defaultMessage: 'Year to date',
+        })
+      case '1Y':
+        return intl.formatMessage({
+          id: 'overview.performance.period1y',
+          defaultMessage: 'Last 1 year',
+        })
+      case 'ALL':
+        return intl.formatMessage({
+          id: 'overview.performance.periodAll',
+          defaultMessage: 'All time',
+        })
+      case 'CUSTOM':
+        return intl.formatMessage({
+          id: 'overview.performance.periodCustom',
+          defaultMessage: 'Custom range',
+        })
+    }
+  }
+  return data.label
+}
+
 const Performance: ComponentType<WidgetContentProps> = ({ instance, def, onPatch }) => {
+  const intl = useAppIntl()
+  const { formatMessage } = intl
   const configuredRange = instance.config?.range as string | undefined
   const period: ReturnPeriod = (
     RANGE_OPTIONS.some((o) => o.value === configuredRange) ? configuredRange : '1Y'
@@ -679,20 +907,34 @@ const Performance: ComponentType<WidgetContentProps> = ({ instance, def, onPatch
       title={instance.title}
       base={def.title}
       fill
-      meta={data?.label}
+      meta={data ? returnsLabel(intl, data) : undefined}
       footer={
         data?.data_quality.sufficient && !data.comparison ? (
           <Text as="p" size="xs" tone="faint">
-            No {benchKey} comparison for this range.
+            {formatMessage(
+              {
+                id: 'overview.performance.noComparison',
+                defaultMessage: 'No {benchmark} comparison for this range.',
+              },
+              { benchmark: benchKey },
+            )}
           </Text>
         ) : undefined
       }
       actions={
         <SegmentedControl
-          ariaLabel="Range"
+          ariaLabel={formatMessage({ id: 'overview.setting.range', defaultMessage: 'Range' })}
           value={period}
           onChange={(v) => onPatch({ config: { ...instance.config, range: v } })}
-          options={RANGE_OPTIONS}
+          options={RANGE_OPTIONS.map((o) => ({
+            ...o,
+            label:
+              o.value === '3M'
+                ? formatMessage({ id: 'overview.option.threeMonths', defaultMessage: '3M' })
+                : o.value === '1Y'
+                  ? formatMessage({ id: 'overview.option.oneYear', defaultMessage: '1Y' })
+                  : formatMessage({ id: 'overview.all', defaultMessage: 'All' }),
+          }))}
         />
       }
     >
@@ -700,16 +942,29 @@ const Performance: ComponentType<WidgetContentProps> = ({ instance, def, onPatch
         <WidgetSkeleton rows={3} />
       ) : error || !data ? (
         <Text as="p" size="sm" tone="bad">
-          Couldn't load performance data.
+          {formatMessage({
+            id: 'overview.performance.error',
+            defaultMessage: "Couldn't load performance data.",
+          })}
         </Text>
       ) : !data.data_quality.sufficient ? (
-        <WidgetPlaceholder detail="Not enough price history yet for this range." />
+        <WidgetPlaceholder
+          detail={formatMessage({
+            id: 'overview.performance.insufficient',
+            defaultMessage: 'Not enough price history yet for this range.',
+          })}
+        />
       ) : (
         <div className="ov-perf">
           <div className="ov-perf-stats">
             <div className="ov-perf-stat">
               <Text as="span" size="xs" tone="faint">
-                {data.annualized ? 'TWR (ann.)' : 'TWR'}
+                {data.annualized
+                  ? formatMessage({
+                      id: 'overview.performance.twrAnnual',
+                      defaultMessage: 'TWR (ann.)',
+                    })
+                  : 'TWR'}
               </Text>
               <Text
                 as="span"
@@ -745,7 +1000,7 @@ const Performance: ComponentType<WidgetContentProps> = ({ instance, def, onPatch
             {data.comparison?.excess_return != null && (
               <div className="ov-perf-stat">
                 <Text as="span" size="xs" tone="faint">
-                  Excess
+                  {formatMessage({ id: 'overview.performance.excess', defaultMessage: 'Excess' })}
                 </Text>
                 <Text
                   as="span"
@@ -767,7 +1022,7 @@ const Performance: ComponentType<WidgetContentProps> = ({ instance, def, onPatch
                 labels: data.series.map((p) => fDate(p.date)),
                 datasets: [
                   {
-                    label: 'You',
+                    label: formatMessage({ id: 'overview.performance.you', defaultMessage: 'You' }),
                     data: data.series.map((p) => p.portfolio * 100),
                     borderColor: resolveColor('var(--ink)'),
                     backgroundColor: 'transparent',
@@ -816,6 +1071,7 @@ const Performance: ComponentType<WidgetContentProps> = ({ instance, def, onPatch
 // ── Unrealized gains ─────────────────────────────────────────────────────────
 
 const UnrealizedGains: ComponentType<WidgetContentProps> = ({ instance, def, onOpenAsset }) => {
+  const { formatMessage } = useAppIntl()
   // The server decides WHICH rows have a known cost basis, their order (|P&L| desc), and the
   // total — the same `upl` figure the net-worth KPI strip shows, so the two always agree.
   const { analytics: portfolio, loading } = useAnalytics()
@@ -848,7 +1104,12 @@ const UnrealizedGains: ComponentType<WidgetContentProps> = ({ instance, def, onO
   if (!gainRows.length) {
     return (
       <WidgetShell title={instance.title} base={def.title}>
-        <WidgetPlaceholder detail={<>No holdings with a known cost basis yet.</>} />
+        <WidgetPlaceholder
+          detail={formatMessage({
+            id: 'overview.gains.empty',
+            defaultMessage: 'No holdings with a known cost basis yet.',
+          })}
+        />
       </WidgetShell>
     )
   }
@@ -895,7 +1156,12 @@ const UnrealizedGains: ComponentType<WidgetContentProps> = ({ instance, def, onO
           )
         })}
         {gainRows.length > visible.length && (
-          <div className="ov-more">+{gainRows.length - visible.length} more</div>
+          <div className="ov-more">
+            {formatMessage(
+              { id: 'overview.more', defaultMessage: '+{count} more' },
+              { count: gainRows.length - visible.length },
+            )}
+          </div>
         )}
       </div>
     </WidgetShell>
@@ -904,17 +1170,20 @@ const UnrealizedGains: ComponentType<WidgetContentProps> = ({ instance, def, onO
 
 // ── Dividend forecast ────────────────────────────────────────────────────────
 
-function monthLabel(ym: string): string {
+function monthLabel(ym: string, locale: string): string {
   const [y, m] = ym.split('-').map(Number) as [number, number]
-  return new Date(y, m - 1, 1).toLocaleDateString(undefined, { month: 'short' })
+  return new Intl.DateTimeFormat(locale, { month: 'short', timeZone: 'UTC' }).format(
+    new Date(Date.UTC(y, m - 1, 1)),
+  )
 }
 
 const DividendForecast: ComponentType<WidgetContentProps> = ({ instance, def }) => {
+  const { formatMessage, locale } = useAppIntl()
   // The next 12 calendar months, each already bucketed and summed server-side.
   const income = useDividendSummary()
   const buckets = (income.data?.forecast ?? []).map((b) => ({
     key: b.month,
-    label: monthLabel(b.month),
+    label: monthLabel(b.month, locale),
     amount: b.amount,
   }))
   const loading = income.initialLoading
@@ -928,7 +1197,10 @@ const DividendForecast: ComponentType<WidgetContentProps> = ({ instance, def }) 
       fill
       meta={
         <>
-          <Money as="span">{fBase(total)}</Money> next 12m
+          {formatMessage(
+            { id: 'overview.dividendForecast.total', defaultMessage: '{amount} next 12m' },
+            { amount: <Money as="span">{fBase(total)}</Money> },
+          )}
         </>
       }
     >
@@ -936,10 +1208,18 @@ const DividendForecast: ComponentType<WidgetContentProps> = ({ instance, def }) 
         <WidgetSkeleton rows={3} />
       ) : error ? (
         <Text as="p" size="sm" tone="bad">
-          Couldn't load the dividend forecast.
+          {formatMessage({
+            id: 'overview.dividendForecast.error',
+            defaultMessage: "Couldn't load the dividend forecast.",
+          })}
         </Text>
       ) : total <= 0 ? (
-        <WidgetPlaceholder detail="No dividend income projected in the next 12 months." />
+        <WidgetPlaceholder
+          detail={formatMessage({
+            id: 'overview.dividendForecast.empty',
+            defaultMessage: 'No dividend income projected in the next 12 months.',
+          })}
+        />
       ) : (
         <OvChart
           sig={buckets.map((m) => `${m.key}:${m.amount}`).join(',')}
