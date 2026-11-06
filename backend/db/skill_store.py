@@ -593,6 +593,18 @@ def _read_skill_folder(
     if format_problems:
         record["validation_errors"] = format_problems
     source = (state_row or {}).get("starter_source")
+    if source is None and record["author"] == "builtin":
+        starter = next((item for item in STARTER_SKILLS if item["id"] == sid), None)
+        if starter and all(
+            record[field] == starter.get(field, "") for field in ("name", "description")
+        ):
+            source = {
+                "id": sid,
+                **{
+                    f"{field}_sha256": hashlib.sha256(record[field].encode("utf-8")).hexdigest()
+                    for field in ("name", "description")
+                },
+            }
     if isinstance(source, dict) and source.get("id") == sid:
         verified = {"id": sid}
         for field in ("name", "description"):

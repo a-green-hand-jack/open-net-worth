@@ -1213,6 +1213,27 @@ def test_user_skill_cannot_gain_starter_provenance_by_name(isolated):
     assert "starter_source" not in created
 
 
+def test_legacy_unchanged_builtin_exposes_read_only_provenance(isolated):
+    starter = next(item for item in STARTER_SKILLS if item["id"] == "catch-up")
+    store = SkillStore()
+    store.create({**starter, "author": "builtin"})
+    state_before = skill_store._load_state()
+    record = store.find_by_id("catch-up")
+    assert record["starter_source"]["id"] == "catch-up"
+    assert skill_store._load_state() == state_before
+    assert "starter_source" not in state_before["catch-up"]
+
+
+def test_legacy_modified_or_user_owned_skill_does_not_gain_provenance(isolated):
+    starter = next(item for item in STARTER_SKILLS if item["id"] == "catch-up")
+    store = SkillStore()
+    modified = store.create({**starter, "author": "builtin", "description": "Custom description"})
+    assert "starter_source" not in modified
+    store.delete("catch-up")
+    user = store.create({**starter, "author": "user"})
+    assert "starter_source" not in user
+
+
 # ── base CRUD still works ──────────────────────────────────────────────────────
 def test_delete_and_find(isolated):
     s = SkillStore()
