@@ -1,0 +1,12 @@
+{
+  "accounts.split.add": "添加一行",
+  "accounts.split.amount": "拆分金额",
+  "accounts.split.balanced": "已平衡",
+  "accounts.split.count": "拆分 • {count, plural, other {# 个分类}}",
+  "accounts.split.memo": "备注（可选）",
+  "accounts.split.memoLabel": "拆分备注",
+  "accounts.split.remaining": "剩余 {amount}",
+  "accounts.split.removeLine": "移除拆分明细",
+  "accounts.split.removeLineTitle": "移除这一行",
+  "accounts.split.unsplit": "取消拆分"
+}
