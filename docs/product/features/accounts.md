@@ -217,6 +217,8 @@ Account header, reconciliation and due-payment controls follow the interface lan
 continuing to honor amount hiding.
 The register's bulk-action controls follow the selected interface language. Account
 and category names remain as entered; selection counts follow the number format.
+The account sidebar translates built-in group labels and reconciliation status while
+keeping account names as entered.
 
 ## Related pages
 

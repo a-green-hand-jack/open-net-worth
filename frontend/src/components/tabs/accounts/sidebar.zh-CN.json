@@ -1,0 +1,17 @@
+{
+  "accounts.accountCount": "{count, plural, other {# 个账户}}",
+  "accounts.allAccounts": "所有账户",
+  "accounts.allAccountsHelp": "下方账户的合计，包括负债。净资产还包含资产页面中你拥有的资产，因此两者不同。",
+  "accounts.assets": "资产",
+  "accounts.collapsePanel": "收起面板",
+  "accounts.debts": "负债",
+  "accounts.dragToResize": "拖动以调整大小",
+  "accounts.keepOpen": "保持账户面板展开",
+  "accounts.linkedNotSyncing": "已关联 {name}，但未同步",
+  "accounts.linkedTo": "已关联 {name}",
+  "accounts.needsReconciling": "需要核对",
+  "accounts.needsReconcilingCount": "{count, plural, other {# 个需要核对}}",
+  "accounts.netWorth": "净资产",
+  "accounts.noAccounts": "暂无账户",
+  "accounts.value": "价值"
+}
