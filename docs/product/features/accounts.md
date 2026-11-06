@@ -222,6 +222,8 @@ keeping account names as entered.
 Register headers, display options, loading states and empty states follow the interface language.
 The register filter accepts localized labels and Chinese date input while preserving the
 underlying filter values and user-entered payee and category names.
+Transaction rows and mobile cards localize built-in status and transfer labels without
+changing transaction descriptions, amounts, category names or account names.
 
 ## Related pages
 

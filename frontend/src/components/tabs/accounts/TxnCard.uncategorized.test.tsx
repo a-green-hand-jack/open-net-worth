@@ -6,6 +6,8 @@
 // on a phone while the filter for it came back empty.
 
 import { cleanup, render } from '@testing-library/react'
+import { IntlProvider } from 'react-intl'
+import { catalogs } from '../../../i18n/catalogs'
 import { afterEach, describe, expect, it } from 'vitest'
 import { TxnCard } from './TxnCard'
 import type { Account, Category, Txn } from './types'
@@ -72,7 +74,7 @@ const base: Txn = {
   externalRefs: [],
 }
 
-function renderCard(t: Txn) {
+function renderCard(t: Txn, chinese = false, catMap: Record<string, Category> = {}) {
   return render(
     <TxnCard
       t={t}
@@ -86,11 +88,38 @@ function renderCard(t: Txn) {
       rates={{}}
       splitOpen={false}
       onSplit={() => {}}
+      catMap={catMap}
     />,
+    chinese
+      ? {
+          wrapper: ({ children }) => (
+            <IntlProvider locale="zh-CN" messages={catalogs['zh-CN']}>
+              {children}
+            </IntlProvider>
+          ),
+        }
+      : undefined,
   )
 }
 
 describe('TxnCard Uncategorized label', () => {
+  it('localizes an uncategorized expense without changing its amount', () => {
+    const { container } = renderCard(base, true)
+    expect(container.querySelector('.acct-unsorted')?.textContent).toBe('未分类')
+    expect(container.querySelector('.acct-card-amt.mask')?.textContent).toContain('500.00')
+  })
+  it('preserves a user category whose name resembles a system label', () => {
+    const category: Category = {
+      id: 'cat_custom',
+      label: 'Uncategorized',
+      color: '#777777',
+      kind: 'expense',
+    }
+    const { container } = renderCard({ ...base, category: category.id }, true, {
+      [category.id]: category,
+    })
+    expect(container.querySelector('.acct-pill')?.textContent).toBe('Uncategorized')
+  })
   it('labels a blank-category expense Uncategorized', () => {
     const { container } = renderCard(base)
     expect(container.querySelector('.acct-unsorted')?.textContent).toBe('Uncategorized')

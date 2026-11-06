@@ -6,6 +6,8 @@
 
 import { describe, it, expect, afterEach } from 'vitest'
 import { render, cleanup } from '@testing-library/react'
+import { IntlProvider } from 'react-intl'
+import { catalogs } from '../../../i18n/catalogs'
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { TxnRow } from './TxnRow'
@@ -42,6 +44,8 @@ function makeAccount(id: string, name: string): Account {
     balanceBase: 1000,
     clearedBalance: 1000,
     clearedBalanceBase: 1000,
+    role: 'cash',
+    holdingsBase: 0,
   }
 }
 
@@ -82,7 +86,7 @@ function makeTxn(over: Partial<Txn> = {}): Txn {
 const ALL_COLS = ['cb', 'clr', 'account', 'date', 'payee', 'category', 'source', 'amount']
 const NO_ACCOUNT_COL = ALL_COLS.filter((k) => k !== 'account')
 
-function renderRow(t: Txn, selectedId: string | null, colKeys = ALL_COLS) {
+function renderRow(t: Txn, selectedId: string | null, colKeys = ALL_COLS, chinese = false) {
   return render(
     <TxnRow
       t={t}
@@ -101,10 +105,19 @@ function renderRow(t: Txn, selectedId: string | null, colKeys = ALL_COLS) {
       rates={{}}
       categories={[]}
     />,
+    chinese
+      ? {
+          wrapper: ({ children }) => (
+            <IntlProvider locale="zh-CN" messages={catalogs['zh-CN']}>
+              {children}
+            </IntlProvider>
+          ),
+        }
+      : undefined,
   )
 }
 
-function renderCard(t: Txn, selectedId: string | null) {
+function renderCard(t: Txn, selectedId: string | null, chinese = false) {
   return render(
     <TxnCard
       t={t}
@@ -119,6 +132,15 @@ function renderCard(t: Txn, selectedId: string | null) {
       splitOpen={false}
       onSplit={() => {}}
     />,
+    chinese
+      ? {
+          wrapper: ({ children }) => (
+            <IntlProvider locale="zh-CN" messages={catalogs['zh-CN']}>
+              {children}
+            </IntlProvider>
+          ),
+        }
+      : undefined,
   )
 }
 
@@ -173,6 +195,15 @@ describe('transfer amount', () => {
 })
 
 describe('transfer payee label', () => {
+  it('localizes row and card transfers without changing account names or amount masking', () => {
+    const row = renderRow(makeTxn(), null, ALL_COLS, true)
+    expect(text(row.container, '.acct-payee-nm')).toBe('转账→Harbor Checking')
+    expect(row.container.querySelector('.acct-td-amt.mask')).toBeTruthy()
+    row.unmount()
+    const card = renderCard(makeTxn(), null, true)
+    expect(text(card.container, '.acct-payee-nm')).toContain('转账')
+    expect(card.container.querySelector('.acct-card-amt.mask')).toBeTruthy()
+  })
   it('names only the destination where the Account column already shows the source', () => {
     const { container } = renderRow(makeTxn(), null)
     expect(text(container, '.acct-payee-nm')).toBe('Transfer→Harbor Checking')

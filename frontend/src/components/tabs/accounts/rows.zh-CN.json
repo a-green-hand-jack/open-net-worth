@@ -1,0 +1,11 @@
+{
+  "accounts.balanceAdjustment": "余额调整",
+  "accounts.clickClear": "未入账——点击标记为已入账",
+  "accounts.clickUnclear": "已入账——点击改为未入账",
+  "accounts.noCategoryBudget": "没有分类——不会计入任何预算信封",
+  "accounts.noDescription": "（无描述）",
+  "accounts.review": "审核",
+  "accounts.reviewFlagHelp": "由导入、Lucius 或自动化添加，尚未由你确认。批准只会清除此标记。",
+  "accounts.tapClear": "未入账——轻点标记为已入账",
+  "accounts.tapUnclear": "已入账——轻点改为未入账"
+}
