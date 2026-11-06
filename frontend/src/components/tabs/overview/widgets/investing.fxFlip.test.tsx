@@ -6,6 +6,8 @@
 
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
+import { IntlProvider } from 'react-intl'
+import { catalogs } from '../../../../i18n/LocaleProvider'
 
 const authFetch = vi.hoisted(() => vi.fn())
 vi.mock('../../../../api/client', () => ({ authFetch }))
@@ -35,7 +37,7 @@ function serve(exposure = 2472) {
   })
 }
 
-function renderFx(config: Record<string, unknown> = {}) {
+function renderFx(config: Record<string, unknown> = {}, chinese = false) {
   const Comp = investingWidgetComponents.fx!
   const def = WIDGET_DEFINITIONS.find((d) => d.defId === 'fx')!
   const instance: WidgetInstance = {
@@ -48,7 +50,8 @@ function renderFx(config: Record<string, unknown> = {}) {
     config,
   }
   const onPatch = vi.fn()
-  render(<Comp instance={instance} def={def} onPatch={onPatch} />)
+  const widget = <Comp instance={instance} def={def} onPatch={onPatch} />
+  render(chinese ? <IntlProvider locale="zh-CN" messages={catalogs['zh-CN']}>{widget}</IntlProvider> : widget)
   return onPatch
 }
 
@@ -108,5 +111,13 @@ describe('FX rate rows', () => {
     expect(note.querySelector('.money')?.textContent).toBeTruthy()
     expect(note.querySelector('.money')?.textContent).not.toContain('owed')
     expect(note.classList.contains('money')).toBe(false)
+  })
+
+  it('keeps the Chinese owed label visible outside the maskable amount', async () => {
+    serve(-362660)
+    renderFx({ pairs: [] }, true)
+    const note = await screen.findByText(/欠款/, { selector: '.ov-fx-note' })
+    expect(note.querySelector('.money')?.textContent).toBeTruthy()
+    expect(note.querySelector('.money')?.textContent).not.toContain('欠款')
   })
 })
