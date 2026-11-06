@@ -55,6 +55,7 @@ import accountTxnEditZh from '../components/tabs/accounts/txn-edit.zh-CN.json'
 import accountSurfacesZh from '../components/tabs/accounts/surfaces.zh-CN.json'
 import accountReviewValidationZh from '../components/tabs/accounts/review-validation.zh-CN.json'
 import accountReviewUiZh from '../components/tabs/accounts/review-ui.zh-CN.json'
+import accountReviewSummaryZh from '../components/tabs/accounts/review-summary.zh-CN.json'
 
 export const catalogs: Record<Locale, Record<string, string> | undefined> = {
   en: undefined,
@@ -115,6 +116,7 @@ export const catalogs: Record<Locale, Record<string, string> | undefined> = {
     ...accountSurfacesZh,
     ...accountReviewValidationZh,
     ...accountReviewUiZh,
+    ...accountReviewSummaryZh,
     'auth.signingBackIn': '正在重新登录…',
     'auth.rateLimit': '尝试次数过多。请在 {minutes, plural, other {# 分钟}}后重试。',
     'settings.section.language': '界面语言',

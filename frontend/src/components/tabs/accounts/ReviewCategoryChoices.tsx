@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type ComponentType } from 'react'
+import { useAppIntl } from '../../../i18n/useAppIntl'
 import { Check, Search, Tags, X } from '../../../ui/icons'
 import { TextField } from '../../ui'
 import { useIsCoarsePointer } from '../../../hooks/useIsCoarsePointer'
@@ -50,6 +51,7 @@ export function ReviewChipChooser({
    *  longer, so a transfer offers three. */
   limit?: number
 }) {
+  const { formatMessage } = useAppIntl()
   const [searching, setSearching] = useState(false)
   const [query, setQuery] = useState('')
   // On a touch screen, focusing the field on open throws the on-screen keyboard over the
@@ -123,7 +125,10 @@ export function ReviewChipChooser({
             <button
               type="button"
               className="acct-review-category-search-close"
-              aria-label="Close search"
+              aria-label={formatMessage({
+                id: 'accounts.reviewChoices.close',
+                defaultMessage: 'Close search',
+              })}
               onClick={close}
             >
               <X size={16} aria-hidden="true" />
@@ -192,7 +197,7 @@ export function ReviewChipChooser({
         ))}
         <button type="button" className="acct-review-choice" onClick={() => setSearching(true)}>
           <Search size={14} aria-hidden="true" />
-          Other
+          {formatMessage({ id: 'accounts.reviewChoices.other', defaultMessage: 'Other' })}
         </button>
       </div>
     </div>
@@ -210,17 +215,30 @@ export function ReviewCategoryChoices({
   suggestedIds: string[]
   onChange: (id: string | null) => void
 }) {
+  const { formatMessage } = useAppIntl()
   return (
     <ReviewChipChooser
-      caption="Choose a category"
+      caption={formatMessage({
+        id: 'accounts.reviewChoices.choose',
+        defaultMessage: 'Choose a category',
+      })}
       options={categories}
       selected={selected}
       suggestedIds={suggestedIds}
       onChange={onChange}
       icon={Tags}
-      none="Uncategorized"
-      searchLabel="Search categories"
-      placeholder="Find a category…"
+      none={formatMessage({
+        id: 'accounts.reviewChoices.uncategorized',
+        defaultMessage: 'Uncategorized',
+      })}
+      searchLabel={formatMessage({
+        id: 'accounts.reviewChoices.search',
+        defaultMessage: 'Search categories',
+      })}
+      placeholder={formatMessage({
+        id: 'accounts.reviewChoices.find',
+        defaultMessage: 'Find a category…',
+      })}
       resultsTestId="review-category-results"
     />
   )

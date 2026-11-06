@@ -1,0 +1,21 @@
+{
+  "accounts.reviewChoices.choose": "选择分类",
+  "accounts.reviewChoices.close": "关闭搜索",
+  "accounts.reviewChoices.find": "查找分类…",
+  "accounts.reviewChoices.other": "其他",
+  "accounts.reviewChoices.search": "搜索分类",
+  "accounts.reviewChoices.uncategorized": "未分类",
+  "accounts.reviewSummary.anotherAccount": "其他账户",
+  "accounts.reviewSummary.bankDescription": "银行描述",
+  "accounts.reviewSummary.baseAmount": "≈ {amount}（{currency}）",
+  "accounts.reviewSummary.baseValue": "以基础货币计价",
+  "accounts.reviewSummary.findAccount": "查找账户…",
+  "accounts.reviewSummary.goingTo": "转入",
+  "accounts.reviewSummary.memo": "备注",
+  "accounts.reviewSummary.noPayee": "尚无收款方",
+  "accounts.reviewSummary.original": "原始金额 {amount} {currency}",
+  "accounts.reviewSummary.searchAccounts": "搜索账户",
+  "accounts.reviewSummary.split": "分为 {count} 个分类",
+  "accounts.reviewSummary.transferTo": "转账至 {account}",
+  "accounts.reviewSummary.uncategorized": "未分类"
+}

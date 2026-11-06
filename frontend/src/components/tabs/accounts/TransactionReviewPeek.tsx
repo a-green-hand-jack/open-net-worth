@@ -1,5 +1,7 @@
 import { Info, Pencil, Wallet } from '../../../ui/icons'
-import { sourceLine, type ReviewDraft } from './transactionReview'
+import { type ReviewDraft } from './transactionReview'
+import { useReviewSource } from './useReviewSource'
+import { useAppIntl } from '../../../i18n/useAppIntl'
 import { SourceIcon } from './pickers'
 import { ReviewChoices, ReviewSummary } from './ReviewSummary'
 import type { Account, Category, Txn } from './types'
@@ -25,6 +27,8 @@ export function TransactionReviewPeek({
   categories: Category[]
   suggestedCategoryIds: string[]
 }) {
+  const { formatMessage } = useAppIntl()
+  const source = useReviewSource(txn)
   return (
     <div
       className="acct-review-card acct-review-card--rear"
@@ -38,7 +42,11 @@ export function TransactionReviewPeek({
         <div className="acct-review-card-head">
           <b>
             <Wallet size={16} aria-hidden="true" />
-            {account?.name ?? 'Unknown account'}
+            {account?.name ??
+              formatMessage({
+                id: 'accounts.reviewCard.unknownAccount',
+                defaultMessage: 'Unknown account',
+              })}
           </b>
           {/* The SAME classes ui/Button composes for the front card's actions (ui-btn + ghost +
               sm), so the two heads are pixel-identical. Spans, so there is never a second
@@ -46,16 +54,16 @@ export function TransactionReviewPeek({
           <span className="acct-review-head-actions">
             <span className="ui-btn ui-btn--ghost ui-btn--sm acct-review-edit-all">
               <Info size={14} aria-hidden="true" />
-              Details
+              {formatMessage({ id: 'accounts.reviewCard.details', defaultMessage: 'Details' })}
             </span>
             <span className="ui-btn ui-btn--ghost ui-btn--sm acct-review-edit-all">
               <Pencil size={14} aria-hidden="true" />
-              Edit
+              {formatMessage({ id: 'accounts.reviewCard.edit', defaultMessage: 'Edit' })}
             </span>
           </span>
           <span className="acct-review-source">
             <SourceIcon source={txn.source} variant="mono" />
-            <span className="acct-review-source-text">{sourceLine(txn)}</span>
+            <span className="acct-review-source-text">{source}</span>
           </span>
         </div>
         <ReviewSummary txn={txn} accounts={accounts} draft={draft} />

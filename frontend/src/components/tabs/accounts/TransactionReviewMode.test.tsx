@@ -253,6 +253,20 @@ describe('TransactionReviewMode — compact queue', () => {
     renderMode({}, true)
     expect(await screen.findByText('由 Synthetic schedule 添加')).toBeTruthy()
   })
+  it('preserves a selected category id through the Chinese review controls', async () => {
+    const onApprove = vi.fn(async (txn: Txn) => ({ ...txn, needsReview: false }))
+    renderMode({ onApprove }, true)
+    await screen.findByRole('heading', { name: 'Kroger' })
+    fireEvent.click(screen.getByRole('button', { name: '其他' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Dining out' }))
+    fireEvent.click(screen.getByRole('button', { name: '批准' }))
+    await waitFor(() =>
+      expect(onApprove).toHaveBeenCalledWith(
+        expect.objectContaining({ id: 'txn-new' }),
+        expect.objectContaining({ category: 'dining' }),
+      ),
+    )
+  })
   it('loads the global queue by review state and shows the newest card with important facts first', async () => {
     renderMode()
 
