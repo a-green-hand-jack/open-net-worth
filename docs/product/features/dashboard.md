@@ -253,6 +253,8 @@ New default view and section names follow the interface language; existing and r
 The money-flow card's controls, status, chart description and identified system nodes follow the
 interface language, including the system's unbudgeted group. Labels supplied by your book remain
 unchanged.
+Transaction widget controls and system-generated transaction labels follow the interface language;
+payees, descriptions, account names and categories keep their original text.
 
 ## Related pages
 

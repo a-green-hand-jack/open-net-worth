@@ -1,9 +1,12 @@
+import { getNumberLocale } from '../../../../utils/format'
 // Overview v2 — Transactions widget group: recently added (by insertion time), recent (by
 // txn date), and category transactions (recent activity in the categories the user picks).
 // Each is a thin read over the ledger, rendered with the same compact row list used by the
 // "Next 30 days" widget (`.ov-upcoming*` classes, reused rather than forked).
 
 import type { ComponentType } from 'react'
+import { useAppIntl } from '../../../../i18n/useAppIntl'
+import type { IntlShape } from 'react-intl'
 import { fBase, fDate } from '../../../../utils/format'
 import { Money, Skeleton, Text } from '../../../ui'
 import { useDataVersion } from '../../../../hooks/useDataVersion'
@@ -39,7 +42,7 @@ function signedAmount(t: Txn, flow: Flow): number {
 }
 
 function fmtQty(q: number): string {
-  return q.toLocaleString(undefined, { maximumFractionDigits: 4 })
+  return q.toLocaleString(getNumberLocale(), { maximumFractionDigits: 4 })
 }
 
 interface RowView {
@@ -52,27 +55,39 @@ interface RowView {
  *  its two accounts, never red or green, never signed. An investment cash leg is a buy or a
  *  sell, not spending or income — "Buy 2.1 VOO", its amount in the investment purple for both
  *  signs, the same as the register (accounts.css `.acct-td-amt.invest`). */
-function rowView(t: Txn): RowView {
+function rowView(t: Txn, intl: IntlShape): RowView {
   const flow = flowOf(t)
   const named = t.payeeName || t.description
   if (t.kind === 'transfer' || flow === 'move') {
     const from = t.fromAccountName
     const to = t.toAccountName
     return {
-      label: from && to ? `${from} → ${to}` : named || 'Transfer',
+      label:
+        from && to
+          ? `${from} → ${to}`
+          : named ||
+            intl.formatMessage({ id: 'overview.txn.transfer', defaultMessage: 'Transfer' }),
       amount: Math.abs(t.baseAmount ?? 0),
       color: 'var(--muted)',
     }
   }
   if (t.kind === 'investment') {
-    const verb = flow === 'out' ? 'Buy' : 'Sell'
+    const verb =
+      flow === 'out'
+        ? intl.formatMessage({ id: 'overview.txn.buy', defaultMessage: 'Buy' })
+        : intl.formatMessage({ id: 'overview.txn.sell', defaultMessage: 'Sell' })
     const traded = t.ticker ? [t.quantity ? fmtQty(Math.abs(t.quantity)) : '', t.ticker] : []
     const label = traded.length
       ? [verb, ...traded].filter(Boolean).join(' ')
-      : `${verb} · ${named || 'investment'}`
+      : `${verb} · ${named || intl.formatMessage({ id: 'overview.txn.investment', defaultMessage: 'investment' })}`
     return { label, amount: signedAmount(t, flow), color: 'var(--violet)' }
   }
-  return { label: named || 'Unlabeled', amount: signedAmount(t, flow), color: FLOW_COLOR[flow] }
+  return {
+    label:
+      named || intl.formatMessage({ id: 'overview.txn.unlabeled', defaultMessage: 'Unlabeled' }),
+    amount: signedAmount(t, flow),
+    color: FLOW_COLOR[flow],
+  }
 }
 
 async function fetchTxnPage(path: string): Promise<{ transactions: ApiTxn[] }> {
@@ -108,11 +123,12 @@ function TxnListBody({
    *  on another day (an import of last month's purchases), says when it was added. */
   dateLabel: 'date' | 'created'
 }) {
+  const intl = useAppIntl()
   return (
     <div className="ov-upcoming">
       {txns.map((t) => {
         // The row carries its payee's name; the bank description is only for payee-less rows.
-        const row = rowView(t)
+        const row = rowView(t, intl)
         const added =
           dateLabel === 'created' && t.createdAt.slice(0, 10) !== t.date.slice(0, 10)
             ? fDate(t.createdAt)
@@ -122,7 +138,16 @@ function TxnListBody({
             <span className="ov-upcoming-date">{fDate(t.date)}</span>
             <span className="ov-upcoming-label">
               {row.label}
-              {added && <span className="ov-t-meta"> · added {added}</span>}
+              {added && (
+                <span className="ov-t-meta">
+                  {' '}
+                  ·{' '}
+                  {intl.formatMessage(
+                    { id: 'overview.txn.added', defaultMessage: 'added {date}' },
+                    { date: added },
+                  )}
+                </span>
+              )}
             </span>
             <span className="ov-upcoming-amt" style={{ color: row.color }}>
               <Money as="span">{fBase(row.amount)}</Money>
@@ -135,6 +160,7 @@ function TxnListBody({
 }
 
 const RecentlyAdded: ComponentType<WidgetContentProps> = ({ instance, def, onNavigate }) => {
+  const { formatMessage } = useAppIntl()
   const version = useDataVersion(['ledger'])
   const cap = rowCap(instance, def) ?? 25
   const key = `/api/transactions/recently-added?limit=${cap}&exclude_openings=true`
@@ -144,7 +170,10 @@ const RecentlyAdded: ComponentType<WidgetContentProps> = ({ instance, def, onNav
   })
   const txns = (data?.transactions ?? []).map(fromApiTxn)
   const footer = onNavigate && (
-    <NavFooter label="Open register" onClick={() => onNavigate('accounts')} />
+    <NavFooter
+      label={formatMessage({ id: 'overview.txn.openRegister', defaultMessage: 'Open register' })}
+      onClick={() => onNavigate('accounts')}
+    />
   )
   if (initialLoading) {
     return (
@@ -157,7 +186,7 @@ const RecentlyAdded: ComponentType<WidgetContentProps> = ({ instance, def, onNav
     return (
       <WidgetShell title={instance.title} base={def.title} footer={footer}>
         <Text as="p" size="sm" tone="faint">
-          No transactions yet.
+          {formatMessage({ id: 'overview.txn.empty', defaultMessage: 'No transactions yet.' })}
         </Text>
       </WidgetShell>
     )
@@ -170,6 +199,7 @@ const RecentlyAdded: ComponentType<WidgetContentProps> = ({ instance, def, onNav
 }
 
 const RecentTransactions: ComponentType<WidgetContentProps> = ({ instance, def, onNavigate }) => {
+  const { formatMessage } = useAppIntl()
   const version = useDataVersion(['ledger'])
   const cap = rowCap(instance, def) ?? 25
   const key = `/api/transactions?limit=${cap}`
@@ -179,7 +209,10 @@ const RecentTransactions: ComponentType<WidgetContentProps> = ({ instance, def, 
   })
   const txns = (data?.transactions ?? []).map(fromApiTxn)
   const footer = onNavigate && (
-    <NavFooter label="Open register" onClick={() => onNavigate('accounts')} />
+    <NavFooter
+      label={formatMessage({ id: 'overview.txn.openRegister', defaultMessage: 'Open register' })}
+      onClick={() => onNavigate('accounts')}
+    />
   )
   if (initialLoading) {
     return (
@@ -192,7 +225,7 @@ const RecentTransactions: ComponentType<WidgetContentProps> = ({ instance, def, 
     return (
       <WidgetShell title={instance.title} base={def.title} footer={footer}>
         <Text as="p" size="sm" tone="faint">
-          No transactions yet.
+          {formatMessage({ id: 'overview.txn.empty', defaultMessage: 'No transactions yet.' })}
         </Text>
       </WidgetShell>
     )
@@ -216,6 +249,7 @@ const CategoryTransactions: ComponentType<WidgetContentProps> = ({
   onNavigate,
   onOpenRegister,
 }) => {
+  const { formatMessage } = useAppIntl()
   const version = useDataVersion(['ledger'])
   const { data: categories } = useCategories()
   const fallbackLabel = def.settings?.find((s) => s.key === 'categories')?.fallbackLabel
@@ -241,7 +275,12 @@ const CategoryTransactions: ComponentType<WidgetContentProps> = ({
     onOpenRegister && categoryIds.length
       ? () => onOpenRegister({ category: categoryIds })
       : onNavigate && (() => onNavigate('accounts'))
-  const footer = openRegister && <NavFooter label="Open register" onClick={openRegister} />
+  const footer = openRegister && (
+    <NavFooter
+      label={formatMessage({ id: 'overview.txn.openRegister', defaultMessage: 'Open register' })}
+      onClick={openRegister}
+    />
+  )
   if (!Array.isArray(categories)) {
     return (
       <WidgetShell title={instance.title} base={def.title} footer={footer}>
@@ -252,14 +291,24 @@ const CategoryTransactions: ComponentType<WidgetContentProps> = ({
   if (!categoryIds.length) {
     return (
       <WidgetShell title={instance.title} base={def.title} footer={footer}>
-        <WidgetPlaceholder detail={<>Pick the categories to list in this widget's settings.</>} />
+        <WidgetPlaceholder
+          detail={formatMessage({
+            id: 'overview.txn.pickCategories',
+            defaultMessage: "Pick the categories to list in this widget's settings.",
+          })}
+        />
       </WidgetShell>
     )
   }
   if (!txns.length) {
     return (
       <WidgetShell title={instance.title} base={def.title} footer={footer}>
-        <WidgetPlaceholder detail={<>No transactions in these categories yet.</>} />
+        <WidgetPlaceholder
+          detail={formatMessage({
+            id: 'overview.txn.categoryEmpty',
+            defaultMessage: 'No transactions in these categories yet.',
+          })}
+        />
       </WidgetShell>
     )
   }

@@ -1,0 +1,12 @@
+{
+  "overview.txn.transfer": "转账",
+  "overview.txn.buy": "买入",
+  "overview.txn.sell": "卖出",
+  "overview.txn.investment": "投资",
+  "overview.txn.unlabeled": "未命名",
+  "overview.txn.added": "添加于 {date}",
+  "overview.txn.openRegister": "打开交易记录",
+  "overview.txn.empty": "暂无交易。",
+  "overview.txn.pickCategories": "在组件设置中选择要显示的类别。",
+  "overview.txn.categoryEmpty": "这些类别中暂无交易。"
+}
