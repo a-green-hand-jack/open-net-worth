@@ -242,6 +242,9 @@ newer widget.
 
 **Net worth looks wrong** — see [Net worth looks wrong](../troubleshooting/net-worth-looks-wrong.md).
 
+The widget picker uses your interface language for its controls and built-in widget names and
+descriptions. Custom names and content remain unchanged.
+
 ## Related pages
 
 - [Accounts](accounts.md)
