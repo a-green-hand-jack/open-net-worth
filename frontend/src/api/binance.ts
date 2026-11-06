@@ -29,8 +29,14 @@ export interface BinanceSettings {
   api_key?: string
   api_secret?: string
 }
-async function request(path: string, init?: RequestInit): Promise<BinanceStatus> {
-  const response = await authFetch(`/api/binance/${path}`, {
+const endpoints = {
+  status: '/api/binance/status',
+  config: '/api/binance/config',
+  test: '/api/binance/test',
+} as const
+
+async function request(path: keyof typeof endpoints, init?: RequestInit): Promise<BinanceStatus> {
+  const response = await authFetch(endpoints[path], {
     ...init,
     headers: { 'Content-Type': 'application/json', ...init?.headers },
   })

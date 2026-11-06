@@ -243,6 +243,9 @@ def _frontend_path_matches_backend(fe_path: str, exact: set[str], templates: set
 # elsewhere.  Each entry must have a comment.
 _KNOWN_FRONTEND_EXTRAS: frozenset[str] = frozenset(
     {
+        # frontend/src/api/trading.ts: cache key and prefix for complete request paths,
+        # never a request to the bare root.
+        "/api/trading",
         # Defined inline in backend/main.py (not via a router module)
         "/api/intel/scan",
         "/api/intel/scan/opportunities",

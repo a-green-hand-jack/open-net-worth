@@ -122,8 +122,10 @@ _CODE_ONLY = {
     # (services.lots._ensure_acquire_position — the quote page's manual lot); acquire_lots
     # always names an existing position_id. ``source`` is the provenance tag every lot write
     # stamps, defaulting to "manual".
-    "lot.acquire": {"account_id", "instrument_id", "source", "txn_id"},
-    "lot.dispose": {"txn_id", "source"},
+    # Trading reconciliation stamps internal execution references on the ledger leg;
+    # they are not caller-selected fields of the public lot tools.
+    "lot.acquire": {"account_id", "instrument_id", "source", "txn_id", "external_refs"},
+    "lot.dispose": {"txn_id", "source", "external_refs"},
     "option.open": {"quote_currency"},
     # units_withheld closed 2026-07-19: propose_vest/record_vest now offer it (informational
     # RSU withholding, mirrors the REST VestApply field the AI surface was missing).
