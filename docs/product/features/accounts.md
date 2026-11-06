@@ -220,6 +220,8 @@ and category names remain as entered; selection counts follow the number format.
 The account sidebar translates built-in group labels and reconciliation status while
 keeping account names as entered.
 Register headers, display options, loading states and empty states follow the interface language.
+The register filter accepts localized labels and Chinese date input while preserving the
+underlying filter values and user-entered payee and category names.
 
 ## Related pages
 

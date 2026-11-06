@@ -955,6 +955,7 @@ export function AccountsTab({
           field: 'category' as const,
           value: k,
           label: 'Category: ' + (catMap[k]?.label || 'Uncategorized'),
+          displayValue: catMap[k]?.label || 'Uncategorized',
         }))
         next.tokens = [...f.tokens.filter((t) => t.field !== 'category'), ...catTokens]
       }
@@ -986,7 +987,7 @@ export function AccountsTab({
       if (payee) {
         next.tokens = [
           ...next.tokens.filter((t) => t.field !== 'payee'),
-          { field: 'payee', value: payee, label: 'Payee: ' + payee },
+          { field: 'payee', value: payee, label: 'Payee: ' + payee, displayValue: payee },
         ]
       }
       if (dateOn) {
@@ -1018,7 +1019,7 @@ export function AccountsTab({
         const label = 'Category: ' + (catMap[String(t.value)]?.label || 'Uncategorized')
         if (label === t.label) return t
         changed = true
-        return { ...t, label }
+        return { ...t, label, displayValue: catMap[String(t.value)]?.label || 'Uncategorized' }
       })
       return changed ? { ...f, tokens } : f
     })
@@ -1914,7 +1915,7 @@ export function AccountsTab({
   const viewPayee = (name: string) => {
     setShowPayees(false)
     selectAccount(null)
-    addToken({ field: 'payee', value: name, label: 'Payee: ' + name })
+    addToken({ field: 'payee', value: name, label: 'Payee: ' + name, displayValue: name })
   }
   // Statement Import's "View imported" deep-link. A multi-account statement routes rows
   // across several accounts, so this is an all-accounts view — same reasoning as viewPayee

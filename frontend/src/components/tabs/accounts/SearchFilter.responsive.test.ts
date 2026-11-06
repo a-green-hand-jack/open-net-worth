@@ -34,16 +34,16 @@ describe('Accounts filter toolbar responsive contract', () => {
   })
 
   it('keeps a dynamic accessible name on the icon-only date control', () => {
-    expect(source).toContain('aria-label={`Date range: ${dateLabel}`}')
-    expect(source).toContain('title={`Date range: ${dateLabel}`}')
+    expect(source).toMatch(/aria-label=\{formatMessage\([\s\S]{0,150}id: 'accounts\.dateRangeValue'[\s\S]{0,100}range: dateLabel/)
+    expect(source).toMatch(/title=\{formatMessage\([\s\S]{0,150}id: 'accounts\.dateRangeValue'[\s\S]{0,100}range: dateLabel/)
   })
 
   it('shortens the add transaction label to Add when the column is narrow', () => {
     const narrow = narrowBlock()
 
-    expect(source).toContain('aria-label="Add transaction"')
-    expect(source).toContain('<span className="acct-filter-add-full">Add transaction</span>')
-    expect(source).toContain('<span className="acct-filter-add-short">Add</span>')
+    expect(source).toMatch(/aria-label=\{formatMessage\(\{\s*id: 'accounts\.addTransaction'/)
+    expect(source).toMatch(/className="acct-filter-add-full">\s*\{formatMessage\(\{ id: 'accounts\.addTransaction'/)
+    expect(source).toMatch(/className="acct-filter-add-short">\s*\{formatMessage\(\{ id: 'accounts\.add'/)
     expect(css).toMatch(/\n\.acct-filter-add-short \{\s*display: none;/)
     expect(narrow).toMatch(/\.acct-filter-add-full \{\s*display: none;/)
     expect(narrow).toMatch(/\.acct-filter-add-short \{\s*display: inline;/)

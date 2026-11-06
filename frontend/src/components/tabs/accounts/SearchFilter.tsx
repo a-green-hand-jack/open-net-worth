@@ -8,11 +8,14 @@
  */
 
 import { useState, useMemo, useRef, useEffect } from 'react'
+import { createIntl, defineMessages, type IntlShape } from 'react-intl'
+import { useAppIntl } from '../../../i18n/useAppIntl'
 import * as Dialog from '@radix-ui/react-dialog'
 import { useBreakpoint } from '../../../hooks/useBreakpoint'
 import { useSheetDragToDismiss } from '../../../hooks/useSheetDragToDismiss'
 import { FilterCombo, IconPlus, scrollHiIntoView } from './pickers'
 import { ColumnsPicker, type ColumnVisibility } from './columns'
+import { useFilterInputNormalization, useFilterLabels } from './useFilterLabels'
 
 // ── Types ─────────────────────────────────────────────────────────────────
 
@@ -22,6 +25,7 @@ export interface FilterToken {
   op?: string // amount tokens: '>=' | '<=' | '='
   dir?: string // amount tokens: 'any' | 'in' | 'out'
   label: string
+  displayValue?: string
   dot?: string
 }
 
@@ -51,6 +55,13 @@ const DATE_PRESETS: [string, string][] = [
   ['last_3y', 'Last 3 years'],
   ['all', 'All time'],
 ]
+const presetMessages = defineMessages({
+  this_month: { id: 'accounts.date.thisMonth', defaultMessage: 'This month' },
+  last_3: { id: 'accounts.date.last3', defaultMessage: 'Last 3 months' },
+  this_year: { id: 'accounts.date.thisYear', defaultMessage: 'This year' },
+  last_3y: { id: 'accounts.date.last3y', defaultMessage: 'Last 3 years' },
+  all: { id: 'accounts.date.all', defaultMessage: 'All time' },
+})
 const TYPE_OPTS: [string, string][] = [
   ['expense', 'Expense'],
   ['income', 'Income'],
@@ -157,6 +168,14 @@ export function parseDateInput(raw: string): ParsedDate | null {
   if (!s) return null
   const yr = new Date().getFullYear()
   let m: RegExpMatchArray | null
+  if ((m = s.match(/^(\d{4})年$/))) return parseDateInput(m[1]!)
+  if ((m = s.match(/^(\d{4})年(\d{1,2})月(?:(\d{1,2})日?)?$/))) {
+    const y = +m[1]!,
+      mo = +m[2]!,
+      day = m[3] ? +m[3] : null
+    if (mo < 1 || mo > 12 || (day !== null && (day < 1 || day > _lastDay(y, mo)))) return null
+    return day === null ? _monthParsed(y, mo - 1) : _dayParsed(y, mo - 1, day)
+  }
   if ((m = s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/))) {
     const y = +m[1]!,
       mo = +m[2]!,
@@ -339,17 +358,20 @@ export function parseSegment(
   }
   // Bare unambiguous date (a month name or ISO date) commits as an "On" token on Enter.
   // Pure digits stay text/amount (the picker still offers date suggestions for them).
-  if (/[a-z]/i.test(s) || /^\d{4}-\d/.test(s)) {
+  if (/[a-z]/i.test(s) || /^\d{4}(?:-\d|年)/.test(s)) {
     const pd = parseDateInput(s)
     if (pd) return dateSuggestions(pd, 'on')[0] ?? null
   }
   return { field: 'text', value: s, label: '"' + s + '"' }
 }
 
+const defaultSuggestionIntl = createIntl({ locale: 'en' })
+
 export function buildSuggestions(
   draft: string,
   suggest: SuggestData,
   symStr: string,
+  intl: IntlShape = defaultSuggestionIntl,
 ): (FilterToken & { pre?: string; disp?: React.ReactNode })[] {
   const raw = (draft || '').trim()
   if (!raw) return QUICK_PICKS
@@ -397,9 +419,7 @@ export function buildSuggestions(
       label: '"' + qt + '"',
       pre: '',
       disp: (
-        <>
-          Find "<b>{qt}</b>" in any field
-        </>
+        intl.formatMessage({ id: "accounts.visible.findAny", defaultMessage: "Find \"<b>{qt}</b>\" in any field" }, { qt, b: (chunks) => <b>{chunks}</b> })
       ),
     })
     out.push({
@@ -408,9 +428,7 @@ export function buildSuggestions(
       label: 'Payee: "' + qt + '"',
       pre: 'Payee',
       disp: (
-        <>
-          Find "<b>{qt}</b>" in the Payee
-        </>
+        intl.formatMessage({ id: "accounts.visible.findPayee", defaultMessage: "Find \"<b>{qt}</b>\" in the Payee" }, { qt, b: (chunks) => <b>{chunks}</b> })
       ),
     })
     out.push({
@@ -419,9 +437,7 @@ export function buildSuggestions(
       label: 'Category: "' + qt + '"',
       pre: 'Category',
       disp: (
-        <>
-          Find "<b>{qt}</b>" in the Category
-        </>
+        intl.formatMessage({ id: "accounts.visible.findCategory", defaultMessage: "Find \"<b>{qt}</b>\" in the Category" }, { qt, b: (chunks) => <b>{chunks}</b> })
       ),
     })
     out.push({
@@ -430,9 +446,7 @@ export function buildSuggestions(
       label: 'Note: "' + qt + '"',
       pre: 'Note',
       disp: (
-        <>
-          Find "<b>{qt}</b>" in the Note
-        </>
+        intl.formatMessage({ id: "accounts.visible.findNote", defaultMessage: "Find \"<b>{qt}</b>\" in the Note" }, { qt, b: (chunks) => <b>{chunks}</b> })
       ),
     })
   }
@@ -584,6 +598,10 @@ export function SearchFilter({
   suggest,
   sym,
 }: SearchFilterProps) {
+  const intl = useAppIntl()
+  const { formatMessage } = intl
+  const localizeFilter = useFilterLabels()
+  const normalizeFilterInput = useFilterInputNormalization()
   const [draft, setDraft] = useState('')
   const [open, setOpen] = useState(false)
   const [hi, setHi] = useState(-1)
@@ -598,11 +616,12 @@ export function SearchFilter({
     document.addEventListener('mousedown', onDoc)
     return () => document.removeEventListener('mousedown', onDoc)
   })
-  const sugs = useMemo(() => {
-    const all = buildSuggestions(draft, suggest, sym)
+  const rawSugs = useMemo(() => {
+    const all = buildSuggestions(normalizeFilterInput(draft), suggest, sym, intl)
     if (draft.trim()) return all
     return all.filter((s) => !tokens.some((t) => t.field === s.field && t.value === s.value))
-  }, [draft, suggest, sym, tokens])
+  }, [draft, suggest, sym, tokens, normalizeFilterInput, intl])
+  const sugs = rawSugs.map(localizeFilter)
   // Nothing is pre-highlighted on an empty box, so a stray Enter adds no filter.
   useEffect(() => {
     setHi(draft.trim() ? 0 : -1)
@@ -623,7 +642,7 @@ export function SearchFilter({
       const parts = v.split(',')
       const last = parts.pop()!
       parts.forEach((seg) => {
-        const t = parseSegment(seg, suggest, sym)
+        const t = parseSegment(normalizeFilterInput(seg), suggest, sym)
         if (t) addToken(t)
       })
       setDraft(last)
@@ -633,9 +652,9 @@ export function SearchFilter({
   function onKey(e: React.KeyboardEvent<HTMLInputElement>) {
     if (e.key === 'Enter') {
       e.preventDefault()
-      if (sugs[hi]) commit(sugs[hi])
+      if (rawSugs[hi]) commit(rawSugs[hi])
       else if (draft.trim()) {
-        const t = parseSegment(draft, suggest, sym)
+        const t = parseSegment(normalizeFilterInput(draft), suggest, sym)
         if (t) addToken(t)
         setDraft('')
       }
@@ -674,8 +693,11 @@ export function SearchFilter({
         type="text"
         placeholder={
           tokens.length
-            ? 'Add another filter…'
-            : 'Search or filter — payee, category, amount, #tag…'
+            ? formatMessage({ id: 'accounts.addFilter', defaultMessage: 'Add another filter…' })
+            : formatMessage({
+                id: 'accounts.searchFilter',
+                defaultMessage: 'Search or filter — payee, category, amount, #tag…',
+              })
         }
         value={draft}
         onChange={onChange}
@@ -685,7 +707,7 @@ export function SearchFilter({
       {(draft || tokens.length > 0) && (
         <button
           className="acct-search-clear"
-          aria-label="Clear"
+          aria-label={formatMessage({ id: 'accounts.clear', defaultMessage: 'Clear' })}
           onMouseDown={(e) => {
             e.preventDefault()
             setDraft('')
@@ -714,7 +736,7 @@ export function SearchFilter({
               onMouseEnter={() => setHi(i)}
               onMouseDown={(e) => {
                 e.preventDefault()
-                commit(s)
+                commit(rawSugs[i]!)
               }}
             >
               <span className="acct-sug-lbl">{s.pre}</span>
@@ -769,6 +791,7 @@ export function Filters({
   showHidden,
   onToggleShowHidden,
 }: FiltersProps) {
+  const { formatMessage, locale } = useAppIntl()
   const [open, setOpen] = useState(false)
   const ref = useRef<HTMLDivElement | null>(null)
   const sheetRef = useRef<HTMLDivElement>(null)
@@ -800,7 +823,14 @@ export function Filters({
       document.removeEventListener('keydown', onKey)
     }
   }, [open, isMobileBp])
-  const monthOpts = FMONTHS.map((m, i) => ({ value: String(i + 1), label: m }))
+  const months = FMONTHS.map((m, i) =>
+    locale === 'en'
+      ? m
+      : new Intl.DateTimeFormat(locale, { month: 'short', timeZone: 'UTC' }).format(
+          new Date(Date.UTC(2020, i, 1)),
+        ),
+  )
+  const monthOpts = months.map((m, i) => ({ value: String(i + 1), label: m }))
   const yearOpts = [2026, 2025, 2024, 2023, 2022, 2021].map((y) => ({
     value: String(y),
     label: String(y),
@@ -808,9 +838,10 @@ export function Filters({
   const dateActive = filter.preset !== 'all'
   const dateLabel =
     filter.preset === 'custom'
-      ? `${FMONTHS[filter.cfM - 1]} ${filter.cfY} – ${FMONTHS[filter.ctM - 1]} ${filter.ctY}`
-      : (DATE_PRESETS.find(([v]) => v === filter.preset) ||
-          (['all', 'All time'] as [string, string]))[1]
+      ? `${months[filter.cfM - 1]} ${filter.cfY} – ${months[filter.ctM - 1]} ${filter.ctY}`
+      : formatMessage(
+          presetMessages[filter.preset as keyof typeof presetMessages] ?? presetMessages.all,
+        )
   // MOBILE: a native <select>, not FilterCombo. The combo opens a floating listbox, which
   // inside a bottom sheet covered the whole sheet and spilled above it (owner, 2026-08-24).
   // A native control hands the job to the platform picker — no overlay to position, and it
@@ -866,16 +897,18 @@ export function Filters({
     <>
       <div className="acct-advbody">
         <div className="acct-advgroup">
-          <div className="acct-advsec">Date range</div>
+          <div className="acct-advsec">
+            {formatMessage({ id: 'accounts.dateRange', defaultMessage: 'Date range' })}
+          </div>
           <div className="acct-advpresets">
-            {DATE_PRESETS.map(([v, l]) => (
+            {DATE_PRESETS.map(([v]) => (
               <button
                 key={v}
                 type="button"
                 className={'acct-preset' + (filter.preset === v ? ' on' : '')}
                 onClick={() => setPreset(v)}
               >
-                {l}
+                {formatMessage(presetMessages[v as keyof typeof presetMessages])}
               </button>
             ))}
             <button
@@ -883,7 +916,7 @@ export function Filters({
               className={'acct-preset' + (filter.preset === 'custom' ? ' on' : '')}
               onClick={() => setPreset('custom')}
             >
-              Custom
+              {formatMessage({ id: 'accounts.custom', defaultMessage: 'Custom' })}
             </button>
           </div>
           {/* Always visible, not gated on preset === 'custom' — picking a month/year here IS
@@ -891,23 +924,51 @@ export function Filters({
             row behind its own result read backwards: you'd have to select "Custom" before you
             could even see what it meant (owner, 2026-08-24). */}
           <div className="acct-advrow">
-            <span className="acct-advlbl">From</span>
-            {monthYear(vFromM, monthOpts, 'cfM', 'Month', 148)}
-            {monthYear(vFromY, yearOpts, 'cfY', 'Year', 120)}
+            <span className="acct-advlbl">
+              {formatMessage({ id: 'accounts.from', defaultMessage: 'From' })}
+            </span>
+            {monthYear(
+              vFromM,
+              monthOpts,
+              'cfM',
+              formatMessage({ id: 'accounts.month', defaultMessage: 'Month' }),
+              148,
+            )}
+            {monthYear(
+              vFromY,
+              yearOpts,
+              'cfY',
+              formatMessage({ id: 'accounts.year', defaultMessage: 'Year' }),
+              120,
+            )}
           </div>
           <div className="acct-advrow">
-            <span className="acct-advlbl">To</span>
-            {monthYear(vToM, monthOpts, 'ctM', 'Month', 148)}
-            {monthYear(vToY, yearOpts, 'ctY', 'Year', 120)}
+            <span className="acct-advlbl">
+              {formatMessage({ id: 'accounts.to', defaultMessage: 'To' })}
+            </span>
+            {monthYear(
+              vToM,
+              monthOpts,
+              'ctM',
+              formatMessage({ id: 'accounts.month', defaultMessage: 'Month' }),
+              148,
+            )}
+            {monthYear(
+              vToY,
+              yearOpts,
+              'ctY',
+              formatMessage({ id: 'accounts.year', defaultMessage: 'Year' }),
+              120,
+            )}
           </div>
         </div>
       </div>
       <div className="acct-advfoot">
         <button className="acct-advclear" onClick={() => setPreset('all')}>
-          Reset dates
+          {formatMessage({ id: 'accounts.resetDates', defaultMessage: 'Reset dates' })}
         </button>
         <button className="acct-advdone" onClick={() => setOpen(false)}>
-          Done
+          {formatMessage({ id: 'accounts.done', defaultMessage: 'Done' })}
         </button>
       </div>
     </>
@@ -929,8 +990,14 @@ export function Filters({
           onClick={() => setOpen((o) => !o)}
           aria-haspopup="dialog"
           aria-expanded={open}
-          aria-label={`Date range: ${dateLabel}`}
-          title={`Date range: ${dateLabel}`}
+          aria-label={formatMessage(
+            { id: 'accounts.dateRangeValue', defaultMessage: 'Date range: {range}' },
+            { range: dateLabel },
+          )}
+          title={formatMessage(
+            { id: 'accounts.dateRangeValue', defaultMessage: 'Date range: {range}' },
+            { range: dateLabel },
+          )}
         >
           <svg
             className="acct-viewcal"
@@ -988,14 +1055,23 @@ export function Filters({
                     <span className="mb-sheet-handle" />
                   </div>
                   <div className="mb-sheet-head">
-                    <Dialog.Title className="mb-sheet-title">Date range</Dialog.Title>
+                    <Dialog.Title className="mb-sheet-title">
+                      {formatMessage({ id: 'accounts.dateRange', defaultMessage: 'Date range' })}
+                    </Dialog.Title>
                   </div>
                   {dateBody}
                 </Dialog.Content>
               </Dialog.Portal>
             </Dialog.Root>
           ) : (
-            <div className="acct-advpop acct-viewpop" role="dialog" aria-label="View options">
+            <div
+              className="acct-advpop acct-viewpop"
+              role="dialog"
+              aria-label={formatMessage({
+                id: 'accounts.viewOptions',
+                defaultMessage: 'View options',
+              })}
+            >
               {dateBody}
             </div>
           ))}
@@ -1008,10 +1084,21 @@ export function Filters({
         showHidden={showHidden}
         onToggleShowHidden={onToggleShowHidden}
       />
-      <button className="acct-filter-add" onClick={onAddTxn} aria-label="Add transaction">
+      <button
+        className="acct-filter-add"
+        onClick={onAddTxn}
+        aria-label={formatMessage({
+          id: 'accounts.addTransaction',
+          defaultMessage: 'Add transaction',
+        })}
+      >
         <IconPlus size={12} />
-        <span className="acct-filter-add-full">Add transaction</span>
-        <span className="acct-filter-add-short">Add</span>
+        <span className="acct-filter-add-full">
+          {formatMessage({ id: 'accounts.addTransaction', defaultMessage: 'Add transaction' })}
+        </span>
+        <span className="acct-filter-add-short">
+          {formatMessage({ id: 'accounts.add', defaultMessage: 'Add' })}
+        </span>
       </button>
     </div>
   )
@@ -1028,8 +1115,10 @@ export interface ActiveChipsProps {
 }
 
 export function ActiveChips({ filter, removeToken, clearAll }: ActiveChipsProps) {
+  const { formatMessage } = useAppIntl()
+  const localizeFilter = useFilterLabels()
   const chips = filter.tokens.map((t, i) => ({
-    label: t.label,
+    label: localizeFilter(t).label,
     dot: t.dot,
     clear: () => removeToken(i),
   }))
@@ -1040,7 +1129,14 @@ export function ActiveChips({ filter, removeToken, clearAll }: ActiveChipsProps)
         <span className="acct-chip" key={i}>
           {c.dot && <i className="acct-chip-dot" style={{ background: c.dot }} />}
           <span className="acct-chip-label">{c.label}</span>
-          <button className="acct-chip-x" onClick={c.clear} aria-label={`Remove ${c.label} filter`}>
+          <button
+            className="acct-chip-x"
+            onClick={c.clear}
+            aria-label={formatMessage(
+              { id: 'accounts.removeFilter', defaultMessage: 'Remove {label} filter' },
+              { label: c.label },
+            )}
+          >
             <svg
               viewBox="0 0 24 24"
               fill="none"
@@ -1054,7 +1150,7 @@ export function ActiveChips({ filter, removeToken, clearAll }: ActiveChipsProps)
         </span>
       ))}
       <button className="acct-chip-clear" onClick={clearAll}>
-        Clear all
+        {formatMessage({ id: 'accounts.clearAll', defaultMessage: 'Clear all' })}
       </button>
     </div>
   )
