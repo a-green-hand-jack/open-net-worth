@@ -1,0 +1,11 @@
+{
+  "skills.menu.createLucius": "使用 Lucius 创建",
+  "skills.menu.createLuciusHelp": "与 Lucius 对话设计新技能",
+  "skills.menu.write": "编写技能指令",
+  "skills.menu.writeHelp": "自行编写名称、正文和工具",
+  "skills.menu.upload": "上传技能",
+  "skills.menu.uploadHelp": "从磁盘安装 .zip 文件包",
+  "skills.menu.browse": "浏览入门技能",
+  "skills.menu.browseHelp": "将内置入门技能添加到技能库",
+  "skills.new": "新建技能"
+}

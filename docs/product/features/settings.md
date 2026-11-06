@@ -47,6 +47,7 @@ Verified built-in starter skill display names follow the interface language; ski
 Previously installed built-in starters are recognized when their name and description still match the shipped template.
 The starter-skill browser translates verified display text while preserving skill identifiers.
 Skill list controls follow the interface language and search retains original names and descriptions.
+The skill creation menu follows the interface language as well.
 
 ## Common tasks
 
