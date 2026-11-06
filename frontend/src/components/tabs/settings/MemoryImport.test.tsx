@@ -13,7 +13,6 @@ vi.mock('../../../api/client', () => ({ authFetch: (...a: unknown[]) => authFetc
 
 import { MemoryImport } from './MemoryImport'
 import { IntlProvider } from 'react-intl'
-import zh from '../../../i18n/zh-CN.json'
 import { catalogs } from '../../../i18n/LocaleProvider'
 
 const json = (body: unknown, status = 200) =>
@@ -102,7 +101,7 @@ describe('MemoryImport', () => {
 
   it('localizes the review while preserving imported text', async () => {
     render(
-      <IntlProvider locale="zh-CN" messages={zh}>
+      <IntlProvider locale="zh-CN" messages={catalogs['zh-CN']}>
         <MemoryImport onClose={vi.fn()} toast={vi.fn()} />
       </IntlProvider>,
     )

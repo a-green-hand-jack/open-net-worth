@@ -10,13 +10,12 @@ vi.mock('../../../api/client', () => ({ authFetch: (...a: unknown[]) => authFetc
 import { MemoryBrowser } from './MemoryBrowser'
 import { ForgetConfirm } from './MemoryParts'
 import { IntlProvider } from 'react-intl'
-import zh from '../../../i18n/zh-CN.json'
 import { catalogs } from '../../../i18n/LocaleProvider'
 
 it('shows the irreversible topic deletion warning in Chinese without changing its name', () => {
   const confirm = vi.fn()
   render(
-    <IntlProvider locale="zh-CN" defaultLocale="en" messages={zh}>
+    <IntlProvider locale="zh-CN" defaultLocale="en" messages={catalogs['zh-CN']}>
       <ForgetConfirm
         pending={{ kind: 'topic', name: 'My Topic', section: 'you', ids: ['1', '2'], named: true }}
         onCancel={vi.fn()}
