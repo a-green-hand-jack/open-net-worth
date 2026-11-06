@@ -4,6 +4,7 @@ import asyncio
 import multiprocessing
 from copy import deepcopy
 from datetime import datetime, timedelta, timezone
+from decimal import Decimal
 
 import pytest
 
@@ -1246,3 +1247,95 @@ def test_superseded_stop_does_not_cancel_second_order():
         assert workspaces.get_run(run["id"])["state"] == "needs_reconciliation"
 
     call(scenario())
+
+
+class _LiveNotionalCapBreach(AssertionError):
+    pass
+
+
+@pytest.mark.xfail(
+    strict=True,
+    raises=_LiveNotionalCapBreach,
+    reason="Live market fills are not bounded by the quote-based notional cap (PR #133)",
+)
+def test_live_market_fill_respects_notional_cap():
+    class AdverseFillBroker(FakeBroker):
+        async def submit(self, account, intent):
+            receipt = await super().submit(account, intent)
+            receipt.update(
+                status="filled",
+                fills=[
+                    {
+                        "execution_id": "synthetic-adverse-fill",
+                        "quantity": "1",
+                        "price": "150",
+                        "fees": "0",
+                        "side": "buy",
+                        "instrument": INSTRUMENT,
+                        "timestamp": datetime.now(timezone.utc).isoformat(),
+                    }
+                ],
+            )
+            return deepcopy(receipt)
+
+    broker = AdverseFillBroker()
+    run = live_run(broker)
+    with trading_transaction() as conn:
+        stored = TradingStore("runs").required(run["id"], conn=conn)
+        workspace = deepcopy(stored["workspace_snapshot"])
+        workspace["mandate"]["max_order_notional"] = "100"
+        TradingStore("runs").update_by_id(run["id"], {"workspace_snapshot": workspace}, conn=conn)
+    call(lifecycle.apply_run_action(run["id"], {"action": "start"}))
+    submitted = call(execution.submit_order(run["id"], order(run["id"])))
+    assert submitted["order_type"] == "market"
+    assert submitted["status"] == "filled"
+    assert broker.submissions == 1
+    fills = TradingStore("fills").list_scope(run["id"])
+    assert len(fills) == 1
+    if Decimal(fills[0]["quantity"]) * Decimal(fills[0]["price"]) > Decimal("100"):
+        raise _LiveNotionalCapBreach("Market fill exceeded its synthetic mandate cap")
+
+
+@pytest.mark.xfail(
+    strict=True,
+    raises=_LiveNotionalCapBreach,
+    reason="Improved live sell-limit fills can exceed the notional cap (PR #133)",
+)
+def test_live_sell_limit_fill_respects_notional_cap():
+    class ImprovedSellBroker(FakeBroker):
+        async def submit(self, account, intent):
+            receipt = await super().submit(account, intent)
+            side = intent["side"]
+            receipt.update(
+                status="filled",
+                fills=[
+                    {
+                        "execution_id": f"synthetic-{side}",
+                        "quantity": "1",
+                        "price": "100" if side == "buy" else "150",
+                        "fees": "0",
+                        "side": side,
+                        "instrument": INSTRUMENT,
+                        "timestamp": datetime.now(timezone.utc).isoformat(),
+                    }
+                ],
+            )
+            return deepcopy(receipt)
+
+    broker = ImprovedSellBroker()
+    run = live_run(broker)
+    with trading_transaction() as conn:
+        stored = TradingStore("runs").required(run["id"], conn=conn)
+        workspace = deepcopy(stored["workspace_snapshot"])
+        workspace["mandate"]["max_order_notional"] = "100"
+        TradingStore("runs").update_by_id(run["id"], {"workspace_snapshot": workspace}, conn=conn)
+    call(lifecycle.apply_run_action(run["id"], {"action": "start"}))
+    call(execution.submit_order(run["id"], order(run["id"], "buy")))
+    sell = {**order(run["id"], "sell"), "side": "sell", "order_type": "limit", "limit_price": "100"}
+    submitted = call(execution.submit_order(run["id"], sell))
+    assert submitted["status"] == "filled"
+    fills = TradingStore("fills").list_scope(run["id"])
+    sell_fills = [fill for fill in fills if fill["side"] == "sell"]
+    assert len(sell_fills) == 1
+    if Decimal(sell_fills[0]["quantity"]) * Decimal(sell_fills[0]["price"]) > Decimal("100"):
+        raise _LiveNotionalCapBreach("Sell-limit fill exceeded its synthetic mandate cap")
