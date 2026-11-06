@@ -7,6 +7,8 @@
 
 import { describe, it, expect, afterEach, beforeEach } from 'vitest'
 import { render, cleanup, screen } from '@testing-library/react'
+import { IntlProvider } from 'react-intl'
+import { catalogs } from '../../../i18n/catalogs'
 import { Register } from './Register'
 import type { Account, Txn } from './types'
 
@@ -86,38 +88,49 @@ function renderReg(
     reloadingRows?: boolean
     allEmpty?: boolean
     isLoadingMore?: boolean
+    chinese?: boolean
   } = {},
 ) {
   return render(
-    <Register
-      txns={over.txns ?? [makeTxn()]}
-      total={over.txns?.length ?? 1}
-      accounts={[makeAccount()]}
-      showAccount={false}
-      selectedId="a1"
-      selectedIds={new Set()}
-      onToggle={() => {}}
-      onToggleAll={() => {}}
-      onClearSelection={() => {}}
-      onSelectRange={() => {}}
-      onUpdate={() => {}}
-      onAdd={() => {}}
-      adding={false}
-      onAdding={() => {}}
-      categories={[]}
-      allEmpty={over.allEmpty ?? false}
-      loadingTxns={over.loadingTxns ?? false}
-      reloadingRows={over.reloadingRows ?? false}
-      isLoadingMore={over.isLoadingMore ?? false}
-      payeeOptions={[]}
-      payeeNames={{}}
-      rates={{}}
-      hiddenCols={new Set()}
-    />,
+    <IntlProvider
+      locale={over.chinese ? 'zh-CN' : 'en'}
+      messages={over.chinese ? catalogs['zh-CN'] : {}}
+    >
+      <Register
+        txns={over.txns ?? [makeTxn()]}
+        total={over.txns?.length ?? 1}
+        accounts={[makeAccount()]}
+        showAccount={false}
+        selectedId="a1"
+        selectedIds={new Set()}
+        onToggle={() => {}}
+        onToggleAll={() => {}}
+        onClearSelection={() => {}}
+        onSelectRange={() => {}}
+        onUpdate={() => {}}
+        onAdd={() => {}}
+        adding={false}
+        onAdding={() => {}}
+        categories={[]}
+        allEmpty={over.allEmpty ?? false}
+        loadingTxns={over.loadingTxns ?? false}
+        reloadingRows={over.reloadingRows ?? false}
+        isLoadingMore={over.isLoadingMore ?? false}
+        payeeOptions={[]}
+        payeeNames={{}}
+        rates={{}}
+        hiddenCols={new Set()}
+      />
+    </IntlProvider>,
   )
 }
 
 describe('Register — loadingTxns never overrides rows already on screen', () => {
+  it('shows the Chinese loading state before the empty state', () => {
+    renderReg({ txns: [], loadingTxns: true, allEmpty: true, chinese: true })
+    expect(screen.getByText('正在加载交易…')).toBeTruthy()
+    expect(screen.queryByText('暂无交易')).toBeNull()
+  })
   it('a background refetch (loadingTxns=true) with existing rows still shows those rows, not a spinner', () => {
     renderReg({ txns: [makeTxn()], loadingTxns: true })
     expect(screen.getAllByText('FAIRPRICE #123').length).toBeGreaterThan(0)

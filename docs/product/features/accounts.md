@@ -219,6 +219,7 @@ The register's bulk-action controls follow the selected interface language. Acco
 and category names remain as entered; selection counts follow the number format.
 The account sidebar translates built-in group labels and reconciliation status while
 keeping account names as entered.
+Register headers, display options, loading states and empty states follow the interface language.
 
 ## Related pages
 

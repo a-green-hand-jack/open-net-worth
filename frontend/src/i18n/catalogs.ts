@@ -46,6 +46,7 @@ import accountModalZh from '../components/tabs/accounts/modal.zh-CN.json'
 import accountHeaderZh from '../components/tabs/accounts/header.zh-CN.json'
 import accountBulkZh from '../components/tabs/accounts/bulk.zh-CN.json'
 import accountSidebarZh from '../components/tabs/accounts/sidebar.zh-CN.json'
+import accountRegisterZh from '../components/tabs/accounts/register.zh-CN.json'
 
 export const catalogs: Record<Locale, Record<string, string> | undefined> = {
   en: undefined,
@@ -97,6 +98,7 @@ export const catalogs: Record<Locale, Record<string, string> | undefined> = {
     ...accountHeaderZh,
     ...accountBulkZh,
     ...accountSidebarZh,
+    ...accountRegisterZh,
     'auth.signingBackIn': '正在重新登录…',
     'auth.rateLimit': '尝试次数过多。请在 {minutes, plural, other {# 分钟}}后重试。',
     'settings.section.language': '界面语言',

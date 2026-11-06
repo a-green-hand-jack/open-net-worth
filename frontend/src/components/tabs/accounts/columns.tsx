@@ -10,6 +10,8 @@
  */
 
 import { useState, useRef, useEffect } from 'react'
+import { useAppIntl } from '../../../i18n/useAppIntl'
+import { useRegisterColumnLabel } from './useRegisterColumnLabel'
 import { REG_COLS, type RegCol } from './Register'
 import { AdvCheck } from './pickers'
 import { SlidersHorizontal } from '../../../ui/icons'
@@ -95,6 +97,8 @@ export function ColumnsPicker({
   showHidden = false,
   onToggleShowHidden,
 }: ColumnsPickerProps) {
+  const { formatMessage } = useAppIntl()
+  const columnLabel = useRegisterColumnLabel()
   const [open, setOpen] = useState(false)
   const ref = useRef<HTMLDivElement | null>(null)
   useEffect(() => {
@@ -130,37 +134,53 @@ export function ColumnsPicker({
         onClick={() => setOpen((o) => !o)}
         aria-haspopup="dialog"
         aria-expanded={open}
-        title="Display options"
+        title={formatMessage({ id: 'accounts.displayOptions', defaultMessage: 'Display options' })}
       >
         <SlidersHorizontal size={14} aria-hidden="true" />
-        <span className="acct-viewlbl">Display</span>
+        <span className="acct-viewlbl">
+          {formatMessage({ id: 'accounts.display', defaultMessage: 'Display' })}
+        </span>
       </button>
       {open && (
-        <div className="acct-advpop acct-colpop" role="dialog" aria-label="Display options">
+        <div
+          className="acct-advpop acct-colpop"
+          role="dialog"
+          aria-label={formatMessage({
+            id: 'accounts.displayOptions',
+            defaultMessage: 'Display options',
+          })}
+        >
           <div className="acct-advbody">
             <div className="acct-advgroup">
-              <div className="acct-advsec">Columns</div>
+              <div className="acct-advsec">
+                {formatMessage({ id: 'accounts.columns', defaultMessage: 'Columns' })}
+              </div>
               {cols.map((c) => (
                 <AdvCheck key={c.key} checked={!hidden.has(c.key)} onChange={() => onToggle(c.key)}>
-                  {c.label || c.key}
+                  {columnLabel(c.key, c.label || c.key)}
                 </AdvCheck>
               ))}
             </div>
             {onToggleShowHidden && (
               <div className="acct-advgroup">
-                <div className="acct-advsec">Rows</div>
+                <div className="acct-advsec">
+                  {formatMessage({ id: 'accounts.rows', defaultMessage: 'Rows' })}
+                </div>
                 <AdvCheck checked={showHidden} onChange={onToggleShowHidden}>
-                  Show hidden transactions
+                  {formatMessage({
+                    id: 'accounts.showHidden',
+                    defaultMessage: 'Show hidden transactions',
+                  })}
                 </AdvCheck>
               </div>
             )}
           </div>
           <div className="acct-advfoot">
             <button className="acct-advclear" onClick={reset} disabled={isDefault}>
-              Reset
+              {formatMessage({ id: 'accounts.reset', defaultMessage: 'Reset' })}
             </button>
             <button className="acct-advdone" onClick={() => setOpen(false)}>
-              Done
+              {formatMessage({ id: 'accounts.done', defaultMessage: 'Done' })}
             </button>
           </div>
         </div>

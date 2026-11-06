@@ -8,6 +8,8 @@
  */
 
 import { Fragment, useCallback, useState, useEffect, useLayoutEffect, useRef, useMemo } from 'react'
+import { useAppIntl } from '../../../i18n/useAppIntl'
+import { useRegisterColumnLabel } from './useRegisterColumnLabel'
 import type { CSSProperties } from 'react'
 import type { Txn, Account, Category, FxRates } from './types'
 import type { PayeeOption } from './pickers'
@@ -23,7 +25,7 @@ import { usePointerResize } from '../../../hooks/usePointerResize'
 import { Button, Cluster, EmptyState, Loading } from '../../ui'
 import { Receipt } from '../../../ui/icons'
 import { LuciusCta } from '../../intro/LuciusCta'
-import { fDate } from '../../../utils/format'
+import { fDate, getNumberLocale } from '../../../utils/format'
 
 export type { RowPatch }
 
@@ -180,6 +182,8 @@ export function Register({
   rates,
   hiddenCols,
 }: RegisterProps) {
+  const { formatMessage } = useAppIntl()
+  const columnLabel = useRegisterColumnLabel()
   const isMobile = useIsMobile()
   const [splits, setSplits] = useState<Record<string, boolean>>({})
   const [widths, setWidths] = useState<Record<string, number>>(() => {
@@ -437,7 +441,17 @@ export function Register({
           <span className="acct-cbwrap">
             <span
               className={'acct-cb' + (shownAllOn ? ' on' : shownSomeOn ? ' part' : '')}
-              title={selectedIds.size > 0 ? 'Clear selection' : 'Select all loaded rows'}
+              title={
+                selectedIds.size > 0
+                  ? formatMessage({
+                      id: 'accounts.clearSelection',
+                      defaultMessage: 'Clear selection',
+                    })
+                  : formatMessage({
+                      id: 'accounts.selectLoaded',
+                      defaultMessage: 'Select all loaded rows',
+                    })
+              }
               onClick={() => {
                 if (selectedIds.size > 0) {
                   onClearSelection()
@@ -450,9 +464,22 @@ export function Register({
             </span>
           </span>
           <span className="acct-card-headbar-count">
-            {sorted.length}
-            {total > sorted.length ? ` of ${total}` : ''} transaction
-            {sorted.length === 1 ? '' : 's'}
+            {total > sorted.length
+              ? formatMessage(
+                  {
+                    id: 'accounts.transactionCountPartial',
+                    defaultMessage:
+                      '{count} of {total} {count, plural, one {transaction} other {transactions}}',
+                  },
+                  { count: sorted.length, total },
+                )
+              : formatMessage(
+                  {
+                    id: 'accounts.transactionCount',
+                    defaultMessage: '{count, plural, one {# transaction} other {# transactions}}',
+                  },
+                  { count: sorted.length },
+                )}
           </span>
           {loadBar}
         </div>
@@ -476,7 +503,17 @@ export function Register({
                     <span className="acct-cbwrap">
                       <span
                         className={'acct-cb' + (shownAllOn ? ' on' : shownSomeOn ? ' part' : '')}
-                        title={selectedIds.size > 0 ? 'Clear selection' : 'Select all loaded rows'}
+                        title={
+                          selectedIds.size > 0
+                            ? formatMessage({
+                                id: 'accounts.clearSelection',
+                                defaultMessage: 'Clear selection',
+                              })
+                            : formatMessage({
+                                id: 'accounts.selectLoaded',
+                                defaultMessage: 'Select all loaded rows',
+                              })
+                        }
                         onClick={(e) => {
                           e.stopPropagation()
                           if (selectedIds.size > 0) {
@@ -490,7 +527,7 @@ export function Register({
                       </span>
                     </span>
                   ) : (
-                    <span className="acct-h-lbl">{c.label || ''}</span>
+                    <span className="acct-h-lbl">{columnLabel(c.key, c.label || '')}</span>
                   )}
                   {c.sortable && sort.key === c.key && (
                     <span className={'acct-sort-ind ' + sort.dir}></span>
@@ -505,7 +542,10 @@ export function Register({
                         e.stopPropagation()
                         resetWidths()
                       }}
-                      title="Drag to resize • double-click to reset all"
+                      title={formatMessage({
+                        id: 'accounts.resizeColumns',
+                        defaultMessage: 'Drag to resize • double-click to reset all',
+                      })}
                     />
                   )}
                 </span>
@@ -536,13 +576,25 @@ export function Register({
         />
         {sorted.length === 0 ? (
           loadingTxns ? (
-            <Loading label="Loading transactions…" />
+            <Loading
+              label={formatMessage({
+                id: 'accounts.loadingTransactions',
+                defaultMessage: 'Loading transactions…',
+              })}
+            />
           ) : allEmpty ? (
             <EmptyState
               fill
               icon={<Receipt size={28} strokeWidth={1.5} aria-hidden="true" />}
-              title="No transactions yet"
-              body="Add one by hand, or import a statement to bring them in automatically."
+              title={formatMessage({
+                id: 'accounts.noTransactions',
+                defaultMessage: 'No transactions yet',
+              })}
+              body={formatMessage({
+                id: 'accounts.noTransactionsBody',
+                defaultMessage:
+                  'Add one by hand, or import a statement to bring them in automatically.',
+              })}
               action={
                 <Cluster gap="--space-3" justify="center">
                   <Button
@@ -550,15 +602,24 @@ export function Register({
                     size="sm"
                     onClick={() => (onAddTxn ? onAddTxn() : onAdding(true))}
                   >
-                    Add transaction
+                    {formatMessage({
+                      id: 'accounts.addTransaction',
+                      defaultMessage: 'Add transaction',
+                    })}
                   </Button>
                   {onImport && (
                     <Button variant="secondary" size="sm" onClick={onImport}>
-                      Import from file
+                      {formatMessage({
+                        id: 'accounts.importFile',
+                        defaultMessage: 'Import from file',
+                      })}
                     </Button>
                   )}
                   <LuciusCta
-                    label="Add with Lucius"
+                    label={formatMessage({
+                      id: 'accounts.addWithLucius',
+                      defaultMessage: 'Add with Lucius',
+                    })}
                     message={transactionsMessage(
                       selectedId ? acctMap[selectedId]?.name : undefined,
                     )}
@@ -569,10 +630,15 @@ export function Register({
             />
           ) : (
             <div className="acct-empty">
-              <div className="t">No transactions match your filters.</div>
+              <div className="t">
+                {formatMessage({
+                  id: 'accounts.noMatchingTransactions',
+                  defaultMessage: 'No transactions match your filters.',
+                })}
+              </div>
               {onClearFilters && (
                 <button className="acct-empty-clear" onClick={onClearFilters}>
-                  Clear filters
+                  {formatMessage({ id: 'accounts.clearFilters', defaultMessage: 'Clear filters' })}
                 </button>
               )}
             </div>
@@ -663,13 +729,13 @@ export function Register({
         {isLoadingMore && (
           <div className="acct-loading-more">
             <span className="acct-loading-more__spinner" aria-hidden="true" />
-            Loading more…
+            {formatMessage({ id: 'accounts.loadingMore', defaultMessage: 'Loading more…' })}
           </div>
         )}
         {sorted.length > 0 && (
           <div className="acct-reg-count">
-            {sorted.length}
-            {total > sorted.length ? ` of ${total}` : ''}
+            {sorted.length.toLocaleString(getNumberLocale())}
+            {total > sorted.length ? formatMessage({ id: 'accounts.visible.ofTotal', defaultMessage: ' of {total}' }, { total: total.toLocaleString(getNumberLocale()) }) : ''}
           </div>
         )}
       </div>
