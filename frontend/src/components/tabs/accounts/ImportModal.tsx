@@ -7173,12 +7173,12 @@ export function ImportModal({
                           // query, and the ledger-only section's own subtotal still reads them).
                           const covFrags = [
                             cov.linked > 0
-                              ? `${cov.linked} linked to entr${cov.linked === 1 ? 'y' : 'ies'} you already had`
+                              ? intl.formatMessage({ id: 'accounts.importVerdict.linked', defaultMessage: '{count, plural, one {# linked to entry you already had} other {# linked to entries you already had}}' }, { count: cov.linked })
                               : null,
-                            cov.imported > 0 ? `${cov.imported} imported new` : null,
-                            cov.dups > 0 ? `${cov.dups} already booked` : null,
+                            cov.imported > 0 ? intl.formatMessage({ id: 'accounts.importVerdict.imported', defaultMessage: '{count} imported new' }, { count: cov.imported }) : null,
+                            cov.dups > 0 ? intl.formatMessage({ id: 'accounts.importVerdict.duplicates', defaultMessage: '{count} already booked' }, { count: cov.dups }) : null,
                             cov.absorbed > 0
-                              ? `${cov.absorbed} folded into transfer${cov.absorbed === 1 ? '' : 's'}`
+                              ? intl.formatMessage({ id: 'accounts.importVerdict.folded', defaultMessage: '{count, plural, one {# folded into transfer} other {# folded into transfers}}' }, { count: cov.absorbed })
                               : null,
                           ]
                             .filter(Boolean)
@@ -7216,17 +7216,17 @@ export function ImportModal({
                                       <div>
                                         <b>
                                           {recon.status === 'off'
-                                            ? `Statement is off by ${fCur(Math.abs(recon.delta || 0), recon.currency || account?.currency || 'SGD', { cents: true })} against its own balances`
+                                            ? intl.formatMessage({ id: 'accounts.importMessage.offAmount', defaultMessage: 'Statement is off by {amount} against its own balances' }, { amount: fCur(Math.abs(recon.delta || 0), recon.currency || account?.currency || 'SGD', { cents: true }) })
                                             : recon.status === 'ok_if_flipped'
-                                              ? 'Statement reconciles only with money in/out flipped'
-                                              : 'Balance check not available for this statement'}
+                                              ? intl.formatMessage({ id: 'accounts.importMessage.flipped', defaultMessage: "Statement reconciles only with money in/out flipped" })
+                                              : intl.formatMessage({ id: 'accounts.importMessage.unavailable', defaultMessage: "Balance check not available for this statement" })}
                                         </b>
                                         <em>
                                           {recon.status === 'off'
-                                            ? 'Some rows may be missing or doubled — worth a look before booking.'
+                                            ? intl.formatMessage({ id: 'accounts.importMessage.missing', defaultMessage: "Some rows may be missing or doubled — worth a look before booking." })
                                             : recon.status === 'ok_if_flipped'
-                                              ? 'Check the amount direction on a row or two.'
-                                              : 'Nothing to check the read against, so nothing is proven complete.'}
+                                              ? intl.formatMessage({ id: 'accounts.importMessage.checkDirection', defaultMessage: "Check the amount direction on a row or two." })
+                                              : intl.formatMessage({ id: 'accounts.importMessage.unproven', defaultMessage: "Nothing to check the read against, so nothing is proven complete." })}
                                         </em>
                                       </div>
                                     </div>,
@@ -7244,10 +7244,9 @@ export function ImportModal({
                                     </span>
                                     <div>
                                       <b>
-                                        {awaitingDecisions} transaction
-                                        {awaitingDecisions === 1 ? '' : 's'} still need your call
+                                        {intl.formatMessage({ id: 'accounts.importVerdict.awaiting', defaultMessage: '{count, plural, one {# transaction still need your call} other {# transactions still need your call}}' }, { count: awaitingDecisions })}
                                       </b>
-                                      <em>Review each card below before booking.</em>
+                                      <em>{intl.formatMessage({ id: 'accounts.importReview.reviewCards', defaultMessage: "Review each card below before booking." })}</em>
                                     </div>
                                   </div>,
                                 )
@@ -7259,7 +7258,7 @@ export function ImportModal({
                                         ✓
                                       </span>
                                       <div>
-                                        <b>Every statement transaction will be in your ledger</b>
+                                        <b>{intl.formatMessage({ id: 'accounts.importReview.allInLedger', defaultMessage: "Every statement transaction will be in your ledger" })}</b>
                                         {covFrags && <em>{covFrags}</em>}
                                       </div>
                                     </div>,
@@ -7276,13 +7275,10 @@ export function ImportModal({
                                         onClick={() => jumpToChip('uncovered')}
                                       >
                                         <b>
-                                          {cov.uncovered} statement transaction
-                                          {cov.uncovered === 1 ? '' : 's'} won{'’'}t be anywhere
-                                          after import
+                                          {intl.formatMessage({ id: 'accounts.importVerdict.uncovered', defaultMessage: '{count, plural, one {# statement transaction won’t be anywhere after import} other {# statement transactions won’t be anywhere after import}}' }, { count: cov.uncovered })}
                                         </b>
                                         <em>
-                                          Left out with no ledger match. Click to see{' '}
-                                          {cov.uncovered === 1 ? 'it' : 'them'}.
+                                          {intl.formatMessage({ id: 'accounts.importVerdict.uncoveredHint', defaultMessage: '{count, plural, one {Left out with no ledger match. Click to see it.} other {Left out with no ledger match. Click to see them.}}' }, { count: cov.uncovered })}
                                         </em>
                                       </button>
                                     </div>,
@@ -7300,10 +7296,9 @@ export function ImportModal({
                                     </span>
                                     <div>
                                       <b>
-                                        Amounts settle once you decide the {awaitingDecisions} row
-                                        {awaitingDecisions === 1 ? '' : 's'} above
+                                        {intl.formatMessage({ id: 'accounts.importVerdict.amountsWaiting', defaultMessage: '{count, plural, one {Amounts settle once you decide the # row above} other {Amounts settle once you decide the # rows above}}' }, { count: awaitingDecisions })}
                                       </b>
-                                      <em>Linking adopts the statement’s figures.</em>
+                                      <em>{intl.formatMessage({ id: 'accounts.importReview.linkFigures', defaultMessage: "Linking adopts the statement’s figures." })}</em>
                                     </div>
                                   </div>,
                                 )
@@ -7316,10 +7311,9 @@ export function ImportModal({
                                           ✓
                                         </span>
                                         <div>
-                                          <b>Amounts match the statement to the cent</b>
+                                          <b>{intl.formatMessage({ id: 'accounts.importReview.amountsMatch', defaultMessage: "Amounts match the statement to the cent" })}</b>
                                           <em>
-                                            These transactions will total {perCur(amt.totals, true)}{' '}
-                                            in your ledger.
+                                            {intl.formatMessage({ id: 'accounts.importVerdict.total', defaultMessage: 'These transactions will total {amount} in your ledger.' }, { amount: perCur(amt.totals, true) })}
                                           </em>
                                         </div>
                                       </div>,
@@ -7337,17 +7331,13 @@ export function ImportModal({
                                         >
                                           <b>
                                             {Object.keys(amt.deltas).length > 0
-                                              ? `Your ledger ends ${offByAmount} off the statement`
-                                              : `${amt.kept} row${amt.kept === 1 ? '' : 's'} kept at your original figure${amt.kept === 1 ? '' : 's'}`}
+                                              ? intl.formatMessage({ id: 'accounts.importVerdict.off', defaultMessage: 'Your ledger ends {amount} off the statement' }, { amount: offByAmount })
+                                              : intl.formatMessage({ id: 'accounts.importVerdict.kept', defaultMessage: '{count, plural, one {# row kept at your original figure} other {# rows kept at your original figures}}' }, { count: amt.kept })}
                                           </b>
                                           <em>
-                                            {amt.kept} row{amt.kept === 1 ? ' keeps' : 's keep'}{' '}
-                                            your older figure{amt.kept === 1 ? '' : 's'}
-                                            {Object.keys(amt.deltas).length > 0
-                                              ? ''
-                                              : ' — the differences cancel out'}{' '}
-                                            — choose Link &amp; update to adopt the settled ones.
-                                            Click to see them.
+                                            {intl.formatMessage({ id: 'accounts.importVerdict.keptHint', defaultMessage: '{count, plural, one {# row keeps your older figure} other {# rows keep your older figures}}{cancelled} — choose Link & update to adopt the settled ones.' }, { count: amt.kept, cancelled: Object.keys(amt.deltas).length > 0 ? '' : intl.formatMessage({ id: 'accounts.importVerdict.cancelled', defaultMessage: ' — the differences cancel out' }) })}
+                                            {' '}
+                                            {intl.formatMessage({ id: 'accounts.importAction.clickSee', defaultMessage: "Click to see them." })}
                                           </em>
                                         </button>
                                       </div>,
@@ -7371,14 +7361,10 @@ export function ImportModal({
                                       onClick={() => jumpToChip('ledger')}
                                     >
                                       <b>
-                                        {ledgerOnlyRows.length} ledger{' '}
-                                        {ledgerOnlyRows.length === 1 ? 'entry' : 'entries'} from
-                                        this period{' '}
-                                        {ledgerOnlyRows.length === 1 ? 'isn’t' : 'aren’t'} on this
-                                        statement
+                                        {intl.formatMessage({ id: 'accounts.importVerdict.ledgerOnly', defaultMessage: '{count, plural, one {{displayCount} ledger entry from this period isn’t on this statement} other {{displayCount} ledger entries from this period aren’t on this statement}}' }, { count: ledgerOnlyRows.length, displayCount: intl.formatNumber(ledgerOnlyRows.length) })}
                                       </b>
                                       <em>
-                                        Click to see {ledgerOnlyRows.length === 1 ? 'it' : 'them'}.
+                                        {intl.formatMessage({ id: 'accounts.importVerdict.click', defaultMessage: '{count, plural, one {Click to see it.} other {Click to see them.}}' }, { count: ledgerOnlyRows.length })}
                                       </em>
                                     </button>
                                   </div>,
@@ -7416,12 +7402,12 @@ export function ImportModal({
                             links === 0 && imports === 0 && markedForDelete.length === 0
                           const summaryText =
                             waitCount > 0
-                              ? `${awaitingDecisions} transaction${awaitingDecisions === 1 ? '' : 's'} still need your call`
+                              ? intl.formatMessage({ id: 'accounts.importVerdict.awaiting', defaultMessage: '{count, plural, one {# transaction still need your call} other {# transactions still need your call}}' }, { count: awaitingDecisions })
                               : warnCount > 0
-                                ? `${warnCount} thing${warnCount === 1 ? '' : 's'} to check before importing`
+                                ? intl.formatMessage({ id: 'accounts.importVerdict.checks', defaultMessage: '{count, plural, one {# thing to check before importing} other {# things to check before importing}}' }, { count: warnCount })
                                 : nothingToDo
-                                  ? 'Nothing new — this statement is already in your ledger'
-                                  : 'Looks good — ready to import'
+                                  ? intl.formatMessage({ id: 'accounts.importMessage.alreadyLedger', defaultMessage: "Nothing new — this statement is already in your ledger" })
+                                  : intl.formatMessage({ id: 'accounts.importMessage.looksGood', defaultMessage: "Looks good — ready to import" })
                           return (
                             <>
                               <button
@@ -7455,8 +7441,7 @@ export function ImportModal({
                                   ))}
                                   {!lc && (
                                     <div className="imp3-verdict-note">
-                                      No printed period on this statement — the ledger cross-check
-                                      needs one.
+                                      {intl.formatMessage({ id: 'accounts.importVerdict.noPeriod', defaultMessage: 'No printed period on this statement — the ledger cross-check needs one.' })}
                                     </div>
                                   )}
                                 </div>

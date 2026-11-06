@@ -11,6 +11,8 @@ vi.mock('../../../api/client', () => ({ authFetch: vi.fn() }))
 import { describe, it, expect, afterEach, beforeEach, vi } from 'vitest'
 import { render, cleanup, screen, fireEvent, waitFor, within } from '@testing-library/react'
 import { ImportModal } from './ImportModal'
+import { IntlProvider } from 'react-intl'
+import { catalogs } from '../../../i18n/catalogs'
 import type { Account } from './types'
 
 // The handoff puts a row's OVERRIDE controls inside its disclosure ("tapping a row is only
@@ -49,12 +51,12 @@ const openVerdict = () => {
   if (btn && btn.getAttribute('aria-expanded') === 'false') fireEvent.click(btn)
 }
 
-async function openWith(preview: unknown) {
+async function openWith(preview: unknown, chinese = false) {
   const onDecisionCommit = vi
     .fn()
     .mockResolvedValue({ created: 0, merged: 0, duplicates: 0, skipped: 0 })
   const onPreview = vi.fn().mockResolvedValue(preview)
-  const utils = render(
+  const modal = (
     <ImportModal
       open
       accounts={[acct]}
@@ -62,13 +64,14 @@ async function openWith(preview: unknown) {
       onClose={() => {}}
       onPreview={onPreview as never}
       onDecisionCommit={onDecisionCommit}
-    />,
+    />
   )
+  const utils = render(chinese ? <IntlProvider locale="zh-CN" messages={catalogs['zh-CN']}>{modal}</IntlProvider> : modal)
   const fileInput = document.body.querySelector('input[type="file"]') as HTMLInputElement
   fireEvent.change(fileInput, {
     target: { files: [new File(['%PDF-1.4'], 's.pdf', { type: 'application/pdf' })] },
   })
-  fireEvent.click(await screen.findByText(/Read the statement/i))
+  fireEvent.click(await screen.findByText(chinese ? '读取账单' : /Read the statement/i))
   return utils
 }
 
@@ -264,6 +267,19 @@ function mixedPreview() {
 }
 
 describe('ImportModal — the two-question verdict (SI-64)', () => {
+  it('shows the same clean coverage and projected amount in Chinese', async () => {
+    await openWith(cleanBookPreview(), true)
+    await waitFor(() => expect(document.querySelector('.imp-pair-row')).toBeTruthy())
+    openVerdict()
+    const coverage = screen.getByText('每笔账单交易都会进入账簿').closest('.imp-verdict-line') as HTMLElement
+    expect(coverage.className).toContain('imp3-vline ok')
+    expect(coverage.textContent).toContain('1 条关联到已有记录')
+    expect(coverage.textContent).toContain('新增导入 1 条')
+    const amounts = screen.getByText('金额与账单精确一致').closest('.imp-verdict-line') as HTMLElement
+    expect(amounts.className).toContain('imp3-vline ok')
+    expect(amounts.textContent).toContain('19.09')
+  })
+
   it('all-merge clean book: ✓ coverage with named buckets, ✓ amounts with the projected total', async () => {
     await openWith(cleanBookPreview())
     await waitFor(() => expect(document.querySelector('.imp-pair-row')).toBeTruthy())
