@@ -1,6 +1,8 @@
 // TxnDetail.tsx — transaction detail drawer: View ⇄ Edit modes
 import * as Dialog from '@radix-ui/react-dialog'
 import { Fragment, useState, useEffect, useMemo, useCallback, useRef } from 'react'
+import { defineMessages } from 'react-intl'
+import { useAppIntl } from '../../../i18n/useAppIntl'
 import { StatementViewer } from './StatementsSection'
 import { ReceiptsSection } from './ReceiptsSection'
 import { CcyPicker } from './ds'
@@ -305,6 +307,13 @@ function Field({
 }
 
 // ── Edit mode ─────────────────────────────────────────────────────────────────
+const detailKindMessages = defineMessages({
+  expense: { id: 'accounts.reviewKind.expense', defaultMessage: 'Expense' },
+  income: { id: 'accounts.reviewKind.income', defaultMessage: 'Income' },
+  transfer: { id: 'accounts.reviewKind.transfer', defaultMessage: 'Transfer' },
+  investment: { id: 'accounts.reviewKind.investment', defaultMessage: 'Investment' },
+  adjustment: { id: 'accounts.reviewKind.adjustment', defaultMessage: 'Balance adjustment' },
+})
 interface EditBodyProps {
   txn: Txn
   accounts: Account[]
@@ -337,6 +346,7 @@ function EditBody({
   onCancel,
   actionError,
 }: EditBodyProps) {
+  const { formatMessage } = useAppIntl()
   const isInc0 = txn.kind === 'income'
   // The kind's own leg first, but whichever leg HAS the money if not: an income stored on the
   // from-leg (written before the ledger refused that shape) opened as amount 0 with no
@@ -522,7 +532,14 @@ function EditBody({
     // so a refused save read as a tap that did nothing.
     setSaveError(null)
     void Promise.resolve(onSave(txn.id, patch)).catch((error: unknown) =>
-      setSaveError(error instanceof Error ? error.message : 'Couldn’t save the transaction'),
+      setSaveError(
+        error instanceof Error
+          ? error.message
+          : formatMessage({
+              id: 'accounts.editTxn.saveFailed',
+              defaultMessage: 'Couldn’t save the transaction',
+            }),
+      ),
     )
   }
 
@@ -548,18 +565,36 @@ function EditBody({
   const splitError = !splitMode
     ? ''
     : splits.some((l) => !l.category)
-      ? 'Each split line needs a category'
+      ? formatMessage({
+          id: 'accounts.editTxn.splitCategory',
+          defaultMessage: 'Each split line needs a category',
+        })
       : splits.some((l) => (parseFloat(l.amount) || 0) <= 0)
-        ? 'Each split line needs an amount above 0'
+        ? formatMessage({
+            id: 'accounts.editTxn.splitAmount',
+            defaultMessage: 'Each split line needs an amount above 0',
+          })
         : Math.abs(splitRemaining) > 0.01
-          ? `Lines must sum to ${fCur(splitTotal, ccy, { cents: true })}`
+          ? formatMessage(
+              { id: 'accounts.editTxn.splitTotal', defaultMessage: 'Lines must sum to {amount}' },
+              { amount: fCur(splitTotal, ccy, { cents: true }) },
+            )
           : ''
   return (
     <>
       <div className="acct-edit-body">
         {isAdjustment ? (
           <div className="acct-edit-adjbadge">
-            Balance adjustment<span>corrects this account's balance</span>
+            {formatMessage({
+              id: 'accounts.editTxn.adjustment',
+              defaultMessage: 'Balance adjustment',
+            })}
+            <span>
+              {formatMessage({
+                id: 'accounts.editTxn.adjustmentHint',
+                defaultMessage: "corrects this account's balance",
+              })}
+            </span>
           </div>
         ) : (
           <div className="acct-edit-seg">
@@ -569,19 +604,24 @@ function EditBody({
                 className={`acct-edit-seg-btn${f.kind === k ? ` on ${k}` : ''}`}
                 onClick={() => switchKind(k)}
               >
-                {k === 'investment' ? 'Invest' : k.charAt(0).toUpperCase() + k.slice(1)}
+                {k === 'investment'
+                  ? formatMessage({ id: 'accounts.editTxn.invest', defaultMessage: 'Invest' })
+                  : formatMessage(detailKindMessages[k])}
               </button>
             ))}
           </div>
         )}
-        <Field label="Amount">
+        <Field label={formatMessage({ id: 'accounts.editTxn.amount', defaultMessage: 'Amount' })}>
           <div className="acct-edit-amt">
             {isAdjustment ? (
               <button
                 type="button"
                 className={`acct-edit-sign tog ${dir === 'increase' ? 'pos' : 'neg'}`}
                 onClick={() => setDir((d) => (d === 'increase' ? 'decrease' : 'increase'))}
-                title="Switch raise / lower"
+                title={formatMessage({
+                  id: 'accounts.editTxn.switchAdjustment',
+                  defaultMessage: 'Switch raise / lower',
+                })}
               >
                 <SignGlyph positive={dir === 'increase'} />
               </button>
@@ -590,8 +630,21 @@ function EditBody({
                 type="button"
                 className={`acct-edit-sign tog ${investSell ? 'pos' : 'neg'}`}
                 onClick={() => setInvestSell((v) => !v)}
-                title={investSell ? 'Sell — switch to buy' : 'Buy — switch to sell'}
-                aria-label="Switch buy / sell"
+                title={
+                  investSell
+                    ? formatMessage({
+                        id: 'accounts.editTxn.sellSwitch',
+                        defaultMessage: 'Sell — switch to buy',
+                      })
+                    : formatMessage({
+                        id: 'accounts.editTxn.buySwitch',
+                        defaultMessage: 'Buy — switch to sell',
+                      })
+                }
+                aria-label={formatMessage({
+                  id: 'accounts.editTxn.switchInvestment',
+                  defaultMessage: 'Switch buy / sell',
+                })}
               >
                 <SignGlyph positive={investSell} />
               </button>
@@ -613,8 +666,15 @@ function EditBody({
         </Field>
         {(ccy !== baseCurrency || (isTransfer && toCcy !== baseCurrency)) && !isAdjustment && (
           <Field
-            label={`Value in ${baseCurrency}`}
-            hint="The value you actually transacted at — locked, not auto-converted at today's rate"
+            label={formatMessage(
+              { id: 'accounts.editTxn.valueIn', defaultMessage: 'Value in {currency}' },
+              { currency: baseCurrency },
+            )}
+            hint={formatMessage({
+              id: 'accounts.editTxn.baseHint',
+              defaultMessage:
+                "The value you actually transacted at — locked, not auto-converted at today's rate",
+            })}
           >
             <div className="acct-edit-amt">
               <span className="acct-edit-ccy">{baseCurrency}</span>
@@ -630,7 +690,16 @@ function EditBody({
           </Field>
         )}
         {!isTransfer && !isAdjustment && (
-          <Field label="Original charge" hint="If you were billed in another currency">
+          <Field
+            label={formatMessage({
+              id: 'accounts.editTxn.original',
+              defaultMessage: 'Original charge',
+            })}
+            hint={formatMessage({
+              id: 'accounts.editTxn.originalHint',
+              defaultMessage: 'If you were billed in another currency',
+            })}
+          >
             <div className="acct-edit-orig">
               <input
                 className="acct-edit-in"
@@ -646,8 +715,14 @@ function EditBody({
         )}
         {isTransfer && f.toAccount && toCcy !== ccy && (
           <Field
-            label={`Received (${toCcy})`}
-            hint="Amount that arrived, in the destination currency"
+            label={formatMessage(
+              { id: 'accounts.editTxn.received', defaultMessage: 'Received ({currency})' },
+              { currency: toCcy },
+            )}
+            hint={formatMessage({
+              id: 'accounts.editTxn.receivedHint',
+              defaultMessage: 'Amount that arrived, in the destination currency',
+            })}
           >
             <input
               className="acct-edit-in"
@@ -659,7 +734,7 @@ function EditBody({
             />
           </Field>
         )}
-        <Field label="Date">
+        <Field label={formatMessage({ id: 'accounts.editTxn.date', defaultMessage: 'Date' })}>
           <AddDateField
             value={f.date}
             onChange={(v: string) => set('date', v)}
@@ -673,7 +748,7 @@ function EditBody({
                   resetting toAmount to mirror the current Amount keeps the (possibly
                   newly-revealed) Received field from silently carrying over a number from the
                   OLD currency pairing under a new currency label. */}
-              <Field label="From">
+              <Field label={formatMessage({ id: 'accounts.editTxn.from', defaultMessage: 'From' })}>
                 <AddAccountSelect
                   accounts={accounts}
                   value={f.account}
@@ -681,7 +756,7 @@ function EditBody({
                   advance={() => {}}
                 />
               </Field>
-              <Field label="To">
+              <Field label={formatMessage({ id: 'accounts.editTxn.to', defaultMessage: 'To' })}>
                 <AddAccountSelect
                   accounts={accounts}
                   value={f.toAccount}
@@ -693,8 +768,14 @@ function EditBody({
               </Field>
             </div>
             <Field
-              label="Category (optional)"
-              hint="Label — affects the budget only when one side is off-budget"
+              label={formatMessage({
+                id: 'accounts.editTxn.categoryOptional',
+                defaultMessage: 'Category (optional)',
+              })}
+              hint={formatMessage({
+                id: 'accounts.editTxn.categoryHint',
+                defaultMessage: 'Label — affects the budget only when one side is off-budget',
+              })}
             >
               <AddCategoryField
                 value={f.category}
@@ -707,7 +788,9 @@ function EditBody({
             </Field>
           </>
         ) : isAdjustment ? (
-          <Field label="Account">
+          <Field
+            label={formatMessage({ id: 'accounts.editTxn.account', defaultMessage: 'Account' })}
+          >
             <AddAccountSelect
               accounts={accounts}
               value={f.account}
@@ -717,7 +800,9 @@ function EditBody({
           </Field>
         ) : splitMode ? (
           <>
-            <Field label="Account">
+            <Field
+              label={formatMessage({ id: 'accounts.editTxn.account', defaultMessage: 'Account' })}
+            >
               <AddAccountSelect
                 accounts={accounts}
                 value={f.account}
@@ -737,7 +822,9 @@ function EditBody({
           </>
         ) : (
           <div className="acct-edit-grid2">
-            <Field label="Account">
+            <Field
+              label={formatMessage({ id: 'accounts.editTxn.account', defaultMessage: 'Account' })}
+            >
               <AddAccountSelect
                 accounts={accounts}
                 value={f.account}
@@ -745,7 +832,12 @@ function EditBody({
                 advance={() => {}}
               />
             </Field>
-            <Field label="Category (optional)">
+            <Field
+              label={formatMessage({
+                id: 'accounts.editTxn.categoryOptional',
+                defaultMessage: 'Category (optional)',
+              })}
+            >
               <AddCategoryField
                 value={f.category}
                 options={catOpts}
@@ -756,7 +848,10 @@ function EditBody({
               />
               {canSplit && (
                 <button type="button" className="acct-edit-splitlink" onClick={enterSplit}>
-                  Split into multiple categories
+                  {formatMessage({
+                    id: 'accounts.editTxn.split',
+                    defaultMessage: 'Split into multiple categories',
+                  })}
                 </button>
               )}
             </Field>
@@ -764,8 +859,18 @@ function EditBody({
         )}
         {!isTransfer && !isAdjustment && (
           <Field
-            label="Payee"
-            hint={isInvestment ? 'The broker or platform' : 'Who you paid / who paid you'}
+            label={formatMessage({ id: 'accounts.editTxn.payee', defaultMessage: 'Payee' })}
+            hint={
+              isInvestment
+                ? formatMessage({
+                    id: 'accounts.editTxn.brokerHint',
+                    defaultMessage: 'The broker or platform',
+                  })
+                : formatMessage({
+                    id: 'accounts.editTxn.payeeHint',
+                    defaultMessage: 'Who you paid / who paid you',
+                  })
+            }
           >
             <AddPayeeField
               value={f.payee}
@@ -789,42 +894,65 @@ function EditBody({
         )}
         <hr className="acct-edit-divider" />
         <Field
-          label="Description"
-          hint="The merchant / bank text. Used for matching, rules & payees — keep it the stable merchant name."
+          label={formatMessage({
+            id: 'accounts.editTxn.description',
+            defaultMessage: 'Description',
+          })}
+          hint={formatMessage({
+            id: 'accounts.editTxn.descriptionHint',
+            defaultMessage:
+              'The merchant / bank text. Used for matching, rules & payees — keep it the stable merchant name.',
+          })}
         >
           <textarea
             className="acct-edit-in acct-note-area"
             value={f.description}
             onChange={(e) => set('description', e.target.value)}
-            placeholder="Merchant or bank description"
+            placeholder={formatMessage({
+              id: 'accounts.editTxn.descriptionPlaceholder',
+              defaultMessage: 'Merchant or bank description',
+            })}
             rows={2}
           />
         </Field>
         <Field
-          label="Memo"
-          hint="A personal note for this transaction — what you ordered, who you were with. Never affects matching."
+          label={formatMessage({ id: 'accounts.editTxn.memo', defaultMessage: 'Memo' })}
+          hint={formatMessage({
+            id: 'accounts.editTxn.memoHint',
+            defaultMessage:
+              'A personal note for this transaction — what you ordered, who you were with. Never affects matching.',
+          })}
         >
           <textarea
             className="acct-edit-in acct-note-area"
             value={f.memo}
             onChange={(e) => set('memo', e.target.value)}
-            placeholder="e.g. 2 lattes + croissant"
+            placeholder={formatMessage({
+              id: 'accounts.editTxn.memoPlaceholder',
+              defaultMessage: 'e.g. 2 lattes + croissant',
+            })}
             rows={2}
           />
         </Field>
         <Field
-          label="Tags"
-          hint="lowercase-with-hyphens • comma-separated (japan-trip, reimbursable…)"
+          label={formatMessage({ id: 'accounts.editTxn.tags', defaultMessage: 'Tags' })}
+          hint={formatMessage({
+            id: 'accounts.editTxn.tagsHint',
+            defaultMessage: 'lowercase-with-hyphens • comma-separated (japan-trip, reimbursable…)',
+          })}
         >
           <input
             className="acct-edit-in"
             value={f.tags}
             onChange={(e) => set('tags', liveTagFormat(e.target.value))}
             onBlur={() => set('tags', normalizeTags(f.tags).join(', '))}
-            placeholder="japan-trip, reimbursable"
+            placeholder={formatMessage({
+              id: 'accounts.editTxn.tagsPlaceholder',
+              defaultMessage: 'japan-trip, reimbursable',
+            })}
           />
         </Field>
-        <Field label="Cleared">
+        <Field label={formatMessage({ id: 'accounts.editTxn.cleared', defaultMessage: 'Cleared' })}>
           <ClearedCheck cleared={cleared} locked={txn.source === 'opening'} onChange={setCleared} />
         </Field>
       </div>
@@ -836,10 +964,10 @@ function EditBody({
           </span>
         )}
         <button className="acct-detail-edit" onClick={save} disabled={!!splitError}>
-          Save changes
+          {formatMessage({ id: 'accounts.editTxn.save', defaultMessage: 'Save changes' })}
         </button>
         <button className="acct-detail-del ghost" onClick={onCancel}>
-          Cancel
+          {formatMessage({ id: 'accounts.editTxn.cancel', defaultMessage: 'Cancel' })}
         </button>
       </div>
     </>

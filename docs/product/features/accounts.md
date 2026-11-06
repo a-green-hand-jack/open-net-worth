@@ -226,6 +226,7 @@ Transaction rows and mobile cards localize built-in status and transfer labels w
 changing transaction descriptions, amounts, category names or account names.
 Split transaction details also translate their controls and preserve amount hiding.
 The split editor translates its controls and balance feedback without altering line amounts.
+Transaction edit forms follow the interface language without changing saved transaction values.
 
 ## Related pages
 

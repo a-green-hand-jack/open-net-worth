@@ -9,6 +9,8 @@
 
 import { describe, it, expect, afterEach } from 'vitest'
 import { render, cleanup, screen, fireEvent, waitFor } from '@testing-library/react'
+import { IntlProvider } from 'react-intl'
+import { catalogs } from '../../../i18n/catalogs'
 import TxnDetail from './TxnDetail'
 import type { Account, Category, Txn } from './types'
 
@@ -89,7 +91,7 @@ function makeSplit(over: Partial<Txn> = {}): Txn {
   }
 }
 
-function renderDetail(t: Txn) {
+function renderDetail(t: Txn, chinese = false) {
   let savedPatch: Record<string, unknown> | null = null
   render(
     <TxnDetail
@@ -119,11 +121,33 @@ function renderDetail(t: Txn) {
       onLoadSourceEntries={() => Promise.resolve(null)}
       onDetachSourceRef={() => Promise.resolve()}
     />,
+    chinese
+      ? {
+          wrapper: ({ children }) => (
+            <IntlProvider locale="zh-CN" messages={catalogs['zh-CN']}>
+              {children}
+            </IntlProvider>
+          ),
+        }
+      : undefined,
   )
   return () => savedPatch
 }
 
 describe('TxnDetail — editing a split transaction', () => {
+  it('saves unchanged split values through the Chinese edit form', () => {
+    const getPatch = renderDetail(makeSplit(), true)
+    fireEvent.click(screen.getByText('Edit transaction'))
+    expect(screen.getByText('已平衡')).toBeTruthy()
+    expect(
+      screen.getAllByLabelText('拆分金额').map((input) => (input as HTMLInputElement).value),
+    ).toEqual(['30', '20'])
+    fireEvent.click(screen.getByText('保存更改'))
+    expect(getPatch()!.splits).toEqual([
+      { category: 'cat_food', amount: 30, note: '' },
+      { category: 'cat_home', amount: 20, note: '' },
+    ])
+  })
   it('renders the split lines (category + amount) in edit mode instead of a bare "Split" chip', () => {
     renderDetail(makeSplit())
     fireEvent.click(screen.getByText('Edit transaction'))
