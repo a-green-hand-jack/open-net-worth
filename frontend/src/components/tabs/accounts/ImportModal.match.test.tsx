@@ -16,6 +16,8 @@
 
 import { describe, it, expect, afterEach, vi } from 'vitest'
 import { render, cleanup, screen, fireEvent, waitFor, within } from '@testing-library/react'
+import { IntlProvider } from 'react-intl'
+import { catalogs } from '../../../i18n/catalogs'
 import { ImportModal } from './ImportModal'
 import type { Account } from './types'
 
@@ -88,17 +90,24 @@ function previewWith(flags: unknown) {
 async function openPreview(
   onDecisionCommit: ReturnType<typeof vi.fn>,
   extra: Record<string, unknown> = {},
+  chinese = false,
 ) {
   const matchFlag = [
     {
       type: 'near_duplicate',
       reason: 'match',
       existing_id: 'existing-1',
-      existing: { note: 'Cinebar night out', amount: -11.0, currency: 'SGD', has_category: true },
+      existing: {
+        note: 'Cinebar night out',
+        amount: -11.0,
+        currency: 'SGD',
+        has_category: true,
+        kind: 'expense',
+      },
     },
   ]
   const onPreview = vi.fn().mockResolvedValue(previewWith(matchFlag))
-  const { container } = render(
+  const modal = (
     <ImportModal
       open
       accounts={[acct]}
@@ -107,13 +116,22 @@ async function openPreview(
       onPreview={onPreview as never}
       onDecisionCommit={onDecisionCommit as never}
       {...extra}
-    />,
+    />
+  )
+  const { container } = render(
+    chinese ? (
+      <IntlProvider locale="zh-CN" messages={catalogs['zh-CN']}>
+        {modal}
+      </IntlProvider>
+    ) : (
+      modal
+    ),
   )
   const fileInput = document.body.querySelector('input[type="file"]') as HTMLInputElement
   fireEvent.change(fileInput, {
     target: { files: [new File(['%PDF-1.4'], 's.pdf', { type: 'application/pdf' })] },
   })
-  fireEvent.click(await screen.findByText(/Read the statement/i))
+  fireEvent.click(await screen.findByText(chinese ? '读取账单' : /Read the statement/i))
   await waitFor(() => expect(screen.getByText('LAZADA SG')).toBeTruthy())
   return container
 }
@@ -131,6 +149,17 @@ const matchedRow = () => openRow(document.querySelector('[data-draft-index="0"]'
 const decisionRadio = (name: string) => within(matchedRow()).getByRole('radio', { name })
 
 describe('ImportModal — import-dedup 3-way (decision commit)', () => {
+  it('shows the matched kind in Chinese without changing the selected ledger identity', async () => {
+    const onDecisionCommit = commitMock()
+    await openPreview(onDecisionCommit, {}, true)
+    expect(document.querySelector('.imp3-arow-match-facts')?.textContent).toContain('支出')
+    expect(screen.getByText('Cinebar')).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: 'Confirm' }))
+    await waitFor(() => expect(onDecisionCommit).toHaveBeenCalled())
+    expect(onDecisionCommit.mock.calls[0]![2]).toEqual([
+      { row: 0, action: 'merge', existing_id: 'existing-1' },
+    ])
+  })
   it('review row with import_review_default=merge: default commit sends the merge decision, the clean row rides the server default', async () => {
     const onDecisionCommit = commitMock()
     await openPreview(onDecisionCommit, { importReviewDefault: 'merge' })
