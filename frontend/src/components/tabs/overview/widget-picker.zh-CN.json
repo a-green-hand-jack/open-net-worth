@@ -1,4 +1,8 @@
 {
+  "overview.viewTabs": "仪表盘视图",
+  "overview.viewRenameHelp": "双击重命名 · 拖动调整顺序",
+  "overview.deleteNamedView": "删除视图 {name}",
+  "overview.addView": "添加视图",
   "overview.all": "全部",
   "overview.buildLucius": "与 Lucius 一起构建",
   "overview.widgetTitle.hero": "净资产",
