@@ -6,6 +6,8 @@
 
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { IntlProvider } from 'react-intl'
+import { catalogs } from '../../../../i18n/LocaleProvider'
 import * as client from '../../../../api/client'
 import { clearQueryCache } from '../../../../state/queryCache'
 import { SecuritySection } from './SecuritySection'
@@ -66,6 +68,14 @@ afterEach(() => {
 })
 
 describe('SecuritySection password panel', () => {
+  it('shows the Chinese password form without submitting', async () => {
+    serve({ password_set: false, current_password_required: false })
+    render(<IntlProvider locale="zh-CN" messages={catalogs['zh-CN']}><SecuritySection toast={vi.fn()} /></IntlProvider>)
+    expect(await screen.findByRole('button', { name: '设置密码' })).toBeTruthy()
+    expect(screen.getByText('新密码')).toBeTruthy()
+    expect(screen.getByText('确认密码')).toBeTruthy()
+    expect(posts).toHaveLength(0)
+  })
   it('no password set: "Set a password" with New + Confirm and no Current field', async () => {
     serve({ password_set: false, current_password_required: false })
     render(<SecuritySection toast={vi.fn()} />)
