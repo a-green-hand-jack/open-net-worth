@@ -13,6 +13,8 @@
 // reduces to the mobile move-up/move-down buttons on GridCard.
 
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { useAppIntl } from '../../../i18n/useAppIntl'
+import { displaySectionTitle } from './defaultViewName'
 import type { ComputedRow } from '../../../types/portfolio'
 import { findDefinition } from './definitions'
 import {
@@ -193,6 +195,7 @@ export function DashboardGrid({
   onShareWithLucius,
   onOpenRegister,
 }: DashboardGridProps) {
+  const intl = useAppIntl()
   const containerRef = useRef<HTMLDivElement>(null)
   const [drag, setDrag] = useState<DragState | null>(null)
   const [preview, setPreview] = useState<GridItem[] | null>(null)
@@ -652,6 +655,7 @@ export function DashboardGrid({
           if (isSection(displayItem)) {
             const count = countBySection.get(displayItem.instanceId) ?? 0
             const renaming = renamingSectionId === displayItem.instanceId
+            const sectionTitle = displaySectionTitle(intl, displayItem)
             return (
               <GridCard
                 key={displayItem.instanceId}
@@ -701,13 +705,19 @@ export function DashboardGrid({
                     <input
                       className="ov-section-rename"
                       autoFocus
-                      defaultValue={displayItem.title}
+                      defaultValue={sectionTitle}
                       onClick={(e) => e.stopPropagation()}
                       onPointerDown={(e) => e.stopPropagation()}
                       onBlur={(e) => {
-                        layout.patchItem(displayItem.instanceId, {
-                          title: e.target.value.trim() || 'Section',
-                        })
+                        const title = e.target.value.trim()
+                        if (title !== sectionTitle) {
+                          layout.patchItem(
+                            displayItem.instanceId,
+                            title
+                              ? { title, titleSource: undefined }
+                              : { title: 'Section', titleSource: 'default_section' },
+                          )
+                        }
                         setRenamingSectionId(null)
                       }}
                       onKeyDown={(e) => {
@@ -726,7 +736,7 @@ export function DashboardGrid({
                         setRenamingSectionId(displayItem.instanceId)
                       }}
                     >
-                      {displayItem.title}
+                      {sectionTitle}
                     </span>
                   )}
                   <span className="ov-section-rule" />

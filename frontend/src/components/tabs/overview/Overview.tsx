@@ -387,7 +387,7 @@ export function Overview({
                 size="sm"
                 variant="primary"
                 onClick={() => {
-                  layout.addSection(sectionName || 'Section')
+                  layout.addSection(sectionName)
                   setSectionName('')
                   setAddingSection(false)
                 }}
@@ -408,7 +408,7 @@ export function Overview({
             onChange={(e) => setSectionName(e.target.value)}
             onKeyDown={(e) => {
               if (e.key === 'Enter') {
-                layout.addSection(sectionName || 'Section')
+                layout.addSection(sectionName)
                 setSectionName('')
                 setAddingSection(false)
               }

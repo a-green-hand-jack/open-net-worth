@@ -45,6 +45,22 @@ afterEach(() => {
 })
 
 describe('useDashboardLayout.deleteView — never deletes the default or last view', () => {
+  it('marks only newly created unnamed sections as defaults', async () => {
+    mockFetch.mockResolvedValue(twoViewState())
+    const { result } = renderHook(() => useDashboardLayout())
+    await waitFor(() => expect(result.current.loading).toBe(false))
+    act(() => result.current.addSection(''))
+    act(() => result.current.addSection('Personal'))
+    expect(result.current.activeView?.widgets).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ title: 'Section', titleSource: 'default_section' }),
+        expect.objectContaining({ title: 'Personal' }),
+      ]),
+    )
+    expect(
+      result.current.activeView?.widgets.find((w) => w.title === 'Personal'),
+    ).not.toHaveProperty('titleSource')
+  })
   it('marks newly created default views and clears the marker on rename', async () => {
     mockFetch.mockResolvedValue(twoViewState())
     const { result } = renderHook(() => useDashboardLayout())

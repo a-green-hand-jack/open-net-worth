@@ -108,6 +108,7 @@ export interface SectionDivider {
   kind: 'section'
   instanceId: string
   title: string
+  titleSource?: 'default_section'
   collapsed?: boolean
   x: number
   y: number

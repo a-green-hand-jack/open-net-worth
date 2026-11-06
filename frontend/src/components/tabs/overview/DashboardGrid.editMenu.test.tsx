@@ -6,6 +6,8 @@
 
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
+import { IntlProvider } from 'react-intl'
+import { catalogs } from '../../../i18n/catalogs'
 import { DashboardGrid } from './DashboardGrid'
 import type { UseDashboardLayout } from './useDashboardLayout'
 
@@ -75,6 +77,36 @@ function layout(): UseDashboardLayout {
 
 describe('DashboardGrid widget menu', () => {
   afterEach(() => cleanup())
+
+  it('displays a marked default section in Chinese and keeps custom renames', () => {
+    const state = layout()
+    state.activeView!.widgets.push({
+      kind: 'section',
+      instanceId: 's1',
+      title: 'Section',
+      titleSource: 'default_section',
+      x: 0,
+      y: 500,
+      w: 12,
+      h: 30,
+    })
+    render(
+      <IntlProvider locale="zh-CN" messages={catalogs['zh-CN']}>
+        <DashboardGrid layout={state} editing />
+      </IntlProvider>,
+    )
+    fireEvent.doubleClick(screen.getByText('分区'))
+    fireEvent.blur(screen.getByDisplayValue('分区'))
+    expect(state.patchItem).not.toHaveBeenCalled()
+    fireEvent.doubleClick(screen.getByText('分区'))
+    const input = screen.getByDisplayValue('分区')
+    fireEvent.change(input, { target: { value: 'Personal' } })
+    fireEvent.blur(input)
+    expect(state.patchItem).toHaveBeenCalledWith('s1', {
+      title: 'Personal',
+      titleSource: undefined,
+    })
+  })
 
   it('opens the widget editor from "Edit…" without entering Customize', () => {
     render(<DashboardGrid layout={layout()} editing={false} />)

@@ -247,7 +247,7 @@ descriptions. View and widget controls, and widget display and alert dialogs, al
 interface language; view names, custom widget names, and content remain unchanged.
 The dashboard setup, layout controls, section and view dialogs, briefing instruction and widget
 header controls follow the same language without changing your names or instructions for Lucius.
-New default view names follow the interface language; existing and renamed views retain their names.
+New default view and section names follow the interface language; existing and renamed items retain their names.
 
 ## Related pages
 

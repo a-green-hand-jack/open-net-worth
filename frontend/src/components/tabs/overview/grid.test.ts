@@ -208,6 +208,20 @@ describe('normalize', () => {
     expect(out[0]!.w).toBe(COLS)
   })
 
+  it('retains only a valid default section marker when loading', () => {
+    const out = normalize(
+      [
+        { kind: 'section', title: 'Section', titleSource: 'default_section' },
+        { kind: 'section', title: 'Personal', titleSource: 'default_section' },
+        { kind: 'section', title: 'Section' },
+      ],
+      DEFS,
+    )
+    expect(out[0]).toMatchObject({ title: 'Section', titleSource: 'default_section' })
+    expect(out[1]).not.toHaveProperty('titleSource')
+    expect(out[2]).not.toHaveProperty('titleSource')
+  })
+
   it('seeds per-widget config from the def settings schema', () => {
     const out = normalize([{ defId: 'movers' }], DEFS)
     expect((out[0] as WidgetInstance).config.range).toBe('1M')

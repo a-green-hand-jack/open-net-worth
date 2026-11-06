@@ -317,7 +317,16 @@ export function useDashboardLayout() {
         const maxY = widgets.reduce((m, w) => Math.max(m, w.y + w.h), 0)
         return [
           ...widgets,
-          { kind: 'section', instanceId, title: title || 'Section', x: 0, y: maxY, w: 12, h: 30 },
+          {
+            kind: 'section',
+            instanceId,
+            title: title || 'Section',
+            ...(!title ? { titleSource: 'default_section' as const } : {}),
+            x: 0,
+            y: maxY,
+            w: 12,
+            h: 30,
+          },
         ]
       })
       announceNew(instanceId)
