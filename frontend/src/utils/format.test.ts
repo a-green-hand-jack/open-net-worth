@@ -3,6 +3,7 @@ import {
   toBase,
   setBaseCurrency,
   setDisplayFormats,
+  setInterfaceLocale,
   fPct,
   fBareAmount,
   fFig,
@@ -403,6 +404,24 @@ describe('timeAgo — past-relative age, never negative', () => {
 })
 
 describe('fDate — one date writer that follows the Date-format preference', () => {
+  it('uses interface language while preserving the selected date order', () => {
+    try {
+      setInterfaceLocale('zh-CN')
+      setDisplayFormats({ date_format: null })
+      expect(fDate('2026-11-06', 'short', 'never')).toBe('11月6日')
+      expect(fMonth('2026-11', 'short', 'always')).toBe('2026年11月')
+      setDisplayFormats({ date_format: 'dmy' })
+      expect(fDate('2026-11-06', 'short', 'never')).toBe('6日11月')
+      setDisplayFormats({ date_format: 'mdy' })
+      expect(fDate('2026-11-06', 'short', 'never')).toBe('11月6日')
+      setDisplayFormats({ date_format: 'iso' })
+      expect(fDate('2026-11-06', 'numeric', 'always')).toBe('2026-11-06')
+      expect(fDate('2026-11-06', 'short', 'always')).toBe('2026年11月6日')
+    } finally {
+      setDisplayFormats({})
+      setInterfaceLocale(undefined)
+    }
+  })
   const thisYear = new Date().getFullYear()
 
   it('numeric style obeys dmy / mdy / iso and always keeps the year', () => {

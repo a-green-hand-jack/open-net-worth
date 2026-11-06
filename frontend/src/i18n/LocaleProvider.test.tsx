@@ -5,21 +5,29 @@ import { LocaleProvider } from './LocaleProvider'
 import { browserLocale, resolveLocale } from './locale'
 import { useSetLocalePreference } from './localeContext'
 import { useAppIntl } from './useAppIntl'
+import { fDate, setDisplayFormats, setInterfaceLocale } from '../utils/format'
 
 afterEach(() => {
   cleanup()
+  setDisplayFormats({})
+  setInterfaceLocale(undefined)
   vi.restoreAllMocks()
 })
 
 function Example() {
   const intl = useAppIntl()
   const select = useSetLocalePreference()
-  return <>
-    <span>{intl.formatMessage({ id: 'auth.signingBackIn', defaultMessage: 'Signing you back in…' })}</span>
-    <button onClick={() => select('zh-CN')}>Chinese</button>
-    <button onClick={() => select('en')}>English</button>
-    <button onClick={() => select(null)}>Browser</button>
-  </>
+  return (
+    <>
+      <span>
+        {intl.formatMessage({ id: 'auth.signingBackIn', defaultMessage: 'Signing you back in…' })}
+      </span>
+      <span data-testid="date">{fDate('2026-11-06', 'short', 'never')}</span>
+      <button onClick={() => select('zh-CN')}>Chinese</button>
+      <button onClick={() => select('en')}>English</button>
+      <button onClick={() => select(null)}>Browser</button>
+    </>
+  )
 }
 
 describe('interface language', () => {
@@ -34,13 +42,19 @@ describe('interface language', () => {
 
   it('updates messages and document language when a preference changes or clears', async () => {
     vi.spyOn(navigator, 'languages', 'get').mockReturnValue(['en-US'])
-    render(<LocaleProvider><Example /></LocaleProvider>)
+    render(
+      <LocaleProvider>
+        <Example />
+      </LocaleProvider>,
+    )
     expect(screen.getByText('Signing you back in…')).toBeTruthy()
     fireEvent.click(screen.getByText('Chinese'))
     expect(screen.getByText('正在重新登录…')).toBeTruthy()
+    expect(screen.getByTestId('date').textContent).toBe('11月6日')
     await waitFor(() => expect(document.documentElement.lang).toBe('zh-CN'))
     fireEvent.click(screen.getByText('Browser'))
     expect(screen.getByText('Signing you back in…')).toBeTruthy()
+    expect(screen.getByTestId('date').textContent).toBe('Nov 6')
     await waitFor(() => expect(document.documentElement.lang).toBe('en'))
   })
 

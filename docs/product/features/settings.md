@@ -132,6 +132,11 @@ or off. Lucius cannot change these switches.
 - **Some sections only appear where they apply** — Desktop in the desktop app, Terminal where it
   is enabled.
 
+## Date language
+
+Textual month names follow the interface language. The selected date format still controls the
+order of the date fields, and numeric dates continue to use the selected date format.
+
 ## Related pages
 
 - [Base currency & FX](../concepts/base-currency-and-fx.md)
