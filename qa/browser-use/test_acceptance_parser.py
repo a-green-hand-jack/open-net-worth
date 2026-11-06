@@ -184,6 +184,19 @@ Just some prose, no GWT lines.
         assert len(results) == 1
         assert results[0].then == ""
 
+    def test_trading_synthetic_spec_references_only_known_criteria(self) -> None:
+        from acceptance_check import _load_spec_acceptance_ids
+
+        root = Path(__file__).parent.parent.parent
+        trading_md = root / "docs/qa/acceptance/trading-workspace.md"
+        specs_dir = root / "qa/browser-use/synthetic-specs"
+        if not trading_md.exists() or not specs_dir.exists():
+            pytest.skip("trading acceptance assets not found")
+        criteria = {row.id for row in _parse_file(trading_md)}
+        specs = _load_spec_acceptance_ids(specs_dir)
+        assert "TRD-WORKSPACE" in specs
+        assert set(specs["TRD-WORKSPACE"]) <= criteria
+
     def test_trading_acceptance_criteria_are_individually_discoverable(self) -> None:
         trading_md = Path(__file__).parent.parent.parent / "docs/qa/acceptance/trading-workspace.md"
         if not trading_md.exists():
