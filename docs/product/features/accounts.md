@@ -253,7 +253,7 @@ Review queue controls and built-in source labels also follow the interface langu
 Review summaries and category choices translate built-in labels while retaining payee and
 category names entered by the user.
 
-Statement import comparison headings, ledger-only deletion controls, coverage and amount-check verdicts, reopen and retry prompts, and unsaved-review exit warnings follow the selected interface language.
+Statement import comparison headings, ledger-only deletion controls, coverage and amount-check verdicts, reopen and retry prompts, unsaved-review exit warnings, and link-reassignment confirmations follow the selected interface language.
 
 ## Related pages
 

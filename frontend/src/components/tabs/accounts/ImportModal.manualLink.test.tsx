@@ -17,6 +17,8 @@ vi.mock('../../../api/client', () => ({ authFetch: vi.fn() }))
 import { describe, it, expect, afterEach, beforeEach, vi } from 'vitest'
 import { render, cleanup, screen, fireEvent, waitFor, within } from '@testing-library/react'
 import { ImportModal } from './ImportModal'
+import { IntlProvider } from 'react-intl'
+import { catalogs } from '../../../i18n/catalogs'
 import { authFetch } from '../../../api/client'
 import type { Account } from './types'
 
@@ -75,12 +77,12 @@ const linkBtn = (text?: string | RegExp) =>
   within(newRow(text)).getByRole('button', { name: /Link to existing/ })
 const afterCol = (row: HTMLElement) => row.querySelector('.imp3-after') as HTMLElement
 
-async function openWith(preview: unknown, extra: Record<string, unknown> = {}) {
+async function openWith(preview: unknown, extra: Record<string, unknown> = {}, chinese = false) {
   const onDecisionCommit = vi
     .fn()
     .mockResolvedValue({ created: 0, merged: 0, duplicates: 0, skipped: 0 })
   const onPreview = vi.fn().mockResolvedValue(preview)
-  const utils = render(
+  const modal = (
     <ImportModal
       open
       accounts={[acct]}
@@ -89,13 +91,14 @@ async function openWith(preview: unknown, extra: Record<string, unknown> = {}) {
       onPreview={onPreview as never}
       onDecisionCommit={onDecisionCommit}
       {...extra}
-    />,
+    />
   )
+  const utils = render(chinese ? <IntlProvider locale="zh-CN" messages={catalogs['zh-CN']}>{modal}</IntlProvider> : modal)
   const fileInput = document.body.querySelector('input[type="file"]') as HTMLInputElement
   fireEvent.change(fileInput, {
     target: { files: [new File(['%PDF-1.4'], 's.pdf', { type: 'application/pdf' })] },
   })
-  fireEvent.click(await screen.findByText(/Read the statement/i))
+  fireEvent.click(await screen.findByText(chinese ? '读取账单' : /Read the statement/i))
   return utils
 }
 
@@ -187,6 +190,30 @@ function matchedAndNewPreview() {
   p.total = 2
   return p
 }
+
+describe('ImportModal — Chinese link reassignment', () => {
+  it('confirms the move and commits the selected existing ID to the new row', async () => {
+    const preview = tinderPreview({ statementId: 'st-fling' })
+    preview.drafts.push({ ...preview.drafts[0]!, description: 'Second synthetic charge', payee: 'Second synthetic charge', rowIndex: 1, external_refs: [{ source: 'pdf', ref: 'ref:v1:t2' }] })
+    preview.importable = 2
+    preview.total = 2
+    const onDecisionCommit = vi.fn().mockResolvedValue({ created: 1, merged: 1, duplicates: 0, skipped: 0 })
+    await openWith(preview, { onDecisionCommit }, true)
+    await screen.findByText('example-subscription.com Fling')
+    fireEvent.click(linkBtn())
+    fireEvent.click(screen.getByRole('option', { name: /TD subscription renewal/ }))
+    fireEvent.click(linkBtn('Second synthetic charge'))
+    fireEvent.click(screen.getByRole('option', { name: /TD subscription renewal/ }))
+    expect(await screen.findByText('移动此关联？')).toBeTruthy()
+    expect(screen.getByText(/将失去关联/)).toBeTruthy()
+    expect(onDecisionCommit).not.toHaveBeenCalled()
+    fireEvent.click(screen.getByRole('button', { name: '移动关联' }))
+    fireEvent.click(screen.getByRole('button', { name: '确认' }))
+    await waitFor(() => expect(onDecisionCommit).toHaveBeenCalled())
+    expect(onDecisionCommit.mock.calls[0]![2]).toContainEqual({ row: 1, action: 'merge', existing_id: 'led-fling' })
+    expect(onDecisionCommit.mock.calls[0]![2]).not.toContainEqual({ row: 0, action: 'merge', existing_id: 'led-fling' })
+  })
+})
 
 describe('ImportModal — the ⇄ Link affordance', () => {
   it('appears on a New row and NOT on an already-matched row', async () => {

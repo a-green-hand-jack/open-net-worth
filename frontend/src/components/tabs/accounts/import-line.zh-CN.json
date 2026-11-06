@@ -26,5 +26,17 @@
   "accounts.importLedger.markedHint": "已标记——确认后将从账簿删除。",
   "accounts.importLedger.delete": "删除",
   "accounts.importLedger.undo": "撤销",
-  "accounts.importLedger.leave": "保留"
+  "accounts.importLedger.leave": "保留",
+  "accounts.importRelink.heldHint": "• 已关联至 {row}（{amount}）",
+  "accounts.importRelink.moveFromRow": "{entry} 已关联至 {holder}。改为关联至 {target}？{holder} 将失去关联。",
+  "accounts.importRelink.luciusTransferWith": "将 {label} 记为与 {account} 之间的转账",
+  "accounts.importRelink.luciusTransfer": "将 {label} 记为转账",
+  "accounts.importRelink.luciusSkipped": "排除了 {label}",
+  "accounts.importRelink.luciusMatched": "将 {label} 匹配至另一条记录",
+  "accounts.importRelink.undoLucius": "撤销 Lucius 的决定？",
+  "accounts.importRelink.undoAndLink": "撤销并关联",
+  "accounts.importRelink.undoExplanation": "Lucius {call}。在此关联会先撤销其对该行的决定。",
+  "accounts.importRelink.title": "移动此关联？",
+  "accounts.importRelink.moveFromLedger": "{row} 已关联至 {from}。改为关联至 {to}？{from} 将回到“账簿中有，但此账单中没有”。",
+  "accounts.importRelink.confirm": "移动关联"
 }

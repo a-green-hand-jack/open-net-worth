@@ -3034,7 +3034,7 @@ export function ImportModal({
   const heldHint = (d: ImportPreviewDraft, entryId: string) => {
     const holder = heldByOther(d, entryId)
     return holder
-      ? `• linked to ${rowTitle(holder)} (${fCur(holder.amount, holder.currency, { cents: true })})`
+      ? intl.formatMessage({ id: 'accounts.importRelink.heldHint', defaultMessage: '• linked to {row} ({amount})' }, { row: rowTitle(holder), amount: fCur(holder.amount, holder.currency, { cents: true }) })
       : undefined
   }
   /** Run a row-side link pick; an entry another row holds is moved only after a confirm, and
@@ -3054,7 +3054,7 @@ export function ImportModal({
       row: holderLabel,
       from: entryLabel,
       to: `${rowTitle(d)} (${fCur(d.amount, d.currency, { cents: true })})`,
-      body: `${entryLabel} is linked to ${holderLabel}. Link it to ${rowTitle(d)} (${fCur(d.amount, d.currency, { cents: true })}) instead? ${holderLabel} loses the link.`,
+      body: intl.formatMessage({ id: 'accounts.importRelink.moveFromRow', defaultMessage: '{entry} is linked to {holder}. Link it to {target} instead? {holder} loses the link.' }, { entry: entryLabel, holder: holderLabel, target: `${rowTitle(d)} (${fCur(d.amount, d.currency, { cents: true })})` }),
       run: () => {
         const drop = <T,>(current: Record<number, T>) => {
           const next = { ...current }
@@ -3079,17 +3079,19 @@ export function ImportModal({
     const to = accounts.find((a) => a.id === d.lucius?.account_id)?.name
     const call =
       op === 'route_transfer'
-        ? `booked ${label} as a transfer${to ? ` with ${to}` : ''}`
+        ? intl.formatMessage(to
+            ? { id: 'accounts.importRelink.luciusTransferWith', defaultMessage: 'booked {label} as a transfer with {account}' }
+            : { id: 'accounts.importRelink.luciusTransfer', defaultMessage: 'booked {label} as a transfer' }, { label, account: to || '' })
         : op === 'skip'
-          ? `left ${label} out`
-          : `matched ${label} to another entry`
+          ? intl.formatMessage({ id: 'accounts.importRelink.luciusSkipped', defaultMessage: 'left {label} out' }, { label })
+          : intl.formatMessage({ id: 'accounts.importRelink.luciusMatched', defaultMessage: 'matched {label} to another entry' }, { label })
     setRelinkAsk({
       row: label,
       from: '',
       to: '',
-      title: 'Undo Lucius’s call?',
-      confirmLabel: 'Undo and link',
-      body: `Lucius ${call}. Linking it here undoes that for this row first.`,
+      title: intl.formatMessage({ id: 'accounts.importRelink.undoLucius', defaultMessage: 'Undo Lucius’s call?' }),
+      confirmLabel: intl.formatMessage({ id: 'accounts.importRelink.undoAndLink', defaultMessage: 'Undo and link' }),
+      body: intl.formatMessage({ id: 'accounts.importRelink.undoExplanation', defaultMessage: 'Lucius {call}. Linking it here undoes that for this row first.' }, { call }),
       run: () => void undoLucius(row).then((ok) => ok && apply()),
     })
   }
@@ -8200,15 +8202,15 @@ export function ImportModal({
       />
       <ConfirmModal
         open={relinkAsk !== null}
-        title={relinkAsk?.title ?? 'Move this link?'}
+        title={relinkAsk?.title ?? intl.formatMessage({ id: 'accounts.importRelink.title', defaultMessage: 'Move this link?' })}
         body={
           relinkAsk?.body
             ? relinkAsk.body
             : relinkAsk
-              ? `${relinkAsk.row} is linked to ${relinkAsk.from}. Link it to ${relinkAsk.to} instead? ${relinkAsk.from} goes back to “In your ledger, not on this statement”.`
+              ? intl.formatMessage({ id: 'accounts.importRelink.moveFromLedger', defaultMessage: '{row} is linked to {from}. Link it to {to} instead? {from} goes back to “In your ledger, not on this statement”.' }, { row: relinkAsk.row, from: relinkAsk.from, to: relinkAsk.to })
               : ''
         }
-        confirmLabel={relinkAsk?.confirmLabel ?? 'Move link'}
+        confirmLabel={relinkAsk?.confirmLabel ?? intl.formatMessage({ id: 'accounts.importRelink.confirm', defaultMessage: 'Move link' })}
         onConfirm={() => {
           // Cleared BEFORE running: a run may ask the next question (move a link, then undo
           // Lucius's call on the row it lands on).
