@@ -3503,7 +3503,7 @@ export function ImportModal({
       return (
         <>
           <Button size="sm" variant="ghost" onClick={() => setStep('choose')}>
-            Back
+            {intl.formatMessage({ id: 'accounts.importFooter.back', defaultMessage: 'Back' })}
           </Button>
           <Button
             size="sm"
@@ -3511,7 +3511,10 @@ export function ImportModal({
             disabled={!canManualPreview}
             onClick={runManualPreview}
           >
-            Preview import
+            {intl.formatMessage({
+              id: 'accounts.importFooter.preview',
+              defaultMessage: 'Preview import',
+            })}
           </Button>
         </>
       )
@@ -3531,10 +3534,30 @@ export function ImportModal({
       const closeOnly = canFile && !!preview?.alreadyImported
       const leaveOuts = excludedRows.length
       const outcomeFrags = [
-        links > 0 ? `Link ${links}` : null,
-        imports > 0 ? `import ${imports}` : null,
-        leaveOuts > 0 ? `leave out ${leaveOuts}` : null,
-        awaitingDecisions > 0 ? `${awaitingDecisions} awaiting you` : null,
+        links > 0
+          ? intl.formatMessage(
+              { id: 'accounts.importFooter.link', defaultMessage: 'Link {count}' },
+              { count: links },
+            )
+          : null,
+        imports > 0
+          ? intl.formatMessage(
+              { id: 'accounts.importFooter.import', defaultMessage: 'import {count}' },
+              { count: imports },
+            )
+          : null,
+        leaveOuts > 0
+          ? intl.formatMessage(
+              { id: 'accounts.importFooter.leaveOut', defaultMessage: 'leave out {count}' },
+              { count: leaveOuts },
+            )
+          : null,
+        awaitingDecisions > 0
+          ? intl.formatMessage(
+              { id: 'accounts.importFooter.awaiting', defaultMessage: '{count} awaiting you' },
+              { count: awaitingDecisions },
+            )
+          : null,
       ].filter((fragment): fragment is string => !!fragment)
       // Just "Confirm" — the footer note right next to it already spells out the
       // link/import/leave-out breakdown, so repeating it on the button itself was redundant.
@@ -3542,12 +3565,18 @@ export function ImportModal({
       // equivalent for, so it keeps its own honest label instead of reading as a no-op.
       const label =
         frags.length || deletes > 0
-          ? 'Confirm'
+          ? intl.formatMessage({ id: 'accounts.importFooter.confirm', defaultMessage: 'Confirm' })
           : closeOnly
-            ? 'Close'
+            ? intl.formatMessage({ id: 'accounts.importProgress.close', defaultMessage: 'Close' })
             : canFile
-              ? 'File statement — nothing new'
-              : 'Nothing to book'
+              ? intl.formatMessage({
+                  id: 'accounts.importFooter.fileNothing',
+                  defaultMessage: 'File statement — nothing new',
+                })
+              : intl.formatMessage({
+                  id: 'accounts.importFooter.nothing',
+                  defaultMessage: 'Nothing to book',
+                })
       // ONE honest outcome sentence on the left, the commit CTA on the right — green (`ready`)
       // only once every row is decided, otherwise the primary blue.
       const ready = awaitingDecisions === 0 && !nothingHappens
@@ -3556,11 +3585,23 @@ export function ImportModal({
           <span className="imp3-foot-note">
             {closeOnly ? (
               <>
-                <b>Already filed</b> — nothing new to book.
+                {intl.formatMessage(
+                  {
+                    id: 'accounts.importFooter.alreadyFiled',
+                    defaultMessage: '<b>Already filed</b> — nothing new to book.',
+                  },
+                  { b: (chunks) => <b>{chunks}</b> },
+                )}
               </>
             ) : (
               <>
-                <b>{outcomeFrags.join(' • ') || 'Nothing to book'}</b>
+                <b>
+                  {outcomeFrags.join(' • ') ||
+                    intl.formatMessage({
+                      id: 'accounts.importFooter.nothing',
+                      defaultMessage: 'Nothing to book',
+                    })}
+                </b>
                 {/* Deletions are DESTRUCTIVE and get their own emphasised term rather than another
                 comma-separated fragment — buried in the run of "link 1 · import 3" it reads as
                 one more bookkeeping outcome. "from your ledger" is load-bearing: it is what
@@ -3568,22 +3609,39 @@ export function ImportModal({
                 {deletes > 0 && (
                   <>
                     {' • '}
-                    <b className="imp3-foot-del">delete {deletes} from your ledger</b>
+                    <b className="imp3-foot-del">
+                      {intl.formatMessage(
+                        {
+                          id: 'accounts.importFooter.delete',
+                          defaultMessage: 'delete {count} from your ledger',
+                        },
+                        { count: deletes },
+                      )}
+                    </b>
                   </>
                 )}{' '}
-                — nothing is written until you confirm.
+                {intl.formatMessage({
+                  id: 'accounts.importFooter.nothingWritten',
+                  defaultMessage: '— nothing is written until you confirm.',
+                })}
                 {awaitingDecisions > 0 && (
                   <span className="imp3-foot-wait">
                     {' '}
-                    {awaitingDecisions} undecided row{awaitingDecisions === 1 ? '' : 's'} book the
-                    shown default{awaitingDecisions === 1 ? '' : 's'}.
+                    {intl.formatMessage(
+                      {
+                        id: 'accounts.importFooter.defaults',
+                        defaultMessage:
+                          '{count, plural, one {# undecided row books the shown default.} other {# undecided rows book the shown defaults.}}',
+                      },
+                      { count: awaitingDecisions },
+                    )}
                   </span>
                 )}
               </>
             )}
           </span>
           <button type="button" className="imp3-btn2" disabled={committing} onClick={requestBack}>
-            Back
+            {intl.formatMessage({ id: 'accounts.importFooter.back', defaultMessage: 'Back' })}
           </button>
           <button
             type="button"
@@ -3593,7 +3651,12 @@ export function ImportModal({
             onClick={closeOnly ? close : () => void confirmImport()}
           >
             {committing && <span className="imp3-commit-spin" aria-hidden="true" />}
-            {committing ? 'Booking…' : label}
+            {committing
+              ? intl.formatMessage({
+                  id: 'accounts.importFooter.booking',
+                  defaultMessage: 'Booking…',
+                })
+              : label}
           </button>
         </div>
       )
@@ -8119,9 +8182,23 @@ export function ImportModal({
         background", not "abandon a paid read" — see requestClose/continueInBackground. */}
       <ConfirmModal
         open={deleteAskOpen}
-        title={`Delete ${markedForDelete.length} ${markedForDelete.length === 1 ? 'transaction' : 'transactions'} from your ledger?`}
-        body="They're removed when the import is booked. Undo import on the next screen brings them back."
-        confirmLabel="Delete and import"
+        title={intl.formatMessage(
+          {
+            id: 'accounts.importFooter.deleteQuestion',
+            defaultMessage:
+              '{count, plural, one {Delete # transaction from your ledger?} other {Delete # transactions from your ledger?}}',
+          },
+          { count: markedForDelete.length },
+        )}
+        body={intl.formatMessage({
+          id: 'accounts.importFooter.deleteExplanation',
+          defaultMessage:
+            "They're removed when the import is booked. Undo import on the next screen brings them back.",
+        })}
+        confirmLabel={intl.formatMessage({
+          id: 'accounts.importFooter.deleteAndImport',
+          defaultMessage: 'Delete and import',
+        })}
         danger
         onConfirm={() => {
           setDeleteAskOpen(false)

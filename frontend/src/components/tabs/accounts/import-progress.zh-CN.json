@@ -14,5 +14,6 @@
   "accounts.importProgress.slow": "此页耗时比平常长，仍在处理中。",
   "accounts.importProgress.stale": "仍在处理，与进度源的连接不稳定。",
   "accounts.importProgress.stillOpening": "仍在打开，已用 {seconds} 秒。较长的账单最多可能需要 30 秒。",
-  "accounts.importProgress.table": "正在查找交易表"
+  "accounts.importProgress.table": "正在查找交易表",
+  "accounts.importProgress.close": "关闭"
 }

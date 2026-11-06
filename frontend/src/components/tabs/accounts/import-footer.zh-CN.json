@@ -1,0 +1,19 @@
+{
+  "accounts.importFooter.alreadyFiled": "<b>已归档</b>，没有新记录需要入账。",
+  "accounts.importFooter.awaiting": "{count} 条等待您决定",
+  "accounts.importFooter.back": "返回",
+  "accounts.importFooter.booking": "正在入账…",
+  "accounts.importFooter.confirm": "确认",
+  "accounts.importFooter.defaults": "{count, plural, other {# 条尚未决定的记录将按显示的默认选项入账。}}",
+  "accounts.importFooter.delete": "从账簿删除 {count} 条",
+  "accounts.importFooter.deleteAndImport": "删除并导入",
+  "accounts.importFooter.deleteExplanation": "导入入账时会移除这些交易。下一屏的“撤销导入”可以将其恢复。",
+  "accounts.importFooter.deleteQuestion": "{count, plural, other {从账簿删除 # 笔交易？}}",
+  "accounts.importFooter.fileNothing": "归档账单，没有新记录",
+  "accounts.importFooter.import": "导入 {count} 条",
+  "accounts.importFooter.leaveOut": "排除 {count} 条",
+  "accounts.importFooter.link": "关联 {count} 条",
+  "accounts.importFooter.nothing": "没有记录需要入账",
+  "accounts.importFooter.nothingWritten": "— 确认前不会写入任何数据。",
+  "accounts.importFooter.preview": "预览导入"
+}

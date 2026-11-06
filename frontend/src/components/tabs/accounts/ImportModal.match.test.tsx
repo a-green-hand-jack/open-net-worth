@@ -153,7 +153,9 @@ describe('ImportModal — import-dedup 3-way (decision commit)', () => {
     const onDecisionCommit = commitMock()
     await openPreview(onDecisionCommit, {}, true)
     fireEvent.click(decisionRadio('排除'))
-    fireEvent.click(screen.getByRole('button', { name: 'Confirm' }))
+    expect(document.querySelector('.imp3-foot-note')?.textContent).toContain('排除 1 条')
+    expect(document.querySelector('.imp3-foot-note')?.textContent).toContain('导入 1 条')
+    fireEvent.click(screen.getByRole('button', { name: '确认' }))
     await waitFor(() => expect(onDecisionCommit).toHaveBeenCalled())
     expect(onDecisionCommit.mock.calls[0]![2]).toEqual([{ row: 0, action: 'skip' }])
   })
@@ -161,7 +163,7 @@ describe('ImportModal — import-dedup 3-way (decision commit)', () => {
     const onDecisionCommit = commitMock()
     await openPreview(onDecisionCommit, {}, true)
     fireEvent.click(decisionRadio('导入'))
-    fireEvent.click(screen.getByRole('button', { name: 'Confirm' }))
+    fireEvent.click(screen.getByRole('button', { name: '确认' }))
     await waitFor(() => expect(onDecisionCommit).toHaveBeenCalled())
     expect(onDecisionCommit.mock.calls[0]![2]).toEqual([{ row: 0, action: 'create' }])
   })
@@ -174,7 +176,7 @@ describe('ImportModal — import-dedup 3-way (decision commit)', () => {
       document.querySelector('[data-draft-index="0"] .imp3-arow-line')?.getAttribute('aria-label'),
     ).toContain('展开详情')
     expect(decisionRadio('关联')).toBeTruthy()
-    fireEvent.click(screen.getByRole('button', { name: 'Confirm' }))
+    fireEvent.click(screen.getByRole('button', { name: '确认' }))
     await waitFor(() => expect(onDecisionCommit).toHaveBeenCalled())
     expect(onDecisionCommit.mock.calls[0]![2]).toEqual([
       { row: 0, action: 'merge', existing_id: 'existing-1' },

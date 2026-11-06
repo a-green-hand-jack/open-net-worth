@@ -226,6 +226,7 @@ Import amount-difference descriptions follow the interface language while keepin
 figures and decision semantics.
 Matched-row decision controls use the interface language and keep their existing actions.
 Matched-row accessible descriptions and built-in status wording use the same language.
+The confirmation footer uses the interface language for outcome counts and deletion warnings.
 
 Account, category, payee and date picker controls follow the interface language. Account names,
 payees and category group names retain the text you entered.

@@ -23,6 +23,8 @@ vi.mock('../../../api/client', () => ({ authFetch: vi.fn() }))
 
 import { describe, it, expect, afterEach, beforeEach, vi } from 'vitest'
 import { render, cleanup, screen, fireEvent, waitFor, within } from '@testing-library/react'
+import { IntlProvider } from 'react-intl'
+import { catalogs } from '../../../i18n/catalogs'
 import { ImportModal } from './ImportModal'
 import { authFetch } from '../../../api/client'
 import type { Account } from './types'
@@ -119,7 +121,11 @@ function preview() {
   }
 }
 
-async function openWith(p: unknown = preview(), commitResult: Record<string, unknown> = {}) {
+async function openWith(
+  p: unknown = preview(),
+  commitResult: Record<string, unknown> = {},
+  chinese = false,
+) {
   const onDecisionCommit = vi.fn().mockResolvedValue({
     created: 1,
     merged: 0,
@@ -130,7 +136,7 @@ async function openWith(p: unknown = preview(), commitResult: Record<string, unk
     ...commitResult,
   })
   const onPreview = vi.fn().mockResolvedValue(p)
-  render(
+  const modal = (
     <ImportModal
       open
       accounts={[acct]}
@@ -138,13 +144,22 @@ async function openWith(p: unknown = preview(), commitResult: Record<string, unk
       onClose={() => {}}
       onPreview={onPreview as never}
       onDecisionCommit={onDecisionCommit}
-    />,
+    />
+  )
+  render(
+    chinese ? (
+      <IntlProvider locale="zh-CN" messages={catalogs['zh-CN']}>
+        {modal}
+      </IntlProvider>
+    ) : (
+      modal
+    ),
   )
   const fileInput = document.body.querySelector('input[type="file"]') as HTMLInputElement
   fireEvent.change(fileInput, {
     target: { files: [new File(['%PDF-1.4'], 's.pdf', { type: 'application/pdf' })] },
   })
-  fireEvent.click(await screen.findByText(/Read the statement/i))
+  fireEvent.click(await screen.findByText(chinese ? '读取账单' : /Read the statement/i))
   await screen.findByText('Grab ride A')
   return { onDecisionCommit }
 }
@@ -235,6 +250,26 @@ describe('staged delete — the footer summary', () => {
 })
 
 describe('staged delete — confirm deletes exactly the marked rows', () => {
+  it('Chinese deletion confirmation names the count and sends only marked ids', async () => {
+    const { onDecisionCommit } = await openWith(preview(), {}, true)
+    mark('Grab ride A')
+    mark('Grab ride B')
+    await waitFor(() => expect(screen.getAllByText('Will delete')).toHaveLength(2))
+    expect(footerText()).toContain('从账簿删除 2 条')
+    fireEvent.click(screen.getByRole('button', { name: '确认' }))
+    expect(screen.getByText('从账簿删除 2 笔交易？')).toBeTruthy()
+    expect(
+      screen.getByText('导入入账时会移除这些交易。下一屏的“撤销导入”可以将其恢复。'),
+    ).toBeTruthy()
+    expect(onDecisionCommit).not.toHaveBeenCalled()
+    fireEvent.click(screen.getByRole('button', { name: '取消' }))
+    expect(onDecisionCommit).not.toHaveBeenCalled()
+    fireEvent.click(screen.getByRole('button', { name: '确认' }))
+    fireEvent.click(screen.getByRole('button', { name: '删除并导入' }))
+    await waitFor(() => expect(onDecisionCommit).toHaveBeenCalledTimes(1))
+    expect(onDecisionCommit.mock.calls[0]![3]).toEqual(['ride-1', 'ride-2'])
+    expect(onDecisionCommit.mock.calls[0]![3]).not.toContain('keep-1')
+  })
   it('sends precisely the marked ids on the commit, and spares the rest', async () => {
     const { onDecisionCommit } = await openWith()
     mark('Grab ride A')
