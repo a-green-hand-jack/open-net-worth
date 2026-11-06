@@ -1,0 +1,10 @@
+{
+  "accounts.importFlag.amount": "金额异常",
+  "accounts.importFlag.fxLeg": "第二条记录，将合并到转账",
+  "accounts.importFlag.fxPair": "您的账户之间的转账",
+  "accounts.importFlag.nearDuplicate": "已在您的账户中？",
+  "accounts.importFlag.noAccount": "没有此货币的账户",
+  "accounts.importFlag.repeated": "文件内重复",
+  "accounts.importFlag.transferEcho": "已作为转账入账",
+  "accounts.importFlag.transferPair": "相反的两笔记录，是否为同一转账？"
+}

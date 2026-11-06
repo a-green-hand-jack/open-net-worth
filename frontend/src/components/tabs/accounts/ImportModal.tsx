@@ -4,6 +4,7 @@
 import { Fragment, useState, useRef, useMemo, useEffect, useLayoutEffect } from 'react'
 import { defineMessages } from 'react-intl'
 import { useAppIntl } from '../../../i18n/useAppIntl'
+import { importFlagLabel, importMatchKind } from './importReviewLabels'
 import { authFetch } from '../../../api/client'
 import { Modal, Button, FormField, Select, EmptyState, SegmentedControl } from '../../ui'
 import { Spark as LuciusSpark } from '../../../lucius/identity'
@@ -37,7 +38,6 @@ import {
   parseCSVGrid,
   parseXlsxGrid,
   findHeaderRow,
-  FLAG_LABEL,
   computeMap,
   mapComplete,
   existingTxnLine,
@@ -104,13 +104,6 @@ const READ_PHASES = [
 
 // Mirrors TxnDetail.tsx's own KIND_LABEL — the matched-ledger-entry's kind, shown on the
 // collapsed match line so its date + kind are visible without expanding.
-const MATCH_KIND_LABEL: Record<string, string> = {
-  expense: 'Expense',
-  income: 'Income',
-  transfer: 'Transfer',
-  investment: 'Investment',
-  adjustment: 'Balance adjustment',
-}
 /** Roughly how many characters `.imp3-arow-name` shows before its ellipsis bites: a fixed 252px
  * rail (statementImport.css `.imp3-arow-main`) at 12.5px/600. An expanded body restates the
  * description only ABOVE this, because below it the name above is already fully legible and
@@ -5283,7 +5276,7 @@ export function ImportModal({
                               {ledgerDate ? ledgerDate.slice(5) : '—'}
                             </span>
                             <span aria-hidden="true">•</span>
-                            <span>{MATCH_KIND_LABEL[ex.kind || ''] || ex.kind || '—'}</span>
+                            <span>{importMatchKind(ex.kind, intl)}</span>
                           </span>
                           {/* NO verdict sub-line. The "✓ Will link • via agent • <engine reason>"
                         line that used to sit here is gone for good (owner, 2026-07-29: "these,
@@ -6173,7 +6166,7 @@ export function ImportModal({
                             {(d.flags || []).map((flag, index) => (
                               <div key={index} className="imp3-detail-note">
                                 <span className={'imp-flag ' + flag.type}>
-                                  {FLAG_LABEL[flag.type] || flag.type}
+                                  {importFlagLabel(flag.type, intl)}
                                 </span>
                               </div>
                             ))}

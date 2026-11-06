@@ -216,6 +216,8 @@ Statement import progress uses the selected language for built-in stages and sta
 unrecognized progress labels from the server remain unchanged.
 The statement upload entry, account selectors, source options and reading instructions also
 follow the interface language; your account names and instruction text remain unchanged.
+Built-in import review flags and matched transaction kinds follow the interface language;
+unknown server-provided labels remain unchanged.
 
 Account, category, payee and date picker controls follow the interface language. Account names,
 payees and category group names retain the text you entered.
