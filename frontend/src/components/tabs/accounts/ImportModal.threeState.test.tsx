@@ -574,10 +574,7 @@ describe('ImportModal — weak band (twin-sourced pair row)', () => {
   })
 })
 
-// ── The release is WEAK-ONLY (SIUM-WEAK-RELEASE, band clause) ────────────────────────
-// Same fixture, same partner, only the band differs. A strong/review row demands a deliberate
-// answer, and its `Import` means "the engine was confident and I'm keeping both anyway" — not
-// "these are different things" — so its entry stays claimed.
+// Import releases the previous match in every band so the existing ledger entry remains visible.
 
 function bandedPairPreview(band: 'strong' | 'review') {
   const p = weakPairPreview()
@@ -587,17 +584,18 @@ function bandedPairPreview(band: 'strong' | 'review') {
   return p
 }
 
-describe('ImportModal — only the WEAK band releases its entry on Import', () => {
+describe('ImportModal — importing a match releases its ledger entry', () => {
   for (const band of ['strong', 'review'] as const) {
-    it(`a ${band} row explicitly set to Import leaves the matched entry claimed`, async () => {
+    it(`a ${band} row explicitly set to Import shows the previously matched entry`, async () => {
       await openWith(bandedPairPreview(band), { importReviewDefault: 'merge' })
       await findPairRowFor('Link')
       const row = pairRowFor('Link')
       fireEvent.click(within(row).getByRole('radio', { name: 'Import' }))
       expect(document.querySelector('.imp-pair-row')?.className).not.toContain('weak')
       expect(document.querySelector('.imp3-dchip')?.textContent).toBe('Import')
-      expect(document.querySelector('.imp3-sec.ledger')).toBeNull()
-      expect(screen.queryByText(/In your ledger, not on this statement/i)).toBeNull()
+      const ledger = document.querySelector('.imp3-sec.ledger') as HTMLElement
+      expect(within(ledger).getByRole('button', { name: /Anthropic Claude API/ })).toBeTruthy()
+      expect(screen.getByText(/In your ledger, not on this statement/i)).toBeTruthy()
     })
   }
 })
@@ -2167,8 +2165,8 @@ describe('ImportModal — transfer_pair formation copy (§2b)', () => {
     fixture.total = 2
     await openWith(fixture)
     await findPairRowFor('Link')
-    fireEvent.click(screen.getByRole('button', { name: 'Filter by kind' }))
-    const pop = screen.getByRole('listbox')
+    fireEvent.click(screen.getByRole('button', { name: 'Filter by type or category' }))
+    const pop = screen.getByRole('listbox', { name: 'Type' })
     expect(within(pop).getByRole('option', { name: /Transfer\s*1/ })).toBeTruthy()
     fireEvent.click(within(pop).getByRole('option', { name: /Transfer\s*1/ }))
     expect(screen.getByText('Top-up received')).toBeTruthy()
