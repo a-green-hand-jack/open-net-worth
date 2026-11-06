@@ -1,0 +1,4 @@
+{
+  "accounts.visible.splitTitle": "拆分到 {count} 个类别 — {action, select, hide {隐藏} other {显示}}明细",
+  "accounts.visible.uncategorized": "未分类"
+}
