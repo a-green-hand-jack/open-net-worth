@@ -261,6 +261,8 @@ Net worth chart labels, asset classes and breakdown controls follow the interfac
 institution names remain as entered.
 Investment widget controls and status labels follow the interface language; instrument and
 account names remain unchanged.
+Attention, upcoming commitments and dashboard prompts follow the interface language; your
+own instructions and financial details retain their original text.
 
 ## Related pages
 

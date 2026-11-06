@@ -13,6 +13,7 @@
 
 import { useState } from 'react'
 import type { ComponentType, ReactElement } from 'react'
+import { useAppIntl } from '../../../../i18n/useAppIntl'
 import { fBase, fDate, fMonth } from '../../../../utils/format'
 import { Button, MaskedText, Money, Skeleton, Text, TextArea } from '../../../ui'
 import { WealthBriefing } from '../../../shared/WealthBriefing'
@@ -106,6 +107,7 @@ const Attention: ComponentType<WidgetContentProps> = ({
   onNavigate,
   onAskLucius,
 }) => {
+  const { formatMessage } = useAppIntl()
   const { flags: risks, loading } = useAttentionFlags()
 
   // "All clear" is a claim about data — never made before the data has loaded.
@@ -128,8 +130,17 @@ const Attention: ComponentType<WidgetContentProps> = ({
       meta={
         risks.length ? (
           <>
-            <b style={{ color: 'var(--warn)' }}>{risks.length}</b> flag
-            {risks.length === 1 ? '' : 's'}
+            {formatMessage(
+              {
+                id: 'overview.attention.count',
+                defaultMessage:
+                  '<b>{count, plural, one {#} other {#}}</b> {count, plural, one {flag} other {flags}}',
+              },
+              {
+                count: risks.length,
+                b: (chunks) => <b style={{ color: 'var(--warn)' }}>{chunks}</b>,
+              },
+            )}
           </>
         ) : undefined
       }
@@ -168,9 +179,25 @@ const Attention: ComponentType<WidgetContentProps> = ({
                     <button
                       type="button"
                       className="ov-risk-link ov-risk-link--ask"
-                      onClick={() => onAskLucius(`Tell me more about: ${r.title}`)}
-                      aria-label="Ask Lucius"
-                      title="Ask Lucius"
+                      onClick={() =>
+                        onAskLucius(
+                          formatMessage(
+                            {
+                              id: 'overview.attention.askAbout',
+                              defaultMessage: 'Tell me more about: {title}',
+                            },
+                            { title: r.title },
+                          ),
+                        )
+                      }
+                      aria-label={formatMessage({
+                        id: 'overview.askLucius',
+                        defaultMessage: 'Ask Lucius',
+                      })}
+                      title={formatMessage({
+                        id: 'overview.askLucius',
+                        defaultMessage: 'Ask Lucius',
+                      })}
                     >
                       <Spark size={14} />
                     </button>
@@ -180,7 +207,14 @@ const Attention: ComponentType<WidgetContentProps> = ({
             ))}
             {extra > 0 && (
               <div className="ov-more">
-                +{extra} more flag{extra === 1 ? '' : 's'}. Make the widget taller to see them
+                {formatMessage(
+                  {
+                    id: 'overview.attention.more',
+                    defaultMessage:
+                      '+{count, plural, one {# more flag} other {# more flags}}. Make the widget taller to see them',
+                  },
+                  { count: extra },
+                )}
               </div>
             )}
           </>
@@ -189,7 +223,11 @@ const Attention: ComponentType<WidgetContentProps> = ({
             <span className="ov-allclear-ic">
               <AllClearIcon />
             </span>
-            All clear. Nothing needs you today. Next check-in lands with tomorrow's briefing.
+            {formatMessage({
+              id: 'overview.attention.clear',
+              defaultMessage:
+                "All clear. Nothing needs you today. Next check-in lands with tomorrow's briefing.",
+            })}
           </div>
         )}
       </div>
@@ -219,6 +257,7 @@ const Briefing: ComponentType<WidgetContentProps> = ({ instance, def, onAskLuciu
 )
 
 const LuxAsk: ComponentType<WidgetContentProps> = ({ instance, def, onPatch, onAskLucius }) => {
+  const { formatMessage } = useAppIntl()
   const [draft, setDraft] = useState((instance.config?.prompt as string) || '')
   const submit = () => {
     const q = draft.trim()
@@ -240,7 +279,10 @@ const LuxAsk: ComponentType<WidgetContentProps> = ({ instance, def, onPatch, onA
         <TextArea
           value={draft}
           onChange={(e) => setDraft(e.target.value)}
-          placeholder="Ask Lucius anything about your money…"
+          placeholder={formatMessage({
+            id: 'overview.askPlaceholder',
+            defaultMessage: 'Ask Lucius anything about your money…',
+          })}
           rows={3}
         />
         <div className="ov-lux-ask-actions">
@@ -252,15 +294,27 @@ const LuxAsk: ComponentType<WidgetContentProps> = ({ instance, def, onPatch, onA
             onClick={submit}
             disabled={!draft.trim()}
           >
-            Ask Lucius
+            {formatMessage({ id: 'overview.askLucius', defaultMessage: 'Ask Lucius' })}
           </Button>
         </div>
         <div className="ov-lux-ask-suggestions">
           {[
-            'Give me my morning money briefing',
-            'How much am I spending on coffee?',
-            'How many months of runway do I have?',
-            'Is my NVDA position too big?',
+            formatMessage({
+              id: 'overview.ask.briefing',
+              defaultMessage: 'Give me my morning money briefing',
+            }),
+            formatMessage({
+              id: 'overview.picker.suggestCoffee',
+              defaultMessage: 'How much am I spending on coffee?',
+            }),
+            formatMessage({
+              id: 'overview.ask.runway',
+              defaultMessage: 'How many months of runway do I have?',
+            }),
+            formatMessage({
+              id: 'overview.ask.position',
+              defaultMessage: 'Is my NVDA position too big?',
+            }),
           ].map((s) => (
             <button key={s} type="button" className="ov-lux-chip" onClick={() => setDraft(s)}>
               {s}
@@ -275,6 +329,7 @@ const LuxAsk: ComponentType<WidgetContentProps> = ({ instance, def, onPatch, onA
 // ── Summary card ─────────────────────────────────────────────────────────────
 
 const Summary: ComponentType<WidgetContentProps> = ({ instance, def }) => {
+  const { formatMessage } = useAppIntl()
   // Net worth is the ONE server-side implementation; the "this month" change is the server's
   // own month-to-date figure, computed WITHIN the history series. Differencing today's
   // `net_worth()` against a history point (what this card used to do) charges the known
@@ -293,7 +348,12 @@ const Summary: ComponentType<WidgetContentProps> = ({ instance, def }) => {
   if (portfolioError && netWorth == null) {
     return (
       <WidgetShell title={instance.title} base={def.title}>
-        <WidgetPlaceholder detail="Couldn't load your net worth — try reloading." />
+        <WidgetPlaceholder
+          detail={formatMessage({
+            id: 'overview.netWorth.error',
+            defaultMessage: "Couldn't load your net worth — try reloading.",
+          })}
+        />
       </WidgetShell>
     )
   }
@@ -308,7 +368,13 @@ const Summary: ComponentType<WidgetContentProps> = ({ instance, def }) => {
         </Text>
         {delta !== null && (
           <Text as="span" size="sm" tone={delta >= 0 ? 'good' : 'bad'}>
-            {delta >= 0 ? '↑' : '↓'} <Money as="span">{fBase(Math.abs(delta))}</Money> this month
+            {formatMessage(
+              { id: 'overview.summary.change', defaultMessage: '{direction} {amount} this month' },
+              {
+                direction: delta >= 0 ? '↑' : '↓',
+                amount: <Money as="span">{fBase(Math.abs(delta))}</Money>,
+              },
+            )}
           </Text>
         )}
       </div>
@@ -342,6 +408,7 @@ interface UpcomingRow {
 }
 
 const Upcoming: ComponentType<WidgetContentProps> = ({ instance, def, onNavigate }) => {
+  const { formatMessage, locale } = useAppIntl()
   const {
     loading,
     upcoming: feed,
@@ -379,21 +446,32 @@ const Upcoming: ComponentType<WidgetContentProps> = ({ instance, def, onNavigate
       date: e.date,
       kind: 'bill',
       label: e.label,
-      sub: 'Recurring bill',
+      sub: formatMessage({
+        id: 'overview.upcoming.recurringBill',
+        defaultMessage: 'Recurring bill',
+      }),
       amount: e.amount_base,
     })),
     ...cardBills.map((e) => ({
       date: e.date,
       kind: 'card',
       label: e.label,
-      sub: e.estimated ? 'Card bill (estimated)' : 'Card bill',
+      sub: e.estimated
+        ? formatMessage({
+            id: 'overview.upcoming.cardEstimated',
+            defaultMessage: 'Card bill (estimated)',
+          })
+        : formatMessage({ id: 'overview.upcoming.cardBill', defaultMessage: 'Card bill' }),
       amount: e.amount_base,
     })),
     ...expectedIncome.map((e) => ({
       date: e.date,
       kind: 'income',
       label: e.label,
-      sub: 'Recurring income',
+      sub: formatMessage({
+        id: 'overview.upcoming.recurringIncome',
+        defaultMessage: 'Recurring income',
+      }),
       amount: e.amount_base,
     })),
   ].sort((a, b) => a.date.localeCompare(b.date))
@@ -411,7 +489,10 @@ const Upcoming: ComponentType<WidgetContentProps> = ({ instance, def, onNavigate
       onClick={onNavigate ? () => onNavigate('commitments') : undefined}
       disabled={!onNavigate}
     >
-      {overdueCount} overdue
+      {formatMessage(
+        { id: 'overview.upcoming.overdue', defaultMessage: '{count} overdue' },
+        { count: overdueCount },
+      )}
       {overdueTotal > 0 && (
         <>
           {' · '}
@@ -422,7 +503,9 @@ const Upcoming: ComponentType<WidgetContentProps> = ({ instance, def, onNavigate
   )
   const footer = onNavigate && (
     <button type="button" className="ov-panel-link" onClick={() => onNavigate('commitments')}>
-      {noDatedBills ? 'Add due dates' : 'All commitments'}
+      {noDatedBills
+        ? formatMessage({ id: 'overview.upcoming.addDates', defaultMessage: 'Add due dates' })
+        : formatMessage({ id: 'overview.upcoming.all', defaultMessage: 'All commitments' })}
       <svg
         width="11"
         height="11"
@@ -451,10 +534,20 @@ const Upcoming: ComponentType<WidgetContentProps> = ({ instance, def, onNavigate
         <WidgetPlaceholder
           detail={
             noDatedBills
-              ? 'No dated bills yet. Add due dates to a bill or installment and what is coming up shows here.'
+              ? formatMessage({
+                  id: 'overview.upcoming.noDated',
+                  defaultMessage:
+                    'No dated bills yet. Add due dates to a bill or installment and what is coming up shows here.',
+                })
               : overdueCount
-                ? 'Nothing else due to pay in the next 30 days.'
-                : 'Nothing due to pay in the next 30 days.'
+                ? formatMessage({
+                    id: 'overview.upcoming.nothingElse',
+                    defaultMessage: 'Nothing else due to pay in the next 30 days.',
+                  })
+                : formatMessage({
+                    id: 'overview.upcoming.nothing',
+                    defaultMessage: 'Nothing due to pay in the next 30 days.',
+                  })
           }
         />
       </WidgetShell>
@@ -467,8 +560,14 @@ const Upcoming: ComponentType<WidgetContentProps> = ({ instance, def, onNavigate
     <TimelineStrip
       axis={[0, 30]}
       ticks={[
-        { pos: 0, label: 'today' },
-        { pos: 30, label: '+30d' },
+        {
+          pos: 0,
+          label: formatMessage({ id: 'overview.upcoming.today', defaultMessage: 'today' }),
+        },
+        {
+          pos: 30,
+          label: formatMessage({ id: 'overview.upcoming.axis30', defaultMessage: '+30d' }),
+        },
       ]}
       events={upcoming.map((e) => ({
         pos: daysFromToday(e.date),
@@ -482,7 +581,14 @@ const Upcoming: ComponentType<WidgetContentProps> = ({ instance, def, onNavigate
     <WidgetShell
       title={instance.title}
       base={def.title}
-      meta={noDatedBills ? 'No dated bills yet' : undefined}
+      meta={
+        noDatedBills
+          ? formatMessage({
+              id: 'overview.upcoming.noDatedShort',
+              defaultMessage: 'No dated bills yet',
+            })
+          : undefined
+      }
       subhead={strip}
       footer={footer}
     >
@@ -491,12 +597,18 @@ const Upcoming: ComponentType<WidgetContentProps> = ({ instance, def, onNavigate
       <div className="ov-upcoming-totals">
         {!noDatedBills && (
           <p className="ov-upcoming-out">
-            <Money as="span">{fBase(goingOutTotal)}</Money> going out
+            {formatMessage(
+              { id: 'overview.upcoming.goingOut', defaultMessage: '{amount} going out' },
+              { amount: <Money as="span">{fBase(goingOutTotal)}</Money> },
+            )}
           </p>
         )}
         {expectedIncomeTotal > 0 && (
           <p className="ov-upcoming-income">
-            <Money as="span">{fBase(expectedIncomeTotal)}</Money> coming in
+            {formatMessage(
+              { id: 'overview.upcoming.comingIn', defaultMessage: '{amount} coming in' },
+              { amount: <Money as="span">{fBase(expectedIncomeTotal)}</Money> },
+            )}
           </p>
         )}
         {overdueLine}
@@ -506,20 +618,30 @@ const Upcoming: ComponentType<WidgetContentProps> = ({ instance, def, onNavigate
           const days = daysFromToday(e.date)
           return (
             <div key={i} className="ov-upcoming-row">
-              <span className="ov-upcoming-date">{fDate(e.date)}</span>
+              <span className="ov-upcoming-date">{fDate(e.date, 'short', 'auto', locale)}</span>
               <span className="ov-upcoming-dot" style={{ background: kindColor(e.kind) }} />
               <span className="ov-upcoming-label">
                 {e.label} <span className="ov-upcoming-sub">• {e.sub}</span>
               </span>
               <span className="ov-upcoming-amt">
                 {e.amount != null && <Money as="span">{fBase(e.amount)}</Money>}{' '}
-                {days === 0 ? 'today' : `in ${days}d`}
+                {days === 0
+                  ? formatMessage({ id: 'overview.upcoming.today', defaultMessage: 'today' })
+                  : formatMessage(
+                      { id: 'overview.upcoming.inDays', defaultMessage: 'in {count}d' },
+                      { count: days },
+                    )}
               </span>
             </div>
           )
         })}
         {upcoming.length > cap && (
-          <div className="ov-more">+{upcoming.length - cap} more in the next 30 days</div>
+          <div className="ov-more">
+            {formatMessage(
+              { id: 'overview.upcoming.more', defaultMessage: '+{count} more in the next 30 days' },
+              { count: upcoming.length - cap },
+            )}
+          </div>
         )}
       </div>
     </WidgetShell>
@@ -534,6 +656,7 @@ const Upcoming: ComponentType<WidgetContentProps> = ({ instance, def, onNavigate
 // notice (item 1), since it's the one place that knows the true combined
 // gainers+losers count.
 const Movers: ComponentType<WidgetContentProps> = ({ instance, def, onOpenAsset }) => {
+  const { formatMessage } = useAppIntl()
   const { analytics: portfolio, loading } = useAnalytics()
   // Already collapsed per instrument, ordered and scaled by the server — positions of one
   // instrument are summed there, not here.
@@ -569,7 +692,12 @@ const Movers: ComponentType<WidgetContentProps> = ({ instance, def, onOpenAsset 
           variant="row"
         />
       ) : (
-        <WidgetPlaceholder detail={<>No positions moved today.</>} />
+        <WidgetPlaceholder
+          detail={formatMessage({
+            id: 'overview.movers.empty',
+            defaultMessage: 'No positions moved today.',
+          })}
+        />
       )}
     </WidgetShell>
   )

@@ -7,6 +7,8 @@
 
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
+import { IntlProvider } from 'react-intl'
+import { catalogs } from '../../../../i18n/catalogs'
 
 const authFetch = vi.hoisted(() => vi.fn())
 vi.mock('../../../../api/client', () => ({ authFetch }))
@@ -71,6 +73,44 @@ async function renderUpcoming(
 }
 
 describe('Next 30 days', () => {
+  it('translates upcoming controls while preserving an entered commitment label and amount', async () => {
+    authFetch.mockImplementation(() =>
+      Promise.resolve({
+        ok: true,
+        status: 200,
+        json: () =>
+          Promise.resolve(
+            summary({
+              events: [
+                {
+                  commitment_id: 'c',
+                  commitment_name: 'Card bill',
+                  kind: 'installment',
+                  label: 'Card bill',
+                  date: iso(1),
+                  amount_base: 1234,
+                },
+              ],
+              strip_total_base: 1234,
+            }),
+          ),
+      } as Response),
+    )
+    const Comp = overviewCashflowCoreWidgetComponents.upcoming!
+    const def = WIDGET_DEFINITIONS.find((d) => d.defId === 'upcoming')!
+    render(
+      <IntlProvider locale="zh-CN" messages={catalogs['zh-CN']}>
+        <Comp
+          instance={{ instanceId: 'w', defId: 'upcoming', x: 0, y: 0, w: 6, h: 200, config: {} }}
+          def={def}
+          onPatch={vi.fn()}
+        />
+      </IntlProvider>,
+    )
+    await waitFor(() => expect(document.body.textContent).toContain('Card bill'))
+    expect(document.body.textContent).toContain('$1,234.00')
+    expect(document.body.textContent).toContain('支出')
+  })
   it('shows what goes out, what is overdue, and the salary coming in', async () => {
     const text = await renderUpcoming({
       events: [
