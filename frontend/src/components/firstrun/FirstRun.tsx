@@ -1,3 +1,4 @@
+import { useAppIntl } from '../../i18n/useAppIntl'
 // First run — three screens that make the MACHINE ready, then hand off to Lucius, who makes
 // the BOOK ready (design spec §5.1/§5.2).
 //
@@ -22,8 +23,6 @@ import { StepRestore } from './StepRestore'
 import { FirstRunMark } from './Mark'
 import { defaultCurrencyFromLocale } from './currencies'
 import { ArrowLeft } from '../../ui/icons'
-
-const TITLES = ['Your wealth, kept privately.', 'Lucius, your wealth manager.', 'Secure the vault.']
 
 // The greeting is NOT a step either — it is the pitch shown before anything is asked, routing
 // to "Set up" (step 0) or straight to restore. Only the three screens after it are numbered.
@@ -97,7 +96,13 @@ export function FirstRun({
   restorePending = false,
   gatewayMode = false,
 }: FirstRunProps) {
-  const titles = gatewayMode ? TITLES.slice(0, 2) : TITLES
+  const { formatMessage } = useAppIntl()
+  const allTitles = [
+    formatMessage({ id: 'firstrun.shell.wealth', defaultMessage: 'Your wealth, kept privately.' }),
+    formatMessage({ id: 'firstrun.shell.lucius', defaultMessage: 'Lucius, your wealth manager.' }),
+    formatMessage({ id: 'firstrun.shell.security', defaultMessage: 'Secure the vault.' }),
+  ]
+  const titles = gatewayMode ? allTitles.slice(0, 2) : allTitles
   const desktop = Boolean(desktopBridge())
   // CONTROLLED by the url when the caller supplies both props, uncontrolled otherwise.
   //
@@ -222,7 +227,12 @@ export function FirstRun({
         if (!bridge?.showBookChoice) throw new Error('Book selection is unavailable.')
         await bridge.showBookChoice()
       } catch {
-        setNavigationError('Could not return to book folders. Try again.')
+        setNavigationError(
+          formatMessage({
+            id: 'firstrun.shell.backError',
+            defaultMessage: 'Could not return to book folders. Try again.',
+          }),
+        )
       } finally {
         setBusy(false)
       }
@@ -264,7 +274,10 @@ export function FirstRun({
               <span className="firstrun-counter__rule" aria-hidden="true" />
               <span className="firstrun-counter__total">{pad2(titles.length)}</span>
               <span className="sr-only">
-                Step {step + 1} of {titles.length}
+                {formatMessage(
+                  { id: 'firstrun.shell.progress', defaultMessage: 'Step {step} of {total}' },
+                  { step: step + 1, total: titles.length },
+                )}
               </span>
             </div>
           )}
@@ -275,7 +288,8 @@ export function FirstRun({
               disabled={desktop && step === 0 && busy}
               onClick={() => void goBack()}
             >
-              <ArrowLeft size={14} aria-hidden="true" /> Back
+              <ArrowLeft size={14} aria-hidden="true" />{' '}
+              {formatMessage({ id: 'firstrun.shell.back', defaultMessage: 'Back' })}
             </button>
           )}
         </div>
@@ -285,9 +299,15 @@ export function FirstRun({
             <div className="firstrun-bar" aria-hidden="true" />
             <h1 className="firstrun-headline">
               {step === RESTORE
-                ? 'Restore a backup'
+                ? formatMessage({
+                    id: 'firstrun.shell.restore',
+                    defaultMessage: 'Restore a backup',
+                  })
                 : desktop && step === 0
-                  ? 'Choose your app currency.'
+                  ? formatMessage({
+                      id: 'firstrun.shell.chooseCurrency',
+                      defaultMessage: 'Choose your app currency.',
+                    })
                   : titles[step]}
             </h1>
 

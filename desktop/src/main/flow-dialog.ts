@@ -1,3 +1,4 @@
+import { message as t } from './native-messages';
 import { BrowserWindow, ipcMain, nativeTheme, screen, session, type IpcMainInvokeEvent } from 'electron';
 import { join } from 'node:path';
 import { assertPrivateCloudEnabled } from './feature-flags';
@@ -22,7 +23,7 @@ export class FlowDialog {
     ipcMain.handle('desktop-flow:action', (event, name: unknown, argument: unknown) => {
       assertPrivateCloudEnabled();
       this.authorize(event);
-      if (typeof name !== 'string' || name.length > 32 || typeof argument !== 'undefined' && (typeof argument !== 'string' || argument.length > 256)) throw new Error('Invalid action.');
+      if (typeof name !== 'string' || name.length > 32 || typeof argument !== 'undefined' && (typeof argument !== 'string' || argument.length > 256)) throw new Error(t("Invalid action."));
       return this.screen!.onAction(name, argument ?? '');
     });
   }
@@ -63,6 +64,6 @@ export class FlowDialog {
   }
 
   private authorize(event: IpcMainInvokeEvent): void {
-    if (!this.window || !this.screen || event.sender !== this.window.webContents || event.senderFrame !== this.window.webContents.mainFrame || event.senderFrame.url !== this.url) throw new Error('Untrusted caller.');
+    if (!this.window || !this.screen || event.sender !== this.window.webContents || event.senderFrame !== this.window.webContents.mainFrame || event.senderFrame.url !== this.url) throw new Error(t("Untrusted caller."));
   }
 }

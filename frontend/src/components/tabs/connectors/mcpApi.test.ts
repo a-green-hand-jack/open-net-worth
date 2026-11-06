@@ -160,6 +160,7 @@ describe('probeMcpServer never throws — the error state is rendered from its r
     const result = await probeMcpServer(toWireConfig({ ...EMPTY_MCP_FORM, url: 'https://x.test' }))
     expect(result.ok).toBe(false)
     expect(result.error).toContain('Could not reach the server')
+    expect(result.local_error).toBe('request_failed')
     expect(result.tools).toEqual([])
   })
 
@@ -171,12 +172,15 @@ describe('probeMcpServer never throws — the error state is rendered from its r
     })
     const result = await probeMcpServer(toWireConfig({ ...EMPTY_MCP_FORM, url: 'https://x.test' }))
     expect(result).toMatchObject({ ok: false, error: 'probe unavailable', suggested_id: '' })
+    expect(result.local_error).toBeUndefined()
   })
 
   it('falls back to a status-bearing message when the API sends no detail', async () => {
     mockAuthFetch.mockResolvedValue({ ok: false, status: 500, json: async () => null })
     const result = await probeMcpServer(toWireConfig({ ...EMPTY_MCP_FORM, url: 'https://x.test' }))
     expect(result.error).toContain('(500)')
+    expect(result.local_error).toBe('http')
+    expect(result.local_status).toBe(500)
   })
 })
 
@@ -339,6 +343,8 @@ describe('updateMcpServer — the edit commit', () => {
       tool_permissions: { c: 'needs_approval' },
     })
     expect(res.ok).toBe(false)
+    expect(res.ok === false && res.error).toContain('retain their previous permissions')
+    expect(res.ok === false && res.permissionFailures).toBe(1)
   })
 })
 

@@ -11,6 +11,7 @@
 import { cleanup, fireEvent, render, waitFor } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { fBase } from '../../../utils/format'
+import { IntlProvider } from 'react-intl'
 
 // OvChart constructs real Chart.js charts against a canvas jsdom can't
 // rasterize — mock the constructor and capture instances so the redraw test
@@ -61,6 +62,17 @@ vi.mock('chart.js', () => {
 })
 
 import { OvChart, kTick, moneyTip } from './charts'
+
+it('rebuilds chart labels when the language changes without changing the data', async () => {
+  const chart = (
+    <OvChart config={{ type: 'line', data: { labels: [], datasets: [] } } as never} sig="same" />
+  )
+  const { rerender } = render(<IntlProvider locale="en">{chart}</IntlProvider>)
+  await waitFor(() => expect(instances.length).toBe(1))
+  rerender(<IntlProvider locale="zh-CN">{chart}</IntlProvider>)
+  await waitFor(() => expect(instances.length).toBe(2))
+  expect(instances[0]!.destroy).toHaveBeenCalled()
+})
 
 afterEach(() => {
   cleanup()

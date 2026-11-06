@@ -1,0 +1,68 @@
+{
+  "vault.error.tagsList": [],
+  "vault.error.tagLength": [
+    "limit"
+  ],
+  "vault.error.tagsCount": [
+    "limit"
+  ],
+  "vault.error.invalidId": [
+    "id"
+  ],
+  "vault.error.invalidKind": [],
+  "vault.error.documentMissing": [
+    "id"
+  ],
+  "vault.error.noteLength": [
+    "limit"
+  ],
+  "vault.error.yearInteger": [],
+  "vault.error.yearRange": [
+    "min",
+    "max"
+  ],
+  "vault.error.privateBoolean": [],
+  "vault.error.uploadMissing": [
+    "id"
+  ],
+  "vault.error.privateUserOnly": [],
+  "vault.error.assetPrivateOnly": [],
+  "vault.error.editOwnOnly": [],
+  "vault.error.unknownFields": [
+    "fields",
+    "editable"
+  ],
+  "vault.error.emptyName": [],
+  "vault.error.artifactMissing": [
+    "id"
+  ],
+  "vault.error.deleteOwnOnly": [],
+  "vault.error.orphanRemoval": [
+    "title"
+  ],
+  "vault.error.soleHomeRemoval": [
+    "title",
+    "kind"
+  ],
+  "vault.error.directRemoval": [
+    "title"
+  ],
+  "vault.error.fileTooLarge": [],
+  "vault.error.privateNull": [],
+  "vault.error.pdfOnly": [],
+  "vault.error.fileMissing": [],
+  "vault.error.pdfUnreadable": [],
+  "vault.error.pdfProtected": [],
+  "vault.error.photoOnly": [],
+  "vault.error.photoUnreadable": [],
+  "vault.error.pageMissing": [
+    "page",
+    "count"
+  ],
+  "vault.error.sheetProtected": [],
+  "vault.error.tableOnly": [],
+  "vault.error.sheetUnreadable": [],
+  "vault.error.offsetRange": [
+    "max"
+  ]
+}

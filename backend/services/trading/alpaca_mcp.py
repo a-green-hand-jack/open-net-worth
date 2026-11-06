@@ -39,7 +39,10 @@ _STATES = {
 
 def _object(value: object) -> dict:
     if not isinstance(value, dict) or value.get("error"):
-        raise ConflictError("Alpaca returned an invalid structured receipt")
+        raise ConflictError(
+            "Alpaca returned an invalid structured receipt",
+            message_id="trading.error.alpaca_receipt_invalid",
+        )
     return value
 
 
@@ -50,7 +53,10 @@ def _number(value: object) -> Decimal:
             raise ValueError("non-finite")
         return result
     except Exception as exc:
-        raise ConflictError("Alpaca returned an invalid monetary value") from exc
+        raise ConflictError(
+            "Alpaca returned an invalid monetary value",
+            message_id="trading.error.alpaca_amount_invalid",
+        ) from exc
 
 
 def _instrument(raw: dict, venue: str) -> dict:
@@ -59,7 +65,10 @@ def _instrument(raw: dict, venue: str) -> dict:
     if asset == "crypto" and "/" not in symbol and symbol.endswith("USD"):
         symbol = f"{symbol[:-3]}/USD"
     if not symbol:
-        raise ConflictError("Alpaca position lacks an instrument identity")
+        raise ConflictError(
+            "Alpaca position lacks an instrument identity",
+            message_id="trading.error.alpaca_position_identity",
+        )
     return {"symbol": symbol, "venue": venue, "asset_class": asset, "currency": "USD"}
 
 
@@ -79,20 +88,35 @@ class AlpacaMcpAdapter:
         positions = await self.call("get_all_positions", {})
         open_orders = await self.call("get_orders", {"status": "open", "limit": 500})
         if not isinstance(open_orders, list):
-            raise ConflictError("Alpaca open-order receipt is not a list")
+            raise ConflictError(
+                "Alpaca open-order receipt is not a list",
+                message_id="trading.error.alpaca_orders_invalid",
+            )
         if not isinstance(positions, list):
-            raise ConflictError("Alpaca positions receipt is not a list")
+            raise ConflictError(
+                "Alpaca positions receipt is not a list",
+                message_id="trading.error.alpaca_positions_invalid",
+            )
         if info.get("status") != "ACTIVE" or info.get("trading_blocked"):
-            raise ConflictError("Alpaca account is not active for trading")
+            raise ConflictError(
+                "Alpaca account is not active for trading",
+                message_id="trading.error.alpaca_account_inactive",
+            )
         if info.get("currency") != "USD" or _number(info.get("multiplier", 0)) != 1:
-            raise ConflictError("Managed Alpaca execution requires an unleveraged USD cash account")
+            raise ConflictError(
+                "Managed Alpaca execution requires an unleveraged USD cash account",
+                message_id="trading.error.alpaca_account_requirements",
+            )
         holdings = {}
         for raw in positions:
             row = _object(raw)
             instrument = _instrument(row, account["venue"])
             quantity = _number(row.get("qty"))
             if quantity < 0:
-                raise ConflictError("Managed Alpaca account contains a short position")
+                raise ConflictError(
+                    "Managed Alpaca account contains a short position",
+                    message_id="trading.error.alpaca_short_position",
+                )
             key = ":".join(instrument[k] for k in ("venue", "asset_class", "symbol", "currency"))
             holdings[key] = {
                 "instrument": instrument,
@@ -120,10 +144,16 @@ class AlpacaMcpAdapter:
         await self._assert_account(account)
         instrument = order["instrument"]
         if instrument["currency"] != "USD":
-            raise ConflictError("Alpaca adapter only supports USD-quoted instruments")
+            raise ConflictError(
+                "Alpaca adapter only supports USD-quoted instruments",
+                message_id="trading.error.alpaca_currency",
+            )
         is_crypto = instrument["asset_class"] == "crypto"
         if is_crypto and order["time_in_force"] != "gtc":
-            raise ConflictError("Alpaca crypto requires GTC in this trading contract")
+            raise ConflictError(
+                "Alpaca crypto requires GTC in this trading contract",
+                message_id="trading.error.alpaca_crypto_gtc",
+            )
         args = {
             "symbol": instrument["symbol"],
             "side": order["side"],
@@ -141,7 +171,10 @@ class AlpacaMcpAdapter:
     async def cancel(self, account: dict, order: dict) -> dict:
         await self._assert_account(account)
         if not order.get("broker_order_id"):
-            raise ConflictError("Reconcile the order identity before cancellation")
+            raise ConflictError(
+                "Reconcile the order identity before cancellation",
+                message_id="trading.error.alpaca_cancel_identity",
+            )
         await self.call("cancel_order_by_id", {"order_id": order["broker_order_id"]})
         raw = await self.call("get_order_by_client_id", {"client_order_id": order["id"]})
         return await self._receipt(account, order, _object(raw))
@@ -168,26 +201,44 @@ class AlpacaMcpAdapter:
             not account.get("broker_account_id")
             or account["broker_account_id"] != snapshot["broker_account_id"]
         ):
-            raise ConflictError("Connected Alpaca account differs from the authorized account")
+            raise ConflictError(
+                "Connected Alpaca account differs from the authorized account",
+                message_id="trading.error.alpaca_account_mismatch",
+            )
 
     async def _receipt(self, account: dict, order: dict, raw: dict) -> dict:
         if raw.get("client_order_id") != order["id"] or not raw.get("id"):
-            raise ConflictError("Alpaca order identity does not match the submitted intent")
+            raise ConflictError(
+                "Alpaca order identity does not match the submitted intent",
+                message_id="trading.error.alpaca_order_identity",
+            )
         if raw.get("symbol", "").replace("/", "") != order["instrument"]["symbol"].replace("/", ""):
-            raise ConflictError("Alpaca returned an order for a different instrument")
+            raise ConflictError(
+                "Alpaca returned an order for a different instrument",
+                message_id="trading.error.alpaca_instrument_mismatch",
+            )
         if raw.get("side") != order["side"] or _number(raw.get("qty")) != _number(
             order["quantity"]
         ):
-            raise ConflictError("Alpaca returned an order with a different side or quantity")
+            raise ConflictError(
+                "Alpaca returned an order with a different side or quantity",
+                message_id="trading.error.alpaca_order_mismatch",
+            )
         state = _STATES.get(raw.get("status"))
         if state is None:
-            raise ConflictError("Alpaca order state requires manual reconciliation")
+            raise ConflictError(
+                "Alpaca order state requires manual reconciliation",
+                message_id="trading.error.alpaca_state_reconciliation",
+            )
         fills = (
             await self._fills(order, str(raw["id"])) if _number(raw.get("filled_qty", 0)) else []
         )
         total = sum((_number(fill["quantity"]) for fill in fills), Decimal(0))
         if total != _number(raw.get("filled_qty", 0)):
-            raise ConflictError("Alpaca execution history is incomplete; reconciliation required")
+            raise ConflictError(
+                "Alpaca execution history is incomplete; reconciliation required",
+                message_id="trading.error.alpaca_history_incomplete",
+            )
         return {"broker_order_id": str(raw["id"]), "status": state, "fills": fills}
 
     async def _fills(self, order: dict, broker_id: str) -> list[dict]:
@@ -198,13 +249,19 @@ class AlpacaMcpAdapter:
                 args["page_token"] = token
             rows = await self.call("get_account_activities_by_type", args)
             if not isinstance(rows, list):
-                raise ConflictError("Alpaca execution history is not a list")
+                raise ConflictError(
+                    "Alpaca execution history is not a list",
+                    message_id="trading.error.alpaca_history_invalid",
+                )
             for raw in rows:
                 row = _object(raw)
                 if row.get("order_id") != broker_id:
                     continue
                 if not row.get("id") or not row.get("transaction_time"):
-                    raise ConflictError("Alpaca fill lacks execution identity or timestamp")
+                    raise ConflictError(
+                        "Alpaca fill lacks execution identity or timestamp",
+                        message_id="trading.error.alpaca_fill_identity",
+                    )
                 fills.append(
                     {
                         "execution_id": str(row["id"]),
@@ -224,7 +281,10 @@ class AlpacaMcpAdapter:
             if not next_token or next_token == token:
                 break
             token = next_token
-        raise ConflictError("Alpaca execution history exceeds the bounded reconciliation window")
+        raise ConflictError(
+            "Alpaca execution history exceeds the bounded reconciliation window",
+            message_id="trading.error.alpaca_history_limit",
+        )
 
 
 def register_configured_alpaca_adapters() -> None:
@@ -251,7 +311,8 @@ def register_configured_alpaca_adapters() -> None:
                 or str(current.env.get("ALPACA_PAPER_TRADE", "true")).lower() != "false"
             ):
                 raise ConflictError(
-                    "Alpaca transport is no longer explicitly bound to live execution"
+                    "Alpaca transport is no longer explicitly bound to live execution",
+                    message_id="trading.error.alpaca_live_binding",
                 )
             return await get_manager().call_structured_tool(sid, tool, args)
 

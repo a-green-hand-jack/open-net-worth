@@ -5,7 +5,9 @@
 // @vitest-environment jsdom
 
 import { describe, it, expect, vi, afterEach } from 'vitest'
-import { render, cleanup } from '@testing-library/react'
+import { render, cleanup, fireEvent, screen } from '@testing-library/react'
+import { IntlProvider } from 'react-intl'
+import { catalogs } from '../../../i18n/LocaleProvider'
 import { Funding } from './detailFunding'
 import { OverviewTab } from './detailOverview'
 import { setBaseCurrency } from '../../../utils/format'
@@ -89,6 +91,43 @@ const m = {
 } as unknown as DetailMutations
 
 describe('Funding bar parity — Funding tab vs. Overview digest', () => {
+  it('translates the empty overview and keeps navigation working', () => {
+    const goTo = vi.fn()
+    render(<IntlProvider locale="zh-CN" messages={catalogs['zh-CN']}><OverviewTab
+      commitment={{ ...commitment, installments: [], funding_plan: [] }}
+      fx={{ SGD: 1 }} envelope={null} positions={{}} goTo={goTo} m={m}
+    /></IntlProvider>)
+    expect(screen.getByText('下次付款')).toBeTruthy()
+    expect(screen.getByText('所有付款均已完成。')).toBeTruthy()
+    expect(screen.getByText('尚无资金来源，可询问 Lucius 如何支付这些分期付款。')).toBeTruthy()
+    expect(screen.getByText('没有待处理事项。')).toBeTruthy()
+    fireEvent.click(screen.getByText('完整计划'))
+    expect(goTo).toHaveBeenCalledWith('schedule')
+  })
+
+  it('translates action controls while keeping the user label and action id', () => {
+    const updateAction = vi.fn()
+    render(<IntlProvider locale="zh-CN" messages={catalogs['zh-CN']}><OverviewTab
+      commitment={{ ...commitment, actions: [{
+        id: 'a1', label: 'Synthetic custom action', category: '', due_date: '2099-01-01',
+        start_by: null, amount: null, currency: 'SGD', status: 'pending', counterparty: '',
+        note: '', funding_id: null, reminder_automation_id: null,
+      }] }}
+      fx={{ SGD: 1 }} envelope={null} positions={{}} goTo={() => {}} m={{ ...m, updateAction }}
+    /></IntlProvider>)
+    expect(screen.getByText('Synthetic custom action')).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: '标记完成' }))
+    expect(updateAction).toHaveBeenCalledWith('a1', { status: 'done' })
+    expect(screen.getByRole('button', { name: '不会发生' })).toBeTruthy()
+  })
+
+  it('keeps an unfunded amount inside the money masking element', () => {
+    const { container } = render(<IntlProvider locale="zh-CN" messages={catalogs['zh-CN']}><OverviewTab
+      commitment={{ ...commitment, funding_plan: [] }}
+      fx={{ SGD: 1 }} envelope={null} positions={{}} goTo={() => {}} m={m}
+    /></IntlProvider>)
+    expect(container.querySelector('.c2-exp-sec-note.bad .money')?.textContent).toBeTruthy()
+  })
   it('renders an identical Meter for the same commitment', () => {
     const funding = render(
       <Funding commitment={commitment} fx={{ SGD: 1 }} envelope={null} positions={{}} m={m} />,

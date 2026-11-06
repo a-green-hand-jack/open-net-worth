@@ -12,6 +12,7 @@
 import { act, cleanup, render, screen } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { AssetDetailView } from './AssetDetailView'
+import { setDisplayFormats } from '../../utils/format'
 import type { AssetDetail } from '../../types/assetDetail'
 
 vi.mock('../../hooks/useAssetDetail', () => ({ useAssetDetail: vi.fn() }))
@@ -93,10 +94,19 @@ afterEach(() => {
   cleanup()
   vi.clearAllMocks()
   vi.useRealTimers()
+  setDisplayFormats({ number_format: null })
   lastChartProps = null
 })
 
 describe('AssetDetailView — extended-hours price block (2026-09-01 fix)', () => {
+  it('uses the saved number format for live and closing percentages', () => {
+    setDisplayFormats({ number_format: 'dot' })
+    mockHook({ last: 202, change_abs: 4, change_pct: 2.02, currency: 'USD', as_of: '2026-09-01T21:00:00Z', market: { is_open: false, session_bounds: null }, is_extended: true, extended_session: 'post', at_close: { price: 200, change_abs: 2, change_pct: 1.01, as_of: '2026-09-01T20:00:00Z' } })
+    render(<AssetDetailView instrumentId="aapl" />)
+    expect(screen.getByText('2,02%')).toBeTruthy()
+    expect(screen.getByText('1,01%')).toBeTruthy()
+  })
+
   it('shows two DISTINCT numbers — the live extended price and the regular close — never the same value twice', () => {
     mockHook({
       last: 202.0,
@@ -206,6 +216,13 @@ describe('AssetDetailView — extended-hours price block (2026-09-01 fix)', () =
     expect(screen.getByText(/As of/)).toBeTruthy()
     // last - change_abs = 200 - (-1) = 201, same pre-existing (non-extended) formula.
     expect(lastChartProps?.prevClose).toBe(201.0)
+  })
+
+  it('uses the saved number format for the last after-hours percentage', () => {
+    setDisplayFormats({ number_format: 'dot' })
+    mockHook({ last: 147.61, change_abs: -2.98, change_pct: -1.98, currency: 'USD', as_of: '2026-09-18T20:04:48Z', market: { is_open: false, state: 'CLOSED', timezone: 'America/New_York', session_bounds: null }, is_extended: false, extended_session: null, at_close: null, last_after_hours: { price: 147.55, change_abs: -0.06, change_pct: -0.0406, as_of: '2026-09-18T23:59:55Z', session_date: '2026-09-18' } })
+    render(<AssetDetailView instrumentId="orcl" />)
+    expect(screen.getByText('0,04%')).toBeTruthy()
   })
 
   it("shows the LAST session's after-hours print in a second column while the market is closed (weekend), like Perplexity", () => {

@@ -1,3 +1,4 @@
+import { useAppIntl } from '../../../i18n/useAppIntl'
 // Step 1 of the MCP flow — connection info (spec §7), for both an add and an EDIT.
 //
 // No Name and no Server ID: both are derived in step 3, from what the server reports about
@@ -43,14 +44,15 @@ function SecretEye({
   /** Anchor to the top rather than the middle — for the multi-line env box. */
   block?: boolean
 }): JSX.Element {
+  const { formatMessage } = useAppIntl()
   return (
     <button
       type="button"
       className={'rd-secret-eye' + (block ? ' rd-secret-eye--block' : '')}
       onClick={onToggle}
-      aria-label={shown ? 'Hide secret' : 'Show secret'}
+      aria-label={shown ? formatMessage({ id: 'connectors.mcpField.hideSecret', defaultMessage: 'Hide secret' }) : formatMessage({ id: 'connectors.mcpField.showSecret', defaultMessage: 'Show secret' })}
       aria-pressed={shown}
-      title={shown ? 'Hide' : 'Show'}
+      title={shown ? formatMessage({ id: 'connectors.mcpField.hide', defaultMessage: 'Hide' }) : formatMessage({ id: 'connectors.mcpField.show', defaultMessage: 'Show' })}
       tabIndex={-1}
     >
       {shown ? <EyeOff size={15} strokeWidth={1.7} /> : <Eye size={15} strokeWidth={1.7} />}
@@ -64,14 +66,8 @@ const AUTH_OPTIONS: [McpAuth, string][] = [
   ['oauth', 'OAuth'],
 ]
 
-/** One line under Authentication — a wrong pick otherwise surfaced only as a raw HTTP 401. */
-const AUTH_HINT: Record<McpAuth, string> = {
-  none: 'For a public server that needs no login.',
-  key: 'Paste a key or token from the vendor’s dashboard.',
-  oauth: 'Sign in on the vendor’s own page — no key to copy.',
-}
-
 export function McpConnectionFields({ flow }: { flow: McpAddFlow }): JSX.Element {
+  const { formatMessage } = useAppIntl()
   const { form, setForm, editing } = flow
   const parsed = parsePastedConfig(form.paste)
   const serverId = editing?.serverId ?? ''
@@ -108,8 +104,7 @@ export function McpConnectionFields({ flow }: { flow: McpAddFlow }): JSX.Element
     >
       {editing ? (
         <span className="rd-help full">
-          Editing <strong>{editing.name}</strong>. Test connect runs against what you type here;
-          nothing is saved until it succeeds.
+          {formatMessage({ id: 'connectors.mcpField.editing', defaultMessage: 'Editing <strong>{name}</strong>. Test connect runs against what you type here; nothing is saved until it succeeds.' }, { name: editing.name, strong: (chunks) => <strong>{chunks}</strong> })}
         </span>
       ) : (
         <div className="rd-field full">
@@ -133,14 +128,14 @@ export function McpConnectionFields({ flow }: { flow: McpAddFlow }): JSX.Element
             >
               <Icons.plus />
             </span>{' '}
-            Paste from a config snippet
+            {formatMessage({ id: 'connectors.mcpField.paste', defaultMessage: "Paste from a config snippet" })}
           </button>
           {flow.pasteOpen && (
             <div style={{ marginTop: 8, display: 'flex', flexDirection: 'column', gap: 6 }}>
               <textarea
                 className="rd-textarea cn-pastebox"
                 rows={6}
-                aria-label="Config snippet"
+                aria-label={formatMessage({ id: 'connectors.mcpField.snippet', defaultMessage: 'Config snippet' })}
                 placeholder={
                   '{\n  "mcpServers": {\n    "my-server": { "command": "npx", "args": ["-y", "@vendor/server"] }\n  }\n}'
                 }
@@ -153,10 +148,10 @@ export function McpConnectionFields({ flow }: { flow: McpAddFlow }): JSX.Element
               />
               <span className="rd-help">
                 {parsed
-                  ? 'Parsed — fields below are filled in.'
+                  ? formatMessage({ id: 'connectors.mcpField.parsed', defaultMessage: "Parsed — fields below are filled in." })
                   : form.paste.trim()
-                    ? "Couldn't parse that yet — paste the server's JSON block from its README."
-                    : "Paste a single-server config block (e.g. from a README's Quick Start) and it fills in the fields below."}
+                    ? formatMessage({ id: 'connectors.mcpField.parseFailed', defaultMessage: "Couldn't parse that yet — paste the server's JSON block from its README." })
+                    : formatMessage({ id: 'connectors.mcpField.pasteHint', defaultMessage: "Paste a single-server config block (e.g. from a README's Quick Start) and it fills in the fields below." })}
               </span>
             </div>
           )}
@@ -164,7 +159,7 @@ export function McpConnectionFields({ flow }: { flow: McpAddFlow }): JSX.Element
       )}
 
       <div className="rd-field full">
-        <span className="rd-label">Transport</span>
+        <span className="rd-label">{formatMessage({ id: 'connectors.mcpField.transport', defaultMessage: 'Transport' })}</span>
         <div className="rd-seg">
           <button
             type="button"
@@ -173,7 +168,7 @@ export function McpConnectionFields({ flow }: { flow: McpAddFlow }): JSX.Element
             disabled={!!editing}
             onClick={() => setForm((f) => ({ ...f, transport: 'remote' }))}
           >
-            Remote server (URL)
+            {formatMessage({ id: 'connectors.mcpField.remote', defaultMessage: "Remote server (URL)" })}
           </button>
           <button
             type="button"
@@ -182,13 +177,12 @@ export function McpConnectionFields({ flow }: { flow: McpAddFlow }): JSX.Element
             disabled={!!editing}
             onClick={() => setForm((f) => ({ ...f, transport: 'local' }))}
           >
-            Local command (stdio)
+            {formatMessage({ id: 'connectors.mcpField.local', defaultMessage: "Local command (stdio)" })}
           </button>
         </div>
         {editing ? (
           <span className="rd-help">
-            Transport is fixed once a server exists — add it again to move it between a URL and a
-            local command.
+            {formatMessage({ id: 'connectors.mcpField.fixed', defaultMessage: 'Transport is fixed once a server exists — add it again to move it between a URL and a local command.' })}
           </span>
         ) : null}
       </div>
@@ -197,7 +191,7 @@ export function McpConnectionFields({ flow }: { flow: McpAddFlow }): JSX.Element
         <>
           <div className="rd-field full">
             <span className="rd-label" id="mcp-url-label">
-              Server URL
+              {formatMessage({ id: 'connectors.mcpField.url', defaultMessage: "Server URL" })}
               <span className="rd-req" aria-hidden="true">
                 *
               </span>
@@ -211,13 +205,13 @@ export function McpConnectionFields({ flow }: { flow: McpAddFlow }): JSX.Element
             />
             {form.url.trim() && !isValidMcpUrl(form.url) ? (
               <span className="rd-help rd-help--bad" role="alert">
-                Enter a full URL, starting with http:// or https://.
+                {formatMessage({ id: 'connectors.mcpField.urlError', defaultMessage: 'Enter a full URL, starting with http:// or https://.' })}
               </span>
             ) : null}
           </div>
           <div className="rd-field">
             <span className="rd-label" id="mcp-auth-label">
-              Authentication
+              {formatMessage({ id: 'connectors.mcpField.auth', defaultMessage: "Authentication" })}
             </span>
             {/* Three short choices — a segmented control like Transport above, so all of them
                 are visible without opening a menu. */}
@@ -230,16 +224,16 @@ export function McpConnectionFields({ flow }: { flow: McpAddFlow }): JSX.Element
                   aria-pressed={form.auth === value}
                   onClick={() => setForm((f) => ({ ...f, auth: value }))}
                 >
-                  {label}
+                  {value === 'none' ? formatMessage({ id: 'connectors.mcpField.none', defaultMessage: 'None' }) : value === 'key' ? formatMessage({ id: 'connectors.mcpField.key', defaultMessage: 'API key' }) : label}
                 </button>
               ))}
             </div>
-            <span className="rd-help">{AUTH_HINT[form.auth]}</span>
+            <span className="rd-help">{form.auth === 'none' ? formatMessage({ id: 'connectors.mcpField.hintNone', defaultMessage: 'For a public server that needs no login.' }) : form.auth === 'key' ? formatMessage({ id: 'connectors.mcpField.hintKey', defaultMessage: 'Paste a key or token from the vendor’s dashboard.' }) : formatMessage({ id: 'connectors.mcpField.hintOauth', defaultMessage: 'Sign in on the vendor’s own page — no key to copy.' })}</span>
           </div>
           {form.auth === 'key' && (
             <div className="rd-field">
               <span className="rd-label" id="mcp-key-label">
-                API key
+                {formatMessage({ id: 'connectors.mcpField.key', defaultMessage: "API key" })}
                 <span className="rd-req" aria-hidden="true">
                   *
                 </span>
@@ -254,7 +248,7 @@ export function McpConnectionFields({ flow }: { flow: McpAddFlow }): JSX.Element
                   // with an underscore (and its MCP docs ask for a RESTRICTED `rk_` key),
                   // Firecrawl uses `fc-`. A placeholder that looks like one specific vendor's
                   // key invites pasting the wrong credential, which is worse than saying nothing.
-                  placeholder={editing?.hasToken ? '••••••••' : 'Paste your API key'}
+                  placeholder={editing?.hasToken ? '••••••••' : formatMessage({ id: 'connectors.mcpField.pasteKey', defaultMessage: "Paste your API key" })}
                   value={form.key}
                   onChange={(e) => setForm((f) => ({ ...f, key: e.target.value }))}
                 />
@@ -267,8 +261,7 @@ export function McpConnectionFields({ flow }: { flow: McpAddFlow }): JSX.Element
                 <span className="rd-help rd-help--bad">{key.error}</span>
               ) : editing?.hasToken ? (
                 <span className="rd-help">
-                  {key.caption} Test connect runs with whatever is in this box, so reveal or
-                  re-enter the key if this server needs one to answer.
+                  {formatMessage({ id: 'connectors.mcpField.testKey', defaultMessage: '{caption} Test connect runs with whatever is in this box, so reveal or re-enter the key if this server needs one to answer.' }, { caption: key.caption ?? '' })}
                 </span>
               ) : null}
             </div>
@@ -279,7 +272,7 @@ export function McpConnectionFields({ flow }: { flow: McpAddFlow }): JSX.Element
         <>
           <div className="rd-field full">
             <span className="rd-label" id="mcp-cmd-label">
-              Command
+              {formatMessage({ id: 'connectors.mcpField.command', defaultMessage: "Command" })}
               <span className="rd-req" aria-hidden="true">
                 *
               </span>
@@ -294,7 +287,7 @@ export function McpConnectionFields({ flow }: { flow: McpAddFlow }): JSX.Element
           </div>
           <div className="rd-field full">
             <span className="rd-label" id="mcp-args-label">
-              Arguments
+              {formatMessage({ id: 'connectors.mcpField.args', defaultMessage: "Arguments" })}
             </span>
             <input
               className="rd-input"
@@ -306,7 +299,7 @@ export function McpConnectionFields({ flow }: { flow: McpAddFlow }): JSX.Element
           </div>
           <div className="rd-field full">
             <span className="rd-label" id="mcp-env-label">
-              Environment variables (optional)
+              {formatMessage({ id: 'connectors.mcpField.env', defaultMessage: "Environment variables (optional)" })}
             </span>
             <div
               className={'rd-secret' + (env.fieldProps.onToggleShown ? '' : ' rd-secret--plain')}
@@ -323,7 +316,7 @@ export function McpConnectionFields({ flow }: { flow: McpAddFlow }): JSX.Element
                 // as "did this not save?" rather than "click the eye to view it".
                 placeholder={
                   env.fieldProps.onToggleShown
-                    ? 'Click 👁 to view the saved variables'
+                    ? formatMessage({ id: 'connectors.mcpField.envReveal', defaultMessage: "Click 👁 to view the saved variables" })
                     : 'API_KEY=your-key\nOTHER_VAR=value'
                 }
               />
@@ -351,20 +344,16 @@ export function McpConnectionFields({ flow }: { flow: McpAddFlow }): JSX.Element
               // dropping IB_FORCE_STANDALONE_GATEWAY-style vars the user never meant to touch.
               // Louder than the default caption below for exactly that reason.
               <span className="rd-help rd-help--bad">
-                This replaces the saved set ({editing.envKeys.join(', ')}) with only what's typed
-                here. Clear the box first if you meant to keep it and add to it.
+                {formatMessage({ id: 'connectors.mcpField.envReplace', defaultMessage: "This replaces the saved set ({keys}) with only what's typed here. Clear the box first if you meant to keep it and add to it." }, { keys: editing.envKeys.join(', ') })}
               </span>
             ) : editing && editing.envKeys.length > 0 ? (
               <span className="rd-help">
-                Already set: {editing.envKeys.join(', ')}. Leave this empty to keep them, use the
-                eye to load the saved set, or type the FULL set to replace it. Test connect launches
-                the command with only what is in this box.
+                {formatMessage({ id: 'connectors.mcpField.envKeep', defaultMessage: 'Already set: {keys}. Leave this empty to keep them, use the eye to load the saved set, or type the FULL set to replace it. Test connect launches the command with only what is in this box.' }, { keys: editing.envKeys.join(', ') })}
               </span>
             ) : null}
           </div>
           <span className="rd-help full">
-            This launches a local process on the machine running Lucius, with the same access as the
-            account it runs under. Only run commands you trust.
+            {formatMessage({ id: 'connectors.mcpField.localWarning', defaultMessage: "This launches a local process on the machine running Lucius, with the same access as the account it runs under. Only run commands you trust." })}
           </span>
         </>
       )}

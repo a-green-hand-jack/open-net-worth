@@ -1,3 +1,4 @@
+import { getNumberLocale } from '../../../utils/format'
 // FeedTable — compact table density feed. Verbatim port of prototype FeedTable().
 // Full column set: Holding, Account, Qty, Cost, Price, Cur, Value, Wt%, P&L, P&L%, Day%, actions.
 
@@ -11,6 +12,7 @@ import { ASSET_CLASS_COLOR, paletteColor } from '../../../utils/constants'
 import { EntityRow } from '../../../lucius/EntityRow'
 import { KebabMenu } from '../planning/KebabMenu'
 import { usePointerResize } from '../../../hooks/usePointerResize'
+import { useAppIntl } from '../../../i18n/useAppIntl'
 
 const WRAP: Record<string, string> = {
   etf: 'ETF',
@@ -96,6 +98,7 @@ export function FeedTable({
   storyIndex,
   onOpenStory,
 }: Props) {
+  const { formatMessage } = useAppIntl()
   const [colWidths, setColWidths] = useState<Record<string, number>>(loadWidths)
   const [isDragging, setIsDragging] = useState(false)
   const draggingRef = useRef(false)
@@ -175,7 +178,10 @@ export function FeedTable({
         onClick={() => {
           if (!draggingRef.current) onSort(k)
         }}
-        title="Sort by this column"
+        title={formatMessage({
+          id: 'investments.columns.sort',
+          defaultMessage: 'Sort by this column',
+        })}
       >
         {label} <span className="ar">{sort.key === k ? (sort.dir > 0 ? '▲' : '▼') : ''}</span>
         <span
@@ -216,17 +222,59 @@ export function FeedTable({
           </colgroup>
           <thead>
             <tr>
-              <Th k="sym" label="Holding" />
-              <Th k="account" label="Account" />
-              <Th k="qty" label="Qty" />
-              <Th k="cost" label="Cost" />
-              <Th k="price" label="Price" />
-              <Th k="ccy" label="Cur" />
-              <Th k="value" label="Value" />
-              <Th k="wt" label="Wt %" />
-              <Th k="pl" label="P&amp;L" />
-              <Th k="plpct" label="P&amp;L %" />
-              <Th k="day" label="Day %" />
+              <Th
+                k="sym"
+                label={formatMessage({
+                  id: 'investments.columns.holding',
+                  defaultMessage: 'Holding',
+                })}
+              />
+              <Th
+                k="account"
+                label={formatMessage({
+                  id: 'investments.group.account',
+                  defaultMessage: 'Account',
+                })}
+              />
+              <Th
+                k="qty"
+                label={formatMessage({ id: 'investments.columns.quantity', defaultMessage: 'Qty' })}
+              />
+              <Th
+                k="cost"
+                label={formatMessage({ id: 'investments.columns.cost', defaultMessage: 'Cost' })}
+              />
+              <Th
+                k="price"
+                label={formatMessage({ id: 'investments.columns.price', defaultMessage: 'Price' })}
+              />
+              <Th
+                k="ccy"
+                label={formatMessage({ id: 'investments.columns.currency', defaultMessage: 'Cur' })}
+              />
+              <Th
+                k="value"
+                label={formatMessage({ id: 'investments.columns.value', defaultMessage: 'Value' })}
+              />
+              <Th
+                k="wt"
+                label={formatMessage({
+                  id: 'investments.columns.weightPct',
+                  defaultMessage: 'Wt %',
+                })}
+              />
+              <Th
+                k="pl"
+                label={formatMessage({ id: 'investments.columns.pnl', defaultMessage: 'P&L' })}
+              />
+              <Th
+                k="plpct"
+                label={formatMessage({ id: 'investments.columns.pnlPct', defaultMessage: 'P&L %' })}
+              />
+              <Th
+                k="day"
+                label={formatMessage({ id: 'investments.columns.dayPct', defaultMessage: 'Day %' })}
+              />
               <th className="nostick" aria-hidden="true" />
             </tr>
           </thead>
@@ -283,7 +331,18 @@ export function FeedTable({
                         {r.coupon != null && (
                           <span className="mk-bond-meta">
                             {r.coupon}%{' '}
-                            {r.maturity ? '• mat ' + String(r.maturity).slice(0, 4) : '• fund'}
+                            {r.maturity
+                              ? formatMessage(
+                                  {
+                                    id: 'investments.holdings.maturity',
+                                    defaultMessage: '• mat {year}',
+                                  },
+                                  { year: String(r.maturity).slice(0, 4) },
+                                )
+                              : formatMessage({
+                                  id: 'investments.holdings.fund',
+                                  defaultMessage: '• fund',
+                                })}
                           </span>
                         )}
                       </span>
@@ -291,12 +350,12 @@ export function FeedTable({
                     <td className="muted mk-acctd" title={r.account}>
                       {r.account}
                     </td>
-                    <td className="mask">{r.qty.toLocaleString()}</td>
+                    <td className="mask">{r.qty.toLocaleString(getNumberLocale())}</td>
                     <td className="mask">{fUnitPrice(r.cost, r.ccy, priceDigits(r.cls))}</td>
                     <td className="mask">{fUnitPrice(r.price, r.ccy, priceDigits(r.cls))}</td>
                     <td className="muted">{r.ccy}</td>
                     <td className="mask">{fBase(r.value)}</td>
-                    <td>{r.wt.toFixed(1)}%</td>
+                    <td>{r.wt.toLocaleString(getNumberLocale(), { minimumFractionDigits: 1, maximumFractionDigits: 1 })}%</td>
                     <td className="mask" style={{ color: tone(r.pl) }}>
                       {fSignedBase(r.pl)}
                     </td>
@@ -305,11 +364,29 @@ export function FeedTable({
                     <td className="mk-act-cell" onClick={(e) => e.stopPropagation()}>
                       {!merged && (
                         <KebabMenu
-                          label={`${r.sym || r.name} actions`}
+                          label={formatMessage(
+                            {
+                              id: 'investments.holdings.actions',
+                              defaultMessage: '{name} actions',
+                            },
+                            { name: r.sym || r.name },
+                          )}
                           portal
                           items={[
-                            { label: 'Record sell', onClick: () => onSell?.(r) },
-                            { label: 'Record dividend', onClick: () => onDividend?.(r) },
+                            {
+                              label: formatMessage({
+                                id: 'investments.holdings.recordSell',
+                                defaultMessage: 'Record sell',
+                              }),
+                              onClick: () => onSell?.(r),
+                            },
+                            {
+                              label: formatMessage({
+                                id: 'investments.holdings.recordDividend',
+                                defaultMessage: 'Record dividend',
+                              }),
+                              onClick: () => onDividend?.(r),
+                            },
                           ]}
                         />
                       )}
@@ -367,7 +444,7 @@ export function FeedTable({
                       name: it.name || null,
                       account: it.account || null,
                       asset_class: it.cls || null,
-                      quantity: it.qty.toLocaleString(),
+                      quantity: it.qty.toLocaleString(getNumberLocale()),
                       currency: it.ccy || null,
                       // Per-share price is quoted in the instrument's OWN currency (it.ccy),
                       // not the portfolio base — show "$380.73"/"€35.81", never "S$380.73".
@@ -395,7 +472,7 @@ export function FeedTable({
           <tfoot>
             <tr>
               <td className="left" colSpan={6} style={{ textAlign: 'right' }}>
-                Total
+                {formatMessage({ id: 'feed.total', defaultMessage: 'Total' })}
               </td>
               <td className="mask">{fBase(grand)}</td>
               <td>100%</td>

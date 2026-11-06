@@ -61,6 +61,7 @@ export function TxnCard({
   onSplit,
   showDate = true,
 }: TxnCardProps) {
+  const { formatMessage } = useAppIntl()
   const {
     ccy,
     pos,
@@ -81,7 +82,7 @@ export function TxnCard({
 
   const payeeMain: React.ReactNode = isTransfer ? (
     isAdjustment ? (
-      'Balance adjustment'
+      formatMessage({ id: 'accounts.balanceAdjustment', defaultMessage: 'Balance adjustment' })
     ) : (
       <span>
         {payeeFromName || '—'}
@@ -92,7 +93,7 @@ export function TxnCard({
   ) : (
     payeeText
   )
-  const askLabel = payeeName || t.description || '(no description)'
+  const askLabel = payeeName || t.description || formatMessage({ id: 'accounts.noDescription', defaultMessage: '(no description)' })
   const askSearch = [t.description, t.memo, payeeName, primaryAcct?.name, t.category]
     .filter(Boolean)
     .join(' ')
@@ -157,22 +158,43 @@ export function TxnCard({
                 onToggle={() => onSplit(t.id)}
               />
             ) : t.category && !isAdjustment ? (
-              categoryPill(t.category, catMap)
+              categoryPill(
+                t.category,
+                catMap,
+                formatMessage({ id: 'accounts.uncategorized', defaultMessage: 'Uncategorized' }),
+              )
             ) : !isTransfer && (t.kind === 'expense' || t.kind === 'income') ? (
               <span
                 className="acct-unsorted"
-                title="No category — this won't count toward any budget envelope"
+                title={formatMessage({
+                  id: 'accounts.noCategoryBudget',
+                  defaultMessage: "No category — this won't count toward any budget envelope",
+                })}
               >
-                Uncategorized
+                {formatMessage({ id: 'accounts.uncategorized', defaultMessage: 'Uncategorized' })}
               </span>
             ) : null}
             {showAccount && primaryAcct && !isTransfer && (
               <span className="acct-card-acct">{primaryAcct.name}</span>
             )}
-            {t.needsReview && <span className="acct-review-pill">Review</span>}
+            {t.needsReview && (
+              <span className="acct-review-pill">
+                {formatMessage({ id: 'accounts.review', defaultMessage: 'Review' })}
+              </span>
+            )}
             <span
               className="acct-clr"
-              title={t.cleared ? 'Cleared — tap to unclear' : 'Uncleared — tap to clear'}
+              title={
+                t.cleared
+                  ? formatMessage({
+                      id: 'accounts.tapUnclear',
+                      defaultMessage: 'Cleared — tap to unclear',
+                    })
+                  : formatMessage({
+                      id: 'accounts.tapClear',
+                      defaultMessage: 'Uncleared — tap to clear',
+                    })
+              }
               onClick={(e) => {
                 e.stopPropagation()
                 onUpdate(t.id, { cleared: !t.cleared })
@@ -213,3 +235,4 @@ export function TxnCard({
     </>
   )
 }
+import { useAppIntl } from '../../../i18n/useAppIntl'

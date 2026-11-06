@@ -12,6 +12,8 @@
 // deep-links into it with ?sub=data.
 import { Suspense, useEffect, useRef, useState } from 'react'
 import { lazyChunk } from '../../lazyChunk'
+import { useAppIntl } from '../../i18n/useAppIntl'
+import { settingsGroup, settingsSection, type SettingsGroup } from '../../i18n/settings'
 import type { ComponentType } from 'react'
 import { useNavigate } from '@tanstack/react-router'
 import { Modal, PageTabs } from '../ui'
@@ -25,6 +27,7 @@ import {
   Code2,
   Copy,
   Database,
+  Globe,
   Info,
   LockKeyhole,
   MessageSquare,
@@ -82,6 +85,9 @@ const DesktopSection = lazyChunk(() =>
 const CurrencySection = lazyChunk(() =>
   loadCurrencySection().then((m) => ({ default: m.CurrencySection })),
 )
+const LanguageSection = lazyChunk(() =>
+  loadCurrencySection().then((m) => ({ default: m.LanguageSection })),
+)
 const loadSecuritySection = () => import('./settings/sections/SecuritySection')
 const SecuritySection = lazyChunk(() =>
   loadSecuritySection().then((m) => ({ default: m.SecuritySection })),
@@ -108,6 +114,7 @@ import './settings/settings.css'
 
 export const SECTIONS = [
   { key: 'profile', label: 'Profile' },
+  { key: 'language', label: 'Interface language' },
   { key: 'model', label: 'AI' },
   { key: 'chat', label: 'Chat' },
   { key: 'memory', label: 'Memory' },
@@ -133,10 +140,10 @@ export type Section = (typeof SECTIONS)[number]['key']
 // fit a phone's width, so the row scrolled horizontally and most sections sat off-screen with
 // no affordance saying so. A grouped menu shows every section at once and matches what a phone user
 // expects settings to be. Desktop keeps the rail — it has the width for it.
-const SECTION_GROUPS: { title: string; keys: Section[] }[] = [
+const SECTION_GROUPS: { title: SettingsGroup; keys: Section[] }[] = [
   { title: 'Account', keys: ['profile', 'security'] },
   { title: 'Assistant', keys: ['model', 'chat', 'memory', 'permissions'] },
-  { title: 'App', keys: ['appearance', 'desktop', 'currency', 'dedup', 'intel'] },
+  { title: 'App', keys: ['language', 'appearance', 'desktop', 'currency', 'dedup', 'intel'] },
   { title: 'Phone & other apps', keys: ['shortcuts', 'mcp'] },
   { title: 'Advanced', keys: ['data', 'terminal', 'developer', 'aiUsage'] },
   { title: 'Support', keys: ['help'] },
@@ -154,6 +161,7 @@ const SECTION_LOADERS: Partial<Record<Section, () => Promise<unknown>>> = {
   appearance: loadAppearanceSection,
   desktop: loadDesktopSection,
   currency: loadCurrencySection,
+  language: loadCurrencySection,
   security: loadSecuritySection,
   data: loadDataSection,
   terminal: loadTerminalSection,
@@ -198,6 +206,7 @@ const SECTION_ICONS: Record<Exclude<Section, 'model'>, ComponentType<IconProps>>
   shortcuts: Smartphone,
   mcp: Plug,
   currency: WalletCards,
+  language: Globe,
   security: LockKeyhole,
   data: Database,
   terminal: Terminal,
@@ -221,6 +230,7 @@ const SECTION_TERMS: Record<Section, string> = {
   appearance: 'theme accent colour color logo name',
   desktop: 'desktop background tray startup login notifications folder statements imports',
   currency: 'base currency sgd usd date number format week',
+  language: 'language locale translation english chinese 语言 中文 英文',
   security: 'password token auth session login loopback',
   data: 'backup restore reset export danger uploads files credits market data yahoo finance coingecko crypto api key',
   terminal:
@@ -246,6 +256,7 @@ const BODY: Record<Exclude<Section, 'profile'>, ComponentType<SectionProps>> = {
   shortcuts: ShortcutsSection,
   mcp: McpSection,
   currency: CurrencySection,
+  language: LanguageSection,
   security: SecuritySection,
   data: DataSection,
   terminal: TerminalSection,
@@ -270,6 +281,7 @@ export function Settings({
   onReviewDefaultChange,
   gatewayMode = false,
 }: SettingsProps) {
+  const intl = useAppIntl()
   const terminalAvailable = useTerminalAvailable(gatewayMode)
   const sectionAvailable = (key: string) =>
     key === 'desktop'
@@ -385,20 +397,34 @@ export function Settings({
   const [busyCount, setBusyCount] = useState(0)
   const bumpBusy = useRef((delta: number) => setBusyCount((n) => Math.max(0, n + delta))).current
 
-  const active = SECTIONS.find((s) => s.key === section) || SECTIONS[0]!
+  const localizedSections = SECTIONS.map((s) => ({ ...s, label: settingsSection(intl, s.key) }))
+  const active = localizedSections.find((s) => s.key === section) || localizedSections[0]!
 
   const needle = q.trim().toLowerCase()
-  const availableSections = SECTIONS.filter((s) => sectionAvailable(s.key))
+  const availableSections = localizedSections.filter((s) => sectionAvailable(s.key))
   const shown = needle
     ? availableSections.filter((s) =>
-        (s.label + ' ' + SECTION_TERMS[s.key]).toLowerCase().includes(needle),
+        (
+          s.label +
+          ' ' +
+          SECTIONS.find((item) => item.key === s.key)?.label +
+          ' ' +
+          SECTION_TERMS[s.key]
+        )
+          .toLowerCase()
+          .includes(needle),
       )
     : availableSections
 
   const close = () => onClose?.()
 
   const closeBtn = (
-    <button type="button" className="rd-set-x" onClick={close} aria-label="Close settings">
+    <button
+      type="button"
+      className="rd-set-x"
+      onClick={close}
+      aria-label={intl.formatMessage({ id: 'settings.close', defaultMessage: 'Close settings' })}
+    >
       <X size={16} strokeWidth={1.8} aria-hidden="true" />
     </button>
   )
@@ -409,7 +435,7 @@ export function Settings({
     <Modal
       open
       onClose={close}
-      title="Settings"
+      title={intl.formatMessage({ id: 'settings.title', defaultMessage: 'Settings' })}
       size="workspace"
       className="onw-settings"
       overlayClassName="onw-settings-overlay"
@@ -429,19 +455,39 @@ export function Settings({
                 type="button"
                 className="rd-set-x"
                 onClick={() => (back ? back.onBack() : setDrilled(false))}
-                aria-label={back ? `Back to ${back.label}` : 'Back to all settings'}
+                aria-label={
+                  back
+                    ? intl.formatMessage(
+                        { id: 'settings.backTo', defaultMessage: 'Back to {label}' },
+                        { label: back.label },
+                      )
+                    : intl.formatMessage({
+                        id: 'settings.backAll',
+                        defaultMessage: 'Back to all settings',
+                      })
+                }
               >
                 <ChevronLeft size={22} strokeWidth={1.8} aria-hidden="true" />
               </button>
             ) : (
               closeBtn
             )}
-            <span className="rd-set-sheettitle">{drilled ? active.label : 'Settings'}</span>
+            <span className="rd-set-sheettitle">
+              {drilled
+                ? active.label
+                : intl.formatMessage({ id: 'settings.title', defaultMessage: 'Settings' })}
+            </span>
           </div>
         </>
       ) : null}
       {isMobile ? null : (
-        <nav className="rd-set-nav" aria-label="Settings section">
+        <nav
+          className="rd-set-nav"
+          aria-label={intl.formatMessage({
+            id: 'settings.sections',
+            defaultMessage: 'Settings section',
+          })}
+        >
           {/* No search on a phone: all sections are visible in the drill-down menu, so the
             field was a permanent row of chrome buying nothing. */}
           {isMobile ? null : (
@@ -452,15 +498,24 @@ export function Settings({
               <input
                 value={q}
                 onChange={(e) => setQ(e.target.value)}
-                placeholder="Search"
-                aria-label="Search settings"
+                placeholder={intl.formatMessage({
+                  id: 'settings.search',
+                  defaultMessage: 'Search',
+                })}
+                aria-label={intl.formatMessage({
+                  id: 'settings.searchSettings',
+                  defaultMessage: 'Search settings',
+                })}
               />
               {q ? (
                 <button
                   type="button"
                   className="rd-set-search-x"
                   onClick={() => setQ('')}
-                  aria-label="Clear search"
+                  aria-label={intl.formatMessage({
+                    id: 'settings.clearSearch',
+                    defaultMessage: 'Clear search',
+                  })}
                 >
                   <X size={12} strokeWidth={2.2} aria-hidden="true" />
                 </button>
@@ -473,11 +528,19 @@ export function Settings({
                 tabs={shown.map((s) => ({ key: s.key, label: s.label }))}
                 value={section}
                 onChange={setSec}
-                ariaLabel="Settings section"
+                ariaLabel={intl.formatMessage({
+                  id: 'settings.sections',
+                  defaultMessage: 'Settings section',
+                })}
                 className="rd-set-pagetabs"
               />
             ) : (
-              <span className="rd-set-nohits">No matching settings</span>
+              <span className="rd-set-nohits">
+                {intl.formatMessage({
+                  id: 'settings.noMatches',
+                  defaultMessage: 'No matching settings',
+                })}
+              </span>
             )
           ) : (
             <div className="rd-set-navlist">
@@ -495,7 +558,14 @@ export function Settings({
                   <span className="rd-set-navlabel">{s.label}</span>
                 </button>
               ))}
-              {!shown.length ? <span className="rd-set-nohits">No matching settings</span> : null}
+              {!shown.length ? (
+                <span className="rd-set-nohits">
+                  {intl.formatMessage({
+                    id: 'settings.noMatches',
+                    defaultMessage: 'No matching settings',
+                  })}
+                </span>
+              ) : null}
             </div>
           )}
         </nav>
@@ -548,14 +618,20 @@ export function Settings({
                   <span className="rd-set-meavatar" aria-hidden="true">
                     {myInitials}
                   </span>
-                  <span className="rd-set-mename">{myName || 'Your profile'}</span>
+                  <span className="rd-set-mename">
+                    {myName ||
+                      intl.formatMessage({
+                        id: 'settings.yourProfile',
+                        defaultMessage: 'Your profile',
+                      })}
+                  </span>
                   <span className="rd-set-menuchev" aria-hidden="true">
                     <ChevronRight size={18} strokeWidth={1.8} />
                   </span>
                 </button>
                 {SECTION_GROUPS.map((g) => (
                   <div className="rd-set-menugroup" key={g.title}>
-                    <h3 className="rd-set-menuhead">{g.title}</h3>
+                    <h3 className="rd-set-menuhead">{settingsGroup(intl, g.title)}</h3>
                     <div className="rd-set-menucard">
                       {g.keys.flatMap((k) => {
                         const item = availableSections.find((x) => x.key === k)

@@ -1,3 +1,4 @@
+import { defineMessages, type IntlShape } from 'react-intl'
 import { useEffect, useState, type ReactNode } from 'react'
 import { ListChecks, MessageSquare, Plus, SquarePen, X, Zap } from '../../ui/icons'
 import { ConversationRenameInput, ConversationRowMenu } from './ConversationRowActions'
@@ -5,6 +6,8 @@ import { ConversationStatusBadge, conversationStatusLabel } from './Conversation
 import type { ConversationMeta } from '../../hooks/useConversations'
 import type { ConvRowStatus } from '../../types/chat'
 import { fDateTime } from '../../utils/format'
+import { useAppIntl } from '../../i18n/useAppIntl'
+import { displayConversationTitle } from './conversationTitle'
 
 export type ConversationKind = 'chat' | 'automation' | 'capture'
 
@@ -93,7 +96,7 @@ export function sortWithinSection(
  *  persistent sidebar) uses this one, so the convention now matches everywhere a conversation
  *  list is actually bucketed by day (owner, 2026-08-13: "not just for mobile but should be
  *  for all"). */
-export function shortWhen(conv: ConversationMeta): string {
+export function shortWhen(conv: ConversationMeta, intl: IntlShape): string {
   if (conv.source !== 'automation') return ''
   const at = new Date(conv.createdAt || conv.updatedAt || '')
   if (Number.isNaN(at.getTime())) return ''
@@ -102,8 +105,18 @@ export function shortWhen(conv: ConversationMeta): string {
   if (at.toDateString() === now.toDateString()) return time
   const yesterday = new Date(now)
   yesterday.setDate(yesterday.getDate() - 1)
-  if (at.toDateString() === yesterday.toDateString()) return `Yesterday ${time}`
+  if (at.toDateString() === yesterday.toDateString()) return intl.formatMessage({ id: 'chat.age.yesterdayTime', defaultMessage: 'Yesterday {time}' }, { time })
   return fDateTime(at)
+}
+
+const ageMessages = defineMessages({
+  Today: { id: 'chat.age.today', defaultMessage: 'Today' },
+  Yesterday: { id: 'chat.age.yesterday', defaultMessage: 'Yesterday' },
+  'This past week': { id: 'chat.age.week', defaultMessage: 'This past week' },
+  Older: { id: 'chat.age.older', defaultMessage: 'Older' },
+})
+export function localizedAgeLabel(label: string, intl: IntlShape): string {
+  return Object.hasOwn(ageMessages, label) ? intl.formatMessage(ageMessages[label as keyof typeof ageMessages]) : label
 }
 
 export function ConversationMenu({
@@ -133,6 +146,7 @@ export function ConversationMenu({
   onStop: (id: string) => void
   formatWhen: (conv: ConversationMeta) => string
 }) {
+  const intl = useAppIntl()
   const [editingId, setEditingId] = useState<string | null>(null)
   // Esc goes back to the conversation. A surface that takes over the whole panel has to
   // be dismissable from the keyboard, not only by finding the one button that closes it.
@@ -171,18 +185,18 @@ export function ConversationMenu({
   )
 
   return (
-    <div className="conv-menu" role="dialog" aria-label="Conversations">
+    <div className="conv-menu" role="dialog" aria-label={intl.formatMessage({ id: 'chat.conversations', defaultMessage: 'Conversations' })}>
       <div className="conv-menu-sticky">
         <div className="conv-menu-head">
-          <button type="button" className="conv-menu-x" onClick={onClose} aria-label="Close menu">
+          <button type="button" className="conv-menu-x" onClick={onClose} aria-label={intl.formatMessage({ id: 'chat.menu.close', defaultMessage: 'Close menu' })}>
             <X size={16} />
-            <span className="conv-menu-x-t">Back to chat</span>
+            <span className="conv-menu-x-t">{intl.formatMessage({ id: 'chat.menu.back', defaultMessage: 'Back to chat' })}</span>
           </button>
         </div>
 
         <button type="button" className="conv-menu-action" onClick={onNewChat}>
           <SquarePen size={15} />
-          New chat
+          {intl.formatMessage({ id: 'chat.newChat', defaultMessage: 'New chat' })}
         </button>
       </div>
 
@@ -191,7 +205,7 @@ export function ConversationMenu({
           <div className="conv-menu-sec">
             <div className="conv-menu-sec-h">
               <ListChecks size={14} />
-              <span>Automation runs</span>
+              <span>{intl.formatMessage({ id: 'chat.automationRuns', defaultMessage: 'Automation runs' })}</span>
             </div>
             {visibleRuns.map(row)}
             <button
@@ -199,7 +213,7 @@ export function ConversationMenu({
               className="conv-menu-more"
               onClick={() => onViewAll('automation')}
             >
-              View all runs
+              {intl.formatMessage({ id: 'chat.viewRuns', defaultMessage: 'View all runs' })}
             </button>
           </div>
         )}
@@ -208,11 +222,11 @@ export function ConversationMenu({
           <div className="conv-menu-sec">
             <div className="conv-menu-sec-h">
               <Zap size={14} />
-              <span>Captures</span>
+              <span>{intl.formatMessage({ id: 'chat.captures', defaultMessage: 'Captures' })}</span>
             </div>
             {visibleCaptures.map(row)}
             <button type="button" className="conv-menu-more" onClick={() => onViewAll('capture')}>
-              View all captures
+              {intl.formatMessage({ id: 'chat.viewCaptures', defaultMessage: 'View all captures' })}
             </button>
           </div>
         )}
@@ -220,31 +234,31 @@ export function ConversationMenu({
         <div className="conv-menu-sec conv-menu-sec--fill">
           <div className="conv-menu-sec-h">
             <MessageSquare size={14} />
-            <span>Chats</span>
+            <span>{intl.formatMessage({ id: 'chat.chats', defaultMessage: 'Chats' })}</span>
             <button
               type="button"
               className="conv-menu-plus"
               onClick={onNewChat}
-              aria-label="New chat"
+              aria-label={intl.formatMessage({ id: 'chat.newChat', defaultMessage: 'New chat' })}
             >
               <Plus size={14} />
             </button>
           </div>
           {chats.length === 0 ? (
-            <div className="conv-menu-empty">No chats yet.</div>
+            <div className="conv-menu-empty">{intl.formatMessage({ id: 'chat.noChats', defaultMessage: 'No chats yet.' })}</div>
           ) : (
             // Grouped by age rather than listed flat: six identically-shaped rows with a
             // timestamp each is a table nobody reads, and "yesterday" is how people actually
             // recall a conversation.
             groupByAge(visibleChats).map((bucket) => (
               <div key={bucket.label} className="conv-menu-bucket">
-                <div className="conv-menu-bucket-h">{bucket.label}</div>
+                <div className="conv-menu-bucket-h">{localizedAgeLabel(bucket.label, intl)}</div>
                 {sortWithinSection(bucket.items, statusFor).map(row)}
               </div>
             ))
           )}
           <button type="button" className="conv-menu-more" onClick={() => onViewAll('chat')}>
-            View all conversations
+            {intl.formatMessage({ id: 'chat.viewChats', defaultMessage: 'View all conversations' })}
           </button>
         </div>
       </div>
@@ -288,14 +302,22 @@ export function ConversationRow({
    *  caller except LuciusHistoryHoverList. */
   onMenuOpenChange?: (open: boolean) => void
 }) {
-  const statusLabel = conversationStatusLabel(status)
+  const intl = useAppIntl()
+  const statusLabel = conversationStatusLabel(status, intl)
   return (
     <div className={`conv-menu-row${active ? ' on' : ''}`}>
       {editing ? (
         <ConversationRenameInput
           className="conv-row-rename"
-          initial={conv.title}
-          onCommit={onCommitRename}
+          initial={displayConversationTitle(conv, intl)}
+          onCommit={(title) => {
+            if (
+              (conv.titleSource === 'placeholder' || conv.titleSource === 'onboarding') &&
+              title === displayConversationTitle(conv, intl)
+            )
+              onCancelRename()
+            else onCommitRename(title)
+          }}
           onCancel={onCancelRename}
         />
       ) : (
@@ -306,7 +328,7 @@ export function ConversationRow({
             </span>
           )}
           <ConversationStatusBadge status={status} />
-          <span className="conv-menu-row-t">{conv.title}</span>
+          <span className="conv-menu-row-t">{displayConversationTitle(conv, intl)}</span>
           {statusLabel ? (
             <span className="conv-menu-row-w conv-menu-row-w--status">{statusLabel}</span>
           ) : (

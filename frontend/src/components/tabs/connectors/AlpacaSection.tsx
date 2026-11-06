@@ -1,3 +1,4 @@
+import { useAppIntl } from '../../../i18n/useAppIntl'
 import { useCallback, useEffect, useState } from 'react'
 import { authFetch } from '../../../api/client'
 import {
@@ -55,12 +56,9 @@ function alpacaFormOf(c: AlpacaStatus): AlpacaForm {
   }
 }
 
-const ENV_OPTIONS = [
-  { value: 'paper', label: 'Paper account' },
-  { value: 'live', label: 'Live account' },
-]
 
 export function AlpacaSection() {
+  const { formatMessage } = useAppIntl()
   const [cfg, setCfg] = useState<AlpacaStatus | null>(null)
   const [form, setForm] = useState<AlpacaForm | null>(null)
   const [error, setError] = useState(false)
@@ -94,7 +92,7 @@ export function AlpacaSection() {
         body.api_key_id = form.api_key_id.trim()
         body.secret_key = form.secret_key.trim()
       } else if (form.api_key_id.trim() || form.secret_key.trim()) {
-        setSaveErr('Provide BOTH the API key id and secret, or leave both empty.')
+        setSaveErr(formatMessage({ id: 'connectors.alpaca.pair', defaultMessage: "Provide BOTH the API key id and secret, or leave both empty." }))
         return false
       }
       const r = await authFetch('/api/alpaca/config', {
@@ -104,14 +102,14 @@ export function AlpacaSection() {
       })
       if (!r.ok) {
         const d = await r.json().catch(() => ({}))
-        setSaveErr(d.detail || 'Could not save the credentials.')
+        setSaveErr(d.detail || formatMessage({ id: 'connectors.alpaca.save', defaultMessage: "Could not save the credentials." }))
         return false
       }
       setForm((f) => f && { ...f, api_key_id: '', secret_key: '' })
       load()
       return true
     } catch {
-      setSaveErr('Could not save — could not reach the server.')
+      setSaveErr(formatMessage({ id: 'connectors.email.serverFailed', defaultMessage: 'Could not save — could not reach the server.' }))
       return false
     } finally {
       setSaving(false)
@@ -154,8 +152,8 @@ export function AlpacaSection() {
     touched: boolean,
   ): string | undefined => {
     if (mineFilled) return undefined
-    if (otherFilled) return `Enter the ${label} too — both keys are required together.`
-    return touched && !cfg?.has_keys ? `The ${label} is required.` : undefined
+    if (otherFilled) return formatMessage({ id: 'connectors.alpaca.pairError', defaultMessage: 'Enter the {label} too — both keys are required together.' }, { label })
+    return touched && !cfg?.has_keys ? formatMessage({ id: 'connectors.alpaca.required', defaultMessage: 'The {label} is required.' }, { label }) : undefined
   }
 
   useConnectorSave({
@@ -174,14 +172,14 @@ export function AlpacaSection() {
   if (error) {
     return (
       <Text size="sm" tone="bad">
-        Could not load the Alpaca connector status.
+        {formatMessage({ id: 'connectors.alpaca.load', defaultMessage: "Could not load the Alpaca connector status." })}
       </Text>
     )
   }
   if (!cfg || !form) {
     return (
       <Text size="sm" tone="faint">
-        Loading…
+        {formatMessage({ id: 'connectors.email.loading', defaultMessage: 'Loading…' })}
       </Text>
     )
   }
@@ -194,24 +192,18 @@ export function AlpacaSection() {
   return (
     <Stack gap="--space-4">
       <Text size="sm" tone="faint">
-        Add your{' '}
-        <a href="https://alpaca.markets/" target="_blank" rel="noreferrer">
-          Alpaca
-        </a>{' '}
-        API key pair, then pick paper or live to match the account they belong to. Connecting Alpaca
-        creates a dedicated Alpaca account here — retire any manual copy you were keeping.
+        {formatMessage({ id: 'connectors.alpaca.intro', defaultMessage: 'Add your <link>Alpaca</link> API key pair, then pick paper or live to match the account they belong to. Connecting Alpaca creates a dedicated Alpaca account here — retire any manual copy you were keeping.' }, { link: (chunks) => <a href="https://alpaca.markets/" target="_blank" rel="noreferrer">{chunks}</a> })}
       </Text>
 
       {cfg.configured && !cfg.enabled && (
         <Text size="xs" tone="warn">
-          Currently paused — saving here won&apos;t resume it. Use Resume on the connector card to
-          turn it back on.
+          {formatMessage({ id: 'connectors.alpaca.paused', defaultMessage: "Currently paused — saving here won't resume it. Use Resume on the connector card to turn it back on." })}
         </Text>
       )}
 
       {cfg.configured && (
         <Cluster gap="--space-3" align="center" wrap>
-          <Badge tone={isLive ? 'neg' : 'muted'}>{isLive ? 'LIVE' : 'Paper'}</Badge>
+          <Badge tone={isLive ? 'neg' : 'muted'}>{isLive ? formatMessage({ id: 'connectors.alpaca.liveBadge', defaultMessage: 'LIVE' }) : formatMessage({ id: 'connectors.alpaca.paperBadge', defaultMessage: 'Paper' })}</Badge>
         </Cluster>
       )}
       <ConnectorStatusLine lastSyncedAt={cfg.last_synced_at} lastStatus={cfg.last_status} />
@@ -219,29 +211,29 @@ export function AlpacaSection() {
         <Cluster gap="--space-3" align="center" wrap>
           {cfg.cash != null && (
             <Text size="xs" tone="faint">
-              Cash {fCur(Number(cfg.cash), 'USD')}
+              {formatMessage({ id: 'connectors.alpaca.cash', defaultMessage: 'Cash {amount}' }, { amount: fCur(Number(cfg.cash), 'USD') })}
             </Text>
           )}
           {cfg.buying_power != null && (
             <Text size="xs" tone="faint">
-              Buying power {fCur(Number(cfg.buying_power), 'USD')}
+              {formatMessage({ id: 'connectors.alpaca.buyingPower', defaultMessage: 'Buying power {amount}' }, { amount: fCur(Number(cfg.buying_power), 'USD') })}
             </Text>
           )}
         </Cluster>
       )}
       {cfg.last_error && (
         <Text size="xs" tone="bad">
-          Last error: {cfg.last_error}
+          {formatMessage({ id: 'connectors.email.lastError', defaultMessage: 'Last error: {error}' }, { error: cfg.last_error })}
         </Text>
       )}
 
       <FormField
-        label="API key id"
+        label={formatMessage({ id: 'connectors.alpaca.keyId', defaultMessage: "API key id" })}
         htmlFor="conn-alpaca-keyid"
         required
-        help={keyId.caption || 'Your Alpaca APCA-API-KEY-ID (from the Alpaca dashboard).'}
+        help={keyId.caption || formatMessage({ id: 'connectors.alpaca.keyHelp', defaultMessage: "Your Alpaca APCA-API-KEY-ID (from the Alpaca dashboard)." })}
         error={
-          keyId.error || pairError(keyIdFilled, secretFilled, 'API key id', keyIdTouched.touched)
+          keyId.error || pairError(keyIdFilled, secretFilled, formatMessage({ id: 'connectors.alpaca.keyId', defaultMessage: "API key id" }), keyIdTouched.touched)
         }
       >
         <PasswordField
@@ -255,13 +247,13 @@ export function AlpacaSection() {
       </FormField>
 
       <FormField
-        label="Secret key"
+        label={formatMessage({ id: 'connectors.alpaca.secret', defaultMessage: "Secret key" })}
         htmlFor="conn-alpaca-secret"
         required
-        help={secretKey.caption || 'Your Alpaca APCA-API-SECRET-KEY.'}
+        help={secretKey.caption || formatMessage({ id: 'connectors.alpaca.secretHelp', defaultMessage: "Your Alpaca APCA-API-SECRET-KEY." })}
         error={
           secretKey.error ||
-          pairError(secretFilled, keyIdFilled, 'secret key', secretKeyTouched.touched)
+          pairError(secretFilled, keyIdFilled, formatMessage({ id: 'connectors.alpaca.secret', defaultMessage: 'Secret key' }), secretKeyTouched.touched)
         }
       >
         <PasswordField
@@ -274,11 +266,11 @@ export function AlpacaSection() {
         />
       </FormField>
 
-      <FormField label="Environment" htmlFor="conn-alpaca-env">
+      <FormField label={formatMessage({ id: 'connectors.binance.environment', defaultMessage: 'Environment' })} htmlFor="conn-alpaca-env">
         <Select
           id="conn-alpaca-env"
           value={form.environment}
-          options={ENV_OPTIONS}
+          options={[{ value: 'paper', label: formatMessage({ id: 'connectors.alpaca.paper', defaultMessage: 'Paper account' }) }, { value: 'live', label: formatMessage({ id: 'connectors.alpaca.live', defaultMessage: 'Live account' }) }]}
           onChange={(e) => set('environment', e.target.value)}
         />
       </FormField>

@@ -1,3 +1,4 @@
+import { fLocalizedMonth } from '../../../utils/format'
 // plan/cashflow.tsx — Cash Flow sub-tab (cfx-* classes).
 // Verbatim port of design_handoffs/plan_handoff/prototype/plan/cashflow.jsx.
 // Mock data (buildMonths / EXTRA / COMMIT_MONTHS / shape swing) replaced by GET /api/cashflow.
@@ -6,16 +7,18 @@
 // `onAsk` renamed to `onAskLucius` to match the existing props interface.
 
 import { useState, useRef, useEffect, Fragment } from 'react'
+import { useAppIntl } from '../../../i18n/useAppIntl'
 import { useRouterState } from '@tanstack/react-router'
 import { Button, ActionMenu, Cluster, EmptyState, TabSkeleton } from '../../ui'
 import { LuciusCta } from '../../intro/LuciusCta'
-import { SCREEN_INTROS } from '../../intro/screenIntros'
+import { screenIntros } from '../../intro/screenIntros'
 import { reportScreenFill } from '../../intro/screenState'
 import { FlowIcon, X } from './icons'
 import { ChartArea } from '../../../ui/icons'
 import { fBase, fCF } from './planData'
 import { getCurrencySymbol } from '../../../utils/format'
 import { useCashflowData } from './useCashflowData'
+import { formatCashflowMessage } from './cashflowMessages'
 import type { MappedRow } from './useCashflowData'
 import { useRegisterScreenFacts, useRegisterScreenPrompts } from '../../../lucius/useScreenContract'
 import { PlanningModal } from './PlanningModal'
@@ -23,7 +26,6 @@ import { FilterSelect } from './budgetParts'
 import { useIsMobile } from '../../../hooks/useIsMobile'
 import { thisMonth } from '../../../hooks/useBudget'
 import { MoneyFlowModal } from './moneyFlowModal'
-import { cardCaveat } from '../../../utils/cardCaveat'
 import type { RegisterFilter } from './budget'
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
@@ -37,13 +39,13 @@ const CAT_COLOR: Record<string, string> = {
 
 /** " · 4 days left" for the in-progress month, so its prorated recurring figure reads as a
  *  partial month rather than an unexplained shortfall. Empty for any other month. */
-function daysLeftLabel(ym: string): string {
+function daysLeft(ym: string): { left: number; total: number } | null {
   const [y, m] = ym.split('-').map(Number)
   const today = new Date()
-  if (!y || !m || y !== today.getFullYear() || m !== today.getMonth() + 1) return ''
+  if (!y || !m || y !== today.getFullYear() || m !== today.getMonth() + 1) return null
   const inMonth = new Date(y, m, 0).getDate()
   const left = Math.max(inMonth - today.getDate(), 0)
-  return ` • ${left} ${left === 1 ? 'day' : 'days'} left of ${inMonth}`
+  return { left, total: inMonth }
 }
 
 const HIST_VISIBLE = 3
@@ -64,6 +66,7 @@ function BalanceChart({
   minBal: number
   floor: number
 }) {
+  const { formatMessage } = useAppIntl()
   const LOW_T = floor
   const W = 680,
     H = 132,
@@ -223,7 +226,10 @@ function BalanceChart({
                     transform: `translate(${lblTX}, ${lblTY})`,
                   }}
                 >
-                  Low • <b className="mask">{fCF(minBal)}</b>
+                  {formatMessage(
+                    { id: 'plan.cashLow', defaultMessage: 'Low • <b>{amount}</b>' },
+                    { amount: fCF(minBal), b: (chunks) => <b className="mask">{chunks}</b> },
+                  )}
                 </span>
               </>
             )
@@ -259,7 +265,10 @@ function BalanceChart({
                 className="cfx-lbl cfx-lbl-zero"
                 style={{ left: zpct + '%', top: zy + 'px', transform: `translate(${lblTX}, 11px)` }}
               >
-                Runs dry • {months[zi]!.label}
+                {formatMessage(
+                  { id: 'plan.cashRunsDry', defaultMessage: 'Runs dry • {month}' },
+                  { month: months[zi]!.label },
+                )}
               </span>
             </>
           )
@@ -281,12 +290,16 @@ function BalanceChart({
             >
               <span className="cfx-tip-m">
                 {hm.label}
-                {hm.isCurrent ? ' • Today' : ''}
+                {hm.isCurrent
+                  ? formatMessage({ id: 'plan.todaySuffix', defaultMessage: ' • Today' })
+                  : ''}
               </span>
               <span className={'cfx-tip-b mask ' + hTone}>{fCF(hm.balance)}</span>
               <span className={'cfx-tip-n mask ' + (hm.net >= 0 ? 'pos' : 'neg')}>
-                {hm.net >= 0 ? '+' : '−'}
-                {fCF(Math.abs(hm.net))} net
+                {formatMessage(
+                  { id: 'plan.netSuffixAmount', defaultMessage: '{amount} net' },
+                  { amount: (hm.net >= 0 ? '+' : '−') + fCF(Math.abs(hm.net)) },
+                )}
               </span>
             </span>
           </>
@@ -294,7 +307,12 @@ function BalanceChart({
       </div>
       <div className="cfx-chart-axis">
         <span>{months[0]!.label}</span>
-        <span className="cfx-thr-key">Safety floor {fCF(LOW_T)}</span>
+        <span className="cfx-thr-key">
+          {formatMessage(
+            { id: 'plan.safetyFloorValue', defaultMessage: 'Safety floor {value}' },
+            { value: fCF(LOW_T) },
+          )}
+        </span>
         <span>{months[n - 1]!.label}</span>
       </div>
     </div>
@@ -334,12 +352,16 @@ function LedgerRow({
   /** Actual months and the current one (month to date) — a future month has no transactions. */
   onOpenFlow?: (ym: string) => void
 }) {
+  const { formatMessage } = useAppIntl()
   const flowBtn = onOpenFlow && (row.isHistory || row.isCurrent) && (
     <button
       type="button"
       className="cfx-flow-btn"
-      aria-label={`See money flow for ${row.label}`}
-      title="Money flow"
+      aria-label={formatMessage(
+        { id: 'plan.seeFlow', defaultMessage: 'See money flow for {month}' },
+        { month: row.label },
+      )}
+      title={formatMessage({ id: 'plan.moneyFlow', defaultMessage: 'Money flow' })}
       onClick={(e) => {
         e.stopPropagation()
         onOpenFlow(row.ym)
@@ -397,8 +419,16 @@ function LedgerRow({
               <span className="cfx-m-name">
                 {row.mName} <span className="cfx-m-yr">'{String(row.year).slice(2)}</span>
               </span>
-              {row.isCurrent && <span className="cfx-tag today">Today</span>}
-              {row.isHistory && !row.isCurrent && <span className="cfx-tag hist">Actual</span>}
+              {row.isCurrent && (
+                <span className="cfx-tag today">
+                  {formatMessage({ id: 'plan.today', defaultMessage: 'Today' })}
+                </span>
+              )}
+              {row.isHistory && !row.isCurrent && (
+                <span className="cfx-tag hist">
+                  {formatMessage({ id: 'plan.actual', defaultMessage: 'Actual' })}
+                </span>
+              )}
               {flowBtn}
             </span>
             <span className={'cfx-balv mask cfx-mcard-bal' + (balTone ? ' ' + balTone : '')}>
@@ -408,19 +438,35 @@ function LedgerRow({
           <div className="pl-mcard-div" />
           <div className="pl-mcard-nums">
             <div className="pl-mnum">
-              <span className="pl-mnum-lbl" title={GROSS_NOTE}>
-                In
+              <span
+                className="pl-mnum-lbl"
+                title={formatMessage({
+                  id: 'plan.grossNote',
+                  defaultMessage:
+                    'In and Out are gross: a refund or reimbursement counts as money in, and the purchase it undoes still counts as money out. Reports nets refunds against their categories, so the same month looks smaller there.',
+                })}
+              >
+                {formatMessage({ id: 'plan.in', defaultMessage: 'In' })}
               </span>
               <span className="cfx-mnum-v mask pos">+{fCF(row.total_in)}</span>
             </div>
             <div className="pl-mnum">
-              <span className="pl-mnum-lbl" title={GROSS_NOTE}>
-                Out
+              <span
+                className="pl-mnum-lbl"
+                title={formatMessage({
+                  id: 'plan.grossNote',
+                  defaultMessage:
+                    'In and Out are gross: a refund or reimbursement counts as money in, and the purchase it undoes still counts as money out. Reports nets refunds against their categories, so the same month looks smaller there.',
+                })}
+              >
+                {formatMessage({ id: 'plan.out', defaultMessage: 'Out' })}
               </span>
               <span className="cfx-mnum-v mask">−{fCF(row.total_out)}</span>
             </div>
             <div className="pl-mnum">
-              <span className="pl-mnum-lbl">Net</span>
+              <span className="pl-mnum-lbl">
+                {formatMessage({ id: 'plan.net', defaultMessage: 'Net' })}
+              </span>
               <span className={'cfx-mnum-v mask ' + (row.net >= 0 ? 'pos' : 'neg')}>
                 {row.net >= 0 ? '+' : '−'}
                 {fCF(Math.abs(row.net))}
@@ -429,7 +475,7 @@ function LedgerRow({
           </div>
           {hasEvents && (
             <span className={'cfx-tag evt' + (expanded ? ' open' : '')}>
-              {row.events.length} event{row.events.length > 1 ? 's' : ''}
+              {formatMessage({ id: 'planScan.events', defaultMessage: '{count, plural, one {# event} other {# events}}' }, { count: row.events.length })}
               <EventsChevron />
             </span>
           )}
@@ -453,11 +499,19 @@ function LedgerRow({
           <span className="cfx-m-name">
             {row.mName} <span className="cfx-m-yr">'{String(row.year).slice(2)}</span>
           </span>
-          {row.isCurrent && <span className="cfx-tag today">Today</span>}
-          {row.isHistory && !row.isCurrent && <span className="cfx-tag hist">Actual</span>}
+          {row.isCurrent && (
+            <span className="cfx-tag today">
+              {formatMessage({ id: 'plan.today', defaultMessage: 'Today' })}
+            </span>
+          )}
+          {row.isHistory && !row.isCurrent && (
+            <span className="cfx-tag hist">
+              {formatMessage({ id: 'plan.actual', defaultMessage: 'Actual' })}
+            </span>
+          )}
           {hasEvents && (
             <span className={'cfx-tag evt' + (expanded ? ' open' : '')}>
-              {row.events.length} event{row.events.length > 1 ? 's' : ''}
+              {formatMessage({ id: 'planScan.events', defaultMessage: '{count, plural, one {# event} other {# events}}' }, { count: row.events.length })}
               <EventsChevron />
             </span>
           )}
@@ -483,21 +537,28 @@ function LedgerRow({
 /** What In and Out count. Reports nets a refund against its category, so the same month reads
  *  smaller there (persona QA 2026-10-14: about S$5K apart on each side, and the owner doubted
  *  both). */
-const GROSS_NOTE =
-  'In and Out are gross: a refund or reimbursement counts as money in, and the purchase it undoes still counts as money out. Reports nets refunds against their categories, so the same month looks smaller there.'
 
 /** A month-end balance, or "Before tracking" for a past month earlier than any cash account's
  *  Starting Balance, where nothing was counted yet (it is not zero). */
 function RowBalance({ row }: { row: MappedRow }) {
+  const { formatMessage } = useAppIntl()
   if (row.balanceKnown) return <>{fCF(row.balance)}</>
   return (
-    <span className="cfx-bal-none" title="Before any of your cash accounts were tracked">
-      Before tracking
+    <span
+      className="cfx-bal-none"
+      title={formatMessage({
+        id: 'plan.beforeTrackingHelp',
+        defaultMessage: 'Before any of your cash accounts were tracked',
+      })}
+    >
+      {formatMessage({ id: 'plan.beforeTracking', defaultMessage: 'Before tracking' })}
     </span>
   )
 }
 
 function LedgerRowDetail({ row }: { row: MappedRow }) {
+  const intl = useAppIntl()
+  const { formatMessage } = intl
   return (
     <div className="cfx-detail">
       <div className="cfx-events">
@@ -512,10 +573,40 @@ function LedgerRowDetail({ row }: { row: MappedRow }) {
                 mysteriously small figure. */}
         <div className="cfx-events-h">
           {row.isHistory
-            ? 'What happened this month'
+            ? formatMessage({ id: 'plan.cashHappened', defaultMessage: 'What happened this month' })
             : row.isCurrent
-              ? `Rest of this month • ${fCF(row.recIn)} recurring in • ${fCF(row.recOut)} recurring out${daysLeftLabel(row.ym)}`
-              : `Expected this month • ${fCF(row.recIn)} recurring in • ${fCF(row.recOut)} recurring out`}
+              ? formatMessage(
+                  {
+                    id: 'plan.cashRest',
+                    defaultMessage:
+                      'Rest of this month • {income} recurring in • {expenses} recurring out{remaining}',
+                  },
+                  {
+                    income: fCF(row.recIn),
+                    expenses: fCF(row.recOut),
+                    remaining: (() => {
+                      const days = daysLeft(row.ym)
+                      return days
+                        ? formatMessage(
+                            {
+                              id: 'plan.daysLeft',
+                              defaultMessage:
+                                ' • {left, plural, one {# day} other {# days}} left of {total}',
+                            },
+                            days,
+                          )
+                        : ''
+                    })(),
+                  },
+                )
+              : formatMessage(
+                  {
+                    id: 'plan.cashExpected',
+                    defaultMessage:
+                      'Expected this month • {income} recurring in • {expenses} recurring out',
+                  },
+                  { income: fCF(row.recIn), expenses: fCF(row.recOut) },
+                )}
         </div>
         {row.events.map((ev, i) => {
           // Events are ordered one-offs first, recurring last. Mark the boundary so a
@@ -537,22 +628,38 @@ function LedgerRowDetail({ row }: { row: MappedRow }) {
                       "INCOME"). A sibling in the flex column just works. */}
               {startsRecurring && (
                 <div className="cfx-events-h cfx-ev-group">
-                  Recurring{row.isCurrent ? ' • rest of month' : ''}
+                  {row.isCurrent
+                    ? formatMessage({
+                        id: 'plan.recurringRest',
+                        defaultMessage: 'Recurring • rest of month',
+                      })
+                    : formatMessage({ id: 'plan.recurring', defaultMessage: 'Recurring' })}
                 </div>
               )}
               {startsVariable && (
-                <div className="cfx-events-h cfx-ev-group">Variable • averaged</div>
+                <div className="cfx-events-h cfx-ev-group">
+                  {formatMessage({
+                    id: 'plan.variableAveraged',
+                    defaultMessage: 'Variable • averaged',
+                  })}
+                </div>
               )}
               <div className={'cfx-ev' + (ev.recurring ? ' recurring' : '')}>
                 <span className="cfx-ev-cat" style={{ color: CAT_COLOR[ev.cat] || 'var(--faint)' }}>
-                  {ev.cat}
+                  {formatCashflowMessage(intl, ev.category_message, ev.cat)}
                 </span>
                 <span className={'cfx-ev-amt mask ' + (ev.dir === 'in' ? 'pos' : 'neg')}>
                   {ev.dir === 'in' ? '+' : '−'}
                   {fBase(ev.amt)}
                 </span>
-                <span className="cfx-ev-label">{ev.label}</span>
-                {ev.note && <span className="cfx-ev-note">{ev.note}</span>}
+                <span className="cfx-ev-label">
+                  {formatCashflowMessage(intl, ev.label_message, ev.label)}
+                </span>
+                {ev.note && (
+                  <span className="cfx-ev-note">
+                    {formatCashflowMessage(intl, ev.note_message, ev.note)}
+                  </span>
+                )}
               </div>
             </Fragment>
           )
@@ -584,13 +691,15 @@ function hasProjectionInputs(data: ReturnType<typeof useCashflowData>['data']): 
 // ── CashFlowTab ───────────────────────────────────────────────────────────────
 
 export function CashFlowTab(props: CashFlowTabProps) {
+  const intl = useAppIntl()
+  const { formatMessage, locale } = intl
   const { toast } = props
 
   const {
     data,
     loading,
     error,
-    months,
+    months: rawMonths,
     floor,
     incomeVal,
     setIncomeVal,
@@ -617,6 +726,15 @@ export function CashFlowTab(props: CashFlowTabProps) {
     resetSettings,
     saveFloorToProfile,
   } = useCashflowData()
+  const months = rawMonths.map((row) => {
+    const date = new Date(`${row.ym}-01T00:00:00Z`)
+    if (Number.isNaN(date.getTime())) return row
+    return {
+      ...row,
+      mName: fLocalizedMonth(row.ym, locale, 'short', 'never'),
+      label: fLocalizedMonth(row.ym, locale, 'short', 'always'),
+    }
+  })
   // Its first-visit intro offers setup on an empty projection, a walkthrough on a real one.
   useEffect(() => {
     if (data) reportScreenFill('plan-cashflow', hasProjectionInputs(data) ? 'filled' : 'empty')
@@ -727,7 +845,14 @@ export function CashFlowTab(props: CashFlowTabProps) {
   if (loading && !data) {
     return (
       <div className="pl-sub cfx" style={{ gap: 0, marginTop: 16 }}>
-        <TabSkeleton variant="cashflow" label="Loading cash flow…" header={false} />
+        <TabSkeleton
+          variant="cashflow"
+          label={formatMessage({
+            id: 'plan.loadingCashFlow',
+            defaultMessage: 'Loading cash flow…',
+          })}
+          header={false}
+        />
       </div>
     )
   }
@@ -746,13 +871,23 @@ export function CashFlowTab(props: CashFlowTabProps) {
       <EmptyState
         fill
         icon={<ChartArea size={28} strokeWidth={1.5} aria-hidden="true" />}
-        title="No cash flow to project yet"
-        body="Add monthly income and spending, or a future commitment to build a projection."
+        title={formatMessage({
+          id: 'plan.cashNoProjection',
+          defaultMessage: 'No cash flow to project yet',
+        })}
+        body={formatMessage({
+          id: 'plan.cashAddInputs',
+          defaultMessage:
+            'Add monthly income and spending, or a future commitment to build a projection.',
+        })}
         action={
           <Cluster gap="--space-3" justify="center">
             <LuciusCta
-              label="Set up with Lucius"
-              message={SCREEN_INTROS['plan-cashflow'].lucius}
+              label={formatMessage({
+                id: 'plan.setupLucius',
+                defaultMessage: 'Set up with Lucius',
+              })}
+              message={screenIntros(intl)['plan-cashflow'].lucius}
               onAskLucius={props.onAskLucius}
             />
           </Cluster>
@@ -785,9 +920,16 @@ export function CashFlowTab(props: CashFlowTabProps) {
   const rwyN = Number(runway)
   const rwyTone =
     data.income_runway_months == null ? '' : rwyN < 3 ? 'neg' : rwyN < 6 ? 'warn' : 'pos'
-  const caveat = cardCaveat(data.cards_missing_spending)
-  const cardsNote =
-    caveat && `${caveat}. The runway and the projection read better than the book is.`
+  const cardsNote = data.cards_missing_spending?.length
+    ? formatMessage(
+        {
+          id: 'plan.cashMissingCards',
+          defaultMessage:
+            'Card spending not included yet ({cards}). The runway and the projection read better than the book is.',
+        },
+        { cards: data.cards_missing_spending.join(', ') },
+      )
+    : null
   const minBal = future.length > 0 ? Math.min(...future.map((m) => m.balance)) : 0
   const minMonth = future.find((m) => m.balance === minBal)
   const totalNet = future.reduce((s, m) => s + m.net, 0)
@@ -800,9 +942,9 @@ export function CashFlowTab(props: CashFlowTabProps) {
   })
 
   const FILTERS: [string, string][] = [
-    ['all', 'All months'],
-    ['events', 'Has events'],
-    ['tight', 'Tight only'],
+    ['all', formatMessage({ id: 'plan.filterAllMonths', defaultMessage: 'All months' })],
+    ['events', formatMessage({ id: 'plan.filterHasEvents', defaultMessage: 'Has events' })],
+    ['tight', formatMessage({ id: 'plan.filterTight', defaultMessage: 'Tight only' })],
   ]
   const filterCounts: Record<string, number> = {
     all: months.length,
@@ -865,7 +1007,7 @@ export function CashFlowTab(props: CashFlowTabProps) {
     // permanently in scenario mode. The inputs show BASE_IN/BASE_OUT as placeholders.
     {
       key: 'baseline',
-      label: 'Baseline',
+      label: formatMessage({ id: 'plan.cashScenario.baseline', defaultMessage: 'Baseline' }),
       incomeVal: '',
       expenseVal: '',
       expGrowth: '3',
@@ -877,7 +1019,7 @@ export function CashFlowTab(props: CashFlowTabProps) {
     // rather than growth applied to the current baseline.
     {
       key: 'raise',
-      label: 'Pay raise',
+      label: formatMessage({ id: 'plan.cashScenario.raise', defaultMessage: 'Pay raise' }),
       incomeVal: '',
       expenseVal: '',
       expGrowth: '3',
@@ -885,7 +1027,7 @@ export function CashFlowTab(props: CashFlowTabProps) {
     },
     {
       key: 'lean',
-      label: 'Lean spending',
+      label: formatMessage({ id: 'plan.cashScenario.lean', defaultMessage: 'Lean spending' }),
       incomeVal: '',
       expenseVal: LEAN,
       expGrowth: '3',
@@ -893,7 +1035,7 @@ export function CashFlowTab(props: CashFlowTabProps) {
     },
     {
       key: 'inflation',
-      label: 'High inflation',
+      label: formatMessage({ id: 'plan.cashScenario.inflation', defaultMessage: 'High inflation' }),
       incomeVal: '',
       expenseVal: '',
       expGrowth: '8',
@@ -901,7 +1043,7 @@ export function CashFlowTab(props: CashFlowTabProps) {
     },
     {
       key: 'lose',
-      label: 'Lose income',
+      label: formatMessage({ id: 'plan.cashScenario.lose', defaultMessage: 'Lose income' }),
       incomeVal: '0',
       expenseVal: '',
       expGrowth: '3',
@@ -933,15 +1075,19 @@ export function CashFlowTab(props: CashFlowTabProps) {
 
   function exportCSV() {
     const head = [
-      'Month',
-      'Money In (SGD)',
-      'Money Out (SGD)',
-      'Net (SGD)',
-      'Balance (SGD)',
-      'Status',
+      formatMessage({ id: 'plan.cashExport.month', defaultMessage: 'Month' }),
+      formatMessage({ id: 'plan.cashExport.in', defaultMessage: 'Money In (SGD)' }),
+      formatMessage({ id: 'plan.cashExport.out', defaultMessage: 'Money Out (SGD)' }),
+      formatMessage({ id: 'plan.cashExport.net', defaultMessage: 'Net (SGD)' }),
+      formatMessage({ id: 'plan.cashExport.balance', defaultMessage: 'Balance (SGD)' }),
+      formatMessage({ id: 'plan.cashExport.status', defaultMessage: 'Status' }),
     ]
     const status = (m: MappedRow) =>
-      m.isCurrent ? 'Current' : m.isHistory ? 'Actual' : 'Projected'
+      m.isCurrent
+        ? formatMessage({ id: 'plan.cashExport.current', defaultMessage: 'Current' })
+        : m.isHistory
+          ? formatMessage({ id: 'plan.actual', defaultMessage: 'Actual' })
+          : formatMessage({ id: 'plan.cashExport.projected', defaultMessage: 'Projected' })
     const rows = months.map((m) => [
       m.label,
       Math.round(m.total_in),
@@ -964,7 +1110,12 @@ export function CashFlowTab(props: CashFlowTabProps) {
     a.click()
     a.remove()
     setTimeout(() => URL.revokeObjectURL(url), 1000)
-    toast('Exported cashflow-projection.csv')
+    toast(
+      formatMessage({
+        id: 'plan.cashExport.done',
+        defaultMessage: 'Exported cashflow-projection.csv',
+      }),
+    )
   }
 
   return (
@@ -976,54 +1127,87 @@ export function CashFlowTab(props: CashFlowTabProps) {
             <div className="cfx-hero-head">
               {/* Real spendable cash NOW (the same number runway divides) — NOT the current
                   month's projected end balance, which adds a full month of future net on top. */}
-              <div className="cfx-eyebrow">Cash on hand • today</div>
+              <div className="cfx-eyebrow">
+                {formatMessage({ id: 'plan.cashOnHand', defaultMessage: 'Cash on hand • today' })}
+              </div>
               <div className="cfx-hero-bal mask">{fBase(data.liquid_balance_base)}</div>
               <div className="cfx-hero-sub">
                 <span className="up">
-                  +<span className="mask">{fCF(inc)}</span>/mo in
+                  {formatMessage(
+                    { id: 'plan.cashHero.in', defaultMessage: '+{amount}/mo in' },
+                    { amount: <span className="mask">{fCF(inc)}</span> },
+                  )}
                 </span>
                 <span className="cfx-sub-sep">•</span>
                 <span>
-                  <span className="mask">−{fCF(exp)}</span>/mo out
+                  {formatMessage(
+                    { id: 'plan.cashHero.out', defaultMessage: '{amount}/mo out' },
+                    { amount: <span className="mask">−{fCF(exp)}</span> },
+                  )}
                 </span>
               </div>
             </div>
             <div className="cfx-hero-div" />
             <div className="cfx-hero-head">
-              <div className="cfx-eyebrow">Financial runway</div>
+              <div className="cfx-eyebrow">
+                {formatMessage({ id: 'plan.financialRunway', defaultMessage: 'Financial runway' })}
+              </div>
               <div className={'cfx-hero-bal cfx-runway ' + rwyTone}>
                 {runway}
-                <span className="u">mo</span>
+                <span className="u">
+                  {formatMessage({ id: 'plan.cashHero.months', defaultMessage: 'mo' })}
+                </span>
               </div>
               <div className="cfx-hero-sub">
-                if income stopped, at <span className="mask">{fCF(exp)}</span>/mo burn
+                {formatMessage(
+                  {
+                    id: 'plan.cashHero.runway',
+                    defaultMessage: 'if income stopped, at {amount}/mo burn',
+                  },
+                  { amount: <span className="mask">{fCF(exp)}</span> },
+                )}
                 {assetBoost > 0 && (
                   <span className="cfx-sub-note">
-                    incl. <span className="mask">{fCF(assetBoost)}</span> positions
+                    {formatMessage(
+                      { id: 'plan.cashHero.positions', defaultMessage: 'incl. {amount} positions' },
+                      { amount: <span className="mask">{fCF(assetBoost)}</span> },
+                    )}
                   </span>
                 )}
               </div>
             </div>
           </div>
           <div className="cfx-hero-actions">
-            {simActive && <span className="cfx-sim">What-if active</span>}
+            {simActive && (
+              <span className="cfx-sim">
+                {formatMessage({ id: 'plan.whatIfActive', defaultMessage: 'What-if active' })}
+              </span>
+            )}
             <div className="cfx-hero-btns">
               <Button
                 variant="secondary"
                 size="dense"
                 onClick={() => setFlowMonth(thisMonth())}
-                aria-label="Money flow"
-                title="Money flow — where this month's income has gone so far"
+                aria-label={formatMessage({ id: 'plan.moneyFlow', defaultMessage: 'Money flow' })}
+                title={formatMessage({
+                  id: 'plan.moneyFlowHelp',
+                  defaultMessage: "Money flow — where this month's income has gone so far",
+                })}
               >
                 <FlowIcon />
-                {!isMobile && 'Money flow'}
+                {!isMobile && formatMessage({ id: 'plan.moneyFlow', defaultMessage: 'Money flow' })}
               </Button>
               <Button
                 variant={simActive ? 'primary' : 'secondary'}
                 size="dense"
                 onClick={() => setSettingsOpen(true)}
               >
-                {simActive ? 'Adjust scenario' : 'What-if'}
+                {simActive
+                  ? formatMessage({
+                      id: 'plan.cashHero.adjustScenario',
+                      defaultMessage: 'Adjust scenario',
+                    })
+                  : formatMessage({ id: 'plan.cashHero.whatIf', defaultMessage: 'What-if' })}
               </Button>
             </div>
           </div>
@@ -1040,7 +1224,9 @@ export function CashFlowTab(props: CashFlowTabProps) {
 
         <div className="cfx-stats">
           <div className="cfx-stat">
-            <span className="k">Avg net / mo</span>
+            <span className="k">
+              {formatMessage({ id: 'plan.averageNet', defaultMessage: 'Avg net / mo' })}
+            </span>
             <span className={'v mask ' + (avgNet >= 0 ? 'pos' : 'neg')}>
               {avgNet >= 0 ? '+' : '−'}
               {fCF(Math.abs(avgNet))}
@@ -1049,9 +1235,13 @@ export function CashFlowTab(props: CashFlowTabProps) {
           <div className="cfx-stat">
             <span
               className="k"
-              title="The projected months ahead on average: net change divided by projected income. The Dashboard shows last month's actual rate and the last 3 months' average, and Budget this month's pace, so they differ."
+              title={formatMessage({
+                id: 'plan.cashSavingRateHelp',
+                defaultMessage:
+                  "The projected months ahead on average: net change divided by projected income. The Dashboard shows last month's actual rate and the last 3 months' average, and Budget this month's pace, so they differ.",
+              })}
             >
-              Savings rate
+              {formatMessage({ id: 'plan.savingRate', defaultMessage: 'Savings rate' })}
             </span>
             <span className={'v ' + (savingPct >= 0 ? 'pos' : 'neg')}>
               {savingPct > 0 ? '+' : ''}
@@ -1059,14 +1249,21 @@ export function CashFlowTab(props: CashFlowTabProps) {
             </span>
           </div>
           <div className="cfx-stat">
-            <span className="k">Net • {future.length} mo</span>
+            <span className="k">
+              {formatMessage(
+                { id: 'plan.netMonths', defaultMessage: 'Net • {count} mo' },
+                { count: future.length },
+              )}
+            </span>
             <span className={'v mask ' + (totalNet >= 0 ? 'pos' : 'neg')}>
               {totalNet >= 0 ? '+' : ''}
               {fCF(totalNet)}
             </span>
           </div>
           <div className="cfx-stat">
-            <span className="k">Projected balance</span>
+            <span className="k">
+              {formatMessage({ id: 'plan.projectedBalance', defaultMessage: 'Projected balance' })}
+            </span>
             <span className="v mask">{fCF(endBal)}</span>
           </div>
         </div>
@@ -1078,12 +1275,17 @@ export function CashFlowTab(props: CashFlowTabProps) {
         {!isMobile && (
           <div className="cfx-outlook">
             <span>
-              Lowest point <b className={'mask ' + (minBal < floor ? 'warn' : '')}>{fCF(minBal)}</b>
+              {formatMessage({ id: 'plan.cashControls.lowest', defaultMessage: 'Lowest point' })}{' '}
+              <b className={'mask ' + (minBal < floor ? 'warn' : '')}>{fCF(minBal)}</b>
               {minMonth ? ` • ${minMonth.label}` : ''}
             </span>
             <span className="cfx-dot" />
             <span>
-              Tight months <b className={tightN > 0 ? 'warn' : ''}>{tightN}</b>
+              {formatMessage({
+                id: 'plan.cashControls.tightMonths',
+                defaultMessage: 'Tight months',
+              })}{' '}
+              <b className={tightN > 0 ? 'warn' : ''}>{tightN}</b>
             </span>
           </div>
         )}
@@ -1096,24 +1298,53 @@ export function CashFlowTab(props: CashFlowTabProps) {
               onChange={(v) => setFilter((v ?? 'all') as 'all' | 'events' | 'tight')}
             />
             <ActionMenu
-              label="Cash flow actions"
+              label={formatMessage({ id: 'plan.cashActions', defaultMessage: 'Cash flow actions' })}
               items={[
                 ...(canCollapse
                   ? [
                       {
                         label: showHist
-                          ? 'Hide earlier months'
-                          : `Show ${earlierActuals.length - HIST_VISIBLE} earlier months`,
+                          ? formatMessage({
+                              id: 'plan.cashControls.hideMonths',
+                              defaultMessage: 'Hide earlier months',
+                            })
+                          : formatMessage(
+                              {
+                                id: 'plan.cashControls.showMonthsMobile',
+                                defaultMessage: 'Show {count} earlier months',
+                              },
+                              { count: earlierActuals.length - HIST_VISIBLE },
+                            ),
                         onSelect: () => setShowHist((h) => !h),
                       },
                     ]
                   : []),
                 {
-                  label: allCollapsed ? 'Expand all' : 'Collapse all',
+                  label: allCollapsed
+                    ? formatMessage({
+                        id: 'plan.cashControls.expand',
+                        defaultMessage: 'Expand all',
+                      })
+                    : formatMessage({
+                        id: 'plan.cashControls.collapse',
+                        defaultMessage: 'Collapse all',
+                      }),
                   onSelect: toggleAllYears,
                 },
-                { label: 'Export CSV', onSelect: exportCSV },
-                { label: 'Jump to today', onSelect: jumpToToday },
+                {
+                  label: formatMessage({
+                    id: 'plan.cashControls.export',
+                    defaultMessage: 'Export CSV',
+                  }),
+                  onSelect: exportCSV,
+                },
+                {
+                  label: formatMessage({
+                    id: 'plan.cashControls.today',
+                    defaultMessage: 'Jump to today',
+                  }),
+                  onSelect: jumpToToday,
+                },
               ]}
             />
           </div>
@@ -1141,12 +1372,20 @@ export function CashFlowTab(props: CashFlowTabProps) {
                   <polyline points="7 17 12 12 17 17" />
                 )}
               </svg>
-              {allCollapsed ? 'Expand all' : 'Collapse all'}
+              {allCollapsed
+                ? formatMessage({ id: 'plan.cashControls.expand', defaultMessage: 'Expand all' })
+                : formatMessage({
+                    id: 'plan.cashControls.collapse',
+                    defaultMessage: 'Collapse all',
+                  })}
             </button>
             <button
               className="cfx-barbtn"
               onClick={exportCSV}
-              title="Download the projection as CSV"
+              title={formatMessage({
+                id: 'plan.downloadProjection',
+                defaultMessage: 'Download the projection as CSV',
+              })}
             >
               <svg
                 width="13"
@@ -1162,12 +1401,15 @@ export function CashFlowTab(props: CashFlowTabProps) {
                 <polyline points="7 10 12 15 17 10" />
                 <line x1="12" y1="15" x2="12" y2="3" />
               </svg>
-              Export
+              {formatMessage({ id: 'plan.export', defaultMessage: 'Export' })}
             </button>
             <button
               className="cfx-barbtn"
               onClick={jumpToToday}
-              title="Scroll to the current month"
+              title={formatMessage({
+                id: 'plan.currentMonth',
+                defaultMessage: 'Scroll to the current month',
+              })}
             >
               <svg
                 width="13"
@@ -1182,7 +1424,7 @@ export function CashFlowTab(props: CashFlowTabProps) {
                 <circle cx="12" cy="12" r="9" />
                 <polyline points="12 7 12 12 15 14" />
               </svg>
-              Today
+              {formatMessage({ id: 'plan.today', defaultMessage: 'Today' })}
             </button>
             <div className="cfx-seg">
               {FILTERS.map(([k, l]) => (
@@ -1234,18 +1476,22 @@ export function CashFlowTab(props: CashFlowTabProps) {
                       <polyline points="6 9 12 15 18 9" />
                     </svg>
                     {g.year}
-                    <span className="cfx-year-count">{g.rows.length} mo</span>
+                    <span className="cfx-year-count">{formatMessage({ id: 'planScan.monthCount', defaultMessage: '{count} mo' }, { count: g.rows.length })}</span>
                   </span>
                   <span className="cfx-year-figs">
                     <span
                       className={'cfx-year-net ' + ((yearNet[g.year] ?? 0) >= 0 ? 'pos' : 'neg')}
                     >
-                      <span className="cfx-year-figlbl">Net</span>
+                      <span className="cfx-year-figlbl">
+                        {formatMessage({ id: 'plan.net', defaultMessage: 'Net' })}
+                      </span>
                       {(yearNet[g.year] ?? 0) >= 0 ? '+' : '−'}
                       {fCF(Math.abs(yearNet[g.year] ?? 0))}
                     </span>
                     <span className="cfx-year-bal mask">
-                      <span className="cfx-year-figlbl">Balance</span>
+                      <span className="cfx-year-figlbl">
+                        {formatMessage({ id: 'plan.balance', defaultMessage: 'Balance' })}
+                      </span>
                       <RowBalance row={g.rows[g.rows.length - 1]!} />
                     </span>
                   </span>
@@ -1267,7 +1513,14 @@ export function CashFlowTab(props: CashFlowTabProps) {
               </div>
             )
           })}
-          {visible.length === 0 && <div className="cfx-empty">No months match this filter.</div>}
+          {visible.length === 0 && (
+            <div className="cfx-empty">
+              {formatMessage({
+                id: 'plan.noMonths',
+                defaultMessage: 'No months match this filter.',
+              })}
+            </div>
+          )}
         </div>
       ) : (
         <div className="cfx-ledger">
@@ -1275,15 +1528,33 @@ export function CashFlowTab(props: CashFlowTabProps) {
             <div className="cfx-thead-clip">
               <div className="cfx-thead-inner" ref={cfxHeadRef}>
                 <div className="cfx-colhead">
-                  <span>Month</span>
-                  <span className="r" title={GROSS_NOTE}>
-                    In
+                  <span>{formatMessage({ id: 'plan.month', defaultMessage: 'Month' })}</span>
+                  <span
+                    className="r"
+                    title={formatMessage({
+                      id: 'plan.grossNote',
+                      defaultMessage:
+                        'In and Out are gross: a refund or reimbursement counts as money in, and the purchase it undoes still counts as money out. Reports nets refunds against their categories, so the same month looks smaller there.',
+                    })}
+                  >
+                    {formatMessage({ id: 'plan.in', defaultMessage: 'In' })}
                   </span>
-                  <span className="r" title={GROSS_NOTE}>
-                    Out
+                  <span
+                    className="r"
+                    title={formatMessage({
+                      id: 'plan.grossNote',
+                      defaultMessage:
+                        'In and Out are gross: a refund or reimbursement counts as money in, and the purchase it undoes still counts as money out. Reports nets refunds against their categories, so the same month looks smaller there.',
+                    })}
+                  >
+                    {formatMessage({ id: 'plan.out', defaultMessage: 'Out' })}
                   </span>
-                  <span className="r">Net</span>
-                  <span className="r">Balance</span>
+                  <span className="r">
+                    {formatMessage({ id: 'plan.net', defaultMessage: 'Net' })}
+                  </span>
+                  <span className="r">
+                    {formatMessage({ id: 'plan.balance', defaultMessage: 'Balance' })}
+                  </span>
                 </div>
               </div>
             </div>
@@ -1308,8 +1579,18 @@ export function CashFlowTab(props: CashFlowTabProps) {
                     <polyline points="18 15 12 9 6 15" />
                   </svg>
                   {showHist
-                    ? 'Hide earlier actuals'
-                    : `Show ${earlierActuals.length - HIST_VISIBLE} earlier ${earlierActuals.length - HIST_VISIBLE === 1 ? 'month' : 'months'}`}
+                    ? formatMessage({
+                        id: 'plan.cashControls.hideActuals',
+                        defaultMessage: 'Hide earlier actuals',
+                      })
+                    : formatMessage(
+                        {
+                          id: 'plan.cashControls.showMonths',
+                          defaultMessage:
+                            'Show {count, plural, one {# earlier month} other {# earlier months}}',
+                        },
+                        { count: earlierActuals.length - HIST_VISIBLE },
+                      )}
                 </button>
               )}
 
@@ -1345,7 +1626,7 @@ export function CashFlowTab(props: CashFlowTabProps) {
                           <polyline points="6 9 12 15 18 9" />
                         </svg>
                         {g.year}
-                        <span className="cfx-year-count">{g.rows.length} mo</span>
+                        <span className="cfx-year-count">{formatMessage({ id: 'planScan.monthCount', defaultMessage: '{count} mo' }, { count: g.rows.length })}</span>
                       </span>
                       <span></span>
                       <span></span>
@@ -1373,7 +1654,12 @@ export function CashFlowTab(props: CashFlowTabProps) {
                 )
               })}
               {visible.length === 0 && (
-                <div className="cfx-empty">No months match this filter.</div>
+                <div className="cfx-empty">
+                  {formatMessage({
+                    id: 'plan.noMonths',
+                    defaultMessage: 'No months match this filter.',
+                  })}
+                </div>
               )}
             </div>
           </div>
@@ -1381,10 +1667,19 @@ export function CashFlowTab(props: CashFlowTabProps) {
       )}
 
       <p className="pl-foot" style={{ marginTop: 14 }}>
-        Tap any month with events for its breakdown. Actuals are settled months — real cash may
-        differ from prior balance + net due to transfers and investments.
+        {formatMessage({
+          id: 'plan.cashFoot',
+          defaultMessage:
+            'Tap any month with events for its breakdown. Actuals are settled months — real cash may differ from prior balance + net due to transfers and investments.',
+        })}
       </p>
-      <p className="pl-foot">{GROSS_NOTE}</p>
+      <p className="pl-foot">
+        {formatMessage({
+          id: 'plan.grossNote',
+          defaultMessage:
+            'In and Out are gross: a refund or reimbursement counts as money in, and the purchase it undoes still counts as money out. Reports nets refunds against their categories, so the same month looks smaller there.',
+        })}
+      </p>
 
       {flowMonth && (
         <MoneyFlowModal
@@ -1398,7 +1693,10 @@ export function CashFlowTab(props: CashFlowTabProps) {
       {settingsOpen && (
         <PlanningModal
           onClose={() => setSettingsOpen(false)}
-          label="Projection settings"
+          label={formatMessage({
+            id: 'plan.projectionSettings',
+            defaultMessage: 'Projection settings',
+          })}
           className="cfx-modal"
           style={{
             width: 540,
@@ -1408,11 +1706,16 @@ export function CashFlowTab(props: CashFlowTabProps) {
           }}
         >
           <div className="pl-modal-head">
-            <h3>Projection settings</h3>
+            <h3>
+              {formatMessage({
+                id: 'plan.projectionSettings',
+                defaultMessage: 'Projection settings',
+              })}
+            </h3>
             <button
               className="pl-modal-x"
               onClick={() => setSettingsOpen(false)}
-              aria-label="Close"
+              aria-label={formatMessage({ id: 'plan.close', defaultMessage: 'Close' })}
             >
               <X />
             </button>
@@ -1422,9 +1725,15 @@ export function CashFlowTab(props: CashFlowTabProps) {
             style={{ overflowY: 'auto', flex: '1 1 auto', minHeight: 0 }}
           >
             <div className="cfx-mgroup" style={{ marginTop: 0 }}>
-              <div className="cfx-mgroup-h">Quick scenarios</div>
+              <div className="cfx-mgroup-h">
+                {formatMessage({ id: 'plan.quickScenarios', defaultMessage: 'Quick scenarios' })}
+              </div>
               <div className="cfx-mdesc">
-                Apply a preset, then fine-tune below. Each sets income, expenses and growth.
+                {formatMessage({
+                  id: 'plan.presetHelp',
+                  defaultMessage:
+                    'Apply a preset, then fine-tune below. Each sets income, expenses and growth.',
+                })}
               </div>
               <div className="cfx-scenarios">
                 {SCENARIOS.map((s) => (
@@ -1442,11 +1751,13 @@ export function CashFlowTab(props: CashFlowTabProps) {
             </div>
 
             <div className="cfx-mgroup">
-              <div className="cfx-mgroup-h">Monthly cash flow</div>
+              <div className="cfx-mgroup-h">
+                {formatMessage({ id: 'plan.monthlyCashFlow', defaultMessage: 'Monthly cash flow' })}
+              </div>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px 16px' }}>
                 <div>
                   <label className="pl-modal-label" htmlFor="cf-inc">
-                    Monthly income
+                    {formatMessage({ id: 'plan.incomeMonth', defaultMessage: 'Monthly income' })}
                   </label>
                   <input
                     id="cf-inc"
@@ -1472,7 +1783,10 @@ export function CashFlowTab(props: CashFlowTabProps) {
                 </div>
                 <div>
                   <label className="pl-modal-label" htmlFor="cf-exp">
-                    Monthly expenses
+                    {formatMessage({
+                      id: 'plan.expensesMonth',
+                      defaultMessage: 'Monthly expenses',
+                    })}
                   </label>
                   <input
                     id="cf-exp"
@@ -1498,7 +1812,7 @@ export function CashFlowTab(props: CashFlowTabProps) {
                 </div>
                 <div>
                   <label className="pl-modal-label" htmlFor="cf-incg">
-                    Income growth %
+                    {formatMessage({ id: 'plan.incomeGrowth', defaultMessage: 'Income growth %' })}
                   </label>
                   <input
                     id="cf-incg"
@@ -1524,7 +1838,10 @@ export function CashFlowTab(props: CashFlowTabProps) {
                 </div>
                 <div>
                   <label className="pl-modal-label" htmlFor="cf-expg">
-                    Expense growth %
+                    {formatMessage({
+                      id: 'plan.expenseGrowth',
+                      defaultMessage: 'Expense growth %',
+                    })}
                   </label>
                   <input
                     id="cf-expg"
@@ -1550,18 +1867,28 @@ export function CashFlowTab(props: CashFlowTabProps) {
                 </div>
               </div>
               <div className="cfx-mnote">
-                Growth compounds monthly — income growth models raises, expense growth models
-                inflation.
+                {formatMessage({
+                  id: 'plan.growthHelp',
+                  defaultMessage:
+                    'Growth compounds monthly — income growth models raises, expense growth models inflation.',
+                })}
               </div>
             </div>
 
             <div className="cfx-mgroup">
-              <div className="cfx-mgroup-h">Runway &amp; safety</div>
+              <div className="cfx-mgroup-h">
+                {formatMessage({ id: 'plan.runwaySafety', defaultMessage: 'Runway & safety' })}
+              </div>
 
-              <div className="cfx-mtitle">Asset scope</div>
+              <div className="cfx-mtitle">
+                {formatMessage({ id: 'plan.assetScope', defaultMessage: 'Asset scope' })}
+              </div>
               <div className="cfx-mdesc">
-                Cash on hand is always included. Add what you&apos;d sell or break to survive
-                longer.
+                {formatMessage({
+                  id: 'plan.cashFloor.assetHelp',
+                  defaultMessage:
+                    'Cash on hand is always included. Add what you’d sell or break to survive longer.',
+                })}
               </div>
               <div className="cfx-assets">
                 <button
@@ -1582,7 +1909,9 @@ export function CashFlowTab(props: CashFlowTabProps) {
                       <polyline points="20 6 9 17 4 12" />
                     </svg>
                   </span>
-                  <span className="cfx-asset-label">Fixed deposits</span>
+                  <span className="cfx-asset-label">
+                    {formatMessage({ id: 'plan.fixedDeposits', defaultMessage: 'Fixed deposits' })}
+                  </span>
                   <span className="cfx-asset-val mask">{fBase(data.fixed_deposit_base)}</span>
                 </button>
                 <button
@@ -1603,22 +1932,33 @@ export function CashFlowTab(props: CashFlowTabProps) {
                       <polyline points="20 6 9 17 4 12" />
                     </svg>
                   </span>
-                  <span className="cfx-asset-label">Investments (net of settlement cash)</span>
+                  <span className="cfx-asset-label">
+                    {formatMessage({
+                      id: 'plan.investmentNet',
+                      defaultMessage: 'Investments (net of settlement cash)',
+                    })}
+                  </span>
                   <span className="cfx-asset-val mask">{fBase(data.investments_base)}</span>
                 </button>
               </div>
 
               <div className="cfx-mtitle" style={{ marginTop: 18 }}>
-                Safety floor
+                {formatMessage({ id: 'plan.cashFloor.title', defaultMessage: 'Safety floor' })}
               </div>
               <div className="cfx-mdesc">
-                The minimum cash cushion to keep. Months below it count as tight; the balance curve
-                turns amber under this line (red below zero).
+                {formatMessage({
+                  id: 'plan.cashFloor.help',
+                  defaultMessage:
+                    'The minimum cash cushion to keep. Months below it count as tight; the balance curve turns amber under this line (red below zero).',
+                })}
               </div>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px 16px' }}>
                 <div>
                   <label className="pl-modal-label" htmlFor="cf-floor">
-                    Floor amount ({getCurrencySymbol()})
+                    {formatMessage(
+                      { id: 'plan.cashFloor.amount', defaultMessage: 'Floor amount ({currency})' },
+                      { currency: getCurrencySymbol() },
+                    )}
                   </label>
                   <input
                     id="cf-floor"
@@ -1638,10 +1978,15 @@ export function CashFlowTab(props: CashFlowTabProps) {
             </div>
 
             <div className="cfx-mgroup">
-              <div className="cfx-mgroup-h">Commitments</div>
+              <div className="cfx-mgroup-h">
+                {formatMessage({ id: 'plan.commitments', defaultMessage: 'Commitments' })}
+              </div>
               <div className="cfx-mdesc">
-                Overlay committed installments and funding draws. Turn off to see the plan without
-                them.
+                {formatMessage({
+                  id: 'plan.commitmentsHelp',
+                  defaultMessage:
+                    'Overlay committed installments and funding draws. Turn off to see the plan without them.',
+                })}
               </div>
               <button
                 className="cfx-toggle-row"
@@ -1660,7 +2005,12 @@ export function CashFlowTab(props: CashFlowTabProps) {
                 }}
                 aria-pressed={includeCommitments}
               >
-                <span className="lbl">Include commitment payments &amp; funding</span>
+                <span className="lbl">
+                  {formatMessage({
+                    id: 'plan.includeCommitments',
+                    defaultMessage: 'Include commitment payments & funding',
+                  })}
+                </span>
                 <span className={'pl-tgt-switch' + (includeCommitments ? ' on' : '')}>
                   <span />
                 </span>
@@ -1669,7 +2019,7 @@ export function CashFlowTab(props: CashFlowTabProps) {
           </div>
           <div className="pl-modal-foot">
             <Button variant="secondary" size="dense" onClick={resetSettings}>
-              Reset all
+              {formatMessage({ id: 'plan.resetAll', defaultMessage: 'Reset all' })}
             </Button>
             <Button
               variant="primary"
@@ -1677,10 +2027,15 @@ export function CashFlowTab(props: CashFlowTabProps) {
               onClick={() => {
                 void saveFloorToProfile(floorVal)
                 setSettingsOpen(false)
-                toast('Projection updated')
+                toast(
+                  formatMessage({
+                    id: 'plan.cashFloor.updated',
+                    defaultMessage: 'Projection updated',
+                  }),
+                )
               }}
             >
-              Apply
+              {formatMessage({ id: 'plan.apply', defaultMessage: 'Apply' })}
             </Button>
           </div>
         </PlanningModal>

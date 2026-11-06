@@ -24,6 +24,7 @@ import { openExternal } from '../platform/desktop'
 import { Text } from './ui/Text'
 import { TextArea } from './ui/TextArea'
 import { TextField } from './ui/TextField'
+import { useAppIntl } from '../i18n/useAppIntl'
 
 type Phase = 'loading' | 'editing' | 'sending' | 'sent'
 
@@ -49,6 +50,7 @@ function ReportProblemDialog({
   trigger: ReportRequest
   onClose: () => void
 }) {
+  const intl = useAppIntl()
   const [phase, setPhase] = useState<Phase>('loading')
   const [base, setBase] = useState<ProblemReport | null>(null)
   const [offline, setOffline] = useState(false)
@@ -123,7 +125,14 @@ function ReportProblemDialog({
       setReference(sent.id)
       setPhase('sent')
     } catch (failed) {
-      setFailure(failed instanceof Error ? failed.message : 'The report could not be sent.')
+      setFailure(
+        failed instanceof Error
+          ? failed.message
+          : intl.formatMessage({
+              id: 'reportProblem.sendFailure',
+              defaultMessage: 'The report could not be sent.',
+            }),
+      )
       setPhase('editing')
     }
   }
@@ -132,9 +141,20 @@ function ReportProblemDialog({
     if (!report) return
     try {
       await window.navigator.clipboard.writeText(reportText(report))
-      setNote('Copied. Paste it wherever you like.')
+      setNote(
+        intl.formatMessage({
+          id: 'reportProblem.copied',
+          defaultMessage: 'Copied. Paste it wherever you like.',
+        }),
+      )
     } catch {
-      setNote('Your browser blocked copying. Open the exact data below and copy it from there.')
+      setNote(
+        intl.formatMessage({
+          id: 'reportProblem.copyBlocked',
+          defaultMessage:
+            'Your browser blocked copying. Open the exact data below and copy it from there.',
+        }),
+      )
     }
   }
 
@@ -149,8 +169,15 @@ function ReportProblemDialog({
     window.location.href = emailHref(report)
     setNote(
       copied
-        ? 'Your mail app should open with the start of the report. The whole report, logs included, is on your clipboard to paste.'
-        : 'Your mail app should open with the start of the report.',
+        ? intl.formatMessage({
+            id: 'reportProblem.mailCopied',
+            defaultMessage:
+              'Your mail app should open with the start of the report. The whole report, logs included, is on your clipboard to paste.',
+          })
+        : intl.formatMessage({
+            id: 'reportProblem.mailOpened',
+            defaultMessage: 'Your mail app should open with the start of the report.',
+          }),
     )
   }
 
@@ -159,21 +186,28 @@ function ReportProblemDialog({
       <Modal
         open
         onClose={onClose}
-        title="Thank you. Your report was sent."
+        title={intl.formatMessage({
+          id: 'reportProblem.thanks',
+          defaultMessage: 'Thank you. Your report was sent.',
+        })}
         size="sm"
         footer={
           <Button size="sm" variant="primary" data-report-close onClick={onClose}>
-            Close
+            {intl.formatMessage({ id: 'reportProblem.close', defaultMessage: 'Close' })}
           </Button>
         }
       >
         <Stack gap="--space-4">
           <Text as="p" size="sm">
-            We will investigate and fix this within 48 hours!
+            {intl.formatMessage({
+              id: 'reportProblem.investigate',
+              defaultMessage: 'We will investigate and fix this within 48 hours!',
+            })}
           </Text>
           {reference && (
             <Text as="p" size="sm" tone="muted">
-              Reference <span className="report-problem__mono">{reference}</span>
+              {intl.formatMessage({ id: 'reportProblem.reference', defaultMessage: 'Reference' })}{' '}
+              <span className="report-problem__mono">{reference}</span>
             </Text>
           )}
         </Stack>
@@ -185,22 +219,22 @@ function ReportProblemDialog({
     <Modal
       open
       onClose={onClose}
-      title="Report a problem"
+      title={intl.formatMessage({ id: 'reportProblem.title', defaultMessage: 'Report a problem' })}
       size="lg"
       footer={
         <>
           <Button size="sm" variant="ghost" onClick={onClose} disabled={phase === 'sending'}>
-            Cancel
+            {intl.formatMessage({ id: 'reportProblem.cancel', defaultMessage: 'Cancel' })}
           </Button>
           {/* The fallbacks appear only once sending can't work (it failed, or the server is
               down); before that, Send is the one action. */}
           {(failure || offline) && report && (
             <>
               <Button size="sm" onClick={() => void copy()} disabled={!ready}>
-                Copy report
+                {intl.formatMessage({ id: 'reportProblem.copy', defaultMessage: 'Copy report' })}
               </Button>
               <Button size="sm" onClick={() => void mail()} disabled={!ready}>
-                Email instead
+                {intl.formatMessage({ id: 'reportProblem.mail', defaultMessage: 'Email instead' })}
               </Button>
             </>
           )}
@@ -212,27 +246,51 @@ function ReportProblemDialog({
               disabled={!ready}
               onClick={() => void send()}
             >
-              Send report
+              {intl.formatMessage({ id: 'reportProblem.send', defaultMessage: 'Send report' })}
             </Button>
           )}
         </>
       }
     >
       {phase === 'loading' || !report ? (
-        <Loading label="Preparing your report…" />
+        <Loading
+          label={intl.formatMessage({
+            id: 'reportProblem.preparing',
+            defaultMessage: 'Preparing your report…',
+          })}
+        />
       ) : (
         <Stack gap="--space-5">
           {offline && (
             <Text as="p" size="sm" tone="bad">
-              Can&rsquo;t reach the server, so nothing was masked. Check it, then copy it or email
-              it to <span className="report-problem__address">{SUPPORT_EMAIL}</span>.
+              {intl.formatMessage(
+                {
+                  id: 'reportProblem.offline',
+                  defaultMessage:
+                    'Cannot reach the server, so nothing was masked. Check it, then copy it or email it to <address>{email}</address>.',
+                },
+                {
+                  email: SUPPORT_EMAIL,
+                  address: (chunks) => <span className="report-problem__address">{chunks}</span>,
+                },
+              )}
             </Text>
           )}
           <div ref={statusRef} className="report-problem__status" role="status" aria-live="polite">
             {failure && (
               <Text as="p" size="sm" tone="bad">
-                {failure} You can copy the report or email it to{' '}
-                <span className="report-problem__address">{SUPPORT_EMAIL}</span>.
+                {failure}{' '}
+                {intl.formatMessage(
+                  {
+                    id: 'reportProblem.failureHelp',
+                    defaultMessage:
+                      'You can copy the report or email it to <address>{email}</address>.',
+                  },
+                  {
+                    email: SUPPORT_EMAIL,
+                    address: (chunks) => <span className="report-problem__address">{chunks}</span>,
+                  },
+                )}
               </Text>
             )}
             {!failure && note && (
@@ -241,7 +299,14 @@ function ReportProblemDialog({
               </Text>
             )}
           </div>
-          <FormField label="What happened?" htmlFor="report-description" required>
+          <FormField
+            label={intl.formatMessage({
+              id: 'reportProblem.what',
+              defaultMessage: 'What happened?',
+            })}
+            htmlFor="report-description"
+            required
+          >
             <TextArea
               id="report-description"
               rows={4}
@@ -252,9 +317,15 @@ function ReportProblemDialog({
             />
           </FormField>
           <FormField
-            label="Email (optional)"
+            label={intl.formatMessage({
+              id: 'reportProblem.email',
+              defaultMessage: 'Email (optional)',
+            })}
             htmlFor="report-email"
-            help="We’ll only use it to tell you when the fix is out."
+            help={intl.formatMessage({
+              id: 'reportProblem.emailHelp',
+              defaultMessage: 'We’ll only use it to tell you when the fix is out.',
+            })}
           >
             <TextField
               id="report-email"
@@ -268,7 +339,10 @@ function ReportProblemDialog({
           {/* Only a report opened from an error screen has one; from the sidebar it would be an
               empty, redundant second "what happened". */}
           {base?.error && (
-            <FormField label="Error" htmlFor="report-error">
+            <FormField
+              label={intl.formatMessage({ id: 'reportProblem.error', defaultMessage: 'Error' })}
+              htmlFor="report-error"
+            >
               <TextArea
                 id="report-error"
                 rows={3}
@@ -279,30 +353,55 @@ function ReportProblemDialog({
               />
             </FormField>
           )}
-          <dl className="report-problem__meta" aria-label="Sent with the report">
-            <dt>Version</dt>
+          <dl
+            className="report-problem__meta"
+            aria-label={intl.formatMessage({
+              id: 'reportProblem.sentWith',
+              defaultMessage: 'Sent with the report',
+            })}
+          >
+            <dt>
+              {intl.formatMessage({ id: 'reportProblem.version', defaultMessage: 'Version' })}
+            </dt>
             <dd>{report.app_version}</dd>
-            <dt>Platform</dt>
+            <dt>
+              {intl.formatMessage({ id: 'reportProblem.platform', defaultMessage: 'Platform' })}
+            </dt>
             <dd>{report.platform}</dd>
-            <dt>Mode</dt>
+            <dt>{intl.formatMessage({ id: 'reportProblem.mode', defaultMessage: 'Mode' })}</dt>
             <dd>{report.mode}</dd>
             {screen && (
               <>
-                <dt>Screen</dt>
+                <dt>
+                  {intl.formatMessage({ id: 'reportProblem.screen', defaultMessage: 'Screen' })}
+                </dt>
                 <dd>{screen}</dd>
               </>
             )}
           </dl>
           <Checkbox
             id="report-include-logs"
-            label="Include recent logs"
-            description={base?.logs ? 'Amounts, names and keys are masked.' : 'No logs yet.'}
+            label={intl.formatMessage({
+              id: 'reportProblem.logs',
+              defaultMessage: 'Include recent logs',
+            })}
+            description={
+              base?.logs
+                ? intl.formatMessage({
+                    id: 'reportProblem.masked',
+                    defaultMessage: 'Amounts, names and keys are masked.',
+                  })
+                : intl.formatMessage({ id: 'reportProblem.noLogs', defaultMessage: 'No logs yet.' })
+            }
             checked={includeLogs}
             disabled={!base?.logs}
             onChange={(event) => setIncludeLogs(event.target.checked)}
           />
           <TextArea
-            aria-label="Recent logs"
+            aria-label={intl.formatMessage({
+              id: 'reportProblem.recentLogs',
+              defaultMessage: 'Recent logs',
+            })}
             rows={8}
             className="report-problem__mono"
             maxLength={REPORT_LIMITS.logs}
@@ -312,11 +411,16 @@ function ReportProblemDialog({
             onChange={(event) => setLogs(event.target.value)}
           />
           <details className="report-problem__exact">
-            <summary>Show exactly what is sent</summary>
+            <summary>
+              {intl.formatMessage({
+                id: 'reportProblem.exact',
+                defaultMessage: 'Show exactly what is sent',
+              })}
+            </summary>
             <pre>{JSON.stringify(report, null, 2)}</pre>
           </details>
           <p className="report-problem__community">
-            Prefer to chat?{' '}
+            {intl.formatMessage({ id: 'reportProblem.chat', defaultMessage: 'Prefer to chat?' })}{' '}
             <a
               href={COMMUNITY_URL}
               target="_blank"
@@ -326,7 +430,10 @@ function ReportProblemDialog({
                 void openExternal(COMMUNITY_URL)
               }}
             >
-              Join us on Discord
+              {intl.formatMessage({
+                id: 'reportProblem.discord',
+                defaultMessage: 'Join us on Discord',
+              })}
             </a>
           </p>
         </Stack>

@@ -1,3 +1,4 @@
+import { message as t } from './native-messages';
 import { redeemUrl, validSlug, type HostedConfig } from './hosted-config';
 import type { DeepLink } from './hosted-auth';
 
@@ -18,14 +19,14 @@ export function normalizeShortCode(input: string): string | null {
 // useful together with this app's PKCE verifier, but a wrong shape must never reach the gateway URL.
 export async function redeemShortCode(config: Pick<HostedConfig, 'portalOrigin'>, input: string, fetcher: typeof fetch = fetch): Promise<DeepLink> {
   const shortCode = normalizeShortCode(input);
-  if (!shortCode) throw new RedeemError('Enter the code exactly as the sign-in page shows it, like ABCD-2345.');
+  if (!shortCode) throw new RedeemError(t("Enter the code exactly as the sign-in page shows it, like ABCD-2345."));
   let response: Response;
   try {
     response = await fetcher(redeemUrl(config), { method: 'POST', headers: { 'Content-Type': 'application/json', Accept: 'application/json' }, body: JSON.stringify({ short_code: shortCode }), credentials: 'omit', redirect: 'error', signal: AbortSignal.timeout(15_000) });
-  } catch { throw new RedeemError('Could not reach the sign-in service. Check your connection and try again.'); }
-  if (response.status === 429) throw new RedeemError('Too many attempts. Wait a minute and try again.');
-  if (!response.ok) throw new RedeemError('That code is not valid or has expired. Start again from the sign-in page.');
+  } catch { throw new RedeemError(t("Could not reach the sign-in service. Check your connection and try again.")); }
+  if (response.status === 429) throw new RedeemError(t("Too many attempts. Wait a minute and try again."));
+  if (!response.ok) throw new RedeemError(t("That code is not valid or has expired. Start again from the sign-in page."));
   const body = await response.json().catch(() => null) as { slug?: unknown; code?: unknown; state?: unknown } | null;
-  if (!validSlug(body?.slug) || typeof body?.code !== 'string' || !CODE.test(body.code) || typeof body.state !== 'string' || !STATE.test(body.state)) throw new RedeemError('The sign-in service returned something unexpected. Start again from the sign-in page.');
+  if (!validSlug(body?.slug) || typeof body?.code !== 'string' || !CODE.test(body.code) || typeof body.state !== 'string' || !STATE.test(body.state)) throw new RedeemError(t("The sign-in service returned something unexpected. Start again from the sign-in page."));
   return { slug: body.slug, code: body.code, state: body.state };
 }

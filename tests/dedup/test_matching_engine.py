@@ -182,6 +182,7 @@ def test_original_foreign_amount_fingerprint_f22(isolate_stores):
     assert c is not None and c.klass == matching.MatchClass.NEAR_DUPLICATE
     assert c.score < matching.SCORE_STRONG  # review-capped, never auto-merge grade
     assert "original foreign amount" in c.reasons[0]
+    assert c.reason_messages == [{"id": "matching.foreign_wordless", "params": {"days": 0}}]
 
 
 def test_original_fingerprint_requires_exact_match_and_an_original(isolate_stores):

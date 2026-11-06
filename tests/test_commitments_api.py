@@ -35,6 +35,34 @@ def _seed_ledger_txns(*txn_ids):
         )
 
 
+def test_generated_action_label_source_round_trips_and_is_cleared_on_rename(client):
+    created = client.post("/api/commitments", json={"name": "Synthetic", "kind": "purchase"})
+    assert created.status_code in (200, 201)
+    cid = created.json()["commitment"]["id"]
+    source = {"kind": "draw_down", "label": "Custom lender"}
+    actions = [
+        {"id": "a1", "label": "Draw down Custom lender", "label_source": source},
+        {"id": "a2", "label": "Draw down Custom lender"},
+        {"id": "a3", "label": "User text", "label_source": source},
+    ]
+    saved = client.put(f"/api/commitments/{cid}/actions", json={"actions": actions})
+    assert saved.status_code == 200
+    rows = next(c for c in client.get("/api/commitments").json() if c["id"] == cid)["actions"]
+    assert rows[0]["label_source"] == source
+    assert "label_source" not in rows[1] and "label_source" not in rows[2]
+    assert (
+        client.patch(
+            f"/api/commitments/{cid}/actions/a1", json={"changes": {"status": "done"}}
+        ).json()["commitment"]["actions"][0]["label_source"]
+        == source
+    )
+    renamed = client.patch(
+        f"/api/commitments/{cid}/actions/a1", json={"changes": {"label": "My label"}}
+    )
+    assert renamed.status_code == 200
+    assert "label_source" not in renamed.json()["commitment"]["actions"][0]
+
+
 @pytest.fixture
 def client(db_isolated):
     _seed_ledger_txns("txn-1")
@@ -219,3 +247,51 @@ def test_patch_funding_source_refuses_an_unknown_status(client):
     cid = _commitment_with_funding(client)
     r = client.patch(f"/api/commitments/{cid}/funding/fs-1", json={"changes": {"status": "banana"}})
     assert r.status_code == 422, r.text
+
+
+def test_reschedule_description_source_preserves_user_text_and_clears_on_edit(client):
+    created = client.post(
+        "/api/commitments",
+        json={
+            "name": "Synthetic",
+            "kind": "purchase",
+            "installments": [
+                {
+                    "id": "i1",
+                    "label": "First",
+                    "description": "Custom note",
+                    "due_date": "2026-04-01",
+                    "amount": 25,
+                }
+            ],
+        },
+    )
+    cid = created.json()["commitment"]["id"]
+    source = {
+        "original": "Custom note",
+        "moves": [{"date": "2026-04-01", "rendered": "1 Apr 2026"}],
+    }
+    description = "Custom note · moved from 1 Apr 2026"
+    response = client.patch(
+        f"/api/commitments/{cid}/installments/i1",
+        json={
+            "changes": {
+                "description": description,
+                "description_source": source,
+                "due_date": "2026-05-01",
+            }
+        },
+    )
+    assert response.status_code == 200
+    assert response.json()["commitment"]["installments"][0]["description_source"] == source
+    stored = client.get(f"/api/commitments/{cid}").json()["installments"][0]
+    assert stored["description"] == description and stored["description_source"] == source
+    renamed = client.patch(
+        f"/api/commitments/{cid}/installments/i1", json={"changes": {"description": "My edit"}}
+    )
+    assert renamed.status_code == 200
+    assert "description_source" not in renamed.json()["commitment"]["installments"][0]
+    invalid = client.patch(
+        f"/api/commitments/{cid}/installments/i1", json={"changes": {"description_source": source}}
+    )
+    assert "description_source" not in invalid.json()["commitment"]["installments"][0]

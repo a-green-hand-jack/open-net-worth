@@ -100,6 +100,8 @@ or note. A source can be an account, an envelope in your budget, or income.
 reminder before it's due. Click it again (**Cancel reminder**) to turn it off. Each reminder is
 an [Automation](../lucius/automations.md), so it also shows on the Automations page. Mark a step
 **Mark done**, or **Not happening** to drop the funding it would have unlocked.
+New actions generated from a funding source follow your display language; names you enter and
+older actions without a known source remain as written.
 
 **Anything else** — adding a new funding source, adding a step, or changing the schedule — click
 **Manage with Lucius** in that tab and describe the change.

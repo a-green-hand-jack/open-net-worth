@@ -460,13 +460,14 @@ def _target_change_and_display(row: dict) -> tuple[dict, dict]:
     if "needs_whole_amount" in row:
         change["needs_whole_amount"] = bool(row["needs_whole_amount"])
     if ttype is None and snooze_until:
-        op = "Snooze target"
+        op, op_id = "Snooze target", "snooze"
     elif ttype is None:
-        op = "Unsnooze target" if has_snooze else "Clear target"
+        op, op_id = ("Unsnooze target", "unsnooze") if has_snooze else ("Clear target", "clear")
     else:
-        op = "Set target"
+        op, op_id = "Set target", "set"
     display = {
         "op": op,
+        "op_id": op_id,
         "envelope_id": change["envelope_id"],
         "target_type": ttype,
         "amount": change["amount"],

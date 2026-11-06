@@ -9,6 +9,7 @@ import { packToFile, type PackedBook } from '../src/main/move-pack';
 import { runMove } from '../src/main/move-flow';
 import { megabytes, uploadBook, type UploadUi } from '../src/main/move-upload';
 import { applySecrets, finishMove, readSecrets } from '../src/main/move-secrets';
+import { setDesktopLocale } from '../src/main/desktop-locale';
 
 const PART = 10;
 const DATA = Buffer.from('0123456789'.repeat(3) + 'abc');
@@ -128,6 +129,21 @@ test('an import that fails on the destination reports its reason', async () => {
   const packed = await book();
   await assert.rejects(uploadBook(agent({ importFails: 'The uploaded book did not match its checksum.' }).endpoint, packed, ui(), timers), /did not match its checksum/);
   await packed.cleanup();
+});
+
+test('an import status with a known error code is localized and an unknown one remains original', async () => {
+  setDesktopLocale('zh-CN');
+  try {
+    for (const [id, expected] of [['move.import_failed', /导入未完成/], ['move.future', /external error/]] as const) {
+      const packed = await book();
+      const base = agent().endpoint;
+      const endpoint: MoveEndpoint = { call: request => request.method === 'GET' && request.path === `/api/move/${MOVE}`
+        ? Promise.resolve({ status: 200, body: { status: 'failed', error: 'external error', error_message_id: id, error_message_params: {} } })
+        : base.call(request) };
+      try { await assert.rejects(uploadBook(endpoint, packed, ui(), timers), expected); }
+      finally { await packed.cleanup(); }
+    }
+  } finally { setDesktopLocale('en'); }
 });
 
 test('cancelling stops between parts and tells the destination to discard what it has', async () => {

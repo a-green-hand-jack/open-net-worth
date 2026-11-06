@@ -1,5 +1,8 @@
 // @vitest-environment jsdom
 
+import { IntlProvider } from 'react-intl'
+import { catalogs } from '../../../../../i18n/LocaleProvider'
+import messages from '../../../../intel/zh-CN.messages.json'
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { clearQueryCache } from '../../../../../state/queryCache'
@@ -86,6 +89,14 @@ async function mount() {
 }
 
 describe('Settings › Intelligence', () => {
+  it('saves notification routing from the Chinese interface', async () => {
+    render(<IntlProvider locale="zh-CN" messages={catalogs['zh-CN']}><IntelSection toast={toast} /></IntlProvider>)
+    expect(await screen.findByText('监测')).toBeTruthy()
+    const route = await screen.findByLabelText('关注提醒通过 Telegram') as HTMLInputElement
+    expect(route.checked).toBe(true)
+    fireEvent.click(route)
+    await waitFor(() => expect(patches.some(p => (p.notify_routes as Record<string, string[]> | undefined)?.watch_alerts?.length === 0)).toBe(true))
+  })
   it('holds every monitoring setting that used to live on the Intel tab', async () => {
     await mount()
     for (const label of [
@@ -219,4 +230,14 @@ describe('Settings › Intelligence', () => {
     fireEvent.blur(box)
     expect(patches).toHaveLength(1)
   })
+})
+
+
+it('shows Chinese settings while keeping notification routing semantics', async () => {
+  render(<IntlProvider locale="zh-CN" messages={messages}><IntelSection toast={toast} /></IntlProvider>)
+  expect(await screen.findByText('监测')).toBeTruthy()
+  const route = await screen.findByLabelText('关注提醒通过 Telegram') as HTMLInputElement
+  expect(route.checked).toBe(true)
+  fireEvent.click(route)
+  await waitFor(() => expect(patches.some(p => (p.notify_routes as Record<string, string[]> | undefined)?.watch_alerts?.length === 0)).toBe(true))
 })

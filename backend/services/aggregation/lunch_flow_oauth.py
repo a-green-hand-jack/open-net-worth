@@ -255,7 +255,10 @@ def ensure_fresh_token(*, force: bool = False) -> str:
     """
     store = LunchFlowConfigStore()
     if not store.has_link():
-        raise ValidationError("Lunch Flow is not linked — connect a bank first.")
+        raise ValidationError(
+            "Lunch Flow is not linked — connect a bank first.",
+            message_id="connector.error.lunchFlowNotLinked",
+        )
     if not force and not _is_stale(store, now=time.time()):
         return store.access_token()
 
@@ -266,7 +269,10 @@ def ensure_fresh_token(*, force: bool = False) -> str:
             return stale_access_token  # someone else already refreshed it
         refresh_token = current.refresh_token()
         if not refresh_token:
-            raise ValidationError("Lunch Flow sign-in expired — reconnect the bank in Connectors.")
+            raise ValidationError(
+                "Lunch Flow sign-in expired — reconnect the bank in Connectors.",
+                message_id="connector.error.lunchFlowExpired",
+            )
 
         token = _post_token(
             {
@@ -278,7 +284,10 @@ def ensure_fresh_token(*, force: bool = False) -> str:
         )
         access_token = (token.get("access_token") or "").strip()
         if not access_token:
-            raise ValidationError("Lunch Flow did not return a refreshed access token.")
+            raise ValidationError(
+                "Lunch Flow did not return a refreshed access token.",
+                message_id="connector.error.lunchFlowNoRefreshToken",
+            )
 
         expires_in = token.get("expires_in")
         now = time.time()

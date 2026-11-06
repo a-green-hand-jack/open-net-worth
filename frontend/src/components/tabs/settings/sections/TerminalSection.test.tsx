@@ -1,6 +1,8 @@
 // @vitest-environment jsdom
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { IntlProvider } from 'react-intl'
+import { catalogs } from '../../../../i18n/LocaleProvider'
 
 vi.mock('../../../../api/client', () => ({ authFetch: vi.fn() }))
 vi.mock('./TerminalView', () => ({
@@ -32,6 +34,12 @@ beforeEach(() => {
 afterEach(cleanup)
 
 describe('TerminalSection', () => {
+  it('explains in Chinese when the terminal is switched off', async () => {
+    mockAuthFetch.mockImplementation(async () => json({ available: false, reason: 'disabled' }))
+    render(<IntlProvider locale="zh-CN" messages={catalogs['zh-CN']}><TerminalSection toast={vi.fn()} /></IntlProvider>)
+    expect(await screen.findByText('此服务器已关闭终端。')).toBeTruthy()
+    expect(screen.queryByRole('button', { name: '打开终端' })).toBeNull()
+  })
   it('shows the ownership notice and opens a terminal only when asked', async () => {
     mockAuthFetch.mockImplementation(async () =>
       json({ available: true, reason: null, in_use: false }),

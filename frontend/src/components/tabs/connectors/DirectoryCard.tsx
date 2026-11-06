@@ -1,3 +1,4 @@
+import { useConnectorDescription, useCuratedDescription } from './useConnectorDescription'
 // One Browse & add catalog card — ported VERBATIM from the prototype's own card component.
 //
 // Two rules of spec §6 live entirely in this file:
@@ -9,6 +10,8 @@
 //     sitting beside an Add button read as "already added".
 
 import type { CSSProperties, JSX } from 'react'
+import { useAppIntl } from '../../../i18n/useAppIntl'
+import { useConnectorLabels, useConnectorName } from './useConnectorLabels'
 import { Btn, Mono } from './primitives'
 import { Icons } from './icons'
 import { skipsPreview, type DirectoryRow } from './catalog'
@@ -37,6 +40,10 @@ export function DirectoryCard({
   suggested = false,
   onCategory,
 }: DirectoryCardProps): JSX.Element {
+  const { formatMessage } = useAppIntl()
+  const displayName = useConnectorName()
+  const description = useConnectorDescription()
+  const curatedDescription = useCuratedDescription()
   // Clicking the card body ALWAYS opens the entry's landing page — installed or not. Only the
   // action ON that page differs (Add vs. the installed entry's route-to-settings), so browsing
   // is one consistent gesture and an installed connector is still readable before you act on
@@ -72,17 +79,17 @@ export function DirectoryCard({
         <Mono icon={d.icon} hue={d.hue} logo={d.logo} />
         <div style={{ flex: 1, minWidth: 0 }}>
           <div className="cn-dircard-name">
-            {d.name}
+            {displayName(d.id, d.name)}
             {d.verification === 'verified' ? (
-              <span className="cn-verified-tag">Verified</span>
+              <span className="cn-verified-tag">{formatMessage({ id: 'connectors.verified', defaultMessage: 'Verified' })}</span>
             ) : null}
-            {d.tag ? <span className="cn-tag">{d.tag}</span> : null}
+            {d.tag ? <span className="cn-tag">{d.tag === 'Default' ? formatMessage({ id: 'connectors.defaultTag', defaultMessage: 'Default' }) : d.tag}</span> : null}
           </div>
         </div>
         {d.installed ? (
           <Btn
             size="xs"
-            aria-label={'Configure ' + d.name}
+            aria-label={formatMessage({ id: 'connectors.configureName', defaultMessage: 'Configure {name}' }, { name: displayName(d.id, d.name) })}
             onClick={(e) => {
               e.stopPropagation()
               onConfigure(d)
@@ -94,7 +101,7 @@ export function DirectoryCard({
           <Btn
             size="xs"
             variant="primary"
-            aria-label={'Add ' + d.name}
+            aria-label={formatMessage({ id: 'connectors.addName', defaultMessage: 'Add {name}' }, { name: displayName(d.id, d.name) })}
             onClick={(e) => {
               e.stopPropagation()
               onAdd(d)
@@ -104,7 +111,7 @@ export function DirectoryCard({
           </Btn>
         )}
       </div>
-      <div className="cn-dircard-desc">{d.sub}</div>
+      <div className="cn-dircard-desc">{d.mcp ? curatedDescription(d.id, d.sub) : description(d.id, d.sub, false)}</div>
       {d.categories.length > 0 ? (
         <CategoryChips categories={d.categories} onPick={onCategory} />
       ) : null}
@@ -122,6 +129,8 @@ export function CategoryChips({
   categories: readonly ConnectorCategory[]
   onPick?: (category: ConnectorCategory) => void
 }): JSX.Element {
+  const { formatMessage } = useAppIntl()
+  const labels = useConnectorLabels()
   return (
     <span className="cn-cats">
       {categories.map((c) => {
@@ -132,18 +141,18 @@ export function CategoryChips({
             type="button"
             className="cn-cat pick"
             style={style}
-            aria-label={`Show ${c} connectors`}
+            aria-label={formatMessage({ id: 'connectors.showCategory', defaultMessage: 'Show {category} connectors' }, { category: labels.category(c) })}
             onClick={(e) => {
               e.stopPropagation()
               onPick(c)
             }}
             onKeyDown={(e) => e.stopPropagation()}
           >
-            {c}
+            {labels.category(c)}
           </button>
         ) : (
           <span key={c} className="cn-cat" style={style}>
-            {c}
+            {labels.category(c)}
           </span>
         )
       })}

@@ -47,6 +47,7 @@ from typing import Literal, Optional
 
 import httpx
 from fastapi import APIRouter, HTTPException, Query
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
 from backend.ai.models.cli_default_model import cli_default_model, cli_default_models
@@ -63,6 +64,14 @@ from backend.paths import MODELS_CACHE_JSON
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
+
+
+def _model_error(status_code: int, detail: str, message_id: str, **params: str) -> JSONResponse:
+    return JSONResponse(
+        status_code=status_code,
+        content={"detail": detail, "message_id": message_id, "message_params": params},
+    )
+
 
 # Last-known current model ids, used when a LIVE fetch is impossible (no key / no
 # network / provider error). Kept tiny + current — NOT a hand-maintained catalog,
@@ -511,9 +520,11 @@ def put_model_config(body: ModelConfigUpdate):
     if provider is not None:
         provider = provider.strip().lower()
         if provider not in VALID_PROVIDERS:
-            raise HTTPException(
-                status_code=422,
-                detail=f"provider must be one of {list(VALID_PROVIDERS)}",
+            return _model_error(
+                422,
+                f"provider must be one of {list(VALID_PROVIDERS)}",
+                "models.error.providerChoices",
+                choices=", ".join(VALID_PROVIDERS),
             )
         changes["provider"] = provider
     try:
@@ -578,7 +589,12 @@ def put_provider_credentials(provider_key: str, body: ProviderCredentialsUpdate)
 
     entry = _provider_entry(provider_key)
     if entry is None:
-        raise HTTPException(status_code=404, detail=f"unknown provider key: {provider_key!r}")
+        return _model_error(
+            404,
+            f"unknown provider key: {provider_key!r}",
+            "models.error.unknownProvider",
+            provider=provider_key,
+        )
 
     changes = body.model_dump(exclude_none=True)
     store = ModelConfigStore()
@@ -588,12 +604,14 @@ def put_provider_credentials(provider_key: str, body: ProviderCredentialsUpdate)
         inst = store.resolved()
         default_key = _infer_provider_key(inst["provider"], inst.get("base_url") or "")
         if default_key == provider_key:
-            raise HTTPException(
-                status_code=409,
-                detail=(
+            return _model_error(
+                409,
+                (
                     f"Cannot disable {entry['label']!r} — it is the active default. "
                     "Set another provider as default first."
                 ),
+                "models.error.disableDefault",
+                provider=entry["label"],
             )
         # Bust the models cache so the change is reflected immediately.
         _bust_models_cache()
@@ -657,18 +675,25 @@ def delete_provider_key(provider_key: str):
 
     entry = _provider_entry(provider_key)
     if entry is None:
-        raise HTTPException(status_code=404, detail=f"unknown provider key: {provider_key!r}")
+        return _model_error(
+            404,
+            f"unknown provider key: {provider_key!r}",
+            "models.error.unknownProvider",
+            provider=provider_key,
+        )
 
     store = ModelConfigStore()
     inst = store.resolved()
     default_key = _infer_provider_key(inst["provider"], inst.get("base_url") or "")
     if default_key == provider_key and entry.get("needs_api_key", True):
-        raise HTTPException(
-            status_code=409,
-            detail=(
+        return _model_error(
+            409,
+            (
                 f"Cannot remove the API key for {entry['label']!r} — it is the active "
                 "default. Set another provider as default first."
             ),
+            "models.error.removeDefaultKey",
+            provider=entry["label"],
         )
 
     public = store.remove_provider_key(provider_key)
@@ -693,18 +718,25 @@ def delete_provider(provider_key: str):
 
     entry = _provider_entry(provider_key)
     if entry is None:
-        raise HTTPException(status_code=404, detail=f"unknown provider key: {provider_key!r}")
+        return _model_error(
+            404,
+            f"unknown provider key: {provider_key!r}",
+            "models.error.unknownProvider",
+            provider=provider_key,
+        )
 
     store = ModelConfigStore()
     inst = store.resolved()
     default_key = _infer_provider_key(inst["provider"], inst.get("base_url") or "")
     if default_key == provider_key:
-        raise HTTPException(
-            status_code=409,
-            detail=(
+        return _model_error(
+            409,
+            (
                 f"Cannot remove {entry['label']!r} — it is the active default. "
                 "Set another provider as default first."
             ),
+            "models.error.removeDefault",
+            provider=entry["label"],
         )
 
     public = store.remove_provider(provider_key)
@@ -840,7 +872,12 @@ def validate_provider_credentials(provider_key: str):
 
     entry = _provider_entry(provider_key)
     if entry is None:
-        raise HTTPException(status_code=404, detail=f"unknown provider key: {provider_key!r}")
+        return _model_error(
+            404,
+            f"unknown provider key: {provider_key!r}",
+            "models.error.unknownProvider",
+            provider=provider_key,
+        )
 
     store = ModelConfigStore()
     # require_enabled=False: testing a key is not using the provider. Going through the gate

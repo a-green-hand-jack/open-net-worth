@@ -1,3 +1,4 @@
+import { useAppIntl } from '../../i18n/useAppIntl'
 // MentionComposer — the always-on chat composer: a single contenteditable surface that flows
 // free text and non-editable entity-chip atoms INLINE (chips sit where they were typed, e.g.
 // "[Meridian Bank Multiplier] merge with [Meridian Pay USD]"), and detects the "@" / "/" triggers itself so a
@@ -317,6 +318,7 @@ export const MentionComposer = forwardRef<MentionComposerHandle, MentionComposer
     },
     ref,
   ) {
+    const { formatMessage } = useAppIntl()
     const editorRef = useRef<HTMLDivElement>(null)
     // The phrase dictation is revising (``dictate``), and the space it starts with.
     const dictationNode = useRef<Text | null>(null)
@@ -725,7 +727,7 @@ export const MentionComposer = forwardRef<MentionComposerHandle, MentionComposer
         data-placeholder={placeholder ?? ''}
         role="textbox"
         aria-multiline="true"
-        aria-label="Message"
+        aria-label={formatMessage({ id: 'chat.message', defaultMessage: 'Message' })}
         contentEditable={!disabled}
         suppressContentEditableWarning
         onInput={() => {

@@ -6,6 +6,8 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { PropHero } from './PropHero'
 import { derive } from './propMath'
 import type { PropEnvelope, PropMonth } from './propApi'
+import { IntlProvider } from 'react-intl'
+import messages from '../../zh-CN.messages.json'
 
 const env = (id: string, cap: number | null): PropEnvelope => ({
   id,
@@ -62,6 +64,16 @@ describe('PropHero before any spend', () => {
 })
 
 describe('PropHero with spend', () => {
+  it('localizes the verdict without changing the derived amount', () => {
+    const m = month([{ ...env('rent', 300), activity: 1500 }])
+    render(
+      <IntlProvider locale="zh-CN" messages={messages} onError={() => {}}>
+        <PropHero m={m} d={derive(m)} onLucius={vi.fn()} onConfigure={vi.fn()} />
+      </IntlProvider>,
+    )
+    expect(screen.getByText(/超出收入/).textContent).toContain('500')
+  })
+
   const spent = (income: PropMonth['income']): PropMonth => {
     const m = month([{ ...env('rent', 300), activity: 400 }])
     return { ...m, income, savings: { amount: 600, target: 50 }, day: 14 }

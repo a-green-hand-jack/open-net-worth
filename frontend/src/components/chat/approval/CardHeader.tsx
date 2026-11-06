@@ -1,15 +1,12 @@
+import { BudgetOperationTitle, ChangeTitle, GenericTitle } from './ChangeTitles'
+import { FormattedMessage } from './FormattedMessage'
 import type { ProposedChange } from '../../../types/chat'
 import {
   HANDLED_TYPES,
-  budgetOpLabel,
-  budgetOperationHeaderLabel,
-  humanizeType,
   isBudgetChange,
   isBudgetOperationGrant,
   isDestructive,
   isTxnChange,
-  stagedTitle,
-  txnHeaderLabel,
 } from './cardTypes'
 
 /** The card's title line — what kind of write, and on what — shared by the live card and the
@@ -22,25 +19,25 @@ export function CardHeader({ change }: { change: ProposedChange }) {
     <div
       className={`change-preview-header${isDestructive(change) ? ' change-preview-header--danger' : ''}`}
     >
-      {change.type === 'update' && 'Update position'}
-      {change.type === 'add' && 'Add position'}
-      {change.type === 'remove' && 'Remove position'}
-      {change.type === 'skill_create' && 'Create skill'}
-      {change.type === 'skill_update' && 'Update skill'}
-      {change.type === 'skill_delete' && 'Delete skill'}
-      {change.type === 'lot_acquire' && 'Record acquisition'}
-      {change.type === 'lot_delete' && 'Delete lot'}
+      {change.type === 'update' && <FormattedMessage id="chat.approval.title.update_position" defaultMessage="Update position" />}
+      {change.type === 'add' && <FormattedMessage id="chat.approval.title.add_position" defaultMessage="Add position" />}
+      {change.type === 'remove' && <FormattedMessage id="chat.approval.title.remove_position" defaultMessage="Remove position" />}
+      {change.type === 'skill_create' && <FormattedMessage id="chat.approval.title.create_skill" defaultMessage="Create skill" />}
+      {change.type === 'skill_update' && <FormattedMessage id="chat.approval.title.update_skill" defaultMessage="Update skill" />}
+      {change.type === 'skill_delete' && <FormattedMessage id="chat.approval.title.delete_skill" defaultMessage="Delete skill" />}
+      {change.type === 'lot_acquire' && <FormattedMessage id="chat.approval.title.record_acquisition" defaultMessage="Record acquisition" />}
+      {change.type === 'lot_delete' && <FormattedMessage id="chat.approval.title.delete_lot" defaultMessage="Delete lot" />}
       {change.type === 'lot_dispose' &&
         (d.is_taxable !== false
-          ? 'Record sale'
+          ? <FormattedMessage id="chat.approval.title.record_sale" defaultMessage="Record sale" />
           : d.transfer_to_account_name || d.transfer_to_account_id
-            ? 'Record transfer'
-            : 'Record transfer-out')}
-      {change.type === 'record_income' && (d.is_drp ? 'Record DRP reinvestment' : 'Record income')}
-      {change.type === 'agent_create' && 'Create agent'}
-      {change.type === 'agent_update' && 'Update agent'}
-      {change.type === 'code_run' && 'Run a script'}
-      {change.type === 'code_skill_create' && 'Save as script-skill'}
+            ? <FormattedMessage id="chat.approval.title.record_transfer" defaultMessage="Record transfer" />
+            : <FormattedMessage id="chat.approval.title.record_transfer_out" defaultMessage="Record transfer-out" />)}
+      {change.type === 'record_income' && (d.is_drp ? <FormattedMessage id="chat.approval.title.record_drp_reinvestment" defaultMessage="Record DRP reinvestment" /> : <FormattedMessage id="chat.approval.title.record_income" defaultMessage="Record income" />)}
+      {change.type === 'agent_create' && <FormattedMessage id="chat.approval.title.create_agent" defaultMessage="Create agent" />}
+      {change.type === 'agent_update' && <FormattedMessage id="chat.approval.title.update_agent" defaultMessage="Update agent" />}
+      {change.type === 'code_run' && <FormattedMessage id="chat.approval.title.run_a_script" defaultMessage="Run a script" />}
+      {change.type === 'code_skill_create' && <FormattedMessage id="chat.approval.title.save_as_script_skill" defaultMessage="Save as script-skill" />}
       {change.type === 'external_mcp_call' && (
         <>
           <span className="change-preview-tool">
@@ -51,17 +48,12 @@ export function CardHeader({ change }: { change: ProposedChange }) {
           )}
         </>
       )}
-      {isBudgetChange(change) && budgetOpLabel(change)}
-      {isBudgetOperationGrant(change) && budgetOperationHeaderLabel(change)}
-      {isTxnChange(change) && txnHeaderLabel(change)}
+      {isBudgetChange(change) && <ChangeTitle change={change} kind="budget" />}
+      {isBudgetOperationGrant(change) && <BudgetOperationTitle change={change} />}
+      {isTxnChange(change) && <ChangeTitle change={change} kind="transaction" />}
       {!HANDLED_TYPES.includes(change.type) &&
         !isBudgetOperationGrant(change) &&
-        (stagedTitle(change) ??
-          humanizeType(
-            change.type === 'tool_permission' && change.grant_tool
-              ? change.grant_tool
-              : change.type,
-          ))}
+        <GenericTitle change={change} />}
       {(d.symbol || d.name) && !isBudgetChange(change) && change.type !== 'external_mcp_call' && (
         <span className="change-preview-label">
           {d.symbol || d.name}

@@ -81,12 +81,18 @@ def _validate_intent(intent) -> dict | None:
     if intent is None:
         return None
     if not isinstance(intent, dict):
-        raise ValidationError("intent: must be an object")
+        raise ValidationError(
+            "intent: must be an object", message_id="watchlist.error.intentObject"
+        )
     out: dict = {}
     thesis = (intent.get("thesis") or "").strip()
     if thesis:
         if len(thesis) > _MAX_THESIS_CHARS:
-            raise ValidationError(f"intent: thesis is at most {_MAX_THESIS_CHARS} characters")
+            raise ValidationError(
+                f"intent: thesis is at most {_MAX_THESIS_CHARS} characters",
+                message_id="watchlist.error.thesisLength",
+                message_params={"limit": _MAX_THESIS_CHARS},
+            )
         out["thesis"] = thesis
     for key in _INTENT_PRICE_FIELDS:
         raw = intent.get(key)
@@ -95,14 +101,27 @@ def _validate_intent(intent) -> dict | None:
         try:
             value = float(raw)
         except (TypeError, ValueError):
-            raise ValidationError(f"intent: {key} must be a number") from None
+            raise ValidationError(
+                f"intent: {key} must be a number",
+                message_id="watchlist.error.intentNumber",
+                message_params={"field": key},
+            ) from None
         if not math.isfinite(value) or value <= 0:
-            raise ValidationError(f"intent: {key} must be a positive price")
+            raise ValidationError(
+                f"intent: {key} must be a positive price",
+                message_id="watchlist.error.intentPositive",
+                message_params={"field": key},
+            )
         out[key] = value
     if "buy_above" in out and "buy_below" not in out:
-        raise ValidationError("intent: buy_above needs buy_below (the top of your buy zone)")
+        raise ValidationError(
+            "intent: buy_above needs buy_below (the top of your buy zone)",
+            message_id="watchlist.error.zoneMissing",
+        )
     if "buy_above" in out and out["buy_above"] >= out["buy_below"]:
-        raise ValidationError("intent: buy_above must be below buy_below")
+        raise ValidationError(
+            "intent: buy_above must be below buy_below", message_id="watchlist.error.zoneOrder"
+        )
     return out or None
 
 
@@ -338,9 +357,15 @@ class WatchlistStore:
             raw, _ = self._get_raw()
             wls = raw["watchlists"]
             if not (name or "").strip():
-                raise ValidationError("A watchlist name cannot be blank")
+                raise ValidationError(
+                    "A watchlist name cannot be blank", message_id="watchlist.error.blankName"
+                )
             if self._name_collision(wls, name):
-                raise ConflictError(f"A watchlist named {name!r} already exists")
+                raise ConflictError(
+                    f"A watchlist named {name!r} already exists",
+                    message_id="watchlist.error.duplicateName",
+                    message_params={"name": name},
+                )
             order = max((wl.get("order", 0) for wl in wls), default=0) + 1
             watchlist = {
                 "id": new_id("wl"),
@@ -364,13 +389,23 @@ class WatchlistStore:
             wls = raw["watchlists"]
             idx = next((i for i, wl in enumerate(wls) if wl.get("id") == watchlist_id), None)
             if idx is None:
-                raise NotFoundError(f"Watchlist {watchlist_id!r} not found")
+                raise NotFoundError(
+                    f"Watchlist {watchlist_id!r} not found",
+                    message_id="watchlist.error.listNotFound",
+                    message_params={"id": watchlist_id},
+                )
             # A rename may not collide with a different watchlist (case/whitespace-folded).
             if "name" in changes:
                 if not (changes["name"] or "").strip():
-                    raise ValidationError("A watchlist name cannot be blank")
+                    raise ValidationError(
+                        "A watchlist name cannot be blank", message_id="watchlist.error.blankName"
+                    )
                 if self._name_collision(wls, changes["name"], exclude_id=watchlist_id):
-                    raise ConflictError(f"A watchlist named {changes['name']!r} already exists")
+                    raise ConflictError(
+                        f"A watchlist named {changes['name']!r} already exists",
+                        message_id="watchlist.error.duplicateName",
+                        message_params={"name": changes["name"]},
+                    )
             wls[idx] = {**wls[idx], **{k: v for k, v in changes.items() if k in _ALLOWED}}
             self._save_raw(raw)
             return wls[idx]
@@ -383,12 +418,19 @@ class WatchlistStore:
         that survived because they still belong to another watchlist.
         """
         if watchlist_id == MY_HOLDINGS_ID:
-            raise ConflictError("The My holdings watchlist cannot be deleted (it is auto-managed)")
+            raise ConflictError(
+                "The My holdings watchlist cannot be deleted (it is auto-managed)",
+                message_id="watchlist.error.deleteManaged",
+            )
         with self._write_lock:
             raw, _ = self._get_raw()
             wls = raw["watchlists"]
             if not any(wl.get("id") == watchlist_id for wl in wls):
-                raise NotFoundError(f"Watchlist {watchlist_id!r} not found")
+                raise NotFoundError(
+                    f"Watchlist {watchlist_id!r} not found",
+                    message_id="watchlist.error.listNotFound",
+                    message_params={"id": watchlist_id},
+                )
             raw["watchlists"] = [wl for wl in wls if wl.get("id") != watchlist_id]
             kept: list[dict] = []
             reassigned = 0
@@ -543,16 +585,24 @@ class WatchlistStore:
             if is_topic(item):
                 if wl_ids:
                     raise ValidationError(
-                        "topics are followed, not kept in a watchlist — add it without one"
+                        "topics are followed, not kept in a watchlist — add it without one",
+                        message_id="watchlist.error.topicNoList",
                     )
                 value = (item.get("value") or "").strip().casefold()
                 if any(
                     is_topic(i) and (i.get("value") or "").strip().casefold() == value
                     for i in raw["items"]
                 ):
-                    raise ConflictError(f"already following {item.get('value')!r}")
+                    raise ConflictError(
+                        f"already following {item.get('value')!r}",
+                        message_id="watchlist.error.alreadyFollowing",
+                        message_params={"value": item.get("value") or ""},
+                    )
             elif not wl_ids:
-                raise ValidationError("watchlist_ids is required — choose or create a watchlist")
+                raise ValidationError(
+                    "watchlist_ids is required — choose or create a watchlist",
+                    message_id="watchlist.error.chooseList",
+                )
             item = {**item, "watchlist_ids": wl_ids}
             if item.get("label"):
                 item["label"] = _normalize_label(item["label"])
@@ -567,12 +617,15 @@ class WatchlistStore:
             for wid in wl_ids:
                 if wid not in known:
                     raise ValidationError(
-                        f"watchlist_id {wid!r} does not reference a known watchlist"
+                        f"watchlist_id {wid!r} does not reference a known watchlist",
+                        message_id="watchlist.error.listNotFound",
+                        message_params={"id": wid},
                     )
                 if wid in locked:
                     raise ConflictError(
                         "My holdings is auto-managed — it mirrors your owned positions and cannot "
-                        "be added to by hand; choose or create another watchlist"
+                        "be added to by hand; choose or create another watchlist",
+                        message_id="watchlist.error.managedAdd",
                     )
             raw["items"].append(item)
             self._save_raw(raw)
@@ -587,14 +640,21 @@ class WatchlistStore:
                 target = next((i for i in raw["items"] if i.get(self._id_field) == id_val), {})
                 if is_topic(target):
                     if changes["watchlist_ids"]:
-                        raise ValidationError("topics are followed, not kept in a watchlist")
+                        raise ValidationError(
+                            "topics are followed, not kept in a watchlist",
+                            message_id="watchlist.error.topicNoList",
+                        )
                 elif not changes["watchlist_ids"]:
-                    raise ValidationError("watchlist_ids must be non-empty")
+                    raise ValidationError(
+                        "watchlist_ids must be non-empty", message_id="watchlist.error.chooseList"
+                    )
                 known = self._known_watchlist_ids(raw)
                 for wid in changes["watchlist_ids"]:
                     if wid not in known:
                         raise ValidationError(
-                            f"watchlist_id {wid!r} does not reference a known watchlist"
+                            f"watchlist_id {wid!r} does not reference a known watchlist",
+                            message_id="watchlist.error.listNotFound",
+                            message_params={"id": wid},
                         )
             if "custom_feed_urls" in changes:
                 changes = {
@@ -641,7 +701,8 @@ class WatchlistStore:
             if watchlist_id in self._auto_sync_ids(raw):
                 raise ConflictError(
                     "My holdings is auto-managed — it mirrors your owned positions and cannot be "
-                    "edited by hand"
+                    "edited by hand",
+                    message_id="watchlist.error.managedEdit",
                 )
             items = raw["items"]
             for i, item in enumerate(items):

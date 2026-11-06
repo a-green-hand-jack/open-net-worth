@@ -1,3 +1,4 @@
+import { fLocalizedMonth } from '../../../utils/format'
 // plan/FreshStartDialog.tsx — the confirm step of "Start fresh from <month>…".
 //
 // It fetches `fresh-start-preview` (a pure read — the server runs the REAL Ready-to-Assign fold
@@ -14,15 +15,14 @@
 // figure at all — and which restores the FLOOR ONLY, so it says so.
 // ADR 2026-09-08-budget-fresh-start-moves-the-floor-not-the-data.
 import { useEffect, useState } from 'react'
+import { useAppIntl } from '../../../i18n/useAppIntl'
 import { ConfirmDialog, ErrorState, Skeleton } from '../../ui'
-import { monthLabel } from '../../../hooks/useBudget'
 import { fBaseCents } from './planData'
 import { RtaRow } from './budgetRta'
 import {
   fetchFreshStartPreview,
-  freshStartConsequencesLabel,
   freshStartLedger,
-  resumeHistoryLabel,
+  FreshStartRequestError,
   type FreshStartPreview,
 } from './freshStart'
 
@@ -38,6 +38,9 @@ export function FreshStartDialog({
   onConfirm: () => void
   onCancel: () => void
 }) {
+  const { formatMessage, locale } = useAppIntl()
+  const label = fLocalizedMonth(month, locale)
+  const monthName = fLocalizedMonth(month, locale, 'long', 'never')
   const resuming = rolloverStart === month
   const [preview, setPreview] = useState<FreshStartPreview | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -49,23 +52,49 @@ export function FreshStartDialog({
     let live = true
     fetchFreshStartPreview(month)
       .then((p) => live && setPreview(p))
-      .catch((err: unknown) => live && setError(err instanceof Error ? err.message : String(err)))
+      .catch(
+        (err: unknown) =>
+          live &&
+          setError(
+            err instanceof FreshStartRequestError
+              ? formatMessage(
+                  { id: 'plan.model.requestFailed', defaultMessage: 'Request failed ({status})' },
+                  { status: err.status },
+                )
+              : err instanceof Error
+                ? err.message
+                : String(err),
+          ),
+      )
     return () => {
       live = false
     }
-  }, [month, resuming])
-
-  const label = monthLabel(month)
+  }, [month, resuming, formatMessage])
 
   if (resuming)
     return (
       <ConfirmDialog
         data={{
-          title: 'Resume earlier history?',
-          confirmLabel: 'Resume earlier history',
+          title: formatMessage({
+            id: 'plan.resumeHistoryTitle',
+            defaultMessage: 'Resume earlier history?',
+          }),
+          confirmLabel: formatMessage({
+            id: 'plan.resumeHistory',
+            defaultMessage: 'Resume earlier history',
+          }),
           body: (
             <div className="pl-fresh-body">
-              <p>{resumeHistoryLabel(month)}</p>
+              <p>
+                {formatMessage(
+                  {
+                    id: 'plan.resumeHistoryBody',
+                    defaultMessage:
+                      'Envelopes carry their balances from before {month} again and Ready to Assign is recomputed — no transactions change. Assignments cleared by the fresh start are not restored.',
+                  },
+                  { month: label },
+                )}
+              </p>
             </div>
           ),
         }}
@@ -77,15 +106,27 @@ export function FreshStartDialog({
   return (
     <ConfirmDialog
       data={{
-        title: `Start fresh from ${label}?`,
-        confirmLabel: 'Start fresh',
+        title: formatMessage(
+          { id: 'plan.freshTitle', defaultMessage: 'Start fresh from {month}?' },
+          { month: label },
+        ),
+        confirmLabel: formatMessage({ id: 'plan.startFresh', defaultMessage: 'Start fresh' }),
         confirmDisabled: !preview,
         body: error ? (
-          <ErrorState title="Couldn't work out the new Ready to Assign" message={error} />
+          <ErrorState
+            title={formatMessage({
+              id: 'plan.freshError',
+              defaultMessage: "Couldn't work out the new Ready to Assign",
+            })}
+            message={error}
+          />
         ) : (
           <div className="pl-fresh-body">
             <p>
-              Ready to Assign becomes{' '}
+              {formatMessage({
+                id: 'plan.readyBecomes',
+                defaultMessage: 'Ready to Assign becomes',
+              })}{' '}
               {preview ? (
                 <b className="mask">{fBaseCents(preview.ready_to_assign_after)}</b>
               ) : (
@@ -100,7 +141,16 @@ export function FreshStartDialog({
                 ))}
               </div>
             )}
-            <p>{freshStartConsequencesLabel(month)}</p>
+            <p>
+              {formatMessage(
+                {
+                  id: 'plan.freshConsequences',
+                  defaultMessage:
+                    "Envelopes start over from {month} — this month's assignments are cleared. This month's spending still shows in its envelopes. Earlier months hide until you resume history. No transactions change — undo any time.",
+                },
+                { month: monthName },
+              )}
+            </p>
           </div>
         ),
       }}

@@ -1,3 +1,5 @@
+import { displayInstallmentDescription, rescheduledDescription } from './installmentDescription'
+import { useAppIntl } from '../../../i18n/useAppIntl'
 // Schedule tab — ported from detail3.jsx's `Schedule`/`InstRow`/`PayBox`/`LinkBox`/
 // `RescheduleBox`. Every write (edit/delete/pay/link/reschedule) goes through
 // `DetailMutations`, which is a real fetch against /api/commitments/* (see detailMutations.ts).
@@ -7,7 +9,6 @@ import { authFetch } from '../../../api/client'
 import { fBase, fCurrency, getBaseCurrency, toBase } from '../../../utils/format'
 import {
   fmtDate,
-  fmtDay,
   installmentFunding,
   isTracker,
   type EnvelopeAccrual,
@@ -20,13 +21,6 @@ import { ACCOUNTS_KEY, fetchJson } from '../../../hooks/serverState'
 import { fetchCachedQuery } from '../../../state/queryCache'
 import { Button, DateField } from '../../ui'
 import { ArrowDown, ArrowUp, ArrowRight, ArrowUpRight } from '../../../ui/icons'
-
-const STATUS_LABEL: Record<string, string> = {
-  paid: 'Paid',
-  due: 'Due',
-  overdue: 'Overdue',
-  upcoming: 'Upcoming',
-}
 
 function daysUntil(date: string): number {
   const [y, m, d] = (date || '').split('-').map(Number)
@@ -57,6 +51,7 @@ function PayBox({
   onPay: (amt: number) => void
   onCancel: () => void
 }) {
+  const { formatMessage } = useAppIntl()
   const [amt, setAmt] = useState<number | string>(amount)
   const numAmt = Number(amt)
   const partial = numAmt > 0 && numAmt < amount
@@ -65,7 +60,10 @@ function PayBox({
       <div className="c2-edit">
         <div className="c2-edit-row">
           <label className="c2-field">
-            Amount paid ({ccy})
+            {formatMessage(
+              { id: 'commitments.schedule.amountPaid', defaultMessage: 'Amount paid ({currency})' },
+              { currency: ccy },
+            )}
             <input
               className="c2-input amt"
               style={{ width: 130 }}
@@ -77,13 +75,22 @@ function PayBox({
           </label>
           <span className="c2-field-hint">
             {partial
-              ? `Partial — ${fCurrency(amount - numAmt, ccy)} stays due as a "balance" row.`
-              : 'Paying less records a partial and splits off the balance.'}
+              ? formatMessage(
+                  {
+                    id: 'commitments.schedule.partial',
+                    defaultMessage: 'Partial — {amount} stays due as a "balance" row.',
+                  },
+                  { amount: fCurrency(amount - numAmt, ccy) },
+                )
+              : formatMessage({
+                  id: 'commitments.schedule.partialHint',
+                  defaultMessage: 'Paying less records a partial and splits off the balance.',
+                })}
           </span>
         </div>
         <div className="c2-edit-btns">
           <button className="c2-mini-btn" onClick={onCancel}>
-            Cancel
+            {formatMessage({ id: 'commitments.schedule.cancel', defaultMessage: 'Cancel' })}
           </button>
           <button
             className="c2-mini-btn pri"
@@ -91,7 +98,12 @@ function PayBox({
               if (numAmt > 0) onPay(Math.min(numAmt, amount))
             }}
           >
-            {partial ? 'Record partial' : 'Mark paid'}
+            {partial
+              ? formatMessage({
+                  id: 'commitments.schedule.recordPartial',
+                  defaultMessage: 'Record partial',
+                })
+              : formatMessage({ id: 'commitments.schedule.markPaid', defaultMessage: 'Mark paid' })}
           </button>
         </div>
       </div>
@@ -119,6 +131,7 @@ function LinkBox({
   onLink: (txnId: string) => void
   onCancel: () => void
 }) {
+  const { formatMessage } = useAppIntl()
   const [cands, setCands] = useState<TxnCandidate[] | null>(null)
 
   useEffect(() => {
@@ -179,10 +192,33 @@ function LinkBox({
 
   return (
     <div className="c2-addbox" style={{ margin: '6px 0 4px' }}>
-      <div className="c3-linkbox-h">Link a transaction to "{label}"</div>
-      {cands === null && <div className="c2-fund-empty">Looking for nearby transactions…</div>}
+      <div className="c3-linkbox-h">
+        {formatMessage(
+          {
+            id: 'commitments.schedule.linkTitle',
+            defaultMessage: 'Link a transaction to "{label}"',
+          },
+          { label },
+        )}
+      </div>
+      {cands === null && (
+        <div className="c2-fund-empty">
+          {formatMessage({
+            id: 'commitments.schedule.looking',
+            defaultMessage: 'Looking for nearby transactions…',
+          })}
+        </div>
+      )}
       {cands !== null && cands.length === 0 && (
-        <div className="c2-fund-empty">No ledger transactions near {fBase(baseAmount)}.</div>
+        <div className="c2-fund-empty">
+          {formatMessage(
+            {
+              id: 'commitments.schedule.noTransactions',
+              defaultMessage: 'No ledger transactions near {amount}.',
+            },
+            { amount: fBase(baseAmount) },
+          )}
+        </div>
       )}
       {cands?.map((t) => (
         <div className="c3-txn" key={t.id}>
@@ -195,13 +231,13 @@ function LinkBox({
           </div>
           <span className="c3-txn-a money">{fBase(t.amount_base)}</span>
           <button className="c2-mini-btn pri" onClick={() => onLink(t.id)}>
-            Link
+            {formatMessage({ id: 'commitments.schedule.link', defaultMessage: 'Link' })}
           </button>
         </div>
       ))}
       <div className="c2-edit-btns" style={{ marginTop: 8 }}>
         <button className="c2-mini-btn" onClick={onCancel}>
-          Cancel
+          {formatMessage({ id: 'remaining.cancel', defaultMessage: 'Cancel' })}
         </button>
       </div>
     </div>
@@ -218,13 +254,17 @@ function RescheduleBox({
   onSave: (date: string) => void
   onCancel: () => void
 }) {
+  const { formatMessage } = useAppIntl()
   const [date, setDate] = useState(initial)
   return (
     <div className="c2-addbox" style={{ margin: '6px 0 4px' }}>
       <div className="c2-edit">
         <div className="c2-edit-row">
           <label className="c2-field">
-            New due date
+            {formatMessage({
+              id: 'commitments.schedule.newDueDate',
+              defaultMessage: 'New due date',
+            })}
             <DateField
               unstyled
               className="c2-input date"
@@ -233,14 +273,19 @@ function RescheduleBox({
               autoFocus
             />
           </label>
-          <span className="c2-field-hint">Keeps a note of the original date.</span>
+          <span className="c2-field-hint">
+            {formatMessage({
+              id: 'commitments.schedule.originalDateNote',
+              defaultMessage: 'Keeps a note of the original date.',
+            })}
+          </span>
         </div>
         <div className="c2-edit-btns">
           <button className="c2-mini-btn" onClick={onCancel}>
-            Cancel
+            {formatMessage({ id: 'commitments.schedule.cancel', defaultMessage: 'Cancel' })}
           </button>
           <button className="c2-mini-btn pri" onClick={() => date && onSave(date)}>
-            Reschedule
+            {formatMessage({ id: 'commitments.schedule.reschedule', defaultMessage: 'Reschedule' })}
           </button>
         </div>
       </div>
@@ -257,6 +302,9 @@ interface InstRowProps {
 }
 
 function InstRow({ c, i, fx, m, split }: InstRowProps) {
+  const intl = useAppIntl()
+  const { formatMessage } = intl
+  const shownDescription = displayInstallmentDescription(i, intl)
   const [draft, setDraft] = useState<EditDraft | null>(null)
   const [box, setBox] = useState<'pay' | 'link' | 'resched' | null>(null)
   const s = dispStatus(i)
@@ -280,13 +328,14 @@ function InstRow({ c, i, fx, m, split }: InstRowProps) {
             withDate
             ccy={c.currency}
             descKey="description"
-            descPlaceholder="Description · e.g. 50% on handover (optional)"
+            descPlaceholder={formatMessage({ id: 'commitments.editor.scheduleDescription', defaultMessage: 'Description · e.g. 50% on handover (optional)' })}
             onSave={() => {
               void m.updateInstallment(i.id, {
                 label: draft.label,
                 due_date: draft.due_date,
                 amount: Number(draft.amount) || 0,
-                description: draft.description,
+                description:
+                  draft.description === shownDescription ? i.description : draft.description,
               })
               setDraft(null)
             }}
@@ -307,7 +356,7 @@ function InstRow({ c, i, fx, m, split }: InstRowProps) {
       className={'c2-si ' + s + (showSplit ? ' has-split' : '')}
       type="installment"
       id={i.id}
-      label={i.label || `${c.name} instalment`}
+      label={i.label || formatMessage({ id: 'commitments.schedule.unnamedInstallment', defaultMessage: '{name} instalment' }, { name: c.name })}
       item={i}
       toFields={(it) => ({
         label: it.label,
@@ -329,13 +378,16 @@ function InstRow({ c, i, fx, m, split }: InstRowProps) {
           {i.label}
           <button
             className="c2-iconbtn"
-            aria-label={'Edit ' + i.label}
+            aria-label={formatMessage(
+              { id: 'commitments.schedule.edit', defaultMessage: 'Edit {name}' },
+              { name: i.label },
+            )}
             onClick={() =>
               setDraft({
                 label: i.label,
                 due_date: i.due_date,
                 amount: i.amount,
-                description: i.description || '',
+                description: shownDescription || '',
               })
             }
           >
@@ -344,13 +396,13 @@ function InstRow({ c, i, fx, m, split }: InstRowProps) {
         </div>
         <div className="c2-si-meta">
           {fmtDate(i.due_date)}
-          {i.description ? ` · ${i.description}` : ''}
+          {i.description ? ` · ${shownDescription}` : ''}
           {s === 'paid' && i.paid_txn_id && (
             <>
               {' '}
               ·{' '}
               <button className="c2-link" onClick={() => m.onOpenTxn(i.paid_txn_id as string)}>
-                txn <ArrowUpRight size={12} aria-hidden="true" />
+                {intl.formatMessage({ id: 'visible2.transactionShort', defaultMessage: 'txn' })} <ArrowUpRight size={12} aria-hidden="true" />
               </button>
             </>
           )}
@@ -384,8 +436,7 @@ function InstRow({ c, i, fx, m, split }: InstRowProps) {
             onSave={(date) => {
               void m.updateInstallment(i.id, {
                 due_date: date,
-                description:
-                  (i.description ? i.description + ' · ' : '') + 'moved from ' + fmtDay(i.due_date),
+                ...rescheduledDescription(i),
               })
               setBox(null)
             }}
@@ -399,20 +450,56 @@ function InstRow({ c, i, fx, m, split }: InstRowProps) {
         )}
         <div className="c3-si-metarow">
           {s === 'paid' ? (
-            <span className="c2-si-badge paid">Paid</span>
+            <span className="c2-si-badge paid">
+              {formatMessage({ id: 'commitments.schedule.paidBadge', defaultMessage: 'Paid' })}
+            </span>
           ) : (
             <>
-              <span className={'c2-si-badge ' + s}>{STATUS_LABEL[s]}</span>
+              <span className={'c2-si-badge ' + s}>
+                {
+                  (
+                    {
+                      paid: formatMessage({
+                        id: 'commitments.schedule.paidBadge',
+                        defaultMessage: 'Paid',
+                      }),
+                      due: formatMessage({
+                        id: 'commitments.schedule.dueBadge',
+                        defaultMessage: 'Due',
+                      }),
+                      overdue: formatMessage({
+                        id: 'commitments.schedule.overdueBadge',
+                        defaultMessage: 'Overdue',
+                      }),
+                      upcoming: formatMessage({
+                        id: 'commitments.schedule.upcomingBadge',
+                        defaultMessage: 'Upcoming',
+                      }),
+                    } as Record<string, string>
+                  )[s]
+                }
+              </span>
               <span className="c3-si-links">
                 <button className="c2-link" onClick={() => setBox(box === 'pay' ? null : 'pay')}>
-                  {isTracker(c) ? 'Mark done' : 'Mark paid'}
+                  {isTracker(c)
+                    ? formatMessage({
+                        id: 'commitments.schedule.markDone',
+                        defaultMessage: 'Mark done',
+                      })
+                    : formatMessage({
+                        id: 'commitments.schedule.markPaid',
+                        defaultMessage: 'Mark paid',
+                      })}
                 </button>
                 {!isTracker(c) && (
                   <button
                     className="c2-link dim2"
                     onClick={() => setBox(box === 'link' ? null : 'link')}
                   >
-                    Link txn
+                    {formatMessage({
+                      id: 'commitments.schedule.linkTxn',
+                      defaultMessage: 'Link txn',
+                    })}
                   </button>
                 )}
                 {s === 'overdue' && (
@@ -420,7 +507,10 @@ function InstRow({ c, i, fx, m, split }: InstRowProps) {
                     className="c2-link dim2"
                     onClick={() => setBox(box === 'resched' ? null : 'resched')}
                   >
-                    Reschedule
+                    {formatMessage({
+                      id: 'commitments.schedule.reschedule',
+                      defaultMessage: 'Reschedule',
+                    })}
                   </button>
                 )}
               </span>
@@ -434,7 +524,13 @@ function InstRow({ c, i, fx, m, split }: InstRowProps) {
             <span className="c3-fundby-mark">
               <Spark size={12} />
             </span>{' '}
-            Funded by <span className="c3-fundby-cap">auto-split from your funding plan</span>
+            {formatMessage({ id: 'commitments.schedule.fundedBy', defaultMessage: 'Funded by' })}{' '}
+            <span className="c3-fundby-cap">
+              {formatMessage({
+                id: 'commitments.schedule.autoSplit',
+                defaultMessage: 'auto-split from your funding plan',
+              })}
+            </span>
           </div>
           <div className="c3-fundby-chips">
             {split.alloc.map((a) => (
@@ -454,15 +550,21 @@ function InstRow({ c, i, fx, m, split }: InstRowProps) {
               </span>
             ))}
             {split.shortfall > 0.5 && (
-              <span className="c3-fchip short" title="No funding source covers this portion yet">
-                Unfunded <b className="money">{fBase(split.shortfall)}</b>
+              <span
+                className="c3-fchip short"
+                title={formatMessage({
+                  id: 'commitments.schedule.unfundedTitle',
+                  defaultMessage: 'No funding source covers this portion yet',
+                })}
+              >
+                {formatMessage({ id: 'commitments.schedule.unfunded', defaultMessage: 'Unfunded' })}{' '}
+                <b className="money">{fBase(split.shortfall)}</b>
               </span>
             )}
           </div>
           {split.envBase > 0.5 && (
             <div className="c3-fundby-guard">
-              The set-aside covers only its saved share — the rest comes from one-time draws, so
-              it's never overdrawn.
+              {intl.formatMessage({ id: 'visible2.setAsideHint', defaultMessage: "The set-aside covers only its saved share — the rest comes from one-time draws, so it's never overdrawn." })}
             </div>
           )}
           {split.shortfall > 0.5 && (
@@ -477,7 +579,10 @@ function InstRow({ c, i, fx, m, split }: InstRowProps) {
                 )
               }
             >
-              Cover the gap with Lucius
+              {formatMessage({
+                id: 'commitments.schedule.coverGap',
+                defaultMessage: 'Cover the gap with Lucius',
+              })}
               <ArrowRight size={14} aria-hidden="true" />
             </Button>
           )}
@@ -495,6 +600,7 @@ interface ScheduleProps {
 }
 
 export function Schedule({ commitment: c, fx, envelope, m }: ScheduleProps) {
+  const { formatMessage } = useAppIntl()
   const [showAll, setShowAll] = useState(false)
   const tracker = isTracker(c)
   const many = c.installments.length > 10
@@ -517,10 +623,23 @@ export function Schedule({ commitment: c, fx, envelope, m }: ScheduleProps) {
   return (
     <div className="c2-exp-sec">
       <div className="c2-exp-sec-h">
-        <span className="c2-exp-sec-t">{tracker ? 'Contributions' : 'Payment schedule'}</span>
+        <span className="c2-exp-sec-t">
+          {tracker
+            ? formatMessage({
+                id: 'commitments.schedule.contributions',
+                defaultMessage: 'Contributions',
+              })
+            : formatMessage({
+                id: 'commitments.schedule.schedule',
+                defaultMessage: 'Payment schedule',
+              })}
+        </span>
         <span className="c2-exp-sec-note">
           {c.installments.filter((i) => i.status === 'paid').length}/{c.installments.length}{' '}
-          {tracker ? 'made' : 'paid'} •{' '}
+          {tracker
+            ? formatMessage({ id: 'commitments.schedule.made', defaultMessage: 'made' })
+            : formatMessage({ id: 'commitments.schedule.paid', defaultMessage: 'paid' })}{' '}
+          •{' '}
           <button
             className="c2-link lucius"
             onClick={() =>
@@ -529,7 +648,11 @@ export function Schedule({ commitment: c, fx, envelope, m }: ScheduleProps) {
               )
             }
           >
-            Manage with Lucius <ArrowRight size={13} aria-hidden="true" />
+            {formatMessage({
+              id: 'commitments.schedule.manage',
+              defaultMessage: 'Manage with Lucius',
+            })}{' '}
+            <ArrowRight size={13} aria-hidden="true" />
           </button>
         </span>
       </div>
@@ -542,11 +665,23 @@ export function Schedule({ commitment: c, fx, envelope, m }: ScheduleProps) {
           >
             {hiddenAbove > 0 ? (
               <>
-                <ArrowUp size={12} aria-hidden="true" /> {hiddenAbove} earlier • show all{' '}
-                {c.installments.length}
+                <ArrowUp size={12} aria-hidden="true" />{' '}
+                {formatMessage(
+                  {
+                    id: 'commitments.schedule.earlier',
+                    defaultMessage: '{earlier} earlier • show all {total}',
+                  },
+                  { earlier: hiddenAbove, total: c.installments.length },
+                )}
               </>
             ) : (
-              `Show all ${c.installments.length} payments…`
+              formatMessage(
+                {
+                  id: 'commitments.schedule.showAll',
+                  defaultMessage: 'Show all {count} payments…',
+                },
+                { count: c.installments.length },
+              )
             )}
           </button>
         )}
@@ -556,7 +691,13 @@ export function Schedule({ commitment: c, fx, envelope, m }: ScheduleProps) {
         {many && !showAll && hiddenBelow > 0 && (
           <button className="c3-si-more" onClick={() => setShowAll(true)}>
             <span>
-              {hiddenBelow} more payment{hiddenBelow > 1 ? 's' : ''}
+              {formatMessage(
+                {
+                  id: 'commitments.schedule.more',
+                  defaultMessage: '{count} more {count, plural, one {payment} other {payments}}',
+                },
+                { count: hiddenBelow },
+              )}
             </span>
             <ArrowDown size={12} aria-hidden="true" />
           </button>
@@ -567,7 +708,7 @@ export function Schedule({ commitment: c, fx, envelope, m }: ScheduleProps) {
             style={{ marginTop: 6 }}
             onClick={() => setShowAll(false)}
           >
-            Collapse
+            {formatMessage({ id: 'commitments.schedule.collapse', defaultMessage: 'Collapse' })}
           </button>
         )}
       </div>

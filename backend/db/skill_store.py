@@ -77,7 +77,9 @@ EDITABLE_FIELDS = {
 MAX_SKILL_NAME_LEN = 64
 _SKILL_ID_RE = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
 
-_STATE_FIELDS = frozenset({"enabled", "author", "created_at", "updated_at", "invocation_count"})
+_STATE_FIELDS = frozenset(
+    {"enabled", "author", "created_at", "updated_at", "invocation_count", "starter_source"}
+)
 _REQUIRED_STATE_FIELDS = frozenset({"enabled", "author", "created_at", "updated_at"})
 _STATE_DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
 
@@ -151,6 +153,18 @@ def _load_state() -> dict:
                 raise ValueError("skill state enabled must be a boolean")
             if "author" in row and row["author"] not in AUTHORS:
                 raise ValueError("skill state author is invalid")
+            source = row.get("starter_source")
+            if source is not None and (
+                not isinstance(source, dict)
+                or source.get("id") != sid
+                or set(source) - {"id", "name_sha256", "description_sha256"}
+                or any(
+                    not isinstance(value, str) or re.fullmatch(r"[0-9a-f]{64}", value) is None
+                    for key, value in source.items()
+                    if key != "id"
+                )
+            ):
+                raise ValueError("skill state starter source is invalid")
             count = row.get("invocation_count")
             if count is not None and (
                 not isinstance(count, int) or isinstance(count, bool) or count < 0
@@ -578,6 +592,31 @@ def _read_skill_folder(
         record["has_scripts"] = True
     if format_problems:
         record["validation_errors"] = format_problems
+        from backend.core.skill_problem import problem_messages
+
+        record["validation_messages"] = problem_messages(format_problems)
+    source = (state_row or {}).get("starter_source")
+    if source is None and record["author"] == "builtin":
+        starter = next((item for item in STARTER_SKILLS if item["id"] == sid), None)
+        if starter and all(
+            record[field] == starter.get(field, "") for field in ("name", "description")
+        ):
+            source = {
+                "id": sid,
+                **{
+                    f"{field}_sha256": hashlib.sha256(record[field].encode("utf-8")).hexdigest()
+                    for field in ("name", "description")
+                },
+            }
+    if isinstance(source, dict) and source.get("id") == sid:
+        verified = {"id": sid}
+        for field in ("name", "description"):
+            key = f"{field}_sha256"
+            actual = hashlib.sha256(record[field].encode("utf-8")).hexdigest()
+            if source.get(key) == actual:
+                verified[key] = actual
+        if len(verified) > 1:
+            record["starter_source"] = verified
     pinned.verify_identity()
     return record
 
@@ -629,6 +668,14 @@ class SkillStore:
                 created_at=record["created_at"],
                 updated_at=now,
             )
+            if data.get("_starter_source") == sid and author == "builtin":
+                state[sid]["starter_source"] = {
+                    "id": sid,
+                    **{
+                        f"{field}_sha256": hashlib.sha256(record[field].encode("utf-8")).hexdigest()
+                        for field in ("name", "description")
+                    },
+                }
             _save_state(state)
             with pinned_skill_folder(sid, must_create=True) as pinned:
                 _write_skill_folder(pinned.path, record, pinned=pinned)
@@ -686,6 +733,13 @@ class SkillStore:
                     state_row = _complete_state_row(
                         state.get(sid), enabled=False, updated_at=clean["updated_at"]
                     )
+                    source = state_row.get("starter_source")
+                    if isinstance(source, dict):
+                        source = dict(source)
+                        for field in ("name", "description"):
+                            if field in clean:
+                                source.pop(f"{field}_sha256", None)
+                        state_row["starter_source"] = source
                     state[sid] = state_row
                     _save_state(state)
                     pinned.verify_identity()
@@ -884,7 +938,7 @@ class SkillStore:
         for starter in STARTER_SKILLS:
             if starter["id"] in existing:
                 continue
-            self.create({**starter, "author": "builtin"})
+            self.create({**starter, "author": "builtin", "_starter_source": starter["id"]})
             inserted += 1
         return inserted
 
@@ -981,7 +1035,7 @@ class SkillStore:
             if sid in offered or sid not in starters:
                 continue
             if self.find_by_id(sid) is None:
-                self.create({**starters[sid], "author": "builtin"})
+                self.create({**starters[sid], "author": "builtin", "_starter_source": sid})
                 installed.append(sid)
             offered.add(sid)
         offers.record(offered)

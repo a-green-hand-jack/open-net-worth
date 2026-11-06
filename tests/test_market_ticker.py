@@ -25,6 +25,13 @@ QUOTES = {
 }
 
 
+def test_every_builtin_commodity_has_a_distinct_stable_label_source():
+    symbols = {symbol for symbol, _ in market_ticker._COMMODITIES}
+    sources = market_ticker._COMMODITY_LABEL_SOURCES
+    assert set(sources) == symbols
+    assert len(set(sources.values())) == len(symbols)
+
+
 def test_rows_carry_price_and_change_and_drop_unpriceable():
     _reset_cache()
     with (
@@ -41,6 +48,8 @@ def test_rows_carry_price_and_change_and_drop_unpriceable():
 
     gold = by_sym["GC=F"]
     assert gold["kind"] == "commodity" and gold["unit"] == "USD"
+    assert gold["label_source"] == "gold"
+    assert "label_source" not in by_sym["BTC-USD"]
     assert gold["price"] == 4691.5
     # resolve_price_quote (the shared price-resolution chokepoint) rounds change_pct to 4dp,
     # matching the convention already used for extended-hours change_pct.

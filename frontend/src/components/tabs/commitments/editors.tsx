@@ -1,6 +1,7 @@
 // Shared inline row editor (detail3.jsx's `EditRow`) — used by both the Schedule tab's
 // installment rows and the Funding tab's source rows.
 import { DateField } from '../../ui'
+import { useAppIntl } from '../../../i18n/useAppIntl'
 
 export interface EditDraft {
   label: string
@@ -33,6 +34,7 @@ export function EditRow({
   descPlaceholder,
   ccy,
 }: EditRowProps) {
+  const { formatMessage } = useAppIntl()
   return (
     <div className="c2-edit">
       <div className="c2-edit-row">
@@ -40,7 +42,7 @@ export function EditRow({
           className="c2-input grow"
           type="text"
           value={draft.label}
-          placeholder="Label"
+          placeholder={formatMessage({ id: 'commitments.editor.label', defaultMessage: 'Label' })}
           onChange={(e) => setDraft({ ...draft, label: e.target.value })}
         />
         {withDate && (
@@ -55,7 +57,7 @@ export function EditRow({
           className="c2-input amt"
           type="number"
           value={draft.amount}
-          placeholder={ccy ? `Amount (${ccy})` : 'Amount'}
+          placeholder={ccy ? formatMessage({ id: 'commitments.editor.amountCurrency', defaultMessage: 'Amount ({currency})' }, { currency: ccy }) : formatMessage({ id: 'commitments.editor.amount', defaultMessage: 'Amount' })}
           onChange={(e) => setDraft({ ...draft, amount: e.target.value })}
         />
       </div>
@@ -63,21 +65,21 @@ export function EditRow({
         <textarea
           className="c2-input c2-edit-desc"
           value={draft[descKey] || ''}
-          placeholder={descPlaceholder || 'Description (optional)'}
+          placeholder={descPlaceholder || formatMessage({ id: 'commitments.editor.description', defaultMessage: 'Description (optional)' })}
           onChange={(e) => setDraft({ ...draft, [descKey]: e.target.value })}
         />
       )}
       <div className="c2-edit-btns">
         {onDelete && (
           <button className="c2-mini-btn danger" onClick={onDelete}>
-            Delete
+            {formatMessage({ id: 'commitments.editor.delete', defaultMessage: 'Delete' })}
           </button>
         )}
         <button className="c2-mini-btn" onClick={onCancel}>
-          Cancel
+          {formatMessage({ id: 'commitments.editor.cancel', defaultMessage: 'Cancel' })}
         </button>
         <button className="c2-mini-btn pri" onClick={onSave}>
-          Save
+          {formatMessage({ id: 'commitments.editor.save', defaultMessage: 'Save' })}
         </button>
       </div>
     </div>

@@ -1,3 +1,4 @@
+import { fFixed } from '../../../utils/format'
 // plan/planData.ts — formatters, budget helpers and FIRE types/defaults for the Plan redesign.
 // Verbatim typed port of design_handoffs/plan_handoff/prototype/plan/data.jsx.
 // Mock month/income data (MONTHNUM, INCOMENUM, BUDGETS, CATDEF, GROUP_DEFS, INCOME_*)
@@ -199,8 +200,8 @@ export function fCF(n: number): string {
   const big = compactFrom(a, 999_995)
   if (big) return s + big
   const sym = getCurrencySymbol()
-  if (a >= 1e3) return s + sym + (a / 1e3).toFixed(2) + 'K'
-  return s + sym + a.toFixed(0)
+  if (a >= 1e3) return s + sym + fFixed(a / 1e3, 2) + 'K'
+  return s + sym + fFixed(a, 0)
 }
 // Figure cell — ALWAYS two decimals (owner ask, 2026-09-15, matching YNAB's own budget table).
 // This is the budget TABLE's formatter (Assigned / Activity / Available and their subtotals),

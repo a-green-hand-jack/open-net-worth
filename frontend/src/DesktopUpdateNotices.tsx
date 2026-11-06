@@ -10,6 +10,7 @@ import { Button } from './components/ui/Button'
 import { Modal } from './components/ui/Modal'
 import { desktopClientBridge, openExternal } from './platform/desktop'
 import { topicOf } from './whatsNewTopics'
+import { useAppIntl } from './i18n/useAppIntl'
 
 // The main process hands the note over once; a remount of this component must not lose it.
 const whatsNewTaken = new WeakMap<object, Promise<DesktopWhatsNew | null>>()
@@ -35,6 +36,7 @@ export function DesktopUpdateNotices() {
 }
 
 function UpdateReadyBanner() {
+  const intl = useAppIntl()
   const [state, setState] = useState<DesktopUpdateState | null>(null)
   const [dismissed, setDismissed] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
@@ -61,13 +63,22 @@ function UpdateReadyBanner() {
   // Later is per version AND per stage: hiding "available" must not hide the "ready" that follows.
   const key = `${ready ? 'ready' : 'available'}:${state.version ?? ''}`
   if (dismissed === key) return null
-  const name = state.version ? `Open Net Worth ${state.version}` : 'An update'
+  const name = state.version
+    ? `Open Net Worth ${state.version}`
+    : intl.formatMessage({ id: 'updates.anUpdate', defaultMessage: 'An update' })
   return (
     // data-portal-layer: tappable over an open modal — see NewVersionBanner.
     <div className="app-update" role="status" data-portal-layer>
-      <span>{ready ? `${name} is ready` : `${name} is available`}</span>
+      <span>
+        {ready
+          ? intl.formatMessage({ id: 'updates.ready', defaultMessage: '{name} is ready' }, { name })
+          : intl.formatMessage(
+              { id: 'updates.available', defaultMessage: '{name} is available' },
+              { name },
+            )}
+      </span>
       <button type="button" className="app-update-later" onClick={() => setDismissed(key)}>
-        Later
+        {intl.formatMessage({ id: 'updates.later', defaultMessage: 'Later' })}
       </button>
       {ready ? (
         // Opens the app's own Restart Now / Later confirm: the restart is the person's answer
@@ -75,14 +86,17 @@ function UpdateReadyBanner() {
         <button
           type="button"
           className="app-update-btn"
-          aria-label="Restart to update"
+          aria-label={intl.formatMessage({
+            id: 'updates.restartToUpdate',
+            defaultMessage: 'Restart to update',
+          })}
           disabled={busy}
           onClick={() => {
             setBusy(true)
             bridge.restartToUpdate!().finally(() => setBusy(false))
           }}
         >
-          Restart
+          {intl.formatMessage({ id: 'updates.restart', defaultMessage: 'Restart' })}
         </button>
       ) : (
         // Opens the same choice as the menu's Update Available…: download it, open the download
@@ -96,7 +110,7 @@ function UpdateReadyBanner() {
             bridge.offerUpdate!().finally(() => setBusy(false))
           }}
         >
-          Update
+          {intl.formatMessage({ id: 'updates.update', defaultMessage: 'Update' })}
         </button>
       )}
     </div>
@@ -131,6 +145,7 @@ const CONFETTI = Array.from({ length: 26 }, (_, i) => {
 })
 
 function WhatsNewDialog() {
+  const intl = useAppIntl()
   const [note, setNote] = useState<DesktopWhatsNew | null>(null)
   useEffect(() => {
     let live = true
@@ -149,27 +164,30 @@ function WhatsNewDialog() {
     <Modal
       open
       onClose={close}
-      title={`What’s new in ${note.version}`}
+      title={intl.formatMessage(
+        { id: 'updates.whatsNewIn', defaultMessage: 'What’s new in {version}' },
+        { version: note.version },
+      )}
       size="md"
       className="whats-new"
       footer={
         hasHighlights ? (
           <>
             <Button variant="ghost" onClick={openNotes}>
-              All changes
+              {intl.formatMessage({ id: 'updates.allChanges', defaultMessage: 'All changes' })}
               <ExternalLink size={14} aria-hidden="true" />
             </Button>
             <Button variant="primary" onClick={close}>
-              Let’s go
+              {intl.formatMessage({ id: 'updates.letsGo', defaultMessage: 'Let’s go' })}
             </Button>
           </>
         ) : (
           <>
             <Button variant="ghost" onClick={close}>
-              Not now
+              {intl.formatMessage({ id: 'updates.notNow', defaultMessage: 'Not now' })}
             </Button>
             <Button variant="primary" onClick={openNotes}>
-              See what’s new
+              {intl.formatMessage({ id: 'updates.seeWhatsNew', defaultMessage: 'See what’s new' })}
               <ExternalLink size={14} aria-hidden="true" />
             </Button>
           </>
@@ -203,10 +221,22 @@ function WhatsNewDialog() {
         <span className="whats-new__badge" aria-hidden="true">
           <PartyPopper size={30} strokeWidth={1.75} />
         </span>
-        <p className="whats-new__headline">You’re on {note.version}</p>
+        <p className="whats-new__headline">
+          {intl.formatMessage(
+            { id: 'updates.youAreOn', defaultMessage: 'You’re on {version}' },
+            { version: note.version },
+          )}
+        </p>
         {/* No highlights is usually a release without any, not a failure: the line said "couldn't
             load" over a notes step that had simply written none (owner, 2026-11-04). */}
-        {hasHighlights && <p className="whats-new__lede">Here’s what’s new.</p>}
+        {hasHighlights && (
+          <p className="whats-new__lede">
+            {intl.formatMessage({
+              id: 'updates.hereWhatsNew',
+              defaultMessage: 'Here’s what’s new.',
+            })}
+          </p>
+        )}
       </div>
       {hasHighlights && (
         <ul className="whats-new-list">

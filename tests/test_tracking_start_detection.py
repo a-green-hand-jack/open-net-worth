@@ -125,6 +125,26 @@ def test_flags_for_txn_before_start():
     flags = tracking_start.flags_for_txn(row, ACCTS, OPENINGS + [row])
     assert any(f["type"] == "before_tracking_start" and f["account_id"] == "card" for f in flags)
     assert any("2026-05-31" in f["message"] for f in flags)
+    warning = next(f for f in flags if f["type"] == "before_tracking_start")
+    assert warning["message_id"] == "ledger.warning.beforeTrackingStart"
+    assert warning["message_params"] == {"account": "Card", "date": "2026-05-31"}
+
+
+def test_straddling_transfer_has_stable_warning_metadata():
+    row = {
+        "id": "t6",
+        "date": "2026-04-05",
+        "kind": "transfer",
+        "from_account_id": "bank",
+        "from_amount": 50.0,
+        "to_account_id": "card",
+        "to_amount": 50.0,
+    }
+    warnings = tracking_start.flags_for_txn(row, ACCTS, OPENINGS + [row])
+    warning = next(f for f in warnings if f["type"] == "straddle")
+    assert warning["message_id"] == "ledger.warning.straddle"
+    assert warning["message_params"] == {}
+    assert "won't balance" in warning["message"]
 
 
 def test_summarizing_account_hidden_not_counted_in_health():

@@ -1,4 +1,6 @@
+import { getNumberLocale } from '../../utils/format'
 import { useEffect, useState } from 'react'
+import { useAppIntl } from '../../i18n/useAppIntl'
 import type { ComputedRow } from '../../types/portfolio'
 import { recordIncome } from '../../api/portfolio'
 import { toLocalISODate } from './DisposalForm'
@@ -37,6 +39,7 @@ interface AccountLite {
 // reinvestment acquires a lot and books no cash. ALL income math is the service's
 // (POST /api/income → apply_income_change); this form only collects input.
 export function RecordDividendForm({ row, onDone, onClose, defaultKind = 'dividend' }: Props) {
+  const { formatMessage } = useAppIntl()
   const positionId = row.position_id || ''
   const ccy = row.currency || ''
 
@@ -94,7 +97,14 @@ export function RecordDividendForm({ row, onDone, onClose, defaultKind = 'divide
       onDone()
       onClose()
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Could not record the income.')
+      setError(
+        e instanceof Error
+          ? e.message
+          : formatMessage({
+              id: 'shared.income.error',
+              defaultMessage: 'Could not record the income.',
+            }),
+      )
     } finally {
       setSubmitting(false)
     }
@@ -103,10 +113,10 @@ export function RecordDividendForm({ row, onDone, onClose, defaultKind = 'divide
   const footer = (
     <Cluster gap="--space-3" justify="end">
       <Button variant="secondary" onClick={onClose} disabled={submitting}>
-        Cancel
+        {formatMessage({ id: 'shared.income.cancel', defaultMessage: 'Cancel' })}
       </Button>
       <Button variant="primary" onClick={submit} disabled={!canSubmit} loading={submitting}>
-        Record
+        {formatMessage({ id: 'shared.income.record', defaultMessage: 'Record' })}
       </Button>
     </Cluster>
   )
@@ -115,26 +125,50 @@ export function RecordDividendForm({ row, onDone, onClose, defaultKind = 'divide
     <Modal
       open
       onClose={onClose}
-      title={`Record income — ${row.label || row.symbol}`}
+      title={formatMessage(
+        { id: 'shared.income.title', defaultMessage: 'Record income — {name}' },
+        { name: row.label || row.symbol },
+      )}
       size="md"
       footer={footer}
     >
       <Stack gap="--space-4">
-        <FormField label="Type" htmlFor="rdf-kind">
+        <FormField
+          label={formatMessage({ id: 'shared.income.type', defaultMessage: 'Type' })}
+          htmlFor="rdf-kind"
+        >
           <Select
             id="rdf-kind"
             value={kind}
             onChange={(e) => setKind(e.target.value as typeof kind)}
             options={[
-              { value: 'dividend', label: 'Dividend' },
-              { value: 'interest', label: 'Interest' },
-              { value: 'distribution', label: 'Distribution' },
+              {
+                value: 'dividend',
+                label: formatMessage({ id: 'shared.income.dividend', defaultMessage: 'Dividend' }),
+              },
+              {
+                value: 'interest',
+                label: formatMessage({ id: 'shared.income.interest', defaultMessage: 'Interest' }),
+              },
+              {
+                value: 'distribution',
+                label: formatMessage({
+                  id: 'shared.income.distribution',
+                  defaultMessage: 'Distribution',
+                }),
+              },
             ]}
           />
         </FormField>
 
         <Cluster gap="--space-4" align="start">
-          <FormField label={`Gross amount (${ccy})`} htmlFor="rdf-gross">
+          <FormField
+            label={formatMessage(
+              { id: 'shared.income.gross', defaultMessage: 'Gross amount ({currency})' },
+              { currency: ccy },
+            )}
+            htmlFor="rdf-gross"
+          >
             <NumberField
               id="rdf-gross"
               inputMode="decimal"
@@ -142,7 +176,13 @@ export function RecordDividendForm({ row, onDone, onClose, defaultKind = 'divide
               onChange={(e) => setGross(e.target.value)}
             />
           </FormField>
-          <FormField label={`Tax withheld (${ccy})`} htmlFor="rdf-tax">
+          <FormField
+            label={formatMessage(
+              { id: 'shared.income.tax', defaultMessage: 'Tax withheld ({currency})' },
+              { currency: ccy },
+            )}
+            htmlFor="rdf-tax"
+          >
             <NumberField
               id="rdf-tax"
               inputMode="decimal"
@@ -152,7 +192,10 @@ export function RecordDividendForm({ row, onDone, onClose, defaultKind = 'divide
           </FormField>
         </Cluster>
 
-        <FormField label="Paid on" htmlFor="rdf-paid-at">
+        <FormField
+          label={formatMessage({ id: 'shared.income.paidOn', defaultMessage: 'Paid on' })}
+          htmlFor="rdf-paid-at"
+        >
           <TextField
             id="rdf-paid-at"
             type="date"
@@ -163,13 +206,16 @@ export function RecordDividendForm({ row, onDone, onClose, defaultKind = 'divide
 
         <Checkbox
           id="rdf-drp"
-          label="Reinvest (DRP)"
+          label={formatMessage({ id: 'shared.income.reinvest', defaultMessage: 'Reinvest (DRP)' })}
           checked={isDrp}
           onChange={(e) => setIsDrp(e.target.checked)}
         />
 
         {isDrp ? (
-          <FormField label="Units reinvested" htmlFor="rdf-drp-qty">
+          <FormField
+            label={formatMessage({ id: 'shared.income.units', defaultMessage: 'Units reinvested' })}
+            htmlFor="rdf-drp-qty"
+          >
             <NumberField
               id="rdf-drp-qty"
               inputMode="decimal"
@@ -178,7 +224,13 @@ export function RecordDividendForm({ row, onDone, onClose, defaultKind = 'divide
             />
           </FormField>
         ) : (
-          <FormField label="Cash account" htmlFor="rdf-account">
+          <FormField
+            label={formatMessage({
+              id: 'shared.income.cashAccount',
+              defaultMessage: 'Cash account',
+            })}
+            htmlFor="rdf-account"
+          >
             <Select
               id="rdf-account"
               value={accountId}
@@ -190,8 +242,20 @@ export function RecordDividendForm({ row, onDone, onClose, defaultKind = 'divide
 
         <p className="rdf-preview">
           {isDrp
-            ? `Reinvests ${net.toLocaleString()} ${ccy} into a new lot (no cash booked).`
-            : `Books ${net.toLocaleString()} ${ccy} (net of tax) as income.`}
+            ? formatMessage(
+                {
+                  id: 'shared.income.reinvestPreview',
+                  defaultMessage: 'Reinvests {amount} {currency} into a new lot (no cash booked).',
+                },
+                { amount: net.toLocaleString(getNumberLocale()), currency: ccy },
+              )
+            : formatMessage(
+                {
+                  id: 'shared.income.cashPreview',
+                  defaultMessage: 'Books {amount} {currency} (net of tax) as income.',
+                },
+                { amount: net.toLocaleString(getNumberLocale()), currency: ccy },
+              )}
         </p>
 
         {error && <ErrorState message={error} />}

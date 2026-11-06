@@ -1,10 +1,13 @@
+import { getNumberLocale } from '../../utils/format'
 import { useEffect, useState } from 'react'
+import { useAppIntl } from '../../i18n/useAppIntl'
 import type { ComputedRow, Lot, RealizedEvent } from '../../types/portfolio'
 import { fAmountNative, fBase, fDate, plClass } from '../../utils/format'
 import { authFetch } from '../../api/client'
 import { ACCOUNTS_KEY, fetchJson, notifyPortfolioChanged } from '../../hooks/serverState'
 import { fetchCachedQuery } from '../../state/queryCache'
 import { DateField, Modal } from '../ui'
+import { lotsMessage } from './lotsMessages'
 
 /** Enough of a holding to open the sale form from Investments or the quote page. */
 export type DisposalTarget = Pick<ComputedRow, 'position_id' | 'symbol' | 'label' | 'currency'> &
@@ -78,6 +81,8 @@ function picksFromEvent(event?: RealizedEvent | null): Record<string, string> {
 }
 
 export function DisposalForm({ row, event, onDone, onClose }: Props) {
+  const intl = useAppIntl()
+  const { formatMessage } = intl
   const positionId = row.position_id || event?.position_id || ''
   const proceedsCcy = row.currency || event?.proceeds_currency || ''
   const editing = !!event
@@ -237,15 +242,32 @@ export function DisposalForm({ row, event, onDone, onClose }: Props) {
       if (!res.ok) {
         // 422 from the service carries the domain message (oversell / bad lot id);
         // FastAPI wraps it under `detail`.
-        const detail = (data as unknown as { detail?: string }).detail
-        throw new Error(detail || data.error || `Could not record the sale (HTTP ${res.status}).`)
+        throw new Error(
+          lotsMessage(
+            data,
+            formatMessage(
+              {
+                id: 'shared.disposal.httpError',
+                defaultMessage: 'Could not record the sale (HTTP {status}).',
+              },
+              { status: res.status },
+            ),
+            intl,
+          ),
+        )
       }
       if (data.error) throw new Error(data.error)
       setResult(data)
       notifyPortfolioChanged()
       onDone()
     } catch (e) {
-      setError((e as Error).message || 'Could not record the sale.')
+      setError(
+        (e as Error).message ||
+          formatMessage({
+            id: 'shared.disposal.saveError',
+            defaultMessage: 'Could not record the sale.',
+          }),
+      )
     } finally {
       setSubmitting(false)
     }
@@ -265,7 +287,10 @@ export function DisposalForm({ row, event, onDone, onClose }: Props) {
       onClose={onClose}
       title={
         <>
-          {editing ? 'Edit sale' : 'Record sale'} — <span className="disposal-name">{name}</span>
+          {editing
+            ? formatMessage({ id: 'shared.disposal.edit', defaultMessage: 'Edit sale' })
+            : formatMessage({ id: 'shared.disposal.record', defaultMessage: 'Record sale' })}{' '}
+          — <span className="disposal-name">{name}</span>
         </>
       }
       subtitle={subtitleParts.length > 0 ? subtitleParts.join(' • ') : undefined}
@@ -275,18 +300,21 @@ export function DisposalForm({ row, event, onDone, onClose }: Props) {
         !result ? (
           <div className="disposal-actions">
             <button className="btn-secondary" onClick={onClose}>
-              Cancel
+              {formatMessage({ id: 'shared.disposal.cancel', defaultMessage: 'Cancel' })}
             </button>
             <button className="btn-primary" disabled={!canSubmit} onClick={submit}>
               {submitting
                 ? editing
-                  ? 'Saving…'
-                  : 'Recording…'
+                  ? formatMessage({ id: 'shared.disposal.saving', defaultMessage: 'Saving…' })
+                  : formatMessage({ id: 'shared.disposal.recording', defaultMessage: 'Recording…' })
                 : editing
-                  ? 'Save'
+                  ? formatMessage({ id: 'shared.disposal.save', defaultMessage: 'Save' })
                   : isTaxable
-                    ? 'Record sale'
-                    : 'Record transfer'}
+                    ? formatMessage({ id: 'shared.disposal.record', defaultMessage: 'Record sale' })
+                    : formatMessage({
+                        id: 'shared.disposal.recordTransfer',
+                        defaultMessage: 'Record transfer',
+                      })}
             </button>
           </div>
         ) : undefined
@@ -299,23 +327,49 @@ export function DisposalForm({ row, event, onDone, onClose }: Props) {
             <div className="disposal-result-title">
               {editing
                 ? isTaxable
-                  ? 'Sale updated'
-                  : 'Transfer updated'
+                  ? formatMessage({
+                      id: 'shared.disposal.saleUpdated',
+                      defaultMessage: 'Sale updated',
+                    })
+                  : formatMessage({
+                      id: 'shared.disposal.transferUpdated',
+                      defaultMessage: 'Transfer updated',
+                    })
                 : isTaxable
-                  ? 'Sale recorded'
-                  : 'Transfer recorded'}
+                  ? formatMessage({
+                      id: 'shared.disposal.saleRecorded',
+                      defaultMessage: 'Sale recorded',
+                    })
+                  : formatMessage({
+                      id: 'shared.disposal.transferRecorded',
+                      defaultMessage: 'Transfer recorded',
+                    })}
             </div>
             {!isTaxable ? (
               <div className="muted">
                 {transferToAccountId
-                  ? `Moved to ${accountName(transferToAccountId)} — basis carried over, no gain booked.`
-                  : 'Transfer-out — basis carried out, no gain booked.'}
+                  ? formatMessage(
+                      {
+                        id: 'shared.disposal.moved',
+                        defaultMessage: 'Moved to {account} — basis carried over, no gain booked.',
+                      },
+                      { account: accountName(transferToAccountId) },
+                    )
+                  : formatMessage({
+                      id: 'shared.disposal.transferredOut',
+                      defaultMessage: 'Transfer-out — basis carried out, no gain booked.',
+                    })}
               </div>
             ) : result.realized_gain == null ? (
-              <div className="muted">Realized gain unknown (cost basis not recorded).</div>
+              <div className="muted">
+                {formatMessage({
+                  id: 'shared.disposal.unknownGain',
+                  defaultMessage: 'Realized gain unknown (cost basis not recorded).',
+                })}
+              </div>
             ) : (
               <div className="disposal-result-gain">
-                Realized gain{' '}
+                {formatMessage({ id: 'shared.disposal.gain', defaultMessage: 'Realized gain' })}
                 <span className={plClass(result.realized_gain)}>
                   {(result.realized_gain >= 0 ? '+' : '') +
                     fAmountNative(result.realized_gain, proceedsCcy)}
@@ -336,47 +390,80 @@ export function DisposalForm({ row, event, onDone, onClose }: Props) {
             {isTaxable &&
               (result.cash_leg_id ? (
                 <div className="muted disposal-deposit-note">
-                  Net proceeds deposited to {accountName(proceedsAccountId) || 'the chosen account'}
-                  .
+                  {formatMessage(
+                    {
+                      id: 'shared.disposal.depositSuccess',
+                      defaultMessage: 'Net proceeds deposited to {account}.',
+                    },
+                    {
+                      account:
+                        accountName(proceedsAccountId) ||
+                        formatMessage({
+                          id: 'shared.disposal.chosenAccount',
+                          defaultMessage: 'the chosen account',
+                        }),
+                    },
+                  )}
                 </div>
               ) : (
                 <div className="muted disposal-deposit-note">
-                  Proceeds were NOT added to any account — your net worth will drop by the sale
-                  value until you record the cash.
+                  {formatMessage({
+                    id: 'shared.disposal.noDeposit',
+                    defaultMessage:
+                      'Proceeds were NOT added to any account — your net worth will drop by the sale value until you record the cash.',
+                  })}
                 </div>
               ))}
           </div>
           <button className="btn-primary" onClick={onClose}>
-            Done
+            {formatMessage({ id: 'shared.disposal.done', defaultMessage: 'Done' })}
           </button>
         </div>
       ) : (
         <>
           {lotsError ? (
-            <div className="disposal-error">Could not load the lots for this holding.</div>
+            <div className="disposal-error">
+              {formatMessage({
+                id: 'shared.disposal.lotsError',
+                defaultMessage: 'Could not load the lots for this holding.',
+              })}
+            </div>
           ) : lotsLoading ? (
-            <div className="muted disposal-loading">Loading lots…</div>
+            <div className="muted disposal-loading">
+              {formatMessage({ id: 'shared.disposal.loading', defaultMessage: 'Loading lots…' })}
+            </div>
           ) : openLots.length === 0 ? (
             <div className="disposal-error">
-              No open units to sell for this holding — it's already fully disposed. Add to the
-              position from the portfolio, or ask Lucius to record a new acquisition.
+              {formatMessage({
+                id: 'shared.disposal.noLots',
+                defaultMessage:
+                  "No open units to sell for this holding — it's already fully disposed. Add to the position from the portfolio, or ask Lucius to record a new acquisition.",
+              })}
             </div>
           ) : (
             <>
               <div className="disposal-grid">
                 <label>
-                  Quantity
+                  {formatMessage({ id: 'shared.disposal.quantity', defaultMessage: 'Quantity' })}
                   <input
                     type="number"
                     min="0"
                     step="any"
                     value={quantity}
                     onChange={(e) => setQuantity(e.target.value)}
-                    placeholder={`max ${totalOpen.toLocaleString(undefined, { maximumFractionDigits: 8 })}`}
+                    placeholder={formatMessage(
+                      { id: 'shared.disposal.max', defaultMessage: 'max {quantity}' },
+                      {
+                        quantity: totalOpen.toLocaleString(getNumberLocale(), { maximumFractionDigits: 8 }),
+                      },
+                    )}
                   />
                 </label>
                 <label>
-                  Proceeds / unit{proceedsCcy ? ` (${proceedsCcy})` : ''}
+                  {formatMessage(
+                    { id: 'shared.disposal.proceeds', defaultMessage: 'Proceeds / unit{currency}' },
+                    { currency: proceedsCcy ? ` (${proceedsCcy})` : '' },
+                  )}
                   <input
                     type="number"
                     min="0"
@@ -386,7 +473,10 @@ export function DisposalForm({ row, event, onDone, onClose }: Props) {
                   />
                 </label>
                 <label>
-                  Fees{proceedsCcy ? ` (${proceedsCcy})` : ''}
+                  {formatMessage(
+                    { id: 'shared.disposal.fees', defaultMessage: 'Fees{currency}' },
+                    { currency: proceedsCcy ? ` (${proceedsCcy})` : '' },
+                  )}
                   <input
                     type="number"
                     min="0"
@@ -397,7 +487,7 @@ export function DisposalForm({ row, event, onDone, onClose }: Props) {
                   />
                 </label>
                 <label>
-                  Date
+                  {formatMessage({ id: 'shared.disposal.date', defaultMessage: 'Date' })}
                   <DateField
                     unstyled
                     value={disposedAt}
@@ -407,7 +497,12 @@ export function DisposalForm({ row, event, onDone, onClose }: Props) {
               </div>
 
               <div className="disposal-method">
-                <span className="disposal-method-label">Lot selection</span>
+                <span className="disposal-method-label">
+                  {formatMessage({
+                    id: 'shared.disposal.selection',
+                    defaultMessage: 'Lot selection',
+                  })}
+                </span>
                 <div className="inv-seg">
                   <button
                     className={`inv-seg-chip${method === 'fifo' ? ' active' : ''}`}
@@ -419,7 +514,10 @@ export function DisposalForm({ row, event, onDone, onClose }: Props) {
                     className={`inv-seg-chip${method === 'specific_id' ? ' active' : ''}`}
                     onClick={() => setMethod('specific_id')}
                   >
-                    Specific lots
+                    {formatMessage({
+                      id: 'shared.disposal.specific',
+                      defaultMessage: 'Specific lots',
+                    })}
                   </button>
                 </div>
               </div>
@@ -429,18 +527,40 @@ export function DisposalForm({ row, event, onDone, onClose }: Props) {
                   <table className="realized-lots">
                     <thead>
                       <tr>
-                        <th>Acquired</th>
-                        <th>Remaining</th>
-                        <th>Unit cost</th>
-                        <th>Term</th>
-                        <th>Sell qty</th>
+                        <th>
+                          {formatMessage({
+                            id: 'shared.disposal.acquired',
+                            defaultMessage: 'Acquired',
+                          })}
+                        </th>
+                        <th>
+                          {formatMessage({
+                            id: 'shared.disposal.remaining',
+                            defaultMessage: 'Remaining',
+                          })}
+                        </th>
+                        <th>
+                          {formatMessage({
+                            id: 'shared.disposal.unitCost',
+                            defaultMessage: 'Unit cost',
+                          })}
+                        </th>
+                        <th>
+                          {formatMessage({ id: 'shared.disposal.term', defaultMessage: 'Term' })}
+                        </th>
+                        <th>
+                          {formatMessage({
+                            id: 'shared.disposal.sellQty',
+                            defaultMessage: 'Sell qty',
+                          })}
+                        </th>
                       </tr>
                     </thead>
                     <tbody>
                       {openLots.map((l) => (
                         <tr key={l.id}>
                           <td>{l.acquired_at ? fDate(l.acquired_at, 'short', 'always') : '—'}</td>
-                          <td>{l.remaining_qty.toLocaleString(undefined)}</td>
+                          <td>{l.remaining_qty.toLocaleString(getNumberLocale())}</td>
                           <td>
                             {l.unit_cost == null
                               ? '—'
@@ -448,7 +568,20 @@ export function DisposalForm({ row, event, onDone, onClose }: Props) {
                           </td>
                           <td>
                             <span className={`term-badge term-${l.term_to_date}`}>
-                              {l.term_to_date}
+                              {l.term_to_date === 'long'
+                                ? formatMessage({
+                                    id: 'shared.disposal.long',
+                                    defaultMessage: 'long',
+                                  })
+                                : l.term_to_date === 'short'
+                                  ? formatMessage({
+                                      id: 'shared.disposal.short',
+                                      defaultMessage: 'short',
+                                    })
+                                  : formatMessage({
+                                      id: 'shared.disposal.unknown',
+                                      defaultMessage: 'unknown',
+                                    })}
                             </span>
                           </td>
                           <td>
@@ -468,8 +601,17 @@ export function DisposalForm({ row, event, onDone, onClose }: Props) {
                   </table>
                   {specificMismatch && (
                     <div className="disposal-warn">
-                      Selected {pickedQty.toLocaleString(undefined)} of {qtyNum.toLocaleString()} —
-                      the picked quantities must sum to the sale quantity.
+                      {formatMessage(
+                        {
+                          id: 'shared.disposal.selectionMismatch',
+                          defaultMessage:
+                            'Selected {picked} of {total} — the picked quantities must sum to the sale quantity.',
+                        },
+                        {
+                          picked: pickedQty.toLocaleString(getNumberLocale()),
+                          total: qtyNum.toLocaleString(getNumberLocale()),
+                        },
+                      )}
                     </div>
                   )}
                 </div>
@@ -480,12 +622,20 @@ export function DisposalForm({ row, event, onDone, onClose }: Props) {
                     Only meaningful for a real sale — hidden for a transfer-out (no proceeds). */}
               {isTaxable && (
                 <label className="disposal-deposit">
-                  Deposit proceeds to
+                  {formatMessage({
+                    id: 'shared.disposal.deposit',
+                    defaultMessage: 'Deposit proceeds to',
+                  })}
                   <select
                     value={proceedsAccountId}
                     onChange={(e) => setProceedsAccountId(e.target.value)}
                   >
-                    <option value="">Don't add to an account</option>
+                    <option value="">
+                      {formatMessage({
+                        id: 'shared.disposal.noAccount',
+                        defaultMessage: "Don't add to an account",
+                      })}
+                    </option>
                     {accounts.map((a) => (
                       <option key={a.id} value={a.id}>
                         {a.name}
@@ -495,14 +645,25 @@ export function DisposalForm({ row, event, onDone, onClose }: Props) {
                   {proceedsAccountId ? (
                     netProceeds > 0 && (
                       <span className="disposal-deposit-hint muted">
-                        {fAmountNative(netProceeds, proceedsCcy)} will be added to{' '}
-                        {accountName(proceedsAccountId)}.
+                        {formatMessage(
+                          {
+                            id: 'shared.disposal.depositAmount',
+                            defaultMessage: '{amount} will be added to {account}.',
+                          },
+                          {
+                            amount: fAmountNative(netProceeds, proceedsCcy),
+                            account: accountName(proceedsAccountId),
+                          },
+                        )}
                       </span>
                     )
                   ) : (
                     <span className="disposal-deposit-hint muted">
-                      The sale is recorded but the cash is not added anywhere, so your net worth
-                      drops by the sale value.
+                      {formatMessage({
+                        id: 'shared.disposal.cashNotAdded',
+                        defaultMessage:
+                          'The sale is recorded but the cash is not added anywhere, so your net worth drops by the sale value.',
+                      })}
                     </span>
                   )}
                 </label>
@@ -514,8 +675,11 @@ export function DisposalForm({ row, event, onDone, onClose }: Props) {
                   checked={!isTaxable}
                   onChange={(e) => setIsTaxable(!e.target.checked)}
                 />
-                Not a sale — transferring out, gifting, or writing off. No money received, so no
-                profit/loss is recorded and the original cost moves with the shares.
+                {formatMessage({
+                  id: 'shared.disposal.transferHelp',
+                  defaultMessage:
+                    'Not a sale — transferring out, gifting, or writing off. No money received, so no profit/loss is recorded and the original cost moves with the shares.',
+                })}
               </label>
 
               {/* A move between the user's own accounts names its destination, so Activity
@@ -523,12 +687,17 @@ export function DisposalForm({ row, event, onDone, onClose }: Props) {
                     source account is not offered — a transfer goes somewhere ELSE. */}
               {!isTaxable && (
                 <label className="disposal-deposit">
-                  Moved to
+                  {formatMessage({ id: 'shared.disposal.moveTo', defaultMessage: 'Moved to' })}
                   <select
                     value={transferToAccountId}
                     onChange={(e) => setTransferToAccountId(e.target.value)}
                   >
-                    <option value="">Not one of my accounts — gift or write-off</option>
+                    <option value="">
+                      {formatMessage({
+                        id: 'shared.disposal.outsideAccount',
+                        defaultMessage: 'Not one of my accounts — gift or write-off',
+                      })}
+                    </option>
                     {accounts
                       .filter((a) => a.id !== row.account_id)
                       .map((a) => (
@@ -539,8 +708,14 @@ export function DisposalForm({ row, event, onDone, onClose }: Props) {
                   </select>
                   {transferToAccountId && (
                     <span className="disposal-deposit-hint muted">
-                      Only the removal is recorded here. Add the shares to{' '}
-                      {accountName(transferToAccountId)} as a transfer-in lot with the same cost.
+                      {formatMessage(
+                        {
+                          id: 'shared.disposal.transferInstruction',
+                          defaultMessage:
+                            'Only the removal is recorded here. Add the shares to {account} as a transfer-in lot with the same cost.',
+                        },
+                        { account: accountName(transferToAccountId) },
+                      )}
                     </span>
                   )}
                 </label>
@@ -548,13 +723,22 @@ export function DisposalForm({ row, event, onDone, onClose }: Props) {
 
               {overSell && (
                 <div className="disposal-warn">
-                  Quantity exceeds the {totalOpen.toLocaleString(undefined)} open units.
+                  {formatMessage(
+                    {
+                      id: 'shared.disposal.oversell',
+                      defaultMessage: 'Quantity exceeds the {quantity} open units.',
+                    },
+                    { quantity: totalOpen.toLocaleString(getNumberLocale()) },
+                  )}
                 </div>
               )}
               {missingProceeds && qtyNum > 0 && (
                 <div className="disposal-warn">
-                  Enter the proceeds per unit. A $0 sale would book the full cost basis as a loss —
-                  for a gift / transfer with no value received, tick "transfer-out" below.
+                  {formatMessage({
+                    id: 'shared.disposal.missingProceeds',
+                    defaultMessage:
+                      'Enter the proceeds per unit. A $0 sale would book the full cost basis as a loss — for a gift / transfer with no value received, tick "transfer-out" below.',
+                  })}
                 </div>
               )}
               {error && <div className="disposal-error">{error}</div>}

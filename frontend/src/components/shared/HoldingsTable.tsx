@@ -1,4 +1,7 @@
+import { fFixed } from '../../utils/format'
+import { getNumberLocale } from '../../utils/format'
 import { Fragment, useMemo, useState, type ReactNode } from 'react'
+import { useAppIntl } from '../../i18n/useAppIntl'
 import type { ComputedRow } from '../../types/portfolio'
 import { Badge } from '../ui'
 import { ASSET_CLASS_COLOR } from '../../utils/constants'
@@ -131,6 +134,7 @@ export function HoldingsTable({
   askable,
   bondColumns,
 }: Props) {
+  const { formatMessage } = useAppIntl()
   const showActions =
     !!onRecordSale || !!onRecordDividend || !!onMovePosition || !!onOpenAssetDetail
   const canExpand = !!expandable && !!renderExpanded
@@ -236,6 +240,31 @@ export function HoldingsTable({
     return [...map.entries()].map(([key, v]) => ({ key, ...v })).sort((a, b) => b.total - a.total)
   }, [rows, groupBy])
 
+  const assetClassLabel = (key: string, fallback: string): string => {
+    switch (key) {
+      case 'equity':
+        return formatMessage({ id: 'shared.holdings.assetClass0', defaultMessage: 'Equity' })
+      case 'bond':
+        return formatMessage({ id: 'shared.holdings.assetClass1', defaultMessage: 'Bond' })
+      case 'commodity':
+        return formatMessage({ id: 'shared.holdings.assetClass2', defaultMessage: 'Commodity' })
+      case 'crypto':
+        return formatMessage({ id: 'shared.holdings.assetClass3', defaultMessage: 'Crypto' })
+      case 'cash':
+        return formatMessage({ id: 'shared.holdings.assetClass4', defaultMessage: 'Cash' })
+      case 'property':
+        return formatMessage({ id: 'shared.holdings.assetClass5', defaultMessage: 'Property' })
+      case 'receivable':
+        return formatMessage({ id: 'shared.holdings.assetClass6', defaultMessage: 'Receivable' })
+      case 'option':
+        return formatMessage({ id: 'shared.holdings.assetClass7', defaultMessage: 'Option' })
+      case 'other':
+        return formatMessage({ id: 'shared.holdings.assetClass8', defaultMessage: 'Other' })
+      default:
+        return fallback
+    }
+  }
+
   const totalBase = rows.reduce((s, r) => s + (r._base || 0), 0)
   const costRows = rows.filter((r) => r._cost_base != null)
   const totalCostBase = costRows.reduce((s, r) => s + (r._cost_base || 0), 0)
@@ -288,7 +317,10 @@ export function HoldingsTable({
                 <button
                   type="button"
                   className="hold-intel-name-btn"
-                  title={`View ${r.symbol || r.label} detail`}
+                  title={formatMessage(
+                    { id: 'shared.holdings.detail', defaultMessage: 'View {name} detail' },
+                    { name: r.symbol || r.label },
+                  )}
                   onClick={(e) => {
                     e.stopPropagation()
                     onOpenAssetDetail(r)
@@ -302,9 +334,27 @@ export function HoldingsTable({
                 </strong>
               )}
               {WRAPPER_LABEL[r.asset_subclass ?? ''] && (
-                <span className="wrapper-badge">{WRAPPER_LABEL[r.asset_subclass!]}</span>
+                <span className="wrapper-badge">
+                  {r.asset_subclass === 'mutual_fund'
+                    ? formatMessage({ id: 'shared.holdings.wrapperFund', defaultMessage: 'Fund' })
+                    : r.asset_subclass === 'future'
+                      ? formatMessage({
+                          id: 'shared.holdings.wrapperFuture',
+                          defaultMessage: 'Future',
+                        })
+                      : r.asset_subclass === 'physical' || r.asset_subclass === 'precious_metal'
+                        ? formatMessage({
+                            id: 'shared.holdings.wrapperPhysical',
+                            defaultMessage: 'Physical',
+                          })
+                        : WRAPPER_LABEL[r.asset_subclass!]}
+                </span>
               )}
-              {r.vesting_state === 'unvested' && <Badge tone="muted">Locked</Badge>}
+              {r.vesting_state === 'unvested' && (
+                <Badge tone="muted">
+                  {formatMessage({ id: 'shared.holdings.locked', defaultMessage: 'Locked' })}
+                </Badge>
+              )}
             </span>
             {r.symbol && (
               <span className="holding-name ui-truncate" title={r.label}>
@@ -321,14 +371,25 @@ export function HoldingsTable({
             {!bondColumns && r.asset_class === 'bond' && (
               <span className="bond-meta-inline">
                 {r.coupon_rate != null && r.coupon_freq && r.coupon_freq > 0
-                  ? `${(r.coupon_rate * 100).toFixed(2)}%`
+                  ? `${fFixed(r.coupon_rate * 100, 2)}%`
                   : null}
-                {r.maturity_date ? ` • mat ${r.maturity_date.slice(0, 4)}` : ' • fund'}
+                {r.maturity_date
+                  ? formatMessage(
+                      { id: 'shared.holdings.maturityYear', defaultMessage: ' • mat {year}' },
+                      { year: r.maturity_date.slice(0, 4) },
+                    )
+                  : formatMessage({ id: 'shared.holdings.fund', defaultMessage: ' • fund' })}
               </span>
             )}
             {r.vesting_state === 'unvested' && r.ref_grant_last_vest && (
               <span className="note ui-truncate muted">
-                Unvested grant • vests to {fDate(r.ref_grant_last_vest, 'short', 'always')}
+                {formatMessage(
+                  {
+                    id: 'shared.holdings.unvested',
+                    defaultMessage: 'Unvested grant • vests to {date}',
+                  },
+                  { date: fDate(r.ref_grant_last_vest, 'short', 'always') },
+                )}
               </span>
             )}
           </span>
@@ -339,7 +400,9 @@ export function HoldingsTable({
             <td>
               {r.bond_type ? (
                 <Badge tone={BOND_TYPE_TONE[r.bond_type] ?? 'neutral'}>
-                  {BOND_TYPE_LABEL[r.bond_type] ?? r.bond_type}
+                  {r.bond_type === 'market'
+                    ? formatMessage({ id: 'shared.holdings.bondMarket', defaultMessage: 'Market' })
+                    : (BOND_TYPE_LABEL[r.bond_type] ?? r.bond_type)}
                 </Badge>
               ) : (
                 <span className="muted">—</span>
@@ -347,7 +410,12 @@ export function HoldingsTable({
             </td>
             <td>
               {r.coupon_freq === 0 ? (
-                <Badge tone="muted">Zero-coupon</Badge>
+                <Badge tone="muted">
+                  {formatMessage({
+                    id: 'shared.holdings.zeroCoupon',
+                    defaultMessage: 'Zero-coupon',
+                  })}
+                </Badge>
               ) : r.coupon_rate != null ? (
                 fPct(r.coupon_rate * 100)
               ) : (
@@ -359,7 +427,12 @@ export function HoldingsTable({
                 <>
                   {fDate(r.maturity_date, 'short', 'always')}
                   {r.days_to_maturity != null && (
-                    <span className="bond-matures-in">({r.days_to_maturity}d)</span>
+                    <span className="bond-matures-in">
+                      {formatMessage(
+                        { id: 'shared.holdings.days', defaultMessage: '({count}d)' },
+                        { count: r.days_to_maturity },
+                      )}
+                    </span>
                   )}
                 </>
               ) : (
@@ -371,7 +444,7 @@ export function HoldingsTable({
         ) : (
           <>
             <td>
-              {showQ ? (+r.quantity).toLocaleString(undefined) + (r.unit ? ` ${r.unit}` : '') : '—'}
+              {showQ ? (+r.quantity).toLocaleString(getNumberLocale()) + (r.unit ? ` ${r.unit}` : '') : '—'}
             </td>
             <td>
               {r._disp_unit_cost != null && showQ
@@ -390,17 +463,29 @@ export function HoldingsTable({
             <>
               <td
                 className={`${plClass(r._ref_pl)} hold-ref-pl`}
-                title="Since grant (based on grant price)"
+                title={formatMessage({
+                  id: 'shared.holdings.sinceGrant',
+                  defaultMessage: 'Since grant (based on grant price)',
+                })}
               >
                 {fBase(r._ref_pl)}
-                <span className="hold-ref-marker"> sg</span>
+                <span className="hold-ref-marker">
+                  {' '}
+                  {formatMessage({ id: 'shared.holdings.sinceGrantMarker', defaultMessage: 'sg' })}
+                </span>
               </td>
               <td
                 className={`${plClass(r._ref_plpct)} hold-ref-pl`}
-                title="Since grant (based on grant price)"
+                title={formatMessage({
+                  id: 'shared.holdings.sinceGrant',
+                  defaultMessage: 'Since grant (based on grant price)',
+                })}
               >
                 {fPct(r._ref_plpct, { sign: true })}
-                <span className="hold-ref-marker"> sg</span>
+                <span className="hold-ref-marker">
+                  {' '}
+                  {formatMessage({ id: 'shared.holdings.sinceGrantMarker', defaultMessage: 'sg' })}
+                </span>
               </td>
             </>
           ) : r._pl != null ? (
@@ -435,9 +520,12 @@ export function HoldingsTable({
                   e.stopPropagation()
                   onRecordSale(r)
                 }}
-                title="Record a sale / disposal"
+                title={formatMessage({
+                  id: 'shared.holdings.sellTitle',
+                  defaultMessage: 'Record a sale / disposal',
+                })}
               >
-                Sell
+                {formatMessage({ id: 'shared.holdings.sell', defaultMessage: 'Sell' })}
               </button>
             )}
             {r.position_id && onRecordDividend && (
@@ -447,9 +535,12 @@ export function HoldingsTable({
                   e.stopPropagation()
                   onRecordDividend(r)
                 }}
-                title="Record a dividend / income"
+                title={formatMessage({
+                  id: 'shared.holdings.incomeTitle',
+                  defaultMessage: 'Record a dividend / income',
+                })}
               >
-                Dividend
+                {formatMessage({ id: 'shared.holdings.dividend', defaultMessage: 'Dividend' })}
               </button>
             )}
             {r.position_id && onMovePosition && (
@@ -459,9 +550,12 @@ export function HoldingsTable({
                   e.stopPropagation()
                   onMovePosition(r)
                 }}
-                title="Move to another account"
+                title={formatMessage({
+                  id: 'shared.holdings.moveTitle',
+                  defaultMessage: 'Move to another account',
+                })}
               >
-                Move
+                {formatMessage({ id: 'shared.holdings.move', defaultMessage: 'Move' })}
               </button>
             )}
           </td>
@@ -542,14 +636,22 @@ export function HoldingsTable({
         <div className="toolbar">
           {searchable && (
             <input
-              placeholder="Search…"
+              placeholder={formatMessage({
+                id: 'shared.holdings.search',
+                defaultMessage: 'Search…',
+              })}
               value={search}
               onChange={(e) => setSearch(e.target.value)}
             />
           )}
           {filterable && (
             <select value={account} onChange={(e) => setAccount(e.target.value)}>
-              <option value="">All accounts</option>
+              <option value="">
+                {formatMessage({
+                  id: 'shared.holdings.allAccounts',
+                  defaultMessage: 'All accounts',
+                })}
+              </option>
               {accounts.map((a) => (
                 <option key={a}>{a}</option>
               ))}
@@ -562,30 +664,96 @@ export function HoldingsTable({
           <thead>
             <tr>
               {canExpand && <th className="hold-drill-caret-col" />}
-              {th('label', 'Holding')}
-              {th('category', 'Account')}
+              {th(
+                'label',
+                formatMessage({ id: 'shared.holdings.columnLabel', defaultMessage: 'Holding' }),
+              )}
+              {th(
+                'category',
+                formatMessage({ id: 'shared.holdings.columnCategory', defaultMessage: 'Account' }),
+              )}
               {bondColumns ? (
                 <>
-                  <th>Type</th>
-                  <th>Coupon</th>
-                  <th>Matures</th>
-                  <th>Face</th>
+                  <th>{formatMessage({ id: 'shared.holdings.type', defaultMessage: 'Type' })}</th>
+                  <th>
+                    {formatMessage({ id: 'shared.holdings.coupon', defaultMessage: 'Coupon' })}
+                  </th>
+                  <th>
+                    {formatMessage({ id: 'shared.holdings.matures', defaultMessage: 'Matures' })}
+                  </th>
+                  <th>{formatMessage({ id: 'shared.holdings.face', defaultMessage: 'Face' })}</th>
                 </>
               ) : (
                 <>
-                  {th('quantity', 'Qty')}
-                  {th('cost_basis', 'Cost')}
-                  {th('price', 'Price')}
-                  {th('currency', 'Cur')}
+                  {th(
+                    'quantity',
+                    formatMessage({ id: 'shared.holdings.columnQuantity', defaultMessage: 'Qty' }),
+                  )}
+                  {th(
+                    'cost_basis',
+                    formatMessage({
+                      id: 'shared.holdings.columnCostbasis',
+                      defaultMessage: 'Cost',
+                    }),
+                  )}
+                  {th(
+                    'price',
+                    formatMessage({ id: 'shared.holdings.columnPrice', defaultMessage: 'Price' }),
+                  )}
+                  {th(
+                    'currency',
+                    formatMessage({ id: 'shared.holdings.columnCurrency', defaultMessage: 'Cur' }),
+                  )}
                 </>
               )}
-              {th('_cost_base', 'Total Cost')}
-              {th('_base', `Value (${base})`)}
-              {showWeight && <th className="wt-col">Wt %</th>}
-              {showPL && th('_pl', `P&L (${base})`)}
-              {showPL && th('_plpct', 'P&L %')}
-              {showPL && th('_daily_pl', `Day (${base})`)}
-              {showPL && th('_daily_plpct', 'Day %')}
+              {th(
+                '_cost_base',
+                formatMessage({
+                  id: 'shared.holdings.columnCostbase',
+                  defaultMessage: 'Total Cost',
+                }),
+              )}
+              {th(
+                '_base',
+                formatMessage(
+                  { id: 'shared.holdings.columnBase', defaultMessage: 'Value ({currency})' },
+                  { currency: base },
+                ),
+              )}
+              {showWeight && (
+                <th className="wt-col">
+                  {formatMessage({ id: 'shared.holdings.weight', defaultMessage: 'Wt %' })}
+                </th>
+              )}
+              {showPL &&
+                th(
+                  '_pl',
+                  formatMessage(
+                    { id: 'shared.holdings.columnPl', defaultMessage: 'P&L ({currency})' },
+                    { currency: base },
+                  ),
+                )}
+              {showPL &&
+                th(
+                  '_plpct',
+                  formatMessage({ id: 'shared.holdings.columnPlpct', defaultMessage: 'P&L %' }),
+                )}
+              {showPL &&
+                th(
+                  '_daily_pl',
+                  formatMessage(
+                    { id: 'shared.holdings.columnDailypl', defaultMessage: 'Day ({currency})' },
+                    { currency: base },
+                  ),
+                )}
+              {showPL &&
+                th(
+                  '_daily_plpct',
+                  formatMessage({
+                    id: 'shared.holdings.columnDailyplpct',
+                    defaultMessage: 'Day %',
+                  }),
+                )}
               {showActions && <th className="hold-actions-col" />}
               {askable && <th className="hold-ask-col" aria-hidden="true" />}
             </tr>
@@ -610,7 +778,9 @@ export function HoldingsTable({
                           <ChevronDown size="1em" aria-hidden="true" />
                         )}
                       </span>
-                      <span className="hold-group-name">{g.label}</span>
+                      <span className="hold-group-name">
+                        {groupBy === 'asset_class' ? assetClassLabel(g.key, g.label) : g.label}
+                      </span>
                       <span className="hold-group-count">{g.rows.length}</span>
                     </td>
                     <td className={g.total < 0 ? 'neg' : ''}>{fBase(g.total)}</td>
@@ -626,7 +796,7 @@ export function HoldingsTable({
           <tfoot>
             <tr className="tfoot">
               <td colSpan={canExpand ? 7 : 6} style={{ textAlign: 'right' }}>
-                Total
+                {formatMessage({ id: 'shared.holdings.total', defaultMessage: 'Total' })}
               </td>
               <td>{costRows.length ? fBase(totalCostBase) : '—'}</td>
               <td className={totalBase < 0 ? 'neg' : ''}>{fBase(totalBase)}</td>

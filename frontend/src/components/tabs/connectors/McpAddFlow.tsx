@@ -1,3 +1,6 @@
+import { formatConnectorServerMessage, type ConnectorServerMessage } from './connectorServerMessages'
+import { useOAuthError } from './useOAuthError'
+import { useAppIntl } from '../../../i18n/useAppIntl'
 // Add — or EDIT — an external MCP server (spec §7, and §3's kebab item) — ported from the
 // prototype's `mcpOpen` branch.
 //
@@ -212,7 +215,24 @@ export function useMcpAddFlow({
   editing?: McpEditTarget | null
   /** `dormant`: saved switched off without a connection test (the form's Save). */
   onSaved: (name: string, toolCount: number, opts?: { dormant?: boolean }) => void
-}): McpAddFlow {
+ }): McpAddFlow {
+  const intl = useAppIntl()
+  const { formatMessage } = intl
+  const oauthErrorText = useOAuthError()
+  function saveFailure(result: { error: string; permissionFailures?: number; created?: boolean; localError?: 'add' | 'save' | 'add_http' | 'save_http'; localStatus?: number; serverMessage?: ConnectorServerMessage }) {
+    if (result.serverMessage) return formatConnectorServerMessage(intl, result.serverMessage, result.error)
+    if (result.permissionFailures) {
+      const values = { count: result.permissionFailures }
+      return result.created
+        ? formatMessage({ id: 'connectors.mcp.permissionWriteNew', defaultMessage: 'The server was saved, but {count} permission {count, plural, one {level} other {levels}} could not be written — those tools are still at Needs approval. Try again.' }, values)
+        : formatMessage({ id: 'connectors.mcp.permissionWrite', defaultMessage: 'The server was saved, but {count} permission {count, plural, one {level} other {levels}} could not be written — those tools retain their previous permissions. Try again.' }, values)
+    }
+    if (result.localError === 'add_http') return formatMessage({ id: 'connectors.mcp.addHttp', defaultMessage: 'Could not add the server ({status})' }, { status: result.localStatus ?? 0 })
+    if (result.localError === 'save_http') return formatMessage({ id: 'connectors.mcp.saveHttp', defaultMessage: 'Could not save the server ({status})' }, { status: result.localStatus ?? 0 })
+    if (result.localError === 'add') return formatMessage({ id: 'connectors.mcp.addFailed', defaultMessage: 'Could not add the server — the request failed.' })
+    if (result.localError === 'save') return formatMessage({ id: 'connectors.mcp.saveFailed', defaultMessage: 'Could not save the server — the request failed.' })
+    return result.error
+  }
   const [step, setStep] = useState<McpStep>('form')
   const [form, setFormState] = useState<McpConnectionForm>(() =>
     editing ? formFromEditTarget(editing) : EMPTY_MCP_FORM,
@@ -344,7 +364,7 @@ export function useMcpAddFlow({
         if (!outcome.ok) {
           setOauthStatus('error')
           setOauthReason(outcome.reason)
-          setOauthError(outcome.error)
+          setOauthError(oauthErrorText(outcome.reason, outcome.error, outcome.status))
           setOauthNeedsClientId(outcome.needsClientId)
           setOauthRedirectUris(outcome.redirectUris)
           return
@@ -368,7 +388,7 @@ export function useMcpAddFlow({
           const found = candidates.find((s) => !known.has(s.id)) ?? candidates[0]
           if (!found) {
             setOauthStatus('error')
-            setOauthError("Signed in, but couldn't find the new server — try again.")
+            setOauthError(formatMessage({ id: 'connectors.mcp.newServerMissing', defaultMessage: "Signed in, but couldn't find the new server — try again." }))
             return
           }
           oauthServerIdRef.current = found.id
@@ -502,7 +522,7 @@ export function useMcpAddFlow({
       if (activeTokenRef.current !== token) return
       stopPolling()
       if (!result || result.last_status !== 'ok') {
-        setError(result?.last_error || 'Could not reach the server.')
+        setError(result?.last_error || formatMessage({ id: 'connectors.mcp.unreachable', defaultMessage: 'Could not reach the server.' }))
         setStep('error')
         return
       }
@@ -543,7 +563,7 @@ export function useMcpAddFlow({
       const serverId = editing ? editing.serverId : oauthServerIdRef.current
       if (!serverId) {
         // Defensive only — reached only if `signed_in` landed without a resolved id.
-        setError('Sign in above, then test the connection.')
+        setError(formatMessage({ id: 'connectors.mcp.signInFirst', defaultMessage: 'Sign in above, then test the connection.' }))
         setStep('error')
         return
       }
@@ -590,7 +610,7 @@ export function useMcpAddFlow({
       if (activeTokenRef.current !== token) return
       stopPolling()
       if (!result.ok) {
-        setError(result.error || 'Could not reach the server.')
+        setError(result.local_error === 'request_failed' ? formatMessage({ id: 'connectors.mcp.probeNetwork', defaultMessage: 'Could not reach the server — the request failed.' }) : result.local_error === 'http' ? formatMessage({ id: 'connectors.mcp.probeHttp', defaultMessage: 'Could not reach the server ({status})' }, { status: result.local_status ?? 0 }) : result.error || formatMessage({ id: 'connectors.mcp.unreachable', defaultMessage: 'Could not reach the server.' }))
         const asked = result.needs_auth ?? null
         setNeedsAuth(asked && asked !== form.auth ? asked : null)
         setStep('error')
@@ -657,7 +677,7 @@ export function useMcpAddFlow({
             })
       setSaving(false)
       if (!res.ok) {
-        setSaveError(res.error)
+        setSaveError(saveFailure(res))
         return
       }
       // The row is now CLAIMED — a close that follows `onSaved` (every caller's own success
@@ -702,7 +722,7 @@ export function useMcpAddFlow({
           })
       setSaving(false)
       if (!res.ok) {
-        setError(res.error)
+        setError(saveFailure(res))
         setStep('error')
         return
       }
@@ -818,6 +838,7 @@ function connectingBaseline(flow: McpAddFlow): {
  * grows below it.
  */
 function McpConnectingState({ flow }: { flow: McpAddFlow }): JSX.Element {
+  const { formatMessage } = useAppIntl()
   const local = flow.form.transport === 'local'
   // Keyed off the TRANSPORT, not "whichever field is non-empty": the form keeps both, so a
   // user who typed a URL and then switched to Local was told we were testing the URL.
@@ -831,11 +852,11 @@ function McpConnectingState({ flow }: { flow: McpAddFlow }): JSX.Element {
           <span className="cn-spinner xl" />
         </span>
         <div className="cn-connecting-status">
-          Testing connection to {target} and listing tools…
+          {formatMessage({ id: 'connectors.mcp.connecting', defaultMessage: 'Testing connection to {target} and listing tools…' }, { target })}
         </div>
         {/* `role=timer` so a screen reader treats the clock as a live region rather than
             announcing every tick as new content. */}
-        <span role="timer" aria-label={`Elapsed ${clock(elapsed)}`} className="cn-connecting-clock">
+        <span role="timer" aria-label={formatMessage({ id: 'connectors.mcp.elapsed', defaultMessage: 'Elapsed {time}' }, { time: clock(elapsed) })} className="cn-connecting-clock">
           {clock(elapsed)}
         </span>
       </div>
@@ -846,16 +867,15 @@ function McpConnectingState({ flow }: { flow: McpAddFlow }): JSX.Element {
         // more urgently. Swapped for that explanation, not stacked with it, once slow fires.
         <span className="rd-help cn-connecting-note">
           {local
-            ? 'A first connect can take a few minutes while the package installs — every ' +
-              'connect after that is fast.'
-            : 'This usually takes just a few seconds.'}
+            ? formatMessage({ id: 'connectors.mcp.firstLocal', defaultMessage: 'A first connect can take a few minutes while the package installs — every connect after that is fast.' })
+            : formatMessage({ id: 'connectors.mcp.quick', defaultMessage: 'This usually takes just a few seconds.' })}
         </span>
       )}
 
       {lines.length > 0 && (
         // The child's own words, verbatim but bounded — the backend keeps a rolling tail and
         // sanitizes every line, so nothing here can forge a fence or run away in length.
-        <div className="cn-probe-log" aria-live="polite" aria-label="Command output">
+        <div className="cn-probe-log" aria-live="polite" aria-label={formatMessage({ id: 'connectors.mcp.output', defaultMessage: 'Command output' })}>
           {lines.map((line, i) => (
             <div key={`${i}-${line}`} className="cn-probe-log-line">
               {line}
@@ -867,7 +887,7 @@ function McpConnectingState({ flow }: { flow: McpAddFlow }): JSX.Element {
       {stalled && (
         // Stated, not implied: without this the log block looks the same whether the command
         // is mid-download or wedged, and only one of those is worth waiting out.
-        <span className="rd-help cn-connecting-note">No new output for {clock(quietFor)}.</span>
+        <span className="rd-help cn-connecting-note">{formatMessage({ id: 'connectors.mcp.quiet', defaultMessage: 'No new output for {time}.' }, { time: clock(quietFor) })}</span>
       )}
 
       {slow && (
@@ -876,11 +896,9 @@ function McpConnectingState({ flow }: { flow: McpAddFlow }): JSX.Element {
               about it — a remote endpoint that is slow is just slow, and explaining npm to
               someone waiting on an HTTPS handshake is noise dressed as help. */}
           {local
-            ? 'Still working. The first connect to a local server downloads the package before ' +
-              'the server starts, which can take a few minutes on a large one — later connects ' +
-              'take seconds.'
-            : 'Still working. The endpoint has not answered yet.'}
-          {local && lines.length === 0 ? ' This command has not printed anything yet.' : null}
+            ? formatMessage({ id: 'connectors.mcp.slowLocal', defaultMessage: 'Still working. The first connect to a local server downloads the package before the server starts, which can take a few minutes on a large one — later connects take seconds.' })
+            : formatMessage({ id: 'connectors.mcp.slowRemote', defaultMessage: 'Still working. The endpoint has not answered yet.' })}
+          {local && lines.length === 0 ? formatMessage({ id: 'connectors.mcp.noOutput', defaultMessage: ' This command has not printed anything yet.' }) : null}
         </span>
       )}
     </div>
@@ -888,6 +906,7 @@ function McpConnectingState({ flow }: { flow: McpAddFlow }): JSX.Element {
 }
 
 export function McpAddFlowBody({ flow }: { flow: McpAddFlow }): JSX.Element {
+  const { formatMessage } = useAppIntl()
   const { form, setForm } = flow
   // Only the connecting step claims the body's leftover height (`flex: 1`) — `.cn-connecting`
   // inside it top-anchors its hero and lets later content (log, stalled/slow text) grow
@@ -928,24 +947,24 @@ export function McpAddFlowBody({ flow }: { flow: McpAddFlow }): JSX.Element {
               padding: '11px 13px',
             }}
           >
-            <Icons.warn /> {flow.error || 'Could not reach the server.'}
+            <Icons.warn /> {flow.error || formatMessage({ id: 'connectors.mcp.unreachable', defaultMessage: "Could not reach the server." })}
           </div>
           {flow.needsAuth ? (
             <div className="cn-authhint" role="status">
               <span>
                 {flow.needsAuth === 'oauth'
-                  ? 'This server needs you to sign in. Switch Authentication to OAuth, then connect again.'
-                  : 'This server needs a key. Switch Authentication to API key and paste it.'}
+                  ? formatMessage({ id: 'connectors.mcp.oauthHint', defaultMessage: "This server needs you to sign in. Switch Authentication to OAuth, then connect again." })
+                  : formatMessage({ id: 'connectors.mcp.keyHint', defaultMessage: "This server needs a key. Switch Authentication to API key and paste it." })}
               </span>
               <Btn size="xs" variant="primary" onClick={() => flow.switchAuth(flow.needsAuth!)}>
-                {flow.needsAuth === 'oauth' ? 'Switch to OAuth' : 'Use an API key'}
+                {flow.needsAuth === 'oauth' ? formatMessage({ id: 'connectors.mcp.switchOAuth', defaultMessage: "Switch to OAuth" }) : formatMessage({ id: 'connectors.mcp.useKey', defaultMessage: "Use an API key" })}
               </Btn>
             </div>
           ) : null}
           <span className="rd-help">
             {flow.canSave
-              ? 'Fix the URL, command, or credentials and test again — or Save to keep it, switched off, and test it later from its settings.'
-              : 'Fix the URL, command, or credentials above and test again.'}
+              ? formatMessage({ id: 'connectors.mcp.fixSave', defaultMessage: "Fix the URL, command, or credentials and test again \u2014 or Save to keep it, switched off, and test it later from its settings." })
+              : formatMessage({ id: 'connectors.mcp.fix', defaultMessage: "Fix the URL, command, or credentials above and test again." })}
           </span>
         </div>
       )}
@@ -962,13 +981,12 @@ export function McpAddFlowBody({ flow }: { flow: McpAddFlow }): JSX.Element {
               gap: 6,
             }}
           >
-            <Icons.check /> Reachable —{' '}
-            {flow.tools.length === 1 ? '1 tool' : `${flow.tools.length} tools`} found
+            <Icons.check /> {formatMessage({ id: 'connectors.mcp.reachable', defaultMessage: 'Reachable — {count} {count, plural, one {tool} other {tools}} found' }, { count: flow.tools.length })}
           </div>
 
           <div className="rd-field full">
             <span className="rd-label" id="mcp-name-label">
-              Name
+              {formatMessage({ id: 'connectors.mcp.name', defaultMessage: 'Name' })}
             </span>
             <input
               className="rd-input"
@@ -984,17 +1002,16 @@ export function McpAddFlowBody({ flow }: { flow: McpAddFlow }): JSX.Element {
               // (`flow.oauth`'s doc comment) — offering "customize" there would let this field
               // show an id `finish()` does not actually save under.
               <span className="rd-help">
-                Server ID{' '}
+                {formatMessage({ id: 'connectors.mcp.serverId', defaultMessage: 'Server ID' })}{' '}
                 <code className="rd-code" style={{ padding: '2px 6px', display: 'inline' }}>
                   {form.serverId}
                 </code>{' '}
-                • fixed — it namespaces this server&apos;s tools and the permissions you set for
-                them.
+                {formatMessage({ id: 'connectors.mcp.fixed', defaultMessage: "• fixed — it namespaces this server's tools and the permissions you set for them." })}
               </span>
             ) : form.serverIdCustom ? (
               <div style={{ marginTop: 6 }}>
                 <span className="rd-label" id="mcp-id-label">
-                  Server ID
+                  {formatMessage({ id: 'connectors.mcp.serverId', defaultMessage: 'Server ID' })}
                 </span>
                 <input
                   className="rd-input"
@@ -1007,7 +1024,7 @@ export function McpAddFlowBody({ flow }: { flow: McpAddFlow }): JSX.Element {
             ) : (
               // Collapsed and automatic — never required, never on equal footing with Name.
               <span className="rd-help">
-                Server ID{' '}
+                {formatMessage({ id: 'connectors.mcp.serverId', defaultMessage: 'Server ID' })}{' '}
                 <code className="rd-code" style={{ padding: '2px 6px', display: 'inline' }}>
                   {form.serverId}
                 </code>{' '}
@@ -1020,7 +1037,7 @@ export function McpAddFlowBody({ flow }: { flow: McpAddFlow }): JSX.Element {
                   }}
                   style={{ color: 'var(--accent)' }}
                 >
-                  customize
+                  {formatMessage({ id: 'connectors.mcp.customize', defaultMessage: 'customize' })}
                 </a>
               </span>
             )}
@@ -1046,10 +1063,10 @@ export function McpAddFlowBody({ flow }: { flow: McpAddFlow }): JSX.Element {
 
           <div>
             <div className="cn-sublabel" style={{ marginBottom: 4 }}>
-              Tool permissions
+              {formatMessage({ id: 'connectors.detail.permissions', defaultMessage: 'Tool permissions' })}
             </div>
             <div className="rd-help" style={{ marginBottom: 8, fontSize: 12.5 }}>
-              Choose when Lucius is allowed to use these tools.
+              {formatMessage({ id: 'connectors.detail.permissionsHelp', defaultMessage: 'Choose when Lucius is allowed to use these tools.' })}
             </div>
             <PermissionLadderSwitch
               groups={flow.toolGroups}
@@ -1078,21 +1095,22 @@ export function McpAddFlowFooter({
   flow: McpAddFlow
   onCancel: () => void
 }): JSX.Element {
-  if (flow.step === 'connecting') return <Btn disabled>Testing…</Btn>
+  const { formatMessage } = useAppIntl()
+  if (flow.step === 'connecting') return <Btn disabled>{formatMessage({ id: 'connectors.mcp.testing', defaultMessage: 'Testing…' })}</Btn>
   // Save keeps what was typed without a passing test (stored switched off) — on the form, and on
   // the failed test too, where real keys still to come is the usual reason it failed.
   const save = flow.canSave ? (
     <Btn disabled={flow.saving} onClick={flow.saveDormant}>
-      {flow.saving ? 'Saving…' : 'Save'}
+      {flow.saving ? formatMessage({ id: 'connectors.action.saving', defaultMessage: "Saving…" }) : formatMessage({ id: 'connectors.action.save', defaultMessage: "Save" })}
     </Btn>
   ) : null
   if (flow.step === 'error') {
     return (
       <>
-        <Btn onClick={flow.back}>Back</Btn>
+        <Btn onClick={flow.back}>{formatMessage({ id: 'connectors.mcp.back', defaultMessage: "Back" })}</Btn>
         {save}
         <Btn variant="primary" onClick={flow.runConnect}>
-          Retry
+          {formatMessage({ id: 'connectors.mcp.retry', defaultMessage: "Retry" })}
         </Btn>
       </>
     )
@@ -1101,7 +1119,7 @@ export function McpAddFlowFooter({
     const editing = flow.mode === 'edit'
     return (
       <>
-        <Btn onClick={onCancel}>Discard</Btn>
+        <Btn onClick={onCancel}>{formatMessage({ id: 'connectors.mcp.discard', defaultMessage: "Discard" })}</Btn>
         <Btn
           variant="primary"
           disabled={flow.saving || !flow.form.name.trim()}
@@ -1109,21 +1127,21 @@ export function McpAddFlowFooter({
         >
           {flow.saving
             ? editing
-              ? 'Saving…'
-              : 'Adding…'
+              ? formatMessage({ id: 'connectors.action.saving', defaultMessage: "Saving…" })
+              : formatMessage({ id: 'connectors.mcp.adding', defaultMessage: "Adding…" })
             : editing
-              ? 'Save changes'
-              : 'Add server'}
+              ? formatMessage({ id: 'connectors.mcp.saveChanges', defaultMessage: "Save changes" })
+              : formatMessage({ id: 'connectors.mcp.addServer', defaultMessage: "Add server" })}
         </Btn>
       </>
     )
   }
   return (
     <>
-      <Btn onClick={onCancel}>Cancel</Btn>
+      <Btn onClick={onCancel}>{formatMessage({ id: 'connectors.action.cancel', defaultMessage: "Cancel" })}</Btn>
       {save}
       <Btn variant="primary" disabled={!flow.canConnect} onClick={flow.runConnect}>
-        {flow.form.auth === 'oauth' && flow.oauth.status === 'pending' ? 'Signing in…' : 'Connect'}
+        {flow.form.auth === 'oauth' && flow.oauth.status === 'pending' ? formatMessage({ id: 'connectors.mcp.signingIn', defaultMessage: "Signing in…" }) : formatMessage({ id: 'connectors.action.connect', defaultMessage: "Connect" })}
       </Btn>
     </>
   )

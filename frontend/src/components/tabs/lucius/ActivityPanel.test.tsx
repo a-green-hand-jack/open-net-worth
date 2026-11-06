@@ -9,6 +9,8 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { cleanup, render, screen, fireEvent, waitFor, within } from '@testing-library/react'
 import { ActivityPanel } from './ActivityPanel'
+import { IntlProvider } from 'react-intl'
+import remainingMessages from '../../remaining-a11y.zh-CN.messages.json'
 import type { AutomationActivity } from '../../../api/automations'
 import type { QueryCacheResult } from '../../../state/queryCache'
 
@@ -391,4 +393,13 @@ describe('ActivityPanel', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Show less' }))
     expect(screen.getAllByText(/^Automation \d$/)).toHaveLength(5)
   })
+})
+
+it('localizes activity labels while retaining automation names', () => {
+  mockActivity({ active: [{ automation_id: 'a', automation_name: 'My custom name', run_id: 'r', status: 'waiting', started_at: new Date().toISOString() }], scheduled: [] })
+  render(<IntlProvider locale="zh-CN" messages={remainingMessages}><ActivityPanel onOpenAutomation={vi.fn()} /></IntlProvider>)
+  expect(screen.getByText('进行中')).toBeTruthy()
+  expect(screen.getByText('My custom name')).toBeTruthy()
+  expect(screen.getByText(/需要授权/)).toBeTruthy()
+  expect(screen.getByRole('button', { name: '审核' })).toBeTruthy()
 })

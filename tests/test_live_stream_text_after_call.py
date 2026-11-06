@@ -109,6 +109,12 @@ def _before_first_row(events: list[dict]) -> str:
     return "".join(e["text"] for e in events[:first] if e["type"] == "text_delta")
 
 
+async def test_live_tool_event_contains_localization_metadata(monkeypatch, _turn):
+    events, _ = await _run(monkeypatch, _round(FIRST), _round(ANSWER))
+    tool = next(event for event in events if event["type"] == "tool_use_start")
+    assert tool["display"]["localization"]["tool"] == "calculate"
+
+
 @pytest.mark.parametrize(
     ("deltas", "lead_in"),
     [

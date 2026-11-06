@@ -1,6 +1,7 @@
 // PayeesModal.tsx — Payees manager (master-detail).
 // PMSelect imported from ./ds. PMConfirmDialog is local only.
 import { useState, useEffect, useRef } from 'react'
+import { useAppIntl } from '../../../i18n/useAppIntl'
 import { Modal, Button, TextField, Select, Checkbox } from '../../ui'
 import { EntityRow } from '../../../lucius/EntityRow'
 import { useIsMobile } from '../../../hooks/useIsMobile'
@@ -25,6 +26,7 @@ interface PMConfirmData {
 }
 
 function PMConfirmDialog({ data, onClose }: { data: PMConfirmData | null; onClose: () => void }) {
+  const { formatMessage } = useAppIntl()
   if (!data) return null
   return (
     <Modal
@@ -36,7 +38,7 @@ function PMConfirmDialog({ data, onClose }: { data: PMConfirmData | null; onClos
       footer={
         <div className="pm-confirm-actions">
           <Button size="sm" variant="ghost" onClick={onClose}>
-            Cancel
+            {formatMessage({ id: 'accounts.payees.cancel', defaultMessage: 'Cancel' })}
           </Button>
           <Button
             size="sm"
@@ -95,6 +97,7 @@ export function PayeesModal({
   onApplyPayeeRules,
   onRemoveAlias,
 }: PayeesModalProps) {
+  const { formatMessage } = useAppIntl()
   const { payees, status: usageStatus } = usePayeeUsage(listedPayees)
   const usageKnown = usageStatus === 'ready'
   const isMobile = useIsMobile()
@@ -179,10 +182,7 @@ export function PayeesModal({
   // cross-kind labels that are still legal to pick (income refunds carry an expense category;
   // a transfer/investment may carry any label). Grouped by kind so the natural picks lead.
   const KIND_LABEL: Record<string, string> = {
-    expense: 'Expense',
-    income: 'Income',
-    transfer: 'Transfer',
-    investment: 'Investment',
+    expense: 'Expense', income: 'Income', transfer: 'Transfer', investment: 'Investment',
   }
   const optsForKind = (kind: string) => {
     const order =
@@ -194,7 +194,7 @@ export function PayeesModal({
     const out: Array<Category & { group: string }> = [
       {
         id: '',
-        label: 'None',
+        label: formatMessage({ id: 'accounts.payees.none', defaultMessage: "None" }),
         color: 'transparent',
         group: KIND_LABEL[kind] || 'Other',
         kind: kind as Category['kind'],
@@ -205,10 +205,10 @@ export function PayeesModal({
     return out
   }
   const DEFAULT_KINDS: Array<{ kind: string; label: string }> = [
-    { kind: 'expense', label: 'Expense' },
-    { kind: 'income', label: 'Income' },
-    { kind: 'transfer', label: 'Transfer' },
-    { kind: 'investment', label: 'Investment' },
+    { kind: 'expense', label: formatMessage({ id: 'accounts.payees.expense', defaultMessage: "Expense" }) },
+    { kind: 'income', label: formatMessage({ id: 'accounts.payees.income', defaultMessage: "Income" }) },
+    { kind: 'transfer', label: formatMessage({ id: 'accounts.payees.transfer', defaultMessage: "Transfer" }) },
+    { kind: 'investment', label: formatMessage({ id: 'accounts.payees.investment', defaultMessage: "Investment" }) },
   ]
   // The current per-kind map.
   const perKindMap = (p: Payee): Record<string, string> => ({ ...(p.defaultCategories || {}) })
@@ -229,7 +229,7 @@ export function PayeesModal({
       return
     }
     if (nameTaken(name)) {
-      setCreateErr('A payee named "' + name + '" already exists.')
+      setCreateErr(formatMessage({ id: 'accounts.payees.alreadyExists', defaultMessage: 'A payee named "{name}" already exists.' }, { name }))
       return
     }
     const id = onAdd(name)
@@ -243,11 +243,11 @@ export function PayeesModal({
     setNameDraft(v)
     const t = v.trim()
     if (!t) {
-      setNameErr('Name cannot be empty.')
+      setNameErr(formatMessage({ id: 'accounts.payees.emptyName', defaultMessage: "Name cannot be empty." }))
       return
     }
     if (nameTaken(t, sel!.id)) {
-      setNameErr('Another payee already uses this name.')
+      setNameErr(formatMessage({ id: 'accounts.payees.duplicateName', defaultMessage: "Another payee already uses this name." }))
       return
     }
     setNameErr('')
@@ -269,7 +269,7 @@ export function PayeesModal({
       try {
         new RegExp(v)
       } catch {
-        setRuleErr('Invalid regular expression.')
+        setRuleErr(formatMessage({ id: 'accounts.payees.invalidRegex', defaultMessage: "Invalid regular expression." }))
         return
       }
     }
@@ -301,12 +301,12 @@ export function PayeesModal({
   function requestDelete() {
     if (!sel) return
     setConfirm({
-      title: 'Delete payee?',
+      title: formatMessage({ id: 'accounts.payees.deleteQuestion', defaultMessage: "Delete payee?" }),
       body:
         sel.txnCount > 0
-          ? `${sel.name}'s ${sel.txnCount} transaction${sel.txnCount !== 1 ? 's' : ''} will be reassigned to ${(others.find((o) => o.id === reassignTo) || {}).name}, then ${sel.name} is permanently deleted. This can't be undone.`
-          : `${sel.name} has no transactions and will be permanently deleted. This can't be undone.`,
-      confirmLabel: 'Delete payee',
+          ? formatMessage({ id: 'accounts.payees.deleteReassign', defaultMessage: "{name}'s {count, plural, one {# transaction} other {# transactions}} will be reassigned to {target}, then {name} is permanently deleted. This can't be undone." }, { name: sel.name, count: sel.txnCount, target: (others.find((o) => o.id === reassignTo) || {}).name || '' })
+          : formatMessage({ id: 'accounts.payees.deleteEmpty', defaultMessage: "{name} has no transactions and will be permanently deleted. This can't be undone." }, { name: sel.name }),
+      confirmLabel: formatMessage({ id: 'accounts.payees.delete', defaultMessage: "Delete payee" }),
       danger: true,
       onConfirm: doDelete,
     })
@@ -317,10 +317,10 @@ export function PayeesModal({
       open={open}
       onClose={onClose}
       size="xl"
-      title="Manage payees"
+      title={formatMessage({ id: 'accounts.payees.title', defaultMessage: "Manage payees" })}
       footer={
         <Button size="sm" variant="primary" className="pm-done" onClick={onClose}>
-          Done
+          {formatMessage({ id: 'accounts.payees.done', defaultMessage: "Done" })}
         </Button>
       }
     >
@@ -331,7 +331,7 @@ export function PayeesModal({
         >
           <div className="pm-tools">
             <TextField
-              placeholder="Search payees…"
+              placeholder={formatMessage({ id: 'accounts.payees.search', defaultMessage: "Search payees…" })}
               value={q}
               onChange={(e) => setQ(e.target.value)}
             />
@@ -344,7 +344,7 @@ export function PayeesModal({
                 setNewName('')
               }}
             >
-              <Plus size={13} aria-hidden="true" /> New
+              <Plus size={13} aria-hidden="true" /> {formatMessage({ id: 'accounts.payees.new', defaultMessage: "New" })}
             </Button>
           </div>
           {creating && (
@@ -352,7 +352,7 @@ export function PayeesModal({
               <TextField
                 autoFocus
                 invalid={!!createErr}
-                placeholder="Payee name…"
+                placeholder={formatMessage({ id: 'accounts.payees.newName', defaultMessage: "Payee name…" })}
                 value={newName}
                 onChange={(e) => {
                   setNewName(e.target.value)
@@ -369,7 +369,7 @@ export function PayeesModal({
               {createErr && <div className="pm-err">{createErr}</div>}
               <div className="pm-create-row">
                 <Button size="sm" variant="primary" onClick={createPayee}>
-                  Create
+                  {formatMessage({ id: 'accounts.payees.create', defaultMessage: "Create" })}
                 </Button>
                 <Button
                   size="sm"
@@ -379,7 +379,7 @@ export function PayeesModal({
                     setCreateErr('')
                   }}
                 >
-                  Cancel
+                  {formatMessage({ id: 'accounts.payees.cancel', defaultMessage: "Cancel" })}
                 </Button>
               </div>
             </div>
@@ -391,28 +391,28 @@ export function PayeesModal({
                 className={'pm-seg-btn' + (fmode === 'all' ? ' on' : '')}
                 onClick={() => setFmode('all')}
               >
-                All
+                {formatMessage({ id: 'accounts.payees.all', defaultMessage: "All" })}
               </button>
               <button
                 type="button"
                 className={'pm-seg-btn' + (fmode === 'uncat' ? ' on' : '')}
                 onClick={() => setFmode('uncat')}
               >
-                {isMobile ? 'Uncategorized' : 'Uncat.'}
+                {isMobile ? formatMessage({ id: 'accounts.payees.uncategorized', defaultMessage: "Uncategorized" }) : formatMessage({ id: 'accounts.payees.uncatShort', defaultMessage: "Uncat." })}
               </button>
               <button
                 type="button"
                 className={'pm-seg-btn' + (fmode === 'hidden' ? ' on' : '')}
                 onClick={() => setFmode('hidden')}
               >
-                Hidden
+                {formatMessage({ id: 'accounts.payees.hidden', defaultMessage: "Hidden" })}
               </button>
             </div>
             <PMSelect
               compact
               className="pm-sort"
               options={[
-                { value: 'count', label: 'Most used' },
+                { value: 'count', label: formatMessage({ id: 'accounts.payees.mostUsed', defaultMessage: "Most used" }) },
                 { value: 'name', label: 'A–Z' },
               ]}
               value={sortBy}
@@ -455,8 +455,8 @@ export function PayeesModal({
                 <span className="pm-item-tx">
                   <span className="pm-item-nm">{p.name}</span>
                   <span className="pm-item-sub">
-                    {catLabel(p.defaultCategories?.expense) || 'Uncategorized'}
-                    {p.hidden ? ' • hidden' : ''}
+                    {catLabel(p.defaultCategories?.expense) || formatMessage({ id: 'accounts.payees.uncategorized', defaultMessage: "Uncategorized" })}
+                    {p.hidden ? formatMessage({ id: 'accounts.payees.hiddenSuffix', defaultMessage: ' • hidden' }) : ''}
                   </span>
                 </span>
                 <span className="pm-item-ct">{usageKnown ? p.txnCount : '–'}</span>
@@ -469,14 +469,14 @@ export function PayeesModal({
             ))}
             {visible.length === 0 && (
               <div className="pm-empty">
-                {payees.length === 0 ? 'No payees yet.' : 'No payees match.'}
+                {payees.length === 0 ? formatMessage({ id: 'accounts.payees.emptyList', defaultMessage: "No payees yet." }) : formatMessage({ id: 'accounts.payees.noMatch', defaultMessage: "No payees match." })}
               </div>
             )}
           </div>
           {historyMsg && <div className="pm-foot-msg">{historyMsg}</div>}
           <div className="pm-foot">
             <span>
-              {payees.length} payee{payees.length !== 1 ? 's' : ''}
+              {formatMessage({ id: 'accounts.payees.count', defaultMessage: '{count, plural, one {# payee} other {# payees}}' }, { count: payees.length })}
             </span>
             {onApplyRules && (
               <Button
@@ -484,18 +484,18 @@ export function PayeesModal({
                 variant="ghost"
                 onClick={() =>
                   setConfirm({
-                    title: 'Apply all rules to history?',
-                    body: `Re-runs every payee's renaming rules across all ${totalTxns} transactions and re-assigns payees on matches. Manual payee assignments may be overwritten.`,
-                    confirmLabel: 'Apply to history',
+                    title: formatMessage({ id: 'accounts.payees.applyHistoryQuestion', defaultMessage: "Apply all rules to history?" }),
+                    body: formatMessage({ id: 'accounts.payees.historyConfirm', defaultMessage: "Re-runs every payee's renaming rules across all {count} transactions and re-assigns payees on matches. Manual payee assignments may be overwritten." }, { count: totalTxns }),
+                    confirmLabel: formatMessage({ id: 'accounts.payees.applyHistory', defaultMessage: "Apply to history" }),
                     onConfirm: () => {
                       onApplyRules!()
-                      setHistoryMsg(`Rules applied across all ${totalTxns} transactions.`)
+                      setHistoryMsg(formatMessage({ id: 'accounts.payees.historyDone', defaultMessage: 'Rules applied across all {count} transactions.' }, { count: totalTxns }))
                       setTimeout(() => setHistoryMsg(''), 4000)
                     },
                   })
                 }
               >
-                Apply rules to history
+                {formatMessage({ id: 'accounts.payees.applyHistoryButton', defaultMessage: "Apply rules to history" })}
               </Button>
             )}
           </div>
@@ -512,9 +512,9 @@ export function PayeesModal({
                 variant="ghost"
                 className="pm-mobile-back"
                 onClick={() => setMobileView('list')}
-                aria-label="Back to payees"
+                aria-label={formatMessage({ id: 'accounts.payees.back', defaultMessage: "Back to payees" })}
               >
-                <ChevronLeft size={14} aria-hidden="true" /> Payees
+                <ChevronLeft size={14} aria-hidden="true" /> {formatMessage({ id: 'accounts.payees.payees', defaultMessage: "Payees" })}
               </Button>
             </div>
           )}
@@ -536,9 +536,9 @@ export function PayeesModal({
                     <line x1="7" y1="7" x2="7.01" y2="7" />
                   </svg>
                 </span>
-                <div className="pm-emptybig-title">No payees yet</div>
+                <div className="pm-emptybig-title">{formatMessage({ id: 'accounts.payees.empty', defaultMessage: "No payees yet" })}</div>
                 <div className="pm-emptybig-sub">
-                  Payees appear here automatically as you tag transactions — or add one manually.
+                  {formatMessage({ id: 'accounts.payees.emptyHint', defaultMessage: 'Payees appear here automatically as you tag transactions — or add one manually.' })}
                 </div>
                 <Button
                   size="sm"
@@ -548,11 +548,11 @@ export function PayeesModal({
                     setNewName('')
                   }}
                 >
-                  <Plus size={14} aria-hidden="true" /> New payee
+                  <Plus size={14} aria-hidden="true" /> {formatMessage({ id: 'accounts.payees.newPayee', defaultMessage: "New payee" })}
                 </Button>
               </div>
             ) : (
-              <div className="pm-editor-empty">Select a payee to edit its details.</div>
+              <div className="pm-editor-empty">{formatMessage({ id: 'accounts.payees.select', defaultMessage: "Select a payee to edit its details." })}</div>
             )
           ) : (
             <div key={sel.id}>
@@ -562,11 +562,11 @@ export function PayeesModal({
                   <div className="pm-ed-sub">
                     {!usageKnown
                       ? usageStatus === 'error'
-                        ? 'Usage unavailable'
-                        : 'Counting transactions…'
+                        ? formatMessage({ id: 'accounts.payees.usageUnavailable', defaultMessage: "Usage unavailable" })
+                        : formatMessage({ id: 'accounts.payees.counting', defaultMessage: "Counting transactions…" })
                       : fmtDate(sel.lastUsed)
-                        ? `Last used ${fmtDate(sel.lastUsed)}`
-                        : 'Never used'}
+                        ? formatMessage({ id: 'accounts.payees.lastUsed', defaultMessage: 'Last used {date}' }, { date: fmtDate(sel.lastUsed) })
+                        : formatMessage({ id: 'accounts.payees.neverUsed', defaultMessage: "Never used" })}
                   </div>
                 </div>
                 {!usageKnown ? null : sel.txnCount > 0 ? (
@@ -574,14 +574,14 @@ export function PayeesModal({
                     size="sm"
                     variant="ghost"
                     onClick={() => onView(sel.name)}
-                  >{`Show ${sel.txnCount} transaction${sel.txnCount !== 1 ? 's' : ''}`}</Button>
+                  >{formatMessage({ id: 'accounts.payees.showTransactions', defaultMessage: 'Show {count, plural, one {# transaction} other {# transactions}}' }, { count: sel.txnCount })}</Button>
                 ) : (
-                  <span className="pm-ed-count">{`${sel.txnCount} txns`}</span>
+                  <span className="pm-ed-count">{formatMessage({ id: 'accounts.payees.txnCount', defaultMessage: '{count} txns' }, { count: sel.txnCount })}</span>
                 )}
               </div>
 
               <div className="pm-field">
-                <label className="pm-label">Display name</label>
+                <label className="pm-label">{formatMessage({ id: 'accounts.payees.displayName', defaultMessage: "Display name" })}</label>
                 <TextField
                   invalid={!!nameErr}
                   value={nameDraft}
@@ -591,10 +591,9 @@ export function PayeesModal({
               </div>
 
               <div className="pm-field">
-                <label className="pm-label">Default category by kind</label>
+                <label className="pm-label">{formatMessage({ id: 'accounts.payees.defaultCategory', defaultMessage: "Default category by kind" })}</label>
                 <p className="pm-sec-hint">
-                  A default is applied to new transactions of its own kind only — an expense default
-                  never lands on income, a transfer, or an investment.
+                  {formatMessage({ id: 'accounts.payees.defaultHint', defaultMessage: 'A default is applied to new transactions of its own kind only — an expense default never lands on income, a transfer, or an investment.' })}
                 </p>
                 {DEFAULT_KINDS.map(({ kind, label }) => (
                   <div className="pm-kindrow" key={kind}>
@@ -619,17 +618,17 @@ export function PayeesModal({
 
               <div className="pm-checks">
                 <Checkbox
-                  label="Apply default categories to new transactions"
+                  label={formatMessage({ id: 'accounts.payees.autoCategory', defaultMessage: "Apply default categories to new transactions" })}
                   checked={sel.autocategorize !== false}
                   onChange={(e) => onChange(sel.id, { autocategorize: e.target.checked })}
                 />
                 <Checkbox
-                  label="Hide from payee suggestions"
+                  label={formatMessage({ id: 'accounts.payees.hideSuggestions', defaultMessage: "Hide from payee suggestions" })}
                   checked={!!sel.hidden}
                   onChange={(e) => onChange(sel.id, { hidden: e.target.checked })}
                 />
               </div>
-              <div className="pm-autohint">Changes above save automatically.</div>
+              <div className="pm-autohint">{formatMessage({ id: 'accounts.payees.autosave', defaultMessage: "Changes above save automatically." })}</div>
 
               {Object.keys(perKindMap(sel)).length > 0 && sel.txnCount > 0 && (
                 <div className="pm-subaction">
@@ -638,19 +637,19 @@ export function PayeesModal({
                     variant="secondary"
                     onClick={() =>
                       setConfirm({
-                        title: 'Apply defaults to existing transactions?',
-                        body: `Each of ${sel.name}'s transactions will be re-categorized to that kind's default (e.g. expenses → "${catLabel(perKindMap(sel).expense) || '—'}") — this overwrites their current category.`,
-                        confirmLabel: 'Apply defaults',
+                        title: formatMessage({ id: 'accounts.payees.applyDefaultsQuestion', defaultMessage: "Apply defaults to existing transactions?" }),
+                        body: formatMessage({ id: 'accounts.payees.defaultsConfirm', defaultMessage: "Each of {name}'s transactions will be re-categorized to that kind's default (e.g. expenses → \"{category}\") — this overwrites their current category." }, { name: sel.name, category: catLabel(perKindMap(sel).expense) || '—' }),
+                        confirmLabel: formatMessage({ id: 'accounts.payees.applyDefaults', defaultMessage: "Apply defaults" }),
                         onConfirm: () => {
                           onApplyCategory?.(sel.id)
                           setApplyCatMsg(
-                            'Re-categorized existing transactions to their per-kind defaults.',
+                            formatMessage({ id: 'accounts.payees.defaultsDone', defaultMessage: "Re-categorized existing transactions to their per-kind defaults." }),
                           )
                         },
                       })
                     }
                   >
-                    Apply defaults to existing transactions
+                    {formatMessage({ id: 'accounts.payees.applyDefaultsButton', defaultMessage: "Apply defaults to existing transactions" })}
                   </Button>
                   {applyCatMsg && <span className="pm-ok">{applyCatMsg}</span>}
                 </div>
@@ -659,11 +658,9 @@ export function PayeesModal({
               <hr className="pm-divider" />
 
               <div className="pm-section">
-                <div className="pm-sec-title">Auto-matched descriptions</div>
+                <div className="pm-sec-title">{formatMessage({ id: 'accounts.payees.descriptions', defaultMessage: "Auto-matched descriptions" })}</div>
                 <p className="pm-sec-hint">
-                  These normalized strings already route to this payee automatically — built up as
-                  transactions were imported. Remove any that were folded in by mistake; to add new
-                  patterns, use <strong>Renaming rules</strong> below.
+                  {formatMessage({ id: 'accounts.payees.aliasHint', defaultMessage: 'These normalized strings already route to this payee automatically — built up as transactions were imported. Remove any that were folded in by mistake; to add new patterns, use <strong>Renaming rules</strong> below.' }, { strong: (chunks) => <strong>{chunks}</strong> })}
                 </p>
                 <div className="pm-chips">
                   {aliasesFor(sel).map((a) => (
@@ -672,7 +669,7 @@ export function PayeesModal({
                       {sel.aliases.length > 0 && (
                         <button
                           className="pm-chip-x"
-                          aria-label={`Remove auto-match ${a}`}
+                          aria-label={formatMessage({ id: 'accounts.payees.removeAutoMatchName', defaultMessage: 'Remove auto-match {name}' }, { name: a })}
                           onClick={() => removeAlias(a)}
                         >
                           <X size={11} aria-hidden="true" />
@@ -684,23 +681,21 @@ export function PayeesModal({
               </div>
 
               <div className="pm-section">
-                <div className="pm-sec-title">Renaming rules</div>
+                <div className="pm-sec-title">{formatMessage({ id: 'accounts.payees.rules', defaultMessage: "Renaming rules" })}</div>
                 <p className="pm-sec-hint">
-                  Imported descriptions that match any rule are routed to this payee — before
-                  normalization. Use this to handle processor prefixes or reference IDs (e.g. "Grab*
-                  A-9BEIP3LGWFBJAV" → contains "grab").
+                  {formatMessage({ id: 'accounts.payees.rulesHint', defaultMessage: 'Imported descriptions that match any rule are routed to this payee — before normalization. Use this to handle processor prefixes or reference IDs (e.g. "Grab* A-9BEIP3LGWFBJAV" → contains "grab").' })}
                 </p>
                 <div className="pm-chips">
                   {rules.length === 0 ? (
-                    <span className="pm-chips-empty">No rules yet.</span>
+                    <span className="pm-chips-empty">{formatMessage({ id: 'accounts.payees.noRules', defaultMessage: "No rules yet." })}</span>
                   ) : (
                     rules.map((r, i) => (
                       <span className="pm-chip pm-chip-rule" key={i}>
-                        <span className="pm-chip-type">{r.type}</span>
+                        <span className="pm-chip-type">{r.type === 'contains' ? formatMessage({ id: 'accounts.payees.contains', defaultMessage: 'contains' }) : r.type === 'is' ? formatMessage({ id: 'accounts.payees.is', defaultMessage: 'is' }) : r.type === 'regex' ? formatMessage({ id: 'accounts.payees.regex', defaultMessage: 'regex' }) : r.type}</span>
                         {r.value}
                         <button
                           className="pm-chip-x"
-                          aria-label="Remove rule"
+                          aria-label={formatMessage({ id: 'accounts.payees.removeRule', defaultMessage: "Remove rule" })}
                           onClick={() => removeRule(i)}
                         >
                           <X size={11} aria-hidden="true" />
@@ -713,16 +708,16 @@ export function PayeesModal({
                   <PMSelect
                     className="pm-ruletype"
                     options={[
-                      { value: 'contains', label: 'contains' },
-                      { value: 'is', label: 'is' },
-                      { value: 'regex', label: 'regex' },
+                      { value: 'contains', label: formatMessage({ id: 'accounts.payees.contains', defaultMessage: "contains" }) },
+                      { value: 'is', label: formatMessage({ id: 'accounts.payees.is', defaultMessage: "is" }) },
+                      { value: 'regex', label: formatMessage({ id: 'accounts.payees.regex', defaultMessage: "regex" }) },
                     ]}
                     value={ruleType}
                     onChange={(v) => setRuleType(v)}
                   />
                   <TextField
                     invalid={!!ruleErr}
-                    placeholder="Pattern to match…"
+                    placeholder={formatMessage({ id: 'accounts.payees.pattern', defaultMessage: "Pattern to match…" })}
                     value={ruleVal}
                     onChange={(e) => {
                       setRuleVal(e.target.value)
@@ -733,7 +728,7 @@ export function PayeesModal({
                     }}
                   />
                   <Button size="sm" variant="secondary" onClick={addRule}>
-                    Add
+                    {formatMessage({ id: 'accounts.payees.add', defaultMessage: "Add" })}
                   </Button>
                 </div>
                 {ruleErr && <div className="pm-err">{ruleErr}</div>}
@@ -744,21 +739,19 @@ export function PayeesModal({
                       variant="secondary"
                       onClick={() =>
                         setConfirm({
-                          title: 'Apply rules to existing transactions?',
-                          body: `Scans all ${totalTxns} transactions and re-points any that match ${sel.name}'s renaming rules to this payee. Existing assignments on matches will change.`,
-                          confirmLabel: 'Apply rules',
+                          title: formatMessage({ id: 'accounts.payees.applyRulesQuestion', defaultMessage: "Apply rules to existing transactions?" }),
+                          body: formatMessage({ id: 'accounts.payees.rulesConfirm', defaultMessage: "Scans all {count} transactions and re-points any that match {name}'s renaming rules to this payee. Existing assignments on matches will change." }, { count: totalTxns, name: sel.name }),
+                          confirmLabel: formatMessage({ id: 'accounts.payees.applyRules', defaultMessage: "Apply rules" }),
                           onConfirm: () => {
                             onApplyPayeeRules?.(sel.id)
                             setApplyRulesMsg(
-                              'Re-pointed existing transactions matching ' +
-                                sel.name +
-                                "'s rules to this payee.",
+                              formatMessage({ id: 'accounts.payees.rulesDone', defaultMessage: "Re-pointed existing transactions matching {name}'s rules to this payee." }, { name: sel.name }),
                             )
                           },
                         })
                       }
                     >
-                      Apply rules to existing transactions
+                      {formatMessage({ id: 'accounts.payees.applyRulesButton', defaultMessage: "Apply rules to existing transactions" })}
                     </Button>
                     {applyRulesMsg && <span className="pm-ok">{applyRulesMsg}</span>}
                   </div>
@@ -766,22 +759,21 @@ export function PayeesModal({
               </div>
 
               <div className="pm-danger">
-                <div className="pm-danger-head">Danger zone</div>
+                <div className="pm-danger-head">{formatMessage({ id: 'accounts.payees.danger', defaultMessage: "Danger zone" })}</div>
                 <div className="pm-danger-body">
                   <div>
-                    <div className="pm-danger-lbl">Merge into another payee</div>
+                    <div className="pm-danger-lbl">{formatMessage({ id: 'accounts.payees.mergeTitle', defaultMessage: "Merge into another payee" })}</div>
                     <p className="pm-sec-hint" style={{ margin: 0 }}>
-                      Folds all aliases and renaming rules from this payee into the target and
-                      re-points all transactions. This payee is permanently deleted.
+                      {formatMessage({ id: 'accounts.payees.mergeHint', defaultMessage: 'Folds all aliases and renaming rules from this payee into the target and re-points all transactions. This payee is permanently deleted.' })}
                     </p>
                     <div className="pm-danger-row">
                       <PMSelect
                         searchable
                         options={[
-                          { value: '', label: 'Pick target payee…' },
+                          { value: '', label: formatMessage({ id: 'accounts.payees.target', defaultMessage: "Pick target payee…" }) },
                           ...others.map((o) => ({
                             value: o.id,
-                            label: o.name + ' (' + o.txnCount + ' txns)',
+                            label: formatMessage({ id: 'accounts.payees.targetCount', defaultMessage: '{name} ({count} txns)' }, { name: o.name, count: o.txnCount }),
                           })),
                         ]}
                         value={mergeTo}
@@ -795,9 +787,9 @@ export function PayeesModal({
                           const tgt = others.find((o) => o.id === mergeTo)
                           if (!tgt) return
                           setConfirm({
-                            title: 'Merge payee?',
-                            body: `${sel.name}'s aliases, renaming rules, and ${sel.txnCount} transaction${sel.txnCount !== 1 ? 's' : ''} will move to ${tgt.name}. ${sel.name} will be permanently deleted — this can't be undone.`,
-                            confirmLabel: 'Merge',
+                            title: formatMessage({ id: 'accounts.payees.mergeQuestion', defaultMessage: "Merge payee?" }),
+                            body: formatMessage({ id: 'accounts.payees.mergeConfirm', defaultMessage: "{name}'s aliases, renaming rules, and {count, plural, one {# transaction} other {# transactions}} will move to {target}. {name} will be permanently deleted — this can't be undone." }, { name: sel.name, count: sel.txnCount, target: tgt.name }),
+                            confirmLabel: formatMessage({ id: 'accounts.payees.merge', defaultMessage: "Merge" }),
                             danger: true,
                             onConfirm: () => {
                               onMerge(sel.id, mergeTo)
@@ -807,25 +799,25 @@ export function PayeesModal({
                           })
                         }}
                       >
-                        Merge
+                        {formatMessage({ id: 'accounts.payees.merge', defaultMessage: "Merge" })}
                       </Button>
                     </div>
                   </div>
                   <div>
-                    <div className="pm-danger-lbl">Delete payee</div>
+                    <div className="pm-danger-lbl">{formatMessage({ id: 'accounts.payees.delete', defaultMessage: "Delete payee" })}</div>
                     <p className="pm-sec-hint" style={{ margin: 0 }}>
                       {!usageKnown
                         ? usageStatus === 'error'
-                          ? "Couldn't count this payee's transactions — close and reopen to try again."
-                          : 'Counting transactions…'
+                          ? formatMessage({ id: 'accounts.payees.usageError', defaultMessage: "Couldn't count this payee's transactions — close and reopen to try again." })
+                          : formatMessage({ id: 'accounts.payees.counting', defaultMessage: "Counting transactions…" })
                         : sel.txnCount > 0
-                          ? `Has ${sel.txnCount} transaction${sel.txnCount !== 1 ? 's' : ''} — pick a payee to reassign them to, then delete.`
-                          : 'No transactions; this payee will be permanently removed.'}
+                          ? formatMessage({ id: 'accounts.payees.hasTransactions', defaultMessage: 'Has {count, plural, one {# transaction} other {# transactions}} — pick a payee to reassign them to, then delete.' }, { count: sel.txnCount })
+                          : formatMessage({ id: 'accounts.payees.noTransactions', defaultMessage: "No transactions; this payee will be permanently removed." })}
                     </p>
                     {!usageKnown ? (
                       <div className="pm-danger-row">
                         <Button size="sm" variant="danger" disabled>
-                          Delete payee
+                          {formatMessage({ id: 'accounts.payees.delete', defaultMessage: "Delete payee" })}
                         </Button>
                       </div>
                     ) : sel.txnCount > 0 ? (
@@ -833,7 +825,7 @@ export function PayeesModal({
                         <PMSelect
                           searchable
                           options={[
-                            { value: '', label: 'Reassign transactions to…' },
+                            { value: '', label: formatMessage({ id: 'accounts.payees.reassign', defaultMessage: "Reassign transactions to…" }) },
                             ...others.map((o) => ({ value: o.id, label: o.name })),
                           ]}
                           value={reassignTo}
@@ -845,13 +837,13 @@ export function PayeesModal({
                           disabled={!reassignTo}
                           onClick={requestDelete}
                         >
-                          Delete payee
+                          {formatMessage({ id: 'accounts.payees.delete', defaultMessage: "Delete payee" })}
                         </Button>
                       </div>
                     ) : (
                       <div className="pm-danger-row">
                         <Button size="sm" variant="danger" onClick={requestDelete}>
-                          Delete payee
+                          {formatMessage({ id: 'accounts.payees.delete', defaultMessage: "Delete payee" })}
                         </Button>
                       </div>
                     )}

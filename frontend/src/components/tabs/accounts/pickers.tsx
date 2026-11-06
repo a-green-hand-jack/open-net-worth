@@ -1,3 +1,4 @@
+import { fLocalizedMonth } from '../../../utils/format'
 /**
  * pickers.tsx — Inline editor primitives and rich field pickers for the
  * Accounts register. Ported from prototype/accounts/app.jsx.
@@ -5,9 +6,12 @@
  */
 
 import { useState, useEffect, useRef, useMemo } from 'react'
+import { defineMessages } from 'react-intl'
+import { useAppIntl } from '../../../i18n/useAppIntl'
 import { Sparkles, Plus, X, Check, ChevronLeft, ChevronRight, Settings } from '../../../ui/icons'
 import { useIsMobile } from '../../../hooks/useIsMobile'
 import type { Account, Category } from './types'
+import { useAccountTypeLabel } from './useAccountTypeLabel'
 import { TYPE_LABELS, TYPE_ORDER } from './categories'
 
 // ── Anchored fixed-position popover ──────────────────────────────────────────
@@ -152,19 +156,20 @@ export function SourceIcon({
    *  glyphs (owner, 2026-09-22). The register keeps its ✦. */
   variant?: 'default' | 'mono'
 }) {
+  const { formatMessage } = useAppIntl()
   if (source === 'ai')
     return variant === 'mono' ? (
-      <span className="acct-src-ic" title="Added by Lucius">
+      <span className="acct-src-ic" title={formatMessage({ id: 'accounts.sourceIcon.lucius', defaultMessage: "Added by Lucius" })}>
         <Sparkles size={13} aria-hidden="true" />
       </span>
     ) : (
-      <span className="acct-src-ic lucius" title="Added by Lucius">
+      <span className="acct-src-ic lucius" title={formatMessage({ id: 'accounts.sourceIcon.lucius', defaultMessage: "Added by Lucius" })}>
         ✦
       </span>
     )
   if (source === 'bank')
     return (
-      <span className="acct-src-ic" title="Bank sync">
+      <span className="acct-src-ic" title={formatMessage({ id: 'accounts.sourceIcon.bank', defaultMessage: "Bank sync" })}>
         <svg
           width="13"
           height="13"
@@ -184,7 +189,7 @@ export function SourceIcon({
     )
   if (source === 'import')
     return (
-      <span className="acct-src-ic" title="Imported (file)">
+      <span className="acct-src-ic" title={formatMessage({ id: 'accounts.sourceIcon.import', defaultMessage: "Imported (file)" })}>
         <svg
           width="13"
           height="13"
@@ -203,7 +208,7 @@ export function SourceIcon({
     )
   if (source === 'reconcile')
     return (
-      <span className="acct-src-ic" title="Reconcile adjustment">
+      <span className="acct-src-ic" title={formatMessage({ id: 'accounts.sourceIcon.reconcile', defaultMessage: "Reconcile adjustment" })}>
         <svg
           width="13"
           height="13"
@@ -221,7 +226,7 @@ export function SourceIcon({
     )
   if (source === 'automation')
     return (
-      <span className="acct-src-ic" title="Added by an automation">
+      <span className="acct-src-ic" title={formatMessage({ id: 'accounts.sourceIcon.automation', defaultMessage: "Added by an automation" })}>
         <svg
           width="13"
           height="13"
@@ -242,7 +247,7 @@ export function SourceIcon({
     )
   if (source === 'agent')
     return (
-      <span className="acct-src-ic agent" title="Added by an agent">
+      <span className="acct-src-ic agent" title={formatMessage({ id: 'accounts.sourceIcon.agent', defaultMessage: "Added by an agent" })}>
         <svg
           width="13"
           height="13"
@@ -264,7 +269,7 @@ export function SourceIcon({
   // the row fell through to "Manual entry", which it has never been (ADR 2026-07-28).
   if (source === 'opening')
     return (
-      <span className="acct-src-ic" title="Starting balance">
+      <span className="acct-src-ic" title={formatMessage({ id: 'accounts.sourceIcon.opening', defaultMessage: "Starting balance" })}>
         <svg
           width="13"
           height="13"
@@ -281,7 +286,7 @@ export function SourceIcon({
       </span>
     )
   return (
-    <span className="acct-payee-sub" title="Manual entry">
+    <span className="acct-payee-sub" title={formatMessage({ id: 'accounts.sourceIcon.manual', defaultMessage: "Manual entry" })}>
       –
     </span>
   )
@@ -433,6 +438,7 @@ export function EditCombo({
   onCommit: (v: string) => void
   onCancel: () => void
 }) {
+  const { formatMessage } = useAppIntl()
   const [q, setQ] = useState(value == null ? '' : String(value))
   const [hi, setHi] = useState(0)
   const cancel = useRef(false)
@@ -497,7 +503,7 @@ export function EditCombo({
               {it.type === 'create' ? (
                 <>
                   <Plus className="acct-combo-plus" size={12} aria-hidden="true" />
-                  Create "<b>{it.label}</b>"
+                  {formatMessage({ id: 'accounts.visible.createNamed', defaultMessage: 'Create “<b>{name}</b>”' }, { name: it.label, b: (chunks) => <b>{chunks}</b> })}
                 </>
               ) : (
                 <>
@@ -552,6 +558,7 @@ export function FilterCombo({
   popW?: number
   clearable?: boolean
 }) {
+  const { formatMessage } = useAppIntl()
   const [open, setOpen] = useState(false)
   const [q, setQ] = useState('')
   const [hi, setHi] = useState(0)
@@ -627,7 +634,7 @@ export function FilterCombo({
         <button
           type="button"
           className="acct-filtercombo-clear"
-          aria-label="Clear"
+          aria-label={formatMessage({ id: 'accounts.filterCombo.clear', defaultMessage: 'Clear' })}
           onMouseDown={(e) => {
             e.preventDefault()
             onChange('')
@@ -688,7 +695,7 @@ export function FilterCombo({
                 )}
               </button>
             ))}
-            {matches.length === 0 && <div className="acct-payf-empty">No matches</div>}
+            {matches.length === 0 && <div className="acct-payf-empty">{formatMessage({ id: 'accounts.filterCombo.noMatches', defaultMessage: 'No matches' })}</div>}
           </div>
         </div>
       )}
@@ -715,6 +722,8 @@ export function AddAccountSelect({
   autoFocus,
   autoOpen,
 }: AddAccountSelectProps) {
+  const { formatMessage, locale } = useAppIntl()
+  const accountTypeLabel = useAccountTypeLabel()
   const [open, setOpen] = useState(false)
   const [hi, setHi] = useState(0)
   const [q, setQ] = useState('')
@@ -725,7 +734,7 @@ export function AddAccountSelect({
   // Type-to-filter (like the payee field): the search box narrows the grouped list as you type.
   const grouped = TYPE_ORDER.map((g) => ({
     key: g,
-    label: TYPE_LABELS[g],
+    label: locale === 'en' ? TYPE_LABELS[g] : accountTypeLabel(g),
     items: accounts.filter((a) => a.type === g && (!ql || a.name.toLowerCase().includes(ql))),
   })).filter((g) => g.items.length)
   const flat = grouped.flatMap((g) => g.items)
@@ -822,7 +831,7 @@ export function AddAccountSelect({
         }}
         onKeyDown={onKey}
       >
-        <span className="acct-acctsel-nm">{cur ? cur.name : 'Select account'}</span>
+        <span className="acct-acctsel-nm">{cur ? cur.name : formatMessage({ id: 'accounts.accountPicker.select', defaultMessage: 'Select account' })}</span>
         <svg
           className="acct-acctsel-caret"
           width="12"
@@ -842,7 +851,7 @@ export function AddAccountSelect({
           <input
             ref={searchRef}
             className="acct-sel-search"
-            placeholder="Search accounts…"
+            placeholder={formatMessage({ id: 'accounts.accountPicker.search', defaultMessage: 'Search accounts…' })}
             value={q}
             onChange={(e) => {
               setQ(e.target.value)
@@ -850,7 +859,7 @@ export function AddAccountSelect({
             }}
             onKeyDown={onKey}
           />
-          {grouped.length === 0 && <div className="acct-sel-empty">No accounts match “{q}”</div>}
+          {grouped.length === 0 && <div className="acct-sel-empty">{formatMessage({ id: 'accounts.accountPicker.noMatch', defaultMessage: 'No accounts match “{query}”' }, { query: q })}</div>}
           {grouped.map((g) => (
             <div className="acct-acctsel-grp" key={g.key}>
               <div className="acct-acctsel-h">{g.label}</div>
@@ -918,6 +927,7 @@ export interface AddDateFieldProps {
 }
 
 export function AddDateField({ value, onChange, advance, autoFocus }: AddDateFieldProps) {
+  const { formatMessage, locale } = useAppIntl()
   const [open, setOpen] = useState(false)
   const sel = value
     ? (() => {
@@ -1008,7 +1018,7 @@ export function AddDateField({ value, onChange, advance, autoFocus }: AddDateFie
         const [y, m, d] = value.split('-')
         return m + '/' + d + '/' + y
       })()
-    : 'Date'
+    : formatMessage({ id: 'accounts.datePicker.date', defaultMessage: 'Date' })
   const fx = useAnchoredFixed(open, ref as React.RefObject<HTMLElement>, 244)
   return (
     <div className="acct-datef" ref={ref}>
@@ -1054,12 +1064,12 @@ export function AddDateField({ value, onChange, advance, autoFocus }: AddDateFie
                 e.preventDefault()
                 setView(new Date(vy, vm - 1, 1))
               }}
-              aria-label="Previous month"
+              aria-label={formatMessage({ id: 'accounts.datePicker.previous', defaultMessage: 'Previous month' })}
             >
               <ChevronLeft size={14} aria-hidden="true" />
             </button>
             <span className="acct-datef-title">
-              {MONF[vm]} {vy}
+              {locale === 'en' ? `${MONF[vm]} ${vy}` : fLocalizedMonth(`${vy}-${String(vm + 1).padStart(2, '0')}`, locale)}
             </span>
             <button
               type="button"
@@ -1068,13 +1078,13 @@ export function AddDateField({ value, onChange, advance, autoFocus }: AddDateFie
                 e.preventDefault()
                 setView(new Date(vy, vm + 1, 1))
               }}
-              aria-label="Next month"
+              aria-label={formatMessage({ id: 'accounts.datePicker.next', defaultMessage: 'Next month' })}
             >
               <ChevronRight size={14} aria-hidden="true" />
             </button>
           </div>
           <div className="acct-datef-dow">
-            {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((d, i) => (
+            {(locale === 'en' ? ['S', 'M', 'T', 'W', 'T', 'F', 'S'] : Array.from({ length: 7 }, (_, i) => new Date(2023, 0, i + 1).toLocaleDateString(locale, { weekday: 'narrow' }))).map((d, i) => (
               <span key={i}>{d}</span>
             ))}
           </div>
@@ -1117,7 +1127,7 @@ export function AddDateField({ value, onChange, advance, autoFocus }: AddDateFie
                 )
               }}
             >
-              Today
+              {formatMessage({ id: 'accounts.datePicker.today', defaultMessage: 'Today' })}
             </button>
           </div>
         </div>
@@ -1149,6 +1159,7 @@ export function AddPayeeField({
   onSelectTransfer,
   autoOpen,
 }: AddPayeeFieldProps) {
+  const { formatMessage } = useAppIntl()
   const [open, setOpen] = useState(false)
   const [hi, setHi] = useState(0)
   const ref = useRef<HTMLDivElement | null>(null)
@@ -1180,7 +1191,7 @@ export function AddPayeeField({
         _i: number
       }
   const transferMatches = accounts
-    .filter((a) => a.id !== fromAccountId && ('to/from ' + a.name.toLowerCase()).includes(ql))
+    .filter((a) => a.id !== fromAccountId && (('to/from ' + a.name.toLowerCase()).includes(ql) || ('转入/转出 ' + a.name.toLowerCase()).includes(ql)))
     .map((a) => ({
       type: 'transfer' as const,
       id: a.id,
@@ -1197,7 +1208,7 @@ export function AddPayeeField({
       _i: 0,
     }))
   const exact = options.some((o) => o.label.toLowerCase() === ql)
-  const showCreate = ql && !exact && !ql.startsWith('to/from')
+  const showCreate = ql && !exact && !ql.startsWith('to/from') && !ql.startsWith('转入/转出')
   const createItem: TItem[] = showCreate
     ? [{ type: 'create', value: value.trim(), label: value.trim(), _i: 0 }]
     : []
@@ -1279,11 +1290,11 @@ export function AddPayeeField({
         <>
           <Plus className="acct-payf-plus" size={12} aria-hidden="true" />
           <span>
-            Create "<b>{it.label}</b>"
+            {formatMessage({ id: 'accounts.payeePicker.create', defaultMessage: 'Create "<b>{name}</b>"' }, { name: it.label, b: (chunks) => <b>{chunks}</b> })}
           </span>
         </>
       ) : it.type === 'transfer' ? (
-        it.label
+        formatMessage({ id: 'accounts.payeePicker.transfer', defaultMessage: 'To/From {account}' }, { account: accounts.find((a) => a.id === it.id)?.name ?? it.label })
       ) : (
         it.label
       )}
@@ -1294,7 +1305,7 @@ export function AddPayeeField({
       <input
         className="acct-addin"
         data-addfield
-        placeholder="Payee"
+        placeholder={formatMessage({ id: 'accounts.payeePicker.placeholder', defaultMessage: 'Payee' })}
         value={value}
         onFocus={() => {
           setOpen(true)
@@ -1331,14 +1342,14 @@ export function AddPayeeField({
           <div className="acct-payf-scroll" ref={popRef}>
             {xfer.length > 0 && (
               <>
-                <div className="acct-payf-h">Payments &amp; transfers</div>
+                <div className="acct-payf-h">{formatMessage({ id: 'accounts.payeePicker.transfers', defaultMessage: 'Payments & transfers' })}</div>
                 {xfer.map(renderItem)}
               </>
             )}
             <div className="acct-payf-h">
-              {showCreate && pays.length <= 1 ? 'New payee' : 'Saved payees'}
+              {showCreate && pays.length <= 1 ? formatMessage({ id: 'accounts.payeePicker.new', defaultMessage: 'New payee' }) : formatMessage({ id: 'accounts.payeePicker.saved', defaultMessage: 'Saved payees' })}
             </div>
-            {pays.length === 0 && <div className="acct-payf-empty">No saved payees</div>}
+            {pays.length === 0 && <div className="acct-payf-empty">{formatMessage({ id: 'accounts.payeePicker.empty', defaultMessage: 'No saved payees' })}</div>}
             {pays.map(renderItem)}
           </div>
           <button
@@ -1350,7 +1361,7 @@ export function AddPayeeField({
             }}
           >
             <Settings className="acct-payf-mic" size={12} aria-hidden="true" />
-            Manage payees
+            {formatMessage({ id: 'accounts.payeePicker.manage', defaultMessage: 'Manage payees' })}
           </button>
         </div>
       )}
@@ -1382,6 +1393,16 @@ export interface AddCategoryFieldProps {
   createNeedsName?: boolean
 }
 
+const categoryGroupMessages = defineMessages({
+  Income: { id: 'accounts.categoryGroup.income', defaultMessage: 'Income' },
+  'Refund to a budget envelope': { id: 'accounts.categoryGroup.refund', defaultMessage: 'Refund to a budget envelope' },
+  Expenses: { id: 'accounts.categoryGroup.expenses', defaultMessage: 'Expenses' },
+  Expense: { id: 'accounts.categoryGroup.expense', defaultMessage: 'Expense' },
+  Transfer: { id: 'accounts.categoryGroup.transfer', defaultMessage: 'Transfer' },
+  Investment: { id: 'accounts.categoryGroup.investment', defaultMessage: 'Investment' },
+  Other: { id: 'accounts.categoryGroup.other', defaultMessage: 'Other' },
+})
+
 export function AddCategoryField({
   value,
   onChange,
@@ -1390,9 +1411,10 @@ export function AddCategoryField({
   onCreate,
   autoFocus,
   clearable,
-  placeholder = 'Category…',
+  placeholder,
   createNeedsName,
 }: AddCategoryFieldProps) {
+  const { formatMessage } = useAppIntl()
   const [open, setOpen] = useState(false)
   const [hi, setHi] = useState(0)
   const [q, setQ] = useState('')
@@ -1515,7 +1537,7 @@ export function AddCategoryField({
         onKeyDown={onKey}
       >
         {cur && <i className="acct-acctsel-dot" style={{ background: cur.color }} />}
-        <span className="acct-acctsel-nm">{cur ? cur.label : placeholder}</span>
+        <span className="acct-acctsel-nm">{cur ? cur.label : (placeholder ?? formatMessage({ id: 'accounts.categoryPicker.placeholder', defaultMessage: 'Category…' }))}</span>
         <svg
           className="acct-acctsel-caret"
           width="12"
@@ -1535,7 +1557,7 @@ export function AddCategoryField({
           <input
             ref={searchRef}
             className="acct-sel-search"
-            placeholder="Search categories…"
+            placeholder={formatMessage({ id: 'accounts.categoryPicker.search', defaultMessage: 'Search categories…' })}
             value={q}
             onChange={(e) => {
               setQ(e.target.value)
@@ -1552,7 +1574,7 @@ export function AddCategoryField({
                 setOpen(false)
               }}
             >
-              — None —
+              {formatMessage({ id: 'accounts.categoryPicker.none', defaultMessage: '— None —' })}
             </button>
           )}
           {onCreate && (!createNeedsName || q.trim()) && (
@@ -1569,16 +1591,16 @@ export function AddCategoryField({
                 })
               }}
             >
-              <Plus className="acct-catnew-plus" size={12} aria-hidden="true" /> New category
+              <Plus className="acct-catnew-plus" size={12} aria-hidden="true" /> {formatMessage({ id: 'accounts.categoryPicker.new', defaultMessage: 'New category' })}
               {q ? ` “${q}”` : ''}
             </button>
           )}
           {grouped.length === 0 && !onCreate && (
-            <div className="acct-sel-empty">No categories match “{q}”</div>
+            <div className="acct-sel-empty">{formatMessage({ id: 'accounts.categoryPicker.noMatch', defaultMessage: 'No categories match “{query}”' }, { query: q })}</div>
           )}
           {grouped.map((g) => (
             <div className="acct-acctsel-grp" key={g.label}>
-              <div className="acct-acctsel-h">{g.label}</div>
+              <div className="acct-acctsel-h">{Object.hasOwn(categoryGroupMessages, g.label) ? formatMessage(categoryGroupMessages[g.label as keyof typeof categoryGroupMessages]) : g.label}</div>
               {g.items.map((o) => {
                 const fi = flat.indexOf(o)
                 return (

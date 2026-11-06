@@ -1,3 +1,5 @@
+import { useAppIntl } from '../../../../i18n/useAppIntl'
+import { ynabMessage } from './ynabMessages'
 import { useState } from 'react'
 import {
   ArrowLeftRight,
@@ -17,11 +19,17 @@ import { ReviewCard } from '../../imports/ReviewItem'
 import { RunReportModal } from '../../imports/RunReport'
 import { YnabImport } from '../../imports/YnabImport'
 import { KIND_LABEL, detailOf, type RunSummary } from '../../imports/runs'
-import { DIRECTION_LABELS, INTERVAL_LABELS, sendSync, type SyncDirection } from '../../imports/sync'
+import { DIRECTION_LABELS, sendSync, type SyncDirection } from '../../imports/sync'
 import { AutomationMenu } from '../AutomationMenu'
 import { ConnectorPanel } from '../../connectors/ConnectorPanel'
 import { useConnectors } from '../../connectors/useConnectors'
-import { YNAB_SYNC_BLURB, YNAB_SYNC_NAME, useYnabSync, type YnabSyncStage } from './ynabSync'
+import {
+  YNAB_SYNC_NAME,
+  scheduleLabel,
+  syncDirectionLabel,
+  useYnabSync,
+  type YnabSyncStage,
+} from './ynabSync'
 
 // The YNAB data sync's page in Automations. Until it is set up the page is the three setup
 // steps (connect, import, turn on); after that it reads like any Automation: on/off and the next
@@ -38,6 +46,8 @@ export function YnabSyncDetail({
   onBack: () => void
   onOpenReport: (runId: string | null) => void
 }) {
+  const intl = useAppIntl()
+  const { formatMessage } = intl
   const sync = useYnabSync()
   useConnectors() // warm the connector list, so the YNAB panel opens at once
   const [connectOpen, setConnectOpen] = useState(false)
@@ -62,11 +72,25 @@ export function YnabSyncDetail({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ plan_id: sync.planId, confirm_nonempty: false }),
       })
-      if (!r.ok) setError(await detailOf(r, 'Could not start the re-check.'))
+      if (!r.ok)
+        setError(
+          await detailOf(
+            r,
+            formatMessage({
+              id: 'automations.sync.recheckError',
+              defaultMessage: 'Could not start the re-check.',
+            }),
+          ),
+        )
       invalidateQueryCache('/api/imports/runs')
       sync.refresh()
     } catch {
-      setError('Could not reach the server.')
+      setError(
+        formatMessage({
+          id: 'automations.sync.serverError',
+          defaultMessage: 'Could not reach the server.',
+        }),
+      )
     } finally {
       setBusy(null)
     }
@@ -77,9 +101,15 @@ export function YnabSyncDetail({
   const openConnector = () => setConnectOpen(true)
 
   const crumb = (
-    <nav className="a3-crumb" aria-label="Breadcrumb">
+    <nav
+      className="a3-crumb"
+      aria-label={formatMessage({
+        id: 'automations.sync.breadcrumb',
+        defaultMessage: 'Breadcrumb',
+      })}
+    >
       <button type="button" onClick={onBack}>
-        Automations
+        {formatMessage({ id: 'automations.pageTitle', defaultMessage: 'Automations' })}
       </button>
       <span aria-hidden="true">/</span>
       <span className="cur" aria-current="page">
@@ -91,7 +121,14 @@ export function YnabSyncDetail({
   if (sync.loading) {
     return (
       <div className="a3-wrap">
-        <TabSkeleton variant="automations" label="Loading the YNAB sync…" header={false} />
+        <TabSkeleton
+          variant="automations"
+          label={formatMessage({
+            id: 'automations.sync.loadingYnab',
+            defaultMessage: 'Loading the YNAB sync…',
+          })}
+          header={false}
+        />
       </div>
     )
   }
@@ -100,8 +137,18 @@ export function YnabSyncDetail({
       <div className="a3-wrap">
         {crumb}
         <ErrorState
-          title="The YNAB sync couldn’t load"
-          message={sync.error instanceof Error ? sync.error.message : 'Try again in a moment.'}
+          title={formatMessage({
+            id: 'automations.sync.loadYnab',
+            defaultMessage: 'The YNAB sync couldn’t load',
+          })}
+          message={
+            sync.error instanceof Error
+              ? sync.error.message
+              : formatMessage({
+                  id: 'automations.sync.retry',
+                  defaultMessage: 'Try again in a moment.',
+                })
+          }
           onRetry={sync.refresh}
         />
       </div>
@@ -111,14 +158,23 @@ export function YnabSyncDetail({
   const setUp = sync.stage === 'on' || sync.stage === 'off'
   const on = sync.stage === 'on'
   const next = !on
-    ? 'Off'
+    ? formatMessage({ id: 'automations.sync.off', defaultMessage: 'Off' })
     : status.running
-      ? 'Syncing now…'
+      ? formatMessage({ id: 'automations.sync.syncing', defaultMessage: 'Syncing now…' })
       : status.interval === 'manual'
-        ? 'Runs only when you start it.'
+        ? formatMessage({
+            id: 'automations.sync.onlyManual',
+            defaultMessage: 'Runs only when you start it.',
+          })
         : status.next_run_at
-          ? `Next sync: ${fScheduleWhen(status.next_run_at)}`
-          : 'Next sync: within a minute' // due: the scheduler checks every 60 seconds
+          ? formatMessage(
+              { id: 'automations.sync.next', defaultMessage: 'Next sync: {when}' },
+              { when: fScheduleWhen(status.next_run_at, intl) },
+            )
+          : formatMessage({
+              id: 'automations.sync.nextMinute',
+              defaultMessage: 'Next sync: within a minute',
+            }) // due: the scheduler checks every 60 seconds
 
   return (
     <div className="a3-wrap" data-od-id="ynab-sync-detail">
@@ -137,7 +193,13 @@ export function YnabSyncDetail({
       <div className="a3-detail-head">
         <div className="a3-detail-title">
           <h1>{YNAB_SYNC_NAME}</h1>
-          <div className="a3-detail-sub">{YNAB_SYNC_BLURB}</div>
+          <div className="a3-detail-sub">
+            {formatMessage({
+              id: 'automations.sync.blurb',
+              defaultMessage:
+                'Transactions and each month’s Assigned, in step with your YNAB plan.',
+            })}
+          </div>
         </div>
         {setUp && (
           <div className="a3-detail-bar">
@@ -149,7 +211,17 @@ export function YnabSyncDetail({
                 onChange={() =>
                   void send('settings', '/settings', 'PUT', { enabled: !on, plan_id: sync.planId })
                 }
-                aria-label={on ? 'Turn the YNAB sync off' : 'Turn the YNAB sync on'}
+                aria-label={
+                  on
+                    ? formatMessage({
+                        id: 'automations.sync.turnSyncOff',
+                        defaultMessage: 'Turn the YNAB sync off',
+                      })
+                    : formatMessage({
+                        id: 'automations.sync.turnSyncOn',
+                        defaultMessage: 'Turn the YNAB sync on',
+                      })
+                }
               />
               <span>{next}</span>
             </div>
@@ -162,13 +234,19 @@ export function YnabSyncDetail({
                 iconLeft={<Play size={12} aria-hidden="true" />}
                 onClick={() => void send('run', '/run', 'POST')}
               >
-                Sync now
+                {formatMessage({ id: 'automations.sync.run', defaultMessage: 'Sync now' })}
               </Button>
               <AutomationMenu
-                label="More actions"
+                label={formatMessage({
+                  id: 'automations.moreActions',
+                  defaultMessage: 'More actions',
+                })}
                 items={[
                   {
-                    label: 'Re-check against YNAB',
+                    label: formatMessage({
+                      id: 'automations.sync.recheck',
+                      defaultMessage: 'Re-check against YNAB',
+                    }),
                     disabled: !!busy || sync.running,
                     icon: (
                       <span className="a3-menu-ic">
@@ -178,7 +256,10 @@ export function YnabSyncDetail({
                     onSelect: () => void recheck(),
                   },
                   {
-                    label: 'YNAB connection…',
+                    label: formatMessage({
+                      id: 'automations.sync.connection',
+                      defaultMessage: 'YNAB connection…',
+                    }),
                     icon: (
                       <span className="a3-menu-ic">
                         <Link2 size={14} aria-hidden="true" />
@@ -204,12 +285,18 @@ export function YnabSyncDetail({
             {status.conflicts.length > 0 && (
               <section className="a3-block a3-attention" data-od-id="ynab-sync-review">
                 <div className="a3-block-h">
-                  Needs your review
+                  {formatMessage({
+                    id: 'automations.sync.needsReview',
+                    defaultMessage: 'Needs your review',
+                  })}
                   <span className="count">{status.conflicts.length}</span>
                 </div>
                 <div className="a3-block-note">
-                  The sync left these alone for you to decide. Each one says what its choice
-                  changes, here and in YNAB.
+                  {formatMessage({
+                    id: 'automations.sync.reviewHelp',
+                    defaultMessage:
+                      'The sync left these alone for you to decide. Each one says what its choice changes, here and in YNAB.',
+                  })}
                 </div>
                 {status.conflicts.map((item) => (
                   <ReviewCard
@@ -227,38 +314,54 @@ export function YnabSyncDetail({
               </section>
             )}
             <section className="a3-block" data-od-id="ynab-sync-direction">
-              <div className="a3-block-h">Direction</div>
+              <div className="a3-block-h">
+                {formatMessage({ id: 'automations.sync.direction', defaultMessage: 'Direction' })}
+              </div>
               <SettingMenu
-                label="Sync direction"
+                label={formatMessage({
+                  id: 'automations.sync.directionLabel',
+                  defaultMessage: 'Sync direction',
+                })}
                 icon={<ArrowLeftRight size={14} aria-hidden="true" />}
                 value={status.direction}
                 options={(Object.keys(DIRECTION_LABELS) as SyncDirection[]).map((d) => ({
                   value: d,
-                  label: DIRECTION_LABELS[d],
+                  label: syncDirectionLabel(intl, d),
                 }))}
                 disabled={!!busy || status.running}
                 onPick={(direction) => void send('settings', '/settings', 'PUT', { direction })}
               />
             </section>
             <section className="a3-block" data-od-id="ynab-sync-schedule">
-              <div className="a3-block-h">Schedule</div>
+              <div className="a3-block-h">
+                {formatMessage({ id: 'automations.sync.schedule', defaultMessage: 'Schedule' })}
+              </div>
               <SettingMenu
-                label="How often to sync"
+                label={formatMessage({
+                  id: 'automations.sync.howOften',
+                  defaultMessage: 'How often to sync',
+                })}
                 icon={<Clock3 size={14} aria-hidden="true" />}
                 value={status.interval}
                 options={status.intervals.map((i) => ({
                   value: i,
-                  label: INTERVAL_LABELS[i] ?? i,
+                  label: scheduleLabel({ ...status, enabled: true, interval: i }, intl),
                 }))}
                 disabled={!!busy || status.running}
                 onPick={(interval) => void send('settings', '/settings', 'PUT', { interval })}
               />
               {status.last_run && (
                 <div className={`a3-last-sync${status.last_run.ok ? '' : ' bad'}`}>
-                  Last sync {timeAgo(status.last_run.finished_at)}:{' '}
+                  {formatMessage(
+                    { id: 'automations.sync.lastSync', defaultMessage: 'Last sync {when}:' },
+                    { when: timeAgo(status.last_run.finished_at) },
+                  )}{' '}
                   {status.last_run.ok
-                    ? status.last_run.summary
-                    : `failed. ${status.last_run.error ?? ''}`}
+                    ? ynabMessage(intl, status.last_run.summary_message, status.last_run.summary)
+                    : formatMessage(
+                        { id: 'automations.sync.failedDetail', defaultMessage: 'failed. {error}' },
+                        { error: status.last_run.error ?? '' },
+                      )}
                   {status.last_run.run_id && (
                     <>
                       {' '}
@@ -267,7 +370,10 @@ export function YnabSyncDetail({
                         className="a3-linkbtn"
                         onClick={() => onOpenReport(status.last_run?.run_id ?? null)}
                       >
-                        Open report
+                        {formatMessage({
+                          id: 'automations.sync.openReport',
+                          defaultMessage: 'Open report',
+                        })}
                       </button>
                     </>
                   )}
@@ -275,26 +381,68 @@ export function YnabSyncDetail({
               )}
             </section>
             <section className="a3-block" data-od-id="ynab-sync-plan">
-              <div className="a3-block-h">YNAB plan</div>
+              <div className="a3-block-h">
+                {formatMessage({ id: 'automations.sync.plan', defaultMessage: 'YNAB plan' })}
+              </div>
               <div className="a3-model-detail">
                 <Link2 size={14} aria-hidden="true" />
-                <b>{sync.planName ?? 'Not chosen'}</b>
+                <b>
+                  {sync.planName ??
+                    formatMessage({
+                      id: 'automations.sync.notChosen',
+                      defaultMessage: 'Not chosen',
+                    })}
+                </b>
                 {sync.lastImport && (
                   <>
                     <span>•</span>
-                    <span>Imported {fDate(sync.lastImport.started_at, 'short', 'always')}</span>
+                    <span>
+                      {formatMessage(
+                        { id: 'automations.sync.importedDate', defaultMessage: 'Imported {date}' },
+                        { date: fDate(sync.lastImport.started_at, 'short', 'always') },
+                      )}
+                    </span>
                   </>
                 )}
               </div>
             </section>
             <section className="a3-block" data-od-id="ynab-sync-rules">
-              <div className="a3-block-h">How it decides</div>
+              <div className="a3-block-h">
+                {formatMessage({ id: 'automations.sync.rules', defaultMessage: 'How it decides' })}
+              </div>
               <ul className="a3-rules">
-                <li>{FLOW[status.direction]}</li>
-                <li>A change on both sides waits for you.</li>
+                <li>
+                  {status.direction === 'both'
+                    ? formatMessage({
+                        id: 'automations.sync.flowBoth',
+                        defaultMessage:
+                          'Transactions, categories and Assigned changed on either side are copied to the other.',
+                      })
+                    : status.direction === 'from_ynab'
+                      ? formatMessage({
+                          id: 'automations.sync.flowFrom',
+                          defaultMessage:
+                            'YNAB’s transactions, categories and Assigned come here. Nothing is written to YNAB.',
+                        })
+                      : formatMessage({
+                          id: 'automations.sync.flowTo',
+                          defaultMessage:
+                            'This book’s transactions, categories and Assigned go to YNAB. Nothing comes back.',
+                        })}
+                </li>
+                <li>
+                  {formatMessage({
+                    id: 'automations.sync.bothChanged',
+                    defaultMessage: 'A change on both sides waits for you.',
+                  })}
+                </li>
                 {status.direction !== 'from_ynab' && (
                   <li>
-                    What it adds or changes in YNAB gets YNAB's red flag, so you can spot it there.
+                    {formatMessage({
+                      id: 'automations.sync.redFlag',
+                      defaultMessage:
+                        "What it adds or changes in YNAB gets YNAB's red flag, so you can spot it there.",
+                    })}
                   </li>
                 )}
               </ul>
@@ -320,12 +468,6 @@ export function YnabSyncDetail({
       )}
     </div>
   )
-}
-
-const FLOW: Record<SyncDirection, string> = {
-  both: 'Transactions, categories and Assigned changed on either side are copied to the other.',
-  from_ynab: 'YNAB’s transactions, categories and Assigned come here. Nothing is written to YNAB.',
-  to_ynab: 'This book’s transactions, categories and Assigned go to YNAB. Nothing comes back.',
 }
 
 /** Which way changes flow. A change on both sides is asked about in every direction. */
@@ -384,12 +526,17 @@ function DirectionPicker({
   disabled: boolean
   onChange: (direction: SyncDirection) => void
 }) {
+  const intl = useAppIntl()
+  const { formatMessage } = intl
   return (
     <SegmentedControl
-      ariaLabel="Sync direction"
+      ariaLabel={formatMessage({
+        id: 'automations.sync.directionLabel',
+        defaultMessage: 'Sync direction',
+      })}
       options={(Object.keys(DIRECTION_LABELS) as SyncDirection[]).map((d) => ({
         value: d,
-        label: DIRECTION_LABELS[d],
+        label: syncDirectionLabel(intl, d),
       }))}
       value={value}
       onChange={(d) => {
@@ -424,38 +571,68 @@ function SetupSteps({
 }) {
   // Two steps: the import is reviewed, then booked with the sync turned on, in one window. An
   // import that left the sync off (chosen, or it could not turn on) offers it here.
+  const { formatMessage } = useAppIntl()
   const reached = { connect: 1, import: 2, enable: 2, off: 3, on: 3 }[stage]
   return (
     <ol className="a3-steps" data-od-id="ynab-sync-setup">
-      <Step n={1} reached={reached} title="Connect YNAB">
+      <Step
+        n={1}
+        reached={reached}
+        title={formatMessage({
+          id: 'automations.sync.connectTitle',
+          defaultMessage: 'Connect YNAB',
+        })}
+      >
         {reached === 1 ? (
           <>
-            <p>Add your YNAB personal access token.</p>
+            <p>
+              {formatMessage({
+                id: 'automations.sync.addToken',
+                defaultMessage: 'Add your YNAB personal access token.',
+              })}
+            </p>
             <div>
               <Button size="sm" variant="primary" onClick={onConnect}>
-                Connect YNAB…
+                {formatMessage({ id: 'automations.sync.connect', defaultMessage: 'Connect YNAB…' })}
               </Button>
             </div>
           </>
         ) : (
           // A wrong or revoked token shows up as an error in step 2; fix it from here.
           <p>
-            Token saved ·{' '}
+            {formatMessage({ id: 'automations.sync.tokenSaved', defaultMessage: 'Token saved ·' })}{' '}
             <button type="button" className="a3-linkbtn" onClick={onConnect}>
-              Change
+              {formatMessage({ id: 'automations.sync.change', defaultMessage: 'Change' })}
             </button>
           </p>
         )}
       </Step>
-      <Step n={2} reached={reached} title="Bring your plan in and keep it in sync">
+      <Step
+        n={2}
+        reached={reached}
+        title={formatMessage({
+          id: 'automations.sync.importTitle',
+          defaultMessage: 'Bring your plan in and keep it in sync',
+        })}
+      >
         {stage === 'import' ? (
           <>
-            <p>Review what your plan holds, then import it. Safe to run again.</p>
+            <p>
+              {formatMessage({
+                id: 'automations.sync.importHelp',
+                defaultMessage: 'Review what your plan holds, then import it. Safe to run again.',
+              })}
+            </p>
             <YnabImport runs={runs} onStarted={onImported} onOpen={onOpenReport} />
           </>
         ) : stage === 'enable' ? (
           <>
-            <p>Imported. Turn on the sync to keep the two in step.</p>
+            <p>
+              {formatMessage({
+                id: 'automations.sync.enableHelp',
+                defaultMessage: 'Imported. Turn on the sync to keep the two in step.',
+              })}
+            </p>
             <DirectionPicker value={direction} disabled={!!busy} onChange={onDirection} />
             <div>
               <Button
@@ -465,14 +642,24 @@ function SetupSteps({
                 disabled={!planId}
                 onClick={onTurnOn}
               >
-                Turn on
+                {formatMessage({ id: 'automations.sync.turnOn', defaultMessage: 'Turn on' })}
               </Button>
             </div>
           </>
         ) : reached > 2 ? (
-          <p>Imported and syncing.</p>
+          <p>
+            {formatMessage({
+              id: 'automations.sync.importedSyncing',
+              defaultMessage: 'Imported and syncing.',
+            })}
+          </p>
         ) : (
-          <p>After you connect YNAB.</p>
+          <p>
+            {formatMessage({
+              id: 'automations.sync.afterConnect',
+              defaultMessage: 'After you connect YNAB.',
+            })}
+          </p>
         )}
       </Step>
     </ol>
@@ -505,32 +692,64 @@ function Step({
 }
 
 function SyncHistory({ runs, onOpen }: { runs: RunSummary[]; onOpen: (id: string) => void }) {
+  const intl = useAppIntl()
+  const { formatMessage } = intl
   const [filter, setFilter] = useState<HistoryFilter>('all')
   const needsAttention = (r: RunSummary) => r.status === 'failed' || r.status === 'interrupted'
   const shown = filter === 'all' ? runs : runs.filter(needsAttention)
   return (
     <div className="a3-block a3-col-history" data-od-id="ynab-sync-history">
       <div className="a3-block-h">
-        History
+        {formatMessage({ id: 'automations.detail.history', defaultMessage: 'History' })}
         <span className="count">
-          {runs.length} {runs.length === 1 ? 'run' : 'runs'}
+          {formatMessage(
+            {
+              id: 'automations.detail.runCount',
+              defaultMessage: '{count, plural, one {# run} other {# runs}}',
+            },
+            { count: runs.length },
+          )}
         </span>
       </div>
       <SegmentedControl
-        ariaLabel="Filter the history"
+        ariaLabel={formatMessage({
+          id: 'automations.sync.filter',
+          defaultMessage: 'Filter the history',
+        })}
         options={[
-          { value: 'all', label: 'All' },
-          { value: 'attention', label: 'Needs attention' },
+          {
+            value: 'all',
+            label: formatMessage({ id: 'automations.sync.all', defaultMessage: 'All' }),
+          },
+          {
+            value: 'attention',
+            label: formatMessage({
+              id: 'automations.sync.needsAttention',
+              defaultMessage: 'Needs attention',
+            }),
+          },
         ]}
         value={filter}
         onChange={setFilter}
       />
       {shown.length === 0 ? (
         <div className="a3-history-empty">
-          {filter === 'all' ? 'No runs yet.' : 'Nothing failed.'}
+          {filter === 'all'
+            ? formatMessage({ id: 'automations.sync.noRuns', defaultMessage: 'No runs yet.' })
+            : formatMessage({
+                id: 'automations.sync.noneFailed',
+                defaultMessage: 'Nothing failed.',
+              })}
         </div>
       ) : (
-        <div className="a3-hist" role="list" aria-label="YNAB sync history">
+        <div
+          className="a3-hist"
+          role="list"
+          aria-label={formatMessage({
+            id: 'automations.sync.historyLabel',
+            defaultMessage: 'YNAB sync history',
+          })}
+        >
           {shown.map((run) => (
             <button
               key={run.id}
@@ -545,19 +764,47 @@ function SyncHistory({ runs, onOpen }: { runs: RunSummary[]; onOpen: (id: string
               />
               <span className="when">{fDateTime(run.started_at, 'short', 'always')}</span>
               <span className="note">
-                {KIND_LABEL[run.kind]}
-                {run.trigger === 'scheduled' ? '' : ' · by you'}
+                {run.kind === 'import'
+                  ? formatMessage({ id: 'automations.sync.kindImport', defaultMessage: 'Import' })
+                  : run.kind === 'verify'
+                    ? formatMessage({ id: 'automations.sync.kindVerify', defaultMessage: 'Verify' })
+                    : run.kind === 'preview'
+                      ? formatMessage({
+                          id: 'automations.sync.kindPreview',
+                          defaultMessage: 'Preview',
+                        })
+                      : run.kind === 'sync'
+                        ? formatMessage({ id: 'automations.sync.kindSync', defaultMessage: 'Sync' })
+                        : KIND_LABEL[run.kind]}
+                {run.trigger === 'scheduled'
+                  ? ''
+                  : formatMessage({ id: 'automations.sync.byYou', defaultMessage: ' · by you' })}
                 {' — '}
-                {run.status === 'running' ? run.phase : run.outcome || run.error || ''}
+                {run.status === 'running'
+                  ? ynabMessage(intl, run.phase_message, run.phase)
+                  : run.outcome
+                    ? ynabMessage(intl, run.outcome_message, run.outcome)
+                    : run.error || ''}
               </span>
-              {run.status === 'running' && <span className="a3-live" title="Running now" />}
+              {run.status === 'running' && (
+                <span
+                  className="a3-live"
+                  title={formatMessage({
+                    id: 'automations.sync.runningNow',
+                    defaultMessage: 'Running now',
+                  })}
+                />
+              )}
               <ChevronRight size={13} className="a3-hist-chevron" aria-hidden="true" />
             </button>
           ))}
         </div>
       )}
       <div className="a3-history-note">
-        A scheduled sync that changes nothing is not added here.
+        {formatMessage({
+          id: 'automations.sync.historyNote',
+          defaultMessage: 'A scheduled sync that changes nothing is not added here.',
+        })}
       </div>
     </div>
   )

@@ -13,6 +13,8 @@ import { describe, it, expect, afterEach, vi } from 'vitest'
 import { createElement } from 'react'
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { RtaHero } from './budgetRta'
+import { IntlProvider } from 'react-intl'
+import messages from './zh-CN.messages.json'
 
 afterEach(() => {
   cleanup()
@@ -50,6 +52,29 @@ describe('RtaHero — flow==null falls back to the stock ledger', () => {
     expect(panel.textContent).toContain('Cash on hand')
     expect(panel.querySelectorAll('.pl-rtapop-sec')).toHaveLength(0)
     expect(warn).not.toHaveBeenCalled()
+  })
+})
+
+describe('RTA flow translations', () => {
+  it('shows localized month terms and the same monetary totals', () => {
+    render(
+      <IntlProvider locale="zh-CN" messages={messages} onError={() => {}}>
+        <RtaHero
+          {...BASE_PROPS}
+          monthLabel="2026年8月"
+          prevMonthLabel="2026年7月"
+          flow={{ prev_month: '2026-07', carried_in: 500, inflow: 300, cash_overspending_prev: 50 }}
+          totalAssigned={200}
+          rta={550}
+          onBudgetCash={550}
+        />
+      </IntlProvider>,
+    )
+    fireEvent.click(screen.getByRole('button', { name: /待分配金额/ }))
+    const panel = document.getElementById('pl-rtapop-panel')!
+    expect(panel.textContent).toContain('2026年7月 结转的待分配金额')
+    expect(panel.textContent).toContain('2026年8月 已分配')
+    expect(panel.textContent).toContain('S$550.00')
   })
 })
 

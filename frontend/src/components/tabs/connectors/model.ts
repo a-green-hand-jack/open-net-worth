@@ -392,6 +392,8 @@ export interface ConnectorDetailEntry extends ConnectorEntry {
    *  Connect opens its configuration form instead of PATCHing `enabled` (spec §3). */
   configured: boolean
   desc: string
+  /** Catalog identity when the displayed MCP description comes from a verified endpoint match. */
+  curatedDescriptionId?: string
   /** The outside service a native connector runs on (catalog `service`): its name in `desc`
    *  is linked. */
   service?: { name: string; url: string }

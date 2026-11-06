@@ -269,7 +269,7 @@ def _old_password_refusal(
     if not old_password or not verify_password(old_password, store.password_hash()):
         ratelimit.login_limiter.record(key)
         return Response(
-            content='{"detail":"current password incorrect"}',
+            content='{"detail":"current password incorrect","message_id":"auth.error.currentPasswordIncorrect","message_params":{}}',
             media_type="application/json",
             status_code=403,
         )

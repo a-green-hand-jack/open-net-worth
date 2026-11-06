@@ -21,6 +21,8 @@
 //     drift from it. A type with no deep link yet renders a chip that simply does not
 //     navigate, which is honest; a dead link would not be.
 import { useState } from 'react'
+import type { IntlShape } from 'react-intl'
+import { useAppIntl } from '../../i18n/useAppIntl'
 import { useNavigate } from '@tanstack/react-router'
 import { useTransactionSurfaces } from '../tabs/accounts/transactionSurfacesContext'
 import { labelFor } from '../../lucius/entityRegistry'
@@ -76,7 +78,18 @@ function typeNoun(type: string, count: number): string {
 // named WHAT was edited — harmless while every row was a transaction, actively ambiguous the
 // moment they are not. A group with several different ops reads "changed", because naming
 // one of them would be wrong.
-function headLabel(r: WriteReceipt): string {
+function headLabel(r: WriteReceipt, intl: IntlShape): string {
+  if (!intl.locale.startsWith('en')) {
+    const groups = r.groups ?? []
+    if (!groups.length) return intl.formatMessage({ id: 'miss.receipt.recorded', defaultMessage: '{count, plural, one {# change recorded} other {# changes recorded}}' }, { count: r.total })
+    const shown = groups.slice(0, 2).map((g) => {
+      const name = intl.formatMessage({ id: 'miss.receipt.type', defaultMessage: '{type, select, transaction {transaction} account {account} category {category} commitment {commitment} lot {holding} holding {holding} envelope {envelope} target {target} automation {automation} skill {skill} other {{fallback}}}' }, { type: g.type, fallback: typeNoun(g.type, g.count) })
+      const op = g.ops.length === 1 ? g.ops[0] : 'changed'
+      return intl.formatMessage({ id: 'miss.receipt.group', defaultMessage: '{count} {name} {op, select, create {added} update {edited} delete {deleted} other {changed}}' }, { count: g.count, name, op })
+    })
+    if (groups.length > 2) shown.push(intl.formatMessage({ id: 'miss.receipt.more', defaultMessage: '+{count} more' }, { count: groups.length - 2 }))
+    return shown.join(' • ')
+  }
   const groups: WriteReceiptGroup[] = r.groups ?? []
   if (groups.length === 0) return `${r.total} change${r.total === 1 ? '' : 's'} recorded`
   const shown = groups.slice(0, 2).map((g) => {
@@ -164,6 +177,7 @@ function ReceiptRow({ item, onOpen }: { item: WriteReceiptItem; onOpen: () => vo
 }
 
 export function WriteReceiptChip({ receipt }: { receipt: WriteReceipt }) {
+  const intl = useAppIntl()
   const navigate = useNavigate()
   const { openTransactionById } = useTransactionSurfaces()
   const [open, setOpen] = useState(false)
@@ -198,7 +212,7 @@ export function WriteReceiptChip({ receipt }: { receipt: WriteReceipt }) {
           <span className="wr-chip__glyph" aria-hidden="true">
             <Check size={12} />
           </span>
-          <span className="wr-chip__counts">{headLabel(receipt)}</span>
+          <span className="wr-chip__counts">{headLabel(receipt, intl)}</span>
           <span className="wr-chip__caret" aria-hidden="true">
             {open ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
           </span>
@@ -212,8 +226,7 @@ export function WriteReceiptChip({ receipt }: { receipt: WriteReceipt }) {
             // the turn's end. Say so rather than rendering an empty box that reads as
             // "nothing happened" when something did.
             <div className="wr-chip__empty">
-              {receipt.total} change{receipt.total === 1 ? '' : 's'} recorded — details are no
-              longer available for these rows.
+              {intl.formatMessage({ id: 'miss.receipt.noDetails', defaultMessage: '{count, plural, one {# change recorded} other {# changes recorded}} — details are no longer available for these rows.' }, { count: receipt.total })}
             </div>
           ) : (
             <>
@@ -228,7 +241,7 @@ export function WriteReceiptChip({ receipt }: { receipt: WriteReceipt }) {
                   mistaken for the whole write. */}
               {receipt.total > receipt.showing && (
                 <div className="wr-chip__more">
-                  Showing {receipt.showing} of {receipt.total}
+                  {intl.formatMessage({ id: 'miss.receipt.showing', defaultMessage: 'Showing {showing} of {total}' }, { showing: receipt.showing, total: receipt.total })}
                 </div>
               )}
             </>

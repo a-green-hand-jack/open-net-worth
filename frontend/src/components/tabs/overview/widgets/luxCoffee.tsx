@@ -18,6 +18,7 @@
 // keeps the two diffs from ever touching the same lines.
 
 import type { ComponentType } from 'react'
+import { useAppIntl } from '../../../../i18n/useAppIntl'
 import { fBase, fDate } from '../../../../utils/format'
 import { Money } from '../../../ui'
 import { Spark } from '../../../../lucius/identity'
@@ -29,16 +30,19 @@ import { WidgetPlaceholder } from '../WidgetPlaceholder'
 const SEARCH_TERM = 'coffee'
 const WEEK_COUNT = 6
 
-function weekLabel(iso: string): string {
-  return `w/c ${fDate(iso)}`
-}
-
 export const LuxCoffee: ComponentType<WidgetContentProps> = ({ instance, def }) => {
+  const { formatMessage } = useAppIntl()
   // The weekly buckets, the total, the average and the bar-scaling maximum are all summed by
   // the server (`GET /api/overview/spend-search`). The widget only labels the weeks.
   const search = useSpendByWeek(SEARCH_TERM, WEEK_COUNT)
   const loading = search.initialLoading
-  const error = search.error && search.data == null ? "Couldn't load coffee spend." : ''
+  const error =
+    search.error && search.data == null
+      ? formatMessage({
+          id: 'overview.coffee.error',
+          defaultMessage: "Couldn't load coffee spend.",
+        })
+      : ''
   const spark = (
     <span className="ov-lucius-spark">
       <Spark size={15} />
@@ -59,7 +63,14 @@ export const LuxCoffee: ComponentType<WidgetContentProps> = ({ instance, def }) 
       <WidgetShell title={instance.title} base={def.title} lead={spark}>
         <WidgetPlaceholder
           detail={
-            error || `No transactions matching "${SEARCH_TERM}" in the last ${WEEK_COUNT} weeks.`
+            error ||
+            formatMessage(
+              {
+                id: 'overview.coffee.empty',
+                defaultMessage: 'No transactions matching "{term}" in the last {count} weeks.',
+              },
+              { term: SEARCH_TERM, count: WEEK_COUNT },
+            )
           }
         />
       </WidgetShell>
@@ -74,13 +85,21 @@ export const LuxCoffee: ComponentType<WidgetContentProps> = ({ instance, def }) 
       lead={spark}
       meta={
         <>
-          avg <Money as="span">{fBase(avg)}</Money>/wk
+          {formatMessage(
+            { id: 'overview.coffee.average', defaultMessage: 'avg {amount}/wk' },
+            { amount: <Money as="span">{fBase(avg)}</Money> },
+          )}
         </>
       }
     >
       {weeks.map((w) => (
         <div className="ov-env-row" key={w.key}>
-          <span className="ov-env-nm">{weekLabel(w.start)}</span>
+          <span className="ov-env-nm">
+            {formatMessage(
+              { id: 'overview.coffee.week', defaultMessage: 'w/c {date}' },
+              { date: fDate(w.start) },
+            )}
+          </span>
           <span className="ov-env-bar">
             <span
               className="ov-env-fill"

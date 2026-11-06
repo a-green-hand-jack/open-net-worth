@@ -71,6 +71,7 @@ def connection_preflight(server: dict | None) -> dict:
         "capabilities": [],
         "advertised_read_tools": sorted(advertised),
         "message": message,
+        "message_id": f"trading.error.ibkr_{status}",
     }
 
 
@@ -82,16 +83,26 @@ class IbkrMcpAdapter:
 
     async def inspect_account(self, account: dict) -> dict:
         preflight = connection_preflight(self.connection())
-        raise ConflictError(preflight["message"], provider_id="ibkr", preflight=preflight)
+        raise ConflictError(
+            preflight["message"],
+            provider_id="ibkr",
+            preflight=preflight,
+            message_id=preflight["message_id"],
+        )
 
     async def submit(self, account: dict, order: dict) -> dict:
-        raise ConflictError(_SCHEMA_BLOCKER, provider_id="ibkr")
+        raise ConflictError(
+            _SCHEMA_BLOCKER,
+            provider_id="ibkr",
+            message_id="trading.error.ibkr_schema_review_required",
+        )
 
     async def cancel(self, account: dict, order: dict) -> dict:
         raise ConflictError(
             "IBKR cancellation is unavailable until its authenticated schema is verified. "
             "Check and cancel outstanding orders in IBKR; revoking access does not cancel them.",
             provider_id="ibkr",
+            message_id="trading.error.ibkr_cancellation_unavailable",
         )
 
     async def reconcile(self, account: dict, orders: list[dict]) -> dict:
@@ -99,6 +110,7 @@ class IbkrMcpAdapter:
             "IBKR reconciliation is unavailable until broker order and execution receipts "
             "are verified. Check order status and fills directly in IBKR.",
             provider_id="ibkr",
+            message_id="trading.error.ibkr_reconciliation_unavailable",
         )
 
 

@@ -122,3 +122,61 @@ def test_range_position_and_missing_fields_degrade_to_none():
     assert rules.range_position(_snap(week52_low=50.0, week52_high=150.0)) == 0.5
     assert rules.range_position(_snap()) is None
     assert rules.day_pct({"price": 5.0}) is None
+
+
+def test_finding_localization_carries_direction_and_benchmark_without_changing_text():
+    (finding,) = rules.evaluate(
+        _snap(price=94.0),
+        asset_class="equity",
+        bench={"symbol": "ACME", "day_pct": 1.0},
+        now=NOW,
+    )
+    assert finding["text"] == "Down 6.0% today, 7.0 pts behind ACME"
+    assert finding["text_message"] == {
+        "id": "watchPulse.move_with_benchmark",
+        "params": {
+            "direction": "down",
+            "percent": "6.0",
+            "gap": "7.0",
+            "comparison": "ACME",
+            "relative": "behind",
+        },
+    }
+
+
+def test_every_watch_finding_has_a_frontend_localization_descriptor():
+    """New rule branches must not silently lose their structured pulse labels."""
+    import ast
+    import re
+    from pathlib import Path
+
+    root = Path(__file__).resolve().parents[1]
+    source = root / "backend" / "services"
+    descriptors = (root / "frontend/src/components/intel/findingText.ts").read_text()
+    known = set(re.findall(r'id: "watchPulse\.([a-z0-9_]+)"', descriptors))
+    emitted = set()
+    for filename in ("watch_rules.py", "watch_history_rules.py", "watch_intent.py"):
+        tree = ast.parse((source / filename).read_text())
+        for node in ast.walk(tree):
+            if not isinstance(node, ast.Call) or not isinstance(node.func, ast.Name):
+                continue
+            if node.func.id != "_finding":
+                continue
+            message = next((kw.value for kw in node.keywords if kw.arg == "message_id"), None)
+            assert message is not None, f"{filename}:{node.lineno} lacks message metadata"
+            emitted.update(
+                part.value
+                for part in ast.walk(message)
+                if isinstance(part, ast.Constant) and isinstance(part.value, str)
+            )
+    assert emitted == known
+
+
+def test_portfolio_fit_preserves_sector_and_exposure_in_localized_metadata():
+    fit = rules.portfolio_fit("Technology", {"Technology": 25.0})
+    assert fit is not None
+    assert fit["note"] == "You already hold 25% in Technology — your largest sector"
+    assert fit["note_message"] == {
+        "id": "watchPulse.fit",
+        "params": {"state": "largest", "percent": "25", "sector": "Technology"},
+    }

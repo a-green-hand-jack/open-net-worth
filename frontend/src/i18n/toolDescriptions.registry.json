@@ -1,0 +1,1326 @@
+{
+  "acquire_lots": {
+    "english": "Record a buy / transfer-in / grant as a tax lot on an existing position (so cost basis is exact, not averaged-away).",
+    "sha256": "4105934d3739680a95df0260285a3a724c8cfd66567d38a528238ce6cb8da9cb"
+  },
+  "activate_skill": {
+    "english": "Run a saved skill (a named playbook) by its id — get the id from list_skills.",
+    "sha256": "348c08b958730befedc7e0caf4c69546713310c4f96d40a1d58c66c080fde96b"
+  },
+  "add_commitment_actions": {
+    "english": "Add actions to a commitment's EXISTING checklist — the rows already there (and their ids, which key due-reminder de-duplication) are untouched.",
+    "sha256": "ccbf90acf51425ecd35d7061d6a6161ee73a6ac9e339a447e1edea7ed88719a5"
+  },
+  "add_commitment_installments": {
+    "english": "Add installments to a commitment's EXISTING schedule — the rows already there (and their ids, which key due-reminder de-duplication and paid_txn_id ledger an…",
+    "sha256": "be8fedfd086f3d55d076651c03685430044dc00546bf795f9381ac526b8d66e4"
+  },
+  "add_funding_sources": {
+    "english": "Add funding sources to a commitment's EXISTING plan — the rows already there (and their ids, which commitment actions reference via funding_id) are untouched.",
+    "sha256": "8609f1f15a7a22e56fd02889c387ad3bc448a60e11a7f8f1eddfd3b83c0ec350"
+  },
+  "add_news_sources": {
+    "english": "Add one or many custom RSS feed sources.",
+    "sha256": "d939341652c55467fcfb51c8754babae6a48fc66d90ab222d8ee8658b3958ff1"
+  },
+  "add_payee_aliases": {
+    "english": "Add a normalized alias to one or many payees in one call.",
+    "sha256": "d1d1e47f9778db88f58d0cea44f812916f8637d4866accd0abbd939c80c860b8"
+  },
+  "add_payee_rules": {
+    "english": "Add a raw-match renaming rule to one or many payees in one call.",
+    "sha256": "3d78bbd6007671a0345d85846e76068d21b3580068e1517b334ba157a3dc0222"
+  },
+  "add_positions": {
+    "english": "Add a NEW holding — an instrument NOT already held in that account.",
+    "sha256": "6bec09086209983d4da52df6620c6b1e28bda58c13b9692d2838b66bedbdd226"
+  },
+  "add_run_tasks": {
+    "english": "Add tasks to this Automation run's task list — the checklist the owner watches.",
+    "sha256": "fc7b7577dc13de0828e56eb20d2a07fa609ee890f014ceea24d25a204ca1fd42"
+  },
+  "add_transaction_refs": {
+    "english": "Link an existing transaction to a provider or email record it was booked WITHOUT — use this when add_transactions/bulk_add_transactions/update_transactions r…",
+    "sha256": "8f4b84954231f73c6d25376f945ce1353fa5585fa2103a1d8a9b0bdfa79c19c4"
+  },
+  "add_transactions": {
+    "english": "Book any money movement — expense, income, inter-account transfer, investment contribution, tax, refund.",
+    "sha256": "a404588f8b8697c3344acfa3c7437acb02b50b5c35cbd184e3b85e98cfca04f8"
+  },
+  "add_watchlist_items": {
+    "english": "Add tickers to a watchlist, or follow topics/companies.",
+    "sha256": "0035e503ec52a1bfdea4bcdf333bef5b9623a3a69d59692ad6e96d50a2700a8f"
+  },
+  "apply_budget_operation": {
+    "english": "Run one of a budget method's own operations, after the user confirms: (engine_id, operation, params).",
+    "sha256": "f7d109f71164ad1bdcdbb8dbdba0481c630553b131499193bbaab980c5264a8e"
+  },
+  "apply_payee_categories": {
+    "english": "Stamp one or many payees' own per-kind default categories onto ALL of their existing non-deleted expense/income/transfer/investment transactions that don't a…",
+    "sha256": "1f7459183771693350d245492776be2b15c108209e16fecec85118e6f3ae8008"
+  },
+  "apply_payee_rules": {
+    "english": "Re-point existing transactions to match the current payee rules and aliases.",
+    "sha256": "8d169b842d62d875344ccd0251bee7139678f09532ccbfd51d348d4f08857845"
+  },
+  "apply_payee_rules_to_payees": {
+    "english": "Re-point existing transactions to one or many payees, using only each payee's OWN renaming rules.",
+    "sha256": "9718f3da34fc6532c34f1832b01c6d530fd7800f9ceb5a870faf8727a8e76cc9"
+  },
+  "approve_transactions": {
+    "english": "Approve flagged transactions — clears their needs-review flag, exactly the review queue's Approve.",
+    "sha256": "2daa42b212a49191dff4391307df520b0c7ac623cf625c22f4b037cdbf27ebaa"
+  },
+  "assign_budget": {
+    "english": "Propose ASSIGNING money into an envelope for a month (YNAB 'give every dollar a job').",
+    "sha256": "068392fed5add0aab3f1bcb5995bf240b5aa859645360f162760b5af7f332ff2"
+  },
+  "attach_receipt": {
+    "english": "Attach a receipt to a transaction — either promoting a chat attachment into a durable receipt (attachment_id) or linking an already-promoted receipt to anoth…",
+    "sha256": "f96b818a9199a0dcdf09fe4eaf2818b90a37c759ffd51282d14bbb80f241d514"
+  },
+  "auto_assign": {
+    "english": "Propose an AUTO-ASSIGN operation for the current budget month: fill category Assigned amounts in bulk using a named mode.",
+    "sha256": "3eff7c7d9def69153ad8702122ab858e805ae0f7bdf7fe63868615dff26e3d49"
+  },
+  "calculate": {
+    "english": "Evaluate mathematical expressions and return exact results.",
+    "sha256": "f68cc489a71b3efe6c61d669afec71eed3a4d21aed0e49d0487c4fd9cef8019c"
+  },
+  "cancel_grant": {
+    "english": "Cancel a grant (marks status='cancelled').",
+    "sha256": "cad060d894aaec20bb22ef6ec5cf18fb3349c42570ce638c90b355bd976158e6"
+  },
+  "cancel_option": {
+    "english": "Delete a MISTAKEN option entry (open only, unless force=true).",
+    "sha256": "b916c11f766cfc798d9463b17140413f70253c9ec3bd4310451dc78d64d58704"
+  },
+  "cancel_trading_order": {
+    "english": "Request cancellation of an order owned by this run.",
+    "sha256": "30403d6ac4e509d3dc584e6cf7899ff1d13c9957120e3a8dfd8c7d7cfb0be6a0"
+  },
+  "check_duplicates": {
+    "english": "Checks transactions you have NOT written yet against the ledger — the pre-write twin of find_duplicates (which scans rows already booked).",
+    "sha256": "28dcc651ff4a2da329328ae9f9637d76a2e8dc756eda261213de970b7a61c82d"
+  },
+  "check_statement_drift": {
+    "english": "Check every imported statement's printed closing balance against what the ledger says that account's balance was on the same day.",
+    "sha256": "1f625d6e63280862b64a588d21c903b568053f90d78a2680a9983fa29ebfa891"
+  },
+  "close_option": {
+    "english": "Close an open option contract.",
+    "sha256": "3cf0ed0453e040c9b9daf548c0708a2fcf14569b52693b3d563f5cf0fd5ba2a4"
+  },
+  "close_recent_items": {
+    "english": "Mark Recent entries done, once you have done what they say — booked the payment one expects, as it says, or acted on the decision it records — so no later ru…",
+    "sha256": "59823f8f61c09097cb741ecbbd7d1121dc399b8acb8ffa9628ebd6526e050b30"
+  },
+  "coingecko_get_crypto_prices": {
+    "english": "Query CoinGecko DIRECTLY for crypto asset prices — no Yahoo-first routing, even for a major pair the general pricing path would normally check Yahoo for first.",
+    "sha256": "9e65e4db9a04a92107fe94b6c1248ae2557fd498d34bef8c0ce0c6b62a2a4c6a"
+  },
+  "coingecko_get_price_history": {
+    "english": "Fetch historical price points FROM COINGECKO DIRECTLY for one crypto asset — no Yahoo routing, even for a major pair the general pricing path would normally…",
+    "sha256": "afecf20d22dea001581ff9f771bf6ba2c664716cf2a3448cbdd3d9eb328a8635"
+  },
+  "correct_asset_value": {
+    "english": "Fix a value observation that was entered WRONG — amount typo, wrong date, or note — in place.",
+    "sha256": "c69c530f7780ffd3dc55ebb5da6f932567320297d8687b825102284800230746"
+  },
+  "create_account": {
+    "english": "Register a new account — cash, fixed deposit, investment (brokerage/exchange), retirement, receivable, credit, or loan.",
+    "sha256": "d822e05859452b91e9debef40364801a9394cc146362fb3b2bfd617a9328270b"
+  },
+  "create_artifact": {
+    "english": "Render a visual artifact inline in the chat — use when the user wants to SEE data: charts, dashboards, reports, lists.",
+    "sha256": "02538e31ce8cb4c45d963b83f596c74c65fd47ef7fb8dbbcc80276eac9d6fb71"
+  },
+  "create_asset": {
+    "english": "Add a new owned asset — property, vehicle, watch/jewellery, art, precious metal, cash-value policy, or a user-created category.",
+    "sha256": "4d69a5d1f8c3de5b26ea20c864d48c575a2ea3556d5ebe5aaab830ae7a301193"
+  },
+  "create_asset_category": {
+    "english": "Create a user-defined asset category for a kind of owned thing that doesn't fit the builtins (property, vehicle, watch, art, metal, policy, other).",
+    "sha256": "7c42dc201e449243bb795006868a0a1efacbe33f4e16d13612198726cce01674"
+  },
+  "create_automation": {
+    "english": "Create one Lucius Automation only when the user explicitly asks to save it now.",
+    "sha256": "a598ed275dc6ed5fe59964b7b656a7a544e3fea4b01c53561f7527092c125f83"
+  },
+  "create_categories": {
+    "english": "Create a custom transaction category (e.g.",
+    "sha256": "fdfa54fc26c265807aafcfe18a9c0b29463dca7121ed244508ab2dc386a72bef"
+  },
+  "create_commitment": {
+    "english": "Create a financial commitment.",
+    "sha256": "a60f06c80f8d671ce4a13c796a2fdced46b2beaef6027e0de87c302d952ccdbf"
+  },
+  "create_envelope": {
+    "english": "Propose creating a standalone envelope — a named pot with ZERO categories linked (mints no category).",
+    "sha256": "bd86c4418d1d66d3ad9baaa1515fe3fa004b503e19a3cf962bc19c0a822f1dd5"
+  },
+  "create_envelope_group": {
+    "english": "Propose creating a new, EMPTY envelope group (a heading that holds budget envelopes — categories belong to no group).",
+    "sha256": "5bc1fc147a30b9bb67c175aa63725e641b70cad25084a141fe5882a4db0a4fc9"
+  },
+  "create_goal": {
+    "english": "Create a savings goal ('save X by date Y').",
+    "sha256": "82723866622adbf125a21cd4f68d500003994928cf1a6c91d9a0024c9254f5d9"
+  },
+  "create_grant": {
+    "english": "Create an equity-compensation grant (RSU or LTIP) with its vesting schedule.",
+    "sha256": "a421b9bd17ed1af7ac7bf3bdb67ad5edc3b8121a8ebafe492e7cbf56a6be724d"
+  },
+  "create_loan_repayment": {
+    "english": "Model a loan's payback as a 'loan_repayment' commitment with an amortized schedule.",
+    "sha256": "8c6322e1869d0c55b7256dd8a17b85392c97808fe66f2d1092b15f85bc4a8f4e"
+  },
+  "create_payees": {
+    "english": "Create one or many named payee entities — use when linking a transaction to a person/merchant that doesn't exist yet, rather than relying on automatic descri…",
+    "sha256": "6971d5466d4f7811610b3af507bf441f9aedf1562576418a1698a14d72820db5"
+  },
+  "create_plan_scenario": {
+    "english": "Save a new Outlook plan scenario — a named set of Monte Carlo assumption levers (return, volatility, SWR, saving, monthly retirement spending, retirement age…",
+    "sha256": "9b6b535d812083a0fbf21ff53432346abd69fa1a5c0016441bea571594c66a8a"
+  },
+  "create_skill": {
+    "english": "Propose creating a new skill (a saved playbook).",
+    "sha256": "e84c2480a9252a57e213c8cd224078314fd4264584ce6549e60c3c008b56852d"
+  },
+  "create_watchlists": {
+    "english": "Create one or many new named watchlists.",
+    "sha256": "69d2d9eb4f6ee140c14c8a39302afa8f728e2571bec57a874eaca0e0c53a878b"
+  },
+  "delete_accounts": {
+    "english": "Permanently delete one or more accounts.",
+    "sha256": "4a6b9f55d5bdf1d9e73eaccba960cf2e67af19f2659eaec21405b274c007be35"
+  },
+  "delete_asset": {
+    "english": "Permanently remove an owned asset that should never have been added — a hard delete with no undo, unlike dispose_asset (which keeps history and posts real sa…",
+    "sha256": "c974edbcd9f4698c2f079fe565431c4596549c88b27f41d0ed9b87c79b596d98"
+  },
+  "delete_automations": {
+    "english": "Permanently delete one or more Automations after the user explicitly asks.",
+    "sha256": "3c5ac7968a3e30b30cc0258cbac05e1cfd2d2aca1bbfd6cea1d0450a124c6347"
+  },
+  "delete_categories": {
+    "english": "Delete categories.",
+    "sha256": "21197d67223ed2570992026582ad2b8c24d4a2c63bf2208c1830211d8caabfb4"
+  },
+  "delete_commitment": {
+    "english": "Delete a financial commitment.",
+    "sha256": "b27ad4f8633cf713f22564934682ebb643dc276798ca6030db2a5932ec102139"
+  },
+  "delete_envelope": {
+    "english": "Propose DELETING an envelope FOR REAL.",
+    "sha256": "f8757cb908a04c64c746534eef3498c8ff1158c7db3e243a1482fdcaa8c8f91f"
+  },
+  "delete_envelope_groups": {
+    "english": "Delete Planning groups (buckets of envelopes) — `group_ids`, from get_budget_month or list_envelopes.",
+    "sha256": "55ee5bcf1d06cd8ccc4f1ca76e751a6f34ed19190f5e300b11a7f85ac1f48abe"
+  },
+  "delete_goal": {
+    "english": "Delete a savings goal.",
+    "sha256": "5a357cdb25824e2957f6cb917b1de2f7e7bf2f2eb1c68ed6623b2d87c5a823d9"
+  },
+  "delete_income": {
+    "english": "Delete a recorded income event by its event id.",
+    "sha256": "3f0b2cb85b648f65ff7ac23aee5f07c83c8afa754a4b68440085d45ca453bacb"
+  },
+  "delete_investment_theses": {
+    "english": "Delete the user's investment thesis for one or more tickers.",
+    "sha256": "c67ea099bedced0f0d9cd5d81cc8fc44ed1321a37cee31849eeb7d7611227cf6"
+  },
+  "delete_lots": {
+    "english": "Delete a specific lot that is fully open (no disposals have consumed it).",
+    "sha256": "99bbd18686dcf1182c503d368fb22644a664479ee0bc4527c5224b978e30cdc9"
+  },
+  "delete_payees": {
+    "english": "Delete one or many payee entities permanently.",
+    "sha256": "983136a2ffa2969d7f5cde9e30dc35a13a9f941977620e19dd726b3083e6a5e9"
+  },
+  "delete_plan_scenario": {
+    "english": "Permanently delete an Outlook plan scenario by its id.",
+    "sha256": "13f3365c0cc50c380036d301cbeb33035e8b639a77ce65cf2a7d5755ce6b6f0c"
+  },
+  "delete_receipt": {
+    "english": "Permanently delete a receipt (metadata + the stored artifact).",
+    "sha256": "060b0c58af3dc45c52b257f7e22545d084f0d84e5e5e2c549260ebef000e0b37"
+  },
+  "delete_skill": {
+    "english": "Propose deleting a saved skill.",
+    "sha256": "176e3fa89d65a8855ae78debf5666e4c2042416ce8558ab9c672b2778f0cc2ad"
+  },
+  "delete_transactions": {
+    "english": "Soft-delete one or more ledger entries by ID.",
+    "sha256": "74f41f5156efb9f6b54ba2d5e25a2d49f62b513e179f9f4e6c8dee8a0d9caefd"
+  },
+  "delete_transactions_where": {
+    "english": "Bulk soft-delete transactions matching a set of filters in one call — no need to fetch IDs first.",
+    "sha256": "635135e133864741aaed93bd3762c25c9f12bc24641dd2bad74e42b96bfc8005"
+  },
+  "delete_upload": {
+    "english": "Permanently delete ONE stored upload by ref id (see get_uploads).",
+    "sha256": "1e6e7dbc8f5e4b89bb3732c00bae93935278d265ee9ea6202a1794748932284b"
+  },
+  "delete_watchlists": {
+    "english": "Delete one or many watchlists.",
+    "sha256": "d8b97329d4c585fe009e558763597ec944cd48f966a760cba74c6449f434ae0e"
+  },
+  "describe": {
+    "english": "Ask the domain about its own shape instead of guessing.",
+    "sha256": "f9a65e2f286b40f99e4bb314e06b182b04a5df84d3eefadcad61adcb38c8b4a9"
+  },
+  "describe_account": {
+    "english": "Turn a plain-language description of ONE account into a structured, EDITABLE account-form draft (type, name, currency, initial_balance, institution, last_fou…",
+    "sha256": "f45434760dca0b1c32e6b9bb113daa4ec6c6e697a15865e306302090a22ff8f5"
+  },
+  "describe_db_schema": {
+    "english": "The database's own shape, for writing run_sql_query statements.",
+    "sha256": "725d556949a18bfeec3c6f370c61a81bcdbb357b3696cc4f9adcf52470ded01c"
+  },
+  "diff_statement": {
+    "english": "Parse an uploaded bank statement file and diff it against system transactions for a given account.",
+    "sha256": "8e86f45882bacd9b07cf98611bad81fbbf419f8a942b21b8850e7cb3f190248c"
+  },
+  "dismiss_base_currency_review": {
+    "english": "Clear the base-currency review flag — the reminder banner that lists the manual base-denominated amounts (income, expenses, FIRE/goal/liability figures, budg…",
+    "sha256": "1f42546e9e85a933c965a559a8cda97e82b8dacfac3057ed42f3d16b44cd8204"
+  },
+  "dismiss_intel_signals": {
+    "english": "Dismiss (delete) one or many story-arc intelligence signals from the Intelligence tab by id.",
+    "sha256": "491c9cf1e3d58fb5e896ced909109c89c5378134d1ceec123b74b531333c0b4f"
+  },
+  "dismiss_rule_suggestions": {
+    "english": "Dismiss a categorization suggestion so it never re-surfaces — use when the user says 'stop suggesting that' or declines one.",
+    "sha256": "9cd92f7b2c201692bad39b52542a710d624246df6da6d724fb81b12c3d347217"
+  },
+  "dispose_asset": {
+    "english": "Sell or otherwise dispose of an owned asset.",
+    "sha256": "b09be50aebe4212eb82f4a3031e15a6c927a22d4fd8d2e04fe24965e61085910"
+  },
+  "dispose_lots": {
+    "english": "Record a disposal (a sell, or a transfer-out/gift with is_taxable=false) — consumes the lots and books the realized gain.",
+    "sha256": "cc9c6e6f54574a357819388e500b749d925e6b8816794540f49c1b813c530240"
+  },
+  "draft_budget_engine_config": {
+    "english": "Propose an initial config for a budget engine from shared data + spending history (zero_based: a monthly target per envelope; 50/30/20: a target share of inc…",
+    "sha256": "38d549a021ff878c45b7f20bca9f6d1a58b221e2092fa1262e1692c122ea7282"
+  },
+  "duckduckgo_fetch_page": {
+    "english": "Fetch and read the full text of a URL via DuckDuckGo specifically — bypasses the active-provider selection.",
+    "sha256": "4c508ab0023a602ceb0295080b1d1027a36ec1741df63fcf68832bb3d631864e"
+  },
+  "duckduckgo_search": {
+    "english": "Search the web via DuckDuckGo specifically — bypasses the active-provider selection, so this always hits DuckDuckGo even if a different provider is currently…",
+    "sha256": "d8486b1acfea444512c4a0d790f650a633b981a761d3d9ef69ab234ee988ec0d"
+  },
+  "email_get_messages": {
+    "english": "Read one or more emails IN FULL (sender, subject, date, body) by their message_id — the ids shown by email_search_messages.",
+    "sha256": "7ae77efcc894c115c4bb602354b95c12f45eb16ecac9159ffe4f836481cf7abe"
+  },
+  "email_search_messages": {
+    "english": "Search the connected mailbox and return sender/subject/date for each match — NO body text, so it is cheap even over a wide date window.",
+    "sha256": "63551dc9fc0343a6237dbda35a8c7bd72716650d739024654d3b9fa6e82b7b93"
+  },
+  "email_send_message": {
+    "english": "SEND block — compose and send a plaintext email via the Email connector's SMTP configuration.",
+    "sha256": "d7a281b35e0860aa5d68d4779725f04a203ace8d54877a7c1165f78a08f42663"
+  },
+  "enable_banking_fetch_transactions": {
+    "english": "Fetch Enable Banking transactions for a date window (default: the provider's own 14-day lookback).",
+    "sha256": "0f9770aef4083d45a8e89d2852a007f32c3a21194f54c4399ca8e814558c7794"
+  },
+  "enable_banking_get_status": {
+    "english": "Check the Enable Banking connector: whether it's configured and enabled, and when it was last fetched.",
+    "sha256": "4bb42cfad483407cadaa1ed58bf464d2c9bd93b91eb159a51a1241b3b7e42ab9"
+  },
+  "enable_banking_list_accounts": {
+    "english": "List the Enable Banking accounts (balance, suggested account_type, linked_account_id or null) — no transactions.",
+    "sha256": "24ec8b95ec0d6f7d829e9d8d28d25bb49492289cb5d21a4a60658e0f593203b9"
+  },
+  "fetch_trading_research": {
+    "english": "Read an explicitly supplied public research URL in Paper/Live.",
+    "sha256": "be6559f19e443840a42e72236638790668f8dbd17f2d313845bd24b7bfb49d56"
+  },
+  "find_duplicates": {
+    "english": "Scan the ledger for likely DUPLICATE transactions and TRANSFER PAIRS (the same charge entered via two sources, or the two legs of one transfer like a bank→wa…",
+    "sha256": "894402009de9d680f0ac880a1fa74ba2c9a6e1ed778259442d4e8f3f7b02bbae"
+  },
+  "find_tools": {
+    "english": "Load tools that are not offered by default.",
+    "sha256": "512767a092d4631ae17d70e179efc087a58baad5ed0296e5d6c370c48bea9f92"
+  },
+  "firecrawl_fetch_page": {
+    "english": "Fetch and read the full text of a URL via Firecrawl specifically — bypasses the active-provider selection.",
+    "sha256": "fcb4371a04a2792a2aae5d1452d9327616c51dbf1985871df9b52ea4b1696e3f"
+  },
+  "firecrawl_search": {
+    "english": "Search the web via Firecrawl specifically — bypasses the active-provider selection, so this always hits Firecrawl even if a different provider is currently a…",
+    "sha256": "483c9defd8513ab984e1894e5037b0269239f41ebdba7d3856a69d927d8407cb"
+  },
+  "forget_fact": {
+    "english": "Remove a remembered fact from long-term memory.",
+    "sha256": "b24a44021f55269a7b66105efc78259635f0553c8a85e2b5fb45f5bdaedaeff9"
+  },
+  "forget_match_decisions": {
+    "english": "Remove one or more remembered dedup verdicts so the engine re-evaluates those pairs on the next import or scan.",
+    "sha256": "5eb3b65ebdb969c24c7c7c06c00138eb6e702722f5e4e354acdf5f3e54527fa6"
+  },
+  "get_actions": {
+    "english": "Get the property action log — all scheduled tasks with due dates and status.",
+    "sha256": "7c38d2cafb3c979645b91c26f7564a25f4b422a9fc60e5ac9ee2bd2b7f6d53d7"
+  },
+  "get_alert_channels": {
+    "english": "List the external channels a fired price/news alert can be routed to (Telegram, webhook, email).",
+    "sha256": "293ef8a5e1dcfc7b1d8f370f53c03ae9fce7371bf7c5454d98d0594731aa75ef"
+  },
+  "get_alerts": {
+    "english": "List price alerts (optionally for one ticker, or a LIST of tickers).",
+    "sha256": "a199b118d3393b675b0421be1ba51155bb78cc7f25d840511cd68b6fbef1605c"
+  },
+  "get_asset": {
+    "english": "Get one owned asset's full record — its value history (`marks`, newest first: each `kind` 'valuation', plus the 'purchase' point derived from cost/cost_date)…",
+    "sha256": "a7751f6e8f5430df153087fe3f183876132ef0624c32c36dcaa99f80b4ca7e29"
+  },
+  "get_asset_context": {
+    "english": "Everything relevant to give a genuinely informed answer about ONE held or watched instrument, in a single call: position (qty, cost basis, market value, weig…",
+    "sha256": "443e9025594159bbd8bd40f8007e88980680b5f9ffa2f97f35a1e598db672510"
+  },
+  "get_budget_month": {
+    "english": "Zero-Based's envelope budget for a month (default: current) — for 50/30/20 use get_budget_view.",
+    "sha256": "20962fe18918a70be2f8dbce6d86c46249371e4944b45c1c18f7d1643bdb9d7d"
+  },
+  "get_budget_view": {
+    "english": "Get the paradigm-neutral budget ViewModel for one engine + period: a headline figure (e.g.",
+    "sha256": "23263a0d61ba511b2ae83820abffb5b26d4cbb0fb8cc4fdd651274b8dbfd671f"
+  },
+  "get_card_statement_status": {
+    "english": "Deterministic per-statement-cycle payment status for credit card accounts, computed by services.card_statements.statement_summary — NEVER from the account's…",
+    "sha256": "412c8fd2638f6663f9d53ecfb7c444a51746fd3b1884483e1ff90484a5bfc40d"
+  },
+  "get_category_suggestions": {
+    "english": "Suggest a category for each UNCATEGORIZED expense/income transaction, learned from the user's OWN history of that payee (corrections + already-categorized ro…",
+    "sha256": "4ace5b067f337c49f1a8c6b72d41dd9bf4a72719316ad87ef44c5ce28e9ad877"
+  },
+  "get_commitments": {
+    "english": "Get the user's financial commitments — REAL future obligations, already decided and tracked in the ledger, with dated installment schedules and funding plans…",
+    "sha256": "bcce4d07d519311152da4a6b514da2c7ddb814b9e3318086f673507832ee0f7b"
+  },
+  "get_connector_status": {
+    "english": "Is a connector set up and working? Reports every connector (or the ones named): enabled, status (not_configured/configured/active/error) and, when failing, t…",
+    "sha256": "29a0a1c8576874da6d60a8aea571266cb3eefcfb6b1b509d4473c93fab004e33"
+  },
+  "get_connector_tools": {
+    "english": "What can a connector do, and what needs approval? Lists EVERY tool it contributes — the complete set, not search hits — so use it when the user asks what a s…",
+    "sha256": "56e9325fc321b3a28036cb79c431d38334cf2a0a1e61e5b773170398e7f597a6"
+  },
+  "get_cost_summary": {
+    "english": "Show how much this instance has spent on AI API calls: total cost, breakdown by model and by AI provider, breakdown by non-AI search/fetch API cost (separate…",
+    "sha256": "7c248952d14c632138e8feb1b82c09979fc97290f7b4b3339e42ff0b508dad46"
+  },
+  "get_dividend_calendar": {
+    "english": "Upcoming dividend payments per holding within `days` (default 90): next ex-date, pay date, estimated amount (base currency), and status — 'scheduled' (declar…",
+    "sha256": "322a804987881d7b4d371ec3e5b61514dc553a92f0eb06cdc466bad9232abb82"
+  },
+  "get_earlier_conversation_detail": {
+    "english": "Read a bounded slice of THIS conversation's own transcript from BEFORE the folded/summarized region — the escape hatch for when the [CONVERSATION SUMMARY SO…",
+    "sha256": "3ab10f7e92b76e2a8284dad1f7fb73b89dc15e2ce2fac882ab21f61e9044f01f"
+  },
+  "get_equity_report": {
+    "english": "Per-vest report for a year: per-vest rows (symbol, vest_date, units, fmv_per_unit, gross_gain in the base currency, tax_event flag) and total_gain_base.",
+    "sha256": "7b66e234fcc6768a6b228602184815ad9387fddbadc2d143a75e2b8ca3a74a48"
+  },
+  "get_fees_summary": {
+    "english": "Total trading fees/commissions the user has PAID — acquisition lot fees plus disposal (selling) fees — over an optional date range / instrument / account, to…",
+    "sha256": "6a425850a1d1340255abc636554b22670a96e662efba1ce2b6556a1bf78a3990"
+  },
+  "get_fire_projection": {
+    "english": "The FIRE number only: target net worth (spending / withdrawal rate) and current progress toward it.",
+    "sha256": "3fd0a95eb959aa1c4fdb7311c4b7be60b3a42a8673571e3a52f3dafe64beef5a"
+  },
+  "get_fixed_income": {
+    "english": "The fixed-income (bond) lens: every bond holding valued in base currency — type (market/ssb/tbill/etf/fd), coupon rate, maturity date, days-to-maturity, next…",
+    "sha256": "f43640a1398af730c72e2668b16c85cc2eace8d07e676d67a7ba30f0574e455f"
+  },
+  "get_forecast_scorecard": {
+    "english": "Score the app's cash-flow and net-worth projections against actual outcomes over a trailing window.",
+    "sha256": "cf605193f46619dbeee456af7031ad946a727c4e63ac25499ffb57c2355bb73e"
+  },
+  "get_goal_allocation": {
+    "english": "Get the auto-allocation summary across active savings goals: the total monthly earmark needed (total_required_monthly_base), the user's monthly free cash (in…",
+    "sha256": "a7d2a19d1143bc31b36139d54204cd1cc3694afd9cf08525baf7f3156f7fa2b7"
+  },
+  "get_goals": {
+    "english": "Get the user's savings goals — 'save X by date Y'.",
+    "sha256": "14c90fa00e3757045328224e4b3aa5b18ba0994c7cff5d12fc6d34a8e528441a"
+  },
+  "get_income": {
+    "english": "Investment income (dividends / interest / distributions) over an optional date range / instrument / account: total in the base currency, the gross-vs-tax spl…",
+    "sha256": "8d02d3d998db858bc87cef2bd596017ddd20cc0546743c66246c1db9382d9e8f"
+  },
+  "get_income_forecast": {
+    "english": "Annualized forward-income ESTIMATE: per holding the projected income over the horizon (default 12 months) + the portfolio total + implied forward yield.",
+    "sha256": "5f9df20e0286c08dd03d83760a29fc37f5970a6cd2a88546a1e87f6e135b21ed"
+  },
+  "get_intel_digest": {
+    "english": "Return the deterministic Intel Brief digest: market backdrop (benchmark price return), top return drivers (holdings ranked by signed base-currency day change…",
+    "sha256": "3e46bdce520e85bfe3035a12f808b988ddf5c50984dbb96b91d493741fb572ff"
+  },
+  "get_investment_theses": {
+    "english": "The user's investment theses per ticker — reason, breaks_if, role and price levels — and whether they hold it now.",
+    "sha256": "df35af3a7bbc0a0fb5dabbb36c113fb62920577f51e9d280ef1dbac30f964893"
+  },
+  "get_ledger_summary": {
+    "english": "Get a full ledger summary for a month: income, expenses, investments, taxes, transfers — with credits, debits, and net for each type, plus overall total in/o…",
+    "sha256": "f70e446f4e378b8d80b23ad255a4e3be0900879e73deae233f8fc48be1ef967c"
+  },
+  "get_live_prices": {
+    "english": "Fetch current market prices for a list of tickers (Yahoo Finance / CoinGecko).",
+    "sha256": "d2c223057bcc9f8943c02b5591e62666e58e4c99212f63cfe64a6e8400f74c04"
+  },
+  "get_lots": {
+    "english": "List the tax lots (acquisition tranches) for a position — each with acquired_at, remaining quantity, effective unit cost, remaining cost basis, and term-to-d…",
+    "sha256": "6f2e721fa67ccadc50bacb5912c539a52f58ef6634612537e84c64c153255c77"
+  },
+  "get_model_config": {
+    "english": "Read the AI provider/model config.",
+    "sha256": "2e40c3bb8a33a1420f2e223fd97f58f7f6c0cad5488cd64df7bedec4c3f17aa9"
+  },
+  "get_net_worth": {
+    "english": "Get the user's total net worth in the base currency: account balances (assets positive, liabilities negative) plus market-valued positions (equities, crypto,…",
+    "sha256": "461c71a293b25dc4f3ef64ef19c0dc9266db14319c0ceed17400b6bd5de5162b"
+  },
+  "get_net_worth_history": {
+    "english": "Get the user's NET WORTH OVER TIME — the monthly reconstructed series (cash + receivables + market positions − liabilities), each point in the base currency.",
+    "sha256": "4e1a54e16ec33fd5055c5fe90110635e8df3c8bcfe11f00c94d030d38105e2e7"
+  },
+  "get_news_latency": {
+    "english": "Per-source publish→arrival news latency (news-ingestion-latency.md §5) — for each feed source ('via': rss:yahoo, rss:google_news, rss:fn_adhoc, atom:edgar, a…",
+    "sha256": "ff9aa61b953b6021b5dade866aefcb13f34c43a61d7cdb500af27a0537e01dc6"
+  },
+  "get_news_sources": {
+    "english": "List news sources (builtin + user-added) with health: latency, last_ok_at, failure_streak.",
+    "sha256": "0d29cf09afcb0063948c2e41dd8834613a79c1bce85390290027e1ae5ecb67d1"
+  },
+  "get_notifications": {
+    "english": "Get the user's notification log — automation run activity, news analysis, macro events, investment opportunities, and other in-app notifications.",
+    "sha256": "866f79b1ac7340a919426172ecd6fe5dfa2b85f8f2ba96bd340b976cbbafcad6"
+  },
+  "get_option_contract": {
+    "english": "One hydrated option contract: mark value (signed, base currency), moneyness, intrinsic per share, days to expiry, premium and collateral figures.",
+    "sha256": "c6801279fd03f5e3cf69ef71201066accc7ba559fa056b092dfb057e2a919b7c"
+  },
+  "get_options": {
+    "english": "Options lens: every open contract valued/signed in base — marks, ITM/OTM, days-to-expiry, premium, by-strategy split, expiry buckets, CSP encumbered cash, co…",
+    "sha256": "1fc82a22d251b6e736c5aebba150a65cf6f02890ef38fad921309e555177b54f"
+  },
+  "get_payees": {
+    "english": "List the user's first-class payee ENTITIES.",
+    "sha256": "ce0268460322b5c167ed516f122a410a4eb5d171a567c715f25737ba224c35c7"
+  },
+  "get_plan_baseline": {
+    "english": "Return the FIRE baseline override — the user's 'My FIRE Plan' lever set that anchors the Outlook tab's primary projection.",
+    "sha256": "96bd7b92c0bc33f79e2f78057a189e3359b53ada8be0a9935038815db458c0cf"
+  },
+  "get_portfolio": {
+    "english": "Get the user's portfolio — positions with label, category, asset_class, quantity, price, cost_basis, currency, ticker, vesting_state, and `thesis` (the user'…",
+    "sha256": "2dd6c51fbb831b893d7ac31a51b5abedef8f0a0d1905f2ed5d1d16f6653a90e2"
+  },
+  "get_portfolio_xray": {
+    "english": "Look-THROUGH portfolio exposure (the 'X-ray'): each holding is exploded across its constituents map — an ETF spreads across its declared sector/region weight…",
+    "sha256": "6c984652a8387e191f999c7f836049a4a4c13510757a92f6c0d177428ada48b4"
+  },
+  "get_profile": {
+    "english": "Who the user is: name, age, household, residency and tax residencies, employment, base currency, monthly income and expenses, liabilities, risk tolerance, re…",
+    "sha256": "baedb71547b4b80f1b7aa681eb5d2db99b8dff2c5e29a36cd18636663626aceb"
+  },
+  "get_realized_pnl": {
+    "english": "Realized gains/losses over an optional date range / instrument / account: the disposal events, the long-vs-short split, the per-instrument breakdown, and the…",
+    "sha256": "0999c6978c4533005c13a4747a197441ab6635b61f2cb7145447a052215b16b3"
+  },
+  "get_rebalance_plan": {
+    "english": "Rebalancing suggestions: compares current vs target asset-class weights and returns suggested buy/sell amounts in base currency.",
+    "sha256": "a382cc2e4295ed71fb86d9545e1b85d3e336ede283170ce922f1c0525a0be0fb"
+  },
+  "get_recent_logs": {
+    "english": "Read recent backend log lines for debugging — errors, agent runs, email-scan UID trails, scheduler events, etc.",
+    "sha256": "c6bb5ce7383be05028a881cc3dba3040a9e2805be3552ee437c880807b89ce99"
+  },
+  "get_recurring_streams": {
+    "english": "Read the recurring cash-flow streams behind the forward projection: salary, rent, subscriptions, loan repayments — each with its cadence (monthly/weekly/quar…",
+    "sha256": "c8f3c5481c91ae88b7613ce27ba308ed7a623ecb3e7fd66dedb619a644716591"
+  },
+  "get_report": {
+    "english": "Generate a structured financial report (read-only).",
+    "sha256": "6f6d72f744cc8f51fa79a404a82c6bb87f5410a2ccdf15a94adb2d99e21a5080"
+  },
+  "get_returns": {
+    "english": "Investment book performance over calendar days, not today's move (use get_portfolio's `today`).",
+    "sha256": "dbd809945114f3de79196896356965d9e23eed6de896f63eddd665a1d91bddbf"
+  },
+  "get_risk_signals": {
+    "english": "Compute deterministic portfolio risk signals — single-name concentration, asset-class and sector overweight, unhedged FX mismatch, and drawdown from cost bas…",
+    "sha256": "7b8d094bdd39cef2cb2477b6224d4573d2012cf148779dec1505cfcdd12f73fa"
+  },
+  "get_rule_suggestions": {
+    "english": "List categorization SUGGESTIONS the system inferred from the user repeatedly re-categorizing the same payee (e.g.",
+    "sha256": "e4c96152c9c771d40f418a23d9b01b64ba0ee0b44c74c687f1cc53f766864be1"
+  },
+  "get_screen_detail": {
+    "english": "Fetch the FULL content behind a handle the user is currently looking at on screen — a news article, a price/data series, or off-screen rows.",
+    "sha256": "3c080250e5711e778f000c044cdc26b7978b63cc669a45038767ffa43af3c2c0"
+  },
+  "get_spending_breakdown": {
+    "english": "Spending for a date window split into RECURRING BILLS (rent, subscriptions, loan repayments — rows of a detected recurring stream, or any row in a category t…",
+    "sha256": "593edd7e07b67f4521d3df4c8044ce67421f93965b1ab12174a2f77d24524d4d"
+  },
+  "get_spending_summary": {
+    "english": "Get an expense-only spending summary: total spent vs budget, burn rate, category breakdown, and by-source breakdown.",
+    "sha256": "8b05f786042eaba87405f7c95bd858d102a30eaa0dfa8fac15cfdf4d0c04f69f"
+  },
+  "get_statement": {
+    "english": "Retrieve a previously uploaded bank statement by its statement_id.",
+    "sha256": "f39251dd512a06042d84d3f05eaa6094dad793b694d25f99cd28bcb39e46e544"
+  },
+  "get_trading_account": {
+    "english": "Read this run's accounts, cash and positions.",
+    "sha256": "89ef40e712c1597d803cd8e00aa895f7527c08c4a996196d6c0c043f1271d6c7"
+  },
+  "get_trading_environment": {
+    "english": "Read this run's clock, mandate and trading capabilities.",
+    "sha256": "8429806eef964ace06bbeabffa5d99799bcc7801dcd7480d7aee1c8610c50b89"
+  },
+  "get_trading_market_data": {
+    "english": "Read the latest observations available at this run's current time, with bounded history pagination.",
+    "sha256": "9782cd08b8514fe55339d29f4596af3e30b6dbe8329cf34ebd0a9374691ce025"
+  },
+  "get_transactions": {
+    "english": "List ledger entries — every money movement (expense, income, transfer, investment, tax).",
+    "sha256": "b598e37c71de90dcddf0283b363cfa4e54ce527caa6485368f197b49b478940c"
+  },
+  "get_uncategorized_summary": {
+    "english": "Return a count and base-currency total of expense/income transactions that have no category (None/blank) — i.e.",
+    "sha256": "a724207ecb4b875f6a4874a8355741f4050471eb78554e25c5675ae286a36764"
+  },
+  "get_untold_news": {
+    "english": "Intel news held back for a roundup, plus what was sent in the last 24h (`already_told`).",
+    "sha256": "91e62d52e72fa7bdef879e06e11f7e607439392d384f7eacc0b651e64d87a2fa"
+  },
+  "get_upcoming_vests": {
+    "english": "Unvested tranches of active grants sorted by vest_date, annotated with indicative_value_base (current price × units × FX) and an overdue flag (vest_date is i…",
+    "sha256": "54f486062abc2d30da5c7ae3c805b995679077f20fd0e6e2b9907456e116e888"
+  },
+  "get_uploads": {
+    "english": "List stored chat-attachment uploads (metadata only: filename, kind, size, dates).",
+    "sha256": "d6b22e2218bfb2ed5e59fff4bc6aeba93c39d931efde4175375cae94846d90ef"
+  },
+  "get_watchlist": {
+    "english": "Get the user's market watchlist — tickers and topics being monitored, their price alert thresholds, and monitoring config.",
+    "sha256": "5f3437041494ea860b8ccfd638162460ba98c2e1ee4cd0dd82c2e87bfcc4f2f9"
+  },
+  "gocardless_fetch_transactions": {
+    "english": "Fetch GoCardless transactions for a date window (default: the provider's own 14-day lookback).",
+    "sha256": "f3b2bc503f1433da9cd4c62708919b3588bebbb9c8df530b665803b1a7d9d6dd"
+  },
+  "gocardless_get_status": {
+    "english": "Check the GoCardless connector: whether it's configured and enabled, whether the bank link is live, and when it was last fetched.",
+    "sha256": "5c8a650853a79fd65e2c7031d434632da9bdce92f177da31f3bdd73881bbd4ed"
+  },
+  "gocardless_list_accounts": {
+    "english": "List the GoCardless accounts (balance, suggested account_type, linked_account_id or null) — no transactions.",
+    "sha256": "ce8ea3f11fd683a6aa8d4f464359c36a1d9f186e415a8c94f11aac1b35f60be4"
+  },
+  "google_pse_fetch_page": {
+    "english": "Fetch and read the full text of a URL via Google Programmable Search specifically — bypasses the active-provider selection.",
+    "sha256": "4dd14336bbd2e28c1b98b5c9fffeab1f8a7b181e6d9efcc81bb836f1de8d2880"
+  },
+  "google_pse_search": {
+    "english": "Search the web via Google Programmable Search specifically — bypasses the active-provider selection, so this always hits Google Programmable Search even if a…",
+    "sha256": "eff109cd9ed498fae0e651e7ce682c91527db404089413a31cabec21b86d9767"
+  },
+  "import_8b": {
+    "english": "Import an Appendix 8B ESOW statement from a PDF the user attached in chat.",
+    "sha256": "6b2e6023fe4fad38c1299f4d523d557f41b50ad6985ae825a6d9d9a84a3dae63"
+  },
+  "import_transactions": {
+    "english": "Import a bank/card statement (CSV, OFX, QFX, QIF, MT940, CAMT, XLSX, PDF).",
+    "sha256": "1a3f85ab8843033e62886f5dee516fabe2662137e846eb5755a022491424282e"
+  },
+  "link_categories": {
+    "english": "Link UNLINKED categories (no envelope — their spending shows as unbudgeted) to one envelope, making them budgetable.",
+    "sha256": "80541ed30c03d83a7a300ed7467bf3978f90fb0bca7dd02e4602cb07bd12d5be"
+  },
+  "list_accounts": {
+    "english": "List all of the user's accounts — cash, fixed deposits, investment (holdings + settlement cash), retirement, receivables, credit, loans — with current balanc…",
+    "sha256": "1660522fcf323807888a8ee158e2c613cf030ed223fb7798758b92c8a39e4591"
+  },
+  "list_assets": {
+    "english": "List the user's owned assets — things they own valued by a dated manual valuation, not a ledger balance: property, vehicles, watches & jewellery, art, precio…",
+    "sha256": "71d0a5d0b9a91e2cae8c188f4e36b3715aa1d164b69ed52d788a377aa01ba81b"
+  },
+  "list_automations": {
+    "english": "List unified Automations, including manual, scheduled, and event-triggered work.",
+    "sha256": "73b746bf4dc1f699a922007ceca317ec1aaa2aee280f68f42fcf714d10450449"
+  },
+  "list_budget_engines": {
+    "english": "List every registered budget-paradigm engine (zero-based, 50/30/20) — id, name, description, the question it answers, kind (derived = no owned state, configu…",
+    "sha256": "622451c6204621187fcf55930703bbedafc8efb70511635e99307986c3575f9a"
+  },
+  "list_categories": {
+    "english": "List transaction categories (seeded and user-made alike — all renamable/deletable).",
+    "sha256": "5a111687ae77c6a888fad1ac56d12f6edd26d87cb109193645c176fa6a6caf34"
+  },
+  "list_checkpoints": {
+    "english": "List recent turn checkpoints.",
+    "sha256": "9770097ec0f1c64284b8249b92e2303a5505a86d246f1051091ac26b51da87a6"
+  },
+  "list_documents": {
+    "english": "List the USER's own Documents (not the app's help — that is search_docs/read_doc): files they added or kept (tax forms, policies, deeds…), artifacts of yours…",
+    "sha256": "766b1a2edea03240cbfb8d937edc290953edd01bd9adb6b354a09a799c6d4174"
+  },
+  "list_envelopes": {
+    "english": "The book's envelopes, each in full: id, name, group {id, name}, linked_categories [{id, label}], zero_based_target, note, color, managed_by_app (a Commitment…",
+    "sha256": "3b70fe68ff9b955e010d70112175989af717fe7070d305e9b66a8dbf66b3f3a0"
+  },
+  "list_grants": {
+    "english": "List all equity-compensation grants (RSU/LTIP) with computed fields: symbol, vested_units, unvested_units, next_vest_date, and per-tranche status (vested|upc…",
+    "sha256": "9031bd9ca6a943dcc66fb3c1a0f1163917a765d00a56569a8b5d0191366389fa"
+  },
+  "list_import_batches": {
+    "english": "List all statement-import batches.",
+    "sha256": "168d606b6b1987c3fda40a686703953c63a18878e361bc96b5ce6a65ece73ef6"
+  },
+  "list_match_decisions": {
+    "english": "List the most recent remembered dedup verdicts (the engine's verdict cache).",
+    "sha256": "14c2f63de7a166d7825d6aa6dcc6bdb93f3a7b28dce1e2ead8b61f291137ebd0"
+  },
+  "list_match_reviews": {
+    "english": "List the pending duplicate/transfer-pair review items the match engine surfaced during imports and connector syncs (rows it created but flagged as a likely d…",
+    "sha256": "77285b35ee5d413b61f8ee32ed1fe469decb980a041ef1ad31877ac620ed9f2f"
+  },
+  "list_mcp_servers": {
+    "english": "List the external Model Context Protocol (MCP) servers configured on this instance — third-party tool servers the user connected.",
+    "sha256": "0b2e932e1dc7d32edadb19e24f0326d49015e98319dd986ae30d3d0ba410858b"
+  },
+  "list_pending_releases": {
+    "english": "Vests that HAPPENED but whose delivery is not recorded yet.",
+    "sha256": "27a54f03a4696261d9efc009e1de7154c314a1aeb74398a63a103dd9a1aaf69d"
+  },
+  "list_plan_scenarios": {
+    "english": "Return all saved Outlook plan scenarios.",
+    "sha256": "3a40b7feb5f1568c161917c895882f85b5746b20d0e3592cfb5c898aba511dc9"
+  },
+  "list_skills": {
+    "english": "List the user's saved skills — named, reusable playbooks (e.g.",
+    "sha256": "c1264ca8826c21fbed1d985cb2ea3b07ca427cf1613602485212d67f2122a9d1"
+  },
+  "list_statements": {
+    "english": "List previously uploaded bank statement files — filtered and paged, never an unbounded dump.",
+    "sha256": "db9ba114612e07c09d4ec740c95c3c9d9c18552b46f1b05e9493c2c10382c20f"
+  },
+  "list_trading_fills": {
+    "english": "Read actual or simulated fills recorded for this run.",
+    "sha256": "bd976a0ab5bf4a1e5c43fcf167f15c12ea70f97347465d0a32543d2a02b95dbf"
+  },
+  "list_trading_orders": {
+    "english": "Read this run's orders and their known execution states.",
+    "sha256": "734a6613586bf99d3d0b82231153f76ef986e437f8129c022f7d858d5c3a7019"
+  },
+  "list_trading_workspaces": {
+    "english": "Read the user's delegated trading workspaces before proposing a new one.",
+    "sha256": "fafc8e6c8502c365c626baf482c5e13629d73f249e62af4a713a295143df0ef6"
+  },
+  "list_watchlists": {
+    "english": "List all named watchlists the user has created.",
+    "sha256": "dc893ca540e7b174bee3e9e2d6d4d6bff4d4a6b8a29c8eda11a1d88d36d3b735"
+  },
+  "lunch_flow_fetch_transactions": {
+    "english": "Fetch Lunch Flow transactions for a date window (default: the provider's own 14-day lookback).",
+    "sha256": "521360eb71cc8bc9e3733e6fbc9825d3c68bf3c969ad0782f368808445452cba"
+  },
+  "lunch_flow_get_status": {
+    "english": "Check the Lunch Flow connector: whether it's configured and enabled, and when it was last fetched.",
+    "sha256": "6bb8129abfc4440da10e1a736b6276657b2b4e436b937e1f0e508c1e23d69deb"
+  },
+  "lunch_flow_list_accounts": {
+    "english": "List the Lunch Flow accounts (balance, suggested account_type, linked_account_id or null) — no transactions.",
+    "sha256": "eae9af33aa726d6b475f131a0a384f34bfd8cbef9bbc4f913fa10f441b9d084b"
+  },
+  "lunch_money_fetch_transactions": {
+    "english": "Fetch Lunch Money transactions for a date window (default: the provider's own 14-day lookback).",
+    "sha256": "8d9d83a3263be37eb49508f8cc3b08578a360e7c413dd81d8b96a88d1ab4cdf8"
+  },
+  "lunch_money_get_status": {
+    "english": "Check the Lunch Money connector: whether it's configured and enabled, and when it was last fetched.",
+    "sha256": "14590049e691aba76f7ec24d0e051730917d90f43970667dac0eae66ce1fa848"
+  },
+  "lunch_money_list_accounts": {
+    "english": "List the Lunch Money accounts (balance, suggested account_type, linked_account_id or null) — no transactions.",
+    "sha256": "7f1200095d88f81cf0602fbcd70d6710404c3d86ff1c48399fe834ed92859ccd"
+  },
+  "mark_notifications_read": {
+    "english": "Dismiss in-app notifications by marking them read — clears them from the Inbox.",
+    "sha256": "cb2873daea89edc1adcd656b8ccd6b2e53f7f579372930715faffe28d220c9be"
+  },
+  "merge_envelopes": {
+    "english": "Propose folding source's categories + assigned money (all months) into target, then archiving source (restorable).",
+    "sha256": "0f7d4be9edb13826863e737cfdcee7e9172524232fc6b91d741f4198e4579dd6"
+  },
+  "merge_payees": {
+    "english": "Merge one payee (source) into another (target).",
+    "sha256": "82c3565c6fcbb9f6ecaf2fdc90df842d1f19d713131bd886ee7fb41c717bfe3b"
+  },
+  "merge_transactions": {
+    "english": "Merge two transactions that are the SAME real-world charge (or the two legs of one transfer): the canonical row survives and absorbs the other's source id (s…",
+    "sha256": "88c24a15262fa43dcdbb90ef38d6417c84f2f6be6a7bd9cb04305e35584ade95"
+  },
+  "move_envelopes_to_group": {
+    "english": "Move envelopes into an envelope group (out of any other) — group placement is envelope-keyed.",
+    "sha256": "d347c8d1ca840af5c5c2b5156281342403f655d0f04405b0d3c409836911f0df"
+  },
+  "move_money": {
+    "english": "Propose MOVING assigned money between two envelopes within a month.",
+    "sha256": "3920216aa575cc7bb3976055fdbac197ac1c7c90833e0a2aa2c06e1ba757649a"
+  },
+  "open_option": {
+    "english": "Open an option contract (covered call, CSP, long call/put).",
+    "sha256": "b9148baaadceccc8fc449bf034eec1d97fd722863df91c55579867f3b75d8268"
+  },
+  "perplexity_fetch_page": {
+    "english": "Fetch and read the full text of a URL via Perplexity (Sonar) specifically — bypasses the active-provider selection.",
+    "sha256": "7554141ca937b1f08ef1bdca5e8963589de7dba029e611358cd719a9c14fc7ea"
+  },
+  "perplexity_search": {
+    "english": "Search the web via Perplexity (Sonar) specifically — bypasses the active-provider selection, so this always hits Perplexity (Sonar) even if a different provi…",
+    "sha256": "61d967939fdf3a7a66a6299e8b06489c56b9d37a0afbac19e3b02682e9f2059f"
+  },
+  "plaid_fetch_transactions": {
+    "english": "Fetch Plaid transactions for a date window (default: the provider's own 14-day lookback).",
+    "sha256": "526d0b1cbc0442745d8544692d8c4eff1c0f0de968b5a15562a724890ca2b67b"
+  },
+  "plaid_get_status": {
+    "english": "Check the Plaid connector: whether it's configured and enabled, and when it was last fetched.",
+    "sha256": "cc60a80ed7d0231c450538959f2926f64ce814989165d012397194cb310b0cb7"
+  },
+  "plaid_list_accounts": {
+    "english": "List the Plaid accounts (balance, suggested account_type, linked_account_id or null) — no transactions.",
+    "sha256": "75f9fb6c404d01d963d700165f35b4406a0e11b57c8853b6444f58abc032f417"
+  },
+  "plaid_reconnect_bank": {
+    "english": "Get a Plaid sign-in link that renews ONE linked bank whose login expired (plaid_get_status shows needs_reconnect; a fetch warns 'sign-in expired').",
+    "sha256": "36705e32ca7aeb90aa28fb485ba39ac0d0ddf1e39b90bd63c9fe564c9a944492"
+  },
+  "preview_automation": {
+    "english": "Validate and normalize an Automation draft without creating it — including a reminder or a categorization rule, both of which are Automations.",
+    "sha256": "468ef07ba5f8432afbb25bfece1e3697184a69cc812bf0f973efaf132f57bbb1"
+  },
+  "preview_trading_workspace": {
+    "english": "Validate an UNSAVED trading delegation for human review.",
+    "sha256": "08e7ec20e27f30c15dc2f53fcd6b7fade90f3a753b871697f992b2fcc8759fbd"
+  },
+  "read_attachments": {
+    "english": "Read an OLDER or on-demand stored attachment that is NOT already part of this turn's own message (an image just attached this turn is read automatically befo…",
+    "sha256": "71d71881b4e570a7ec94fa491b55dca8ffedfa23a55485c5f433c5441a433b59"
+  },
+  "read_doc": {
+    "english": "Read one product documentation page, or one ## section of it, from docs/product/.",
+    "sha256": "f415971abaa57c4caba1bd41962c968cf50d4a9e598fda54e696756b6dd5eaa0"
+  },
+  "read_documents": {
+    "english": "Read the contents of the USER's Documents by id (from list_documents): the text of a document, what a scanned page or photo shows (read by the configured ima…",
+    "sha256": "74e4113249b3837a1a3da4b1fcf6bbd69293246e5fddd13ec6120fe79d4cda7e"
+  },
+  "read_past_conversation": {
+    "english": "Read one of the user's earlier conversations, oldest first, by the session_id search_past_conversations returned, when a snippet is not enough.",
+    "sha256": "e1cd2b7dff8943a4efc5de348a0a00d2f38b46c1c4d889b250977a1b4947348e"
+  },
+  "read_receipts": {
+    "english": "Actually LOOK AT one or more receipts' contents — the merchant, line items, amounts, dates — not just that they're attached (get_transactions' `receipts` arr…",
+    "sha256": "74349689bf25e955c52f7056816ec7f225a00912b91e93798e033cf33c2aa3a4"
+  },
+  "read_skill_file": {
+    "english": "Read a reference/support file from the CURRENTLY-RUNNING skill's bundle (e.g.",
+    "sha256": "fbc49e2aa1d30189bdfc84c28f5f75e814876de81e50768d8a09b0a9c1716e78"
+  },
+  "read_trading_files": {
+    "english": "List workspace files, or read an exact saved version by name/version.",
+    "sha256": "4a09ba0d3131e2764f7ef354dfc79dfa8e6d4f1d660a9948ba644520b1cddc40"
+  },
+  "recall_memory": {
+    "english": "Search EVERYTHING you have remembered about the user, not just the facts shown in your prompt, which may leave out older facts not yet sorted.",
+    "sha256": "348daf1f5bd3ea71e25f55aedb07b80c79f67edad9595b2924f33259d402b3ac"
+  },
+  "reconcile_accounts": {
+    "english": "Reconcile one or more accounts to their real-world balance (cleared/reconcile flow).",
+    "sha256": "437438852b18dc132c2a36b5dcd4612321f8b62c0b0d395dc2b5e924c13b097a"
+  },
+  "record_asset_value": {
+    "english": "Record a new value observation for an EXISTING owned asset — a re-appraisal, a market estimate, a statement figure.",
+    "sha256": "efb7f5895d448e2d25a6a614bace809765abaae96b344af9e220736faf394ed2"
+  },
+  "record_income": {
+    "english": "Record a dividend / interest / distribution a holding paid — books the cash dividend through the ledger, or acquires the DRP lot, and links the income event.",
+    "sha256": "aaafbd012c69ad52d253111c8bcf9851e6c51de36d165803a2d227189190e702"
+  },
+  "record_release": {
+    "english": "Record that a vest's shares were DELIVERED.",
+    "sha256": "3d2e511897a14f953246fd27c3d102ae26c318f84f4c5167cdc1c7e9c63d924a"
+  },
+  "record_trading_decision": {
+    "english": "Record a concise decision summary; model cost is measured by the runtime, not this tool.",
+    "sha256": "6f39a6f12f217f6c1baef8d80e6a25b6eb88215e4db6a6f62488a3a6483c11b0"
+  },
+  "record_trading_work": {
+    "english": "Publish actual executor output, analysis, actor activity, tool evidence or wait state.",
+    "sha256": "e5576724736753413d142de17846023472211c857b7e68f24e7edf7cc3a6d6af"
+  },
+  "record_vest": {
+    "english": "Record a vest event for a specific tranche.",
+    "sha256": "1da859a52f8715a5cfe3b333a0b92884f0347c109f19358540018b64a0952e62"
+  },
+  "remember_fact": {
+    "english": "Save a fact to long-term memory so it persists across future conversations.",
+    "sha256": "73e559ec895a233fd5037870412ed1543d645437e584aebcdfcb712d1bb0581a"
+  },
+  "remove_asset_value": {
+    "english": "Delete one value observation that should never have been recorded (mark_id from get_asset's marks).",
+    "sha256": "ae1875a1dd60eceedc2db00c1ed9d4bbe2a23c4703b8912d5c728b47edc54e30"
+  },
+  "remove_commitment_actions": {
+    "english": "Remove actions from a commitment by id, leaving the rest of the checklist untouched.",
+    "sha256": "a6f159d7fbe6a9bf9af1d54b7feb3a8af0a541a852e85da5b28a4f1752e1aadb"
+  },
+  "remove_commitment_installments": {
+    "english": "Remove installments from a commitment by id, leaving the rest of the schedule untouched.",
+    "sha256": "25857756735aee76371bc8634a766ac2fcbbba3ec4ee3319169ba6912bd82af3"
+  },
+  "remove_from_documents": {
+    "english": "Take something out of the user's Documents WITHOUT deleting it — the opposite of save_to_documents: an artifact you made stays in its conversation, a file th…",
+    "sha256": "7cef70cab2884d16273def9d06d0d541908e870ff8b541a307c6b1e27f117d9b"
+  },
+  "remove_funding_sources": {
+    "english": "Remove funding sources from a commitment by id, leaving the rest of the plan untouched.",
+    "sha256": "c6799b0e63c7bf09c50b18f5fce28e6387bd1b52be889b48a06b4da787a00b81"
+  },
+  "remove_news_sources": {
+    "english": "Delete one or many user-added news sources.",
+    "sha256": "4b2a8d9374fa832275427b86da0383ed9656dc0a97f533e0a6ad432adb9d0130"
+  },
+  "remove_payee_aliases": {
+    "english": "Remove a normalized alias from one or many payees.",
+    "sha256": "6006ad5d938709e8ca8958be550860183979003e59d73661d75eb3d0eafce65b"
+  },
+  "remove_payee_rules": {
+    "english": "Remove a renaming rule from one or many payees by its index in each payee's rules list.",
+    "sha256": "241613dfde51c059a289bc67310b0050b8447344ddd81dd93a4e60729ac0f1c7"
+  },
+  "remove_positions": {
+    "english": "Remove a position, identified by position_id (from get_portfolio).",
+    "sha256": "5ceb29319384dd4bf12ebb76f79961eeec72c654980aef9fe90dc3c6536b7479"
+  },
+  "remove_price_alerts": {
+    "english": "Delete one or many price alerts by id (get_alerts to find it).",
+    "sha256": "8df78bf992a3535afaeb3f9ea4edd3be3462b7aaf82b82437ce1e3bdd5e06021"
+  },
+  "remove_watchlist_items": {
+    "english": "Remove one or many items from the user's watchlists, or unfollow topics (a topic is in no watchlist — removing it unfollows it).",
+    "sha256": "cb2c3fd626fd7b337740fe733daadd44f5668d68b1c95ca2ad57402ca8546409"
+  },
+  "rename_categories": {
+    "english": "Relabel a category, or merge it into another.",
+    "sha256": "b31d669c82e040c53a77e06bacd87c7866c383e73b7feb5472cd4a18e98a6b9b"
+  },
+  "rename_envelope_groups": {
+    "english": "Propose renaming a Planning group (and/or collapsing it) — a bucket of envelopes, not a category grouping.",
+    "sha256": "bb4312ca63ac843b4c7fb3ea1ff8ee1af9c0cf3b78e0ce1b4f0c5b7084b2c71d"
+  },
+  "rename_payees": {
+    "english": "Rename one or many payees' display names.",
+    "sha256": "69d64ee434572f7389f670d275bba79db992ab9540e440bfba77ea1ac02544de"
+  },
+  "reorder_envelope_groups": {
+    "english": "Propose reordering the Planning groups (buckets of envelopes).",
+    "sha256": "8c65f5716c27a5c1c78d1a88ea25f5fc544bf75f1868b8a5cc9f810f48b148b8"
+  },
+  "reorder_envelopes_in_group": {
+    "english": "Reorder the envelopes WITHIN one Planning group: envelope_ids = ALL of that group's envelopes in the new order — same set, just reordered (move_envelopes_to_…",
+    "sha256": "8ca0141bcb08e6ab82066e14e39482e309eb419ed3ea348a53ebe52ff0cf21e5"
+  },
+  "request_trading_market_data": {
+    "english": "Choose current instruments for a Paper/Live workspace's reviewed Yahoo feed.",
+    "sha256": "fceecf76081816252f1fa7ffac2723307a592aa913a0275ff471330d597310db"
+  },
+  "resolve_instruments": {
+    "english": "Resolve a user-typed ticker or coin to a canonical instrument with a live price source — the FETCH-FACTS half of the instrument pair (update_instruments edit…",
+    "sha256": "2c60d42961f0517733776828e2048c4031929b4e3a24eec359904e723fc1a1e8"
+  },
+  "resolve_match_reviews": {
+    "english": "Resolve one or more pending match-review items with the SAME action.",
+    "sha256": "ea7c55bb964f7a952afc5617deb5a08243d7f5bb447a55f78ae6e40cb20e8a7f"
+  },
+  "restore_checkpoint": {
+    "english": "Roll the system's DATA back to a checkpoint — undoing the changes made in that turn (and every turn after it).",
+    "sha256": "965fe25eed0c0ca374b201a34673cc0038f2d14dfe6be2158ba39832de63ef63"
+  },
+  "restore_import_batch": {
+    "english": "Undo a rollback: restore all transactions that were soft-deleted by rollback_import_batch and set the batch status back to 'active'.",
+    "sha256": "13f6704a94fb4888b2e2829d0e7a22525ab2e335dc74348a0d1bed219db96b6f"
+  },
+  "rollback_import_batch": {
+    "english": "Undo a statement import: soft-delete all transactions that belong to the batch.",
+    "sha256": "30f38b4e2404becf19ed895805e081a69265efeb2e4cc90fd2283b6f7445f357"
+  },
+  "run_automation": {
+    "english": "Start an Automation immediately and return its durable run and conversation ids.",
+    "sha256": "ebb0761884238c9c941a16bd987515b4a57eecedfdb645b0ec82a1ef18574059"
+  },
+  "run_code": {
+    "english": "Run a SHORT Python script you write, in an isolated sandbox on the user's server, to do a one-off deterministic computation over data that is ALREADY in this…",
+    "sha256": "1bff09383aacd6b5d62fcd6b9c05b5dec193b94cfbb1bda970eb18ff3a10d6db"
+  },
+  "run_screen_command": {
+    "english": "Drive a review or staging action owned by the user's app screen.",
+    "sha256": "5bc921e7b231be9b9badf97e7bdc88fb5ce430aefb8bb503e81fefae578e233d"
+  },
+  "run_script": {
+    "english": "Run a bundled script from the current skill's scripts/ folder.",
+    "sha256": "77d430d6fbb7a98c39eaf52f43a239747edcb6921c8b8112cb3e14a753192813"
+  },
+  "run_sql_query": {
+    "english": "Run ONE read-only SQL SELECT against this app's own database, for questions the other tools cannot express (joins, distributions, 'which X appears in both A…",
+    "sha256": "30ab2520a4ad0a10dc8d59f613bb3448b870ecad4e105bb09e42b79a87f0054c"
+  },
+  "run_trading_strategy": {
+    "english": "Execute your Python strategy in an isolated container using the current run snapshot; emit a JSON orders list and summary.",
+    "sha256": "0d9874fdc0d5245cf153a448d89cc306a22a6ab17258df11afccd595bd95f04c"
+  },
+  "save_code_as_skill": {
+    "english": "Propose saving a script as a reusable SCRIPT-SKILL — use this when the user will want the SAME computation again, or it belongs in a named playbook (the 'wri…",
+    "sha256": "9c6bb76b63ed3552763fbd1de384993b37a2fe15d689f9c48bd8b5b7577d318a"
+  },
+  "save_to_documents": {
+    "english": "Keep something in the user's Documents: an artifact you made (a report, a chart) or a file they sent you in chat (a tax form, a policy…).",
+    "sha256": "6c909a3565eccbba62717531b8d8980127e1092770e020665f8dc086775a5801"
+  },
+  "scan_intel": {
+    "english": "Run the market-intelligence scan now — fetches news/web context for the user's holdings + watchlist and upserts story-arc signals (the Intelligence tab feed).",
+    "sha256": "b71dc0cd272648013b7aff31a1b4de015fcf667b3033e6a3bcaeda013bdbeb5d"
+  },
+  "search_connector_directory": {
+    "english": "Search the connectors the user can add in Connectors -> Browse & add: built-in ones and ready-made MCP servers (brokers, exchanges, accounting).",
+    "sha256": "96eed9f7e15a2512d818ecabab26165e9e63f928c4bf6b9db59ca55c6c274acd"
+  },
+  "search_docs": {
+    "english": "Search the product documentation corpus (docs/product/) by keyword.",
+    "sha256": "519438b4815e5c1cb1e0903f0fbe700c04ddc9248ddeca70ad7dde13fcd43402"
+  },
+  "search_institutions": {
+    "english": "Search for a bank / financial institution to link, and find which provider can connect it.",
+    "sha256": "61a6b035e0ae66765b886317f50c544ff10d6ea9e873c49c370827b6e86709f7"
+  },
+  "search_past_conversations": {
+    "english": "Search the user's earlier conversations with you by keyword, when they refer to a previous chat and neither this conversation nor your memory covers it.",
+    "sha256": "f235a31f33904ec89beb563710685747251b26d6723aaba6fc024615471688c2"
+  },
+  "search_trading_research": {
+    "english": "Search public current research for this Paper/Live mandate.",
+    "sha256": "9a1f9b2cd2e61d7f2d6a5e42143cbf7bbfda1250aad8d7be8fa9f08a278497ac"
+  },
+  "serper_fetch_page": {
+    "english": "Fetch and read the full text of a URL via Serper specifically — bypasses the active-provider selection.",
+    "sha256": "a588bec6cc4074574fffca5cf30389bf6ab6d96847b3f51c58d69229e92c2879"
+  },
+  "serper_search": {
+    "english": "Search the web via Serper specifically — bypasses the active-provider selection, so this always hits Serper even if a different provider is currently active.",
+    "sha256": "2078a0046699e0db8771e4a72b2d4b3e25a51bf00cc6d3bcab39ef46e5fe6a92"
+  },
+  "set_categories_color": {
+    "english": "Set the swatch colour for a category — shown on transaction chips and budget rows.",
+    "sha256": "12c0fb898a30cf7a725bc9b763a3f1209c0f1f8da34159b7214b6e316ef49932"
+  },
+  "set_categories_hidden": {
+    "english": "Hide or unhide one or more categories from default pickable / budget views.",
+    "sha256": "c4a3ce9223c25904f639e8d5c5767a823111bcf851cb52013cb80b77b0da58c1"
+  },
+  "set_commitment_actions": {
+    "english": "Replace a commitment's actions/events — the dated checklist of NON-payment tasks: apply for a loan, sign a contract, confirm a counterparty transfer, verify…",
+    "sha256": "56995df283680f9008064b00cce427f727bc802a5d4d0eb68d676d8e2dc92247"
+  },
+  "set_commitment_installments": {
+    "english": "Replace the ENTIRE installment schedule of a commitment.",
+    "sha256": "2a74e7e6d35391e6a0b73c5358b75f96ef2aea3069269d2fff80ad62ed96b414"
+  },
+  "set_connector_enabled": {
+    "english": "Enable or disable a connector.",
+    "sha256": "79bc62544853e094c8ad84f401cacbd17afc79294593a438fe9ef2995e742e1e"
+  },
+  "set_envelope_targets": {
+    "english": "Propose setting, snoozing, or clearing a funding TARGET on an envelope (basis for the '$X more needed' pill), stored PER ENVELOPE (one per merged envelope).",
+    "sha256": "aa1dc9365c3a6163fb6f197571e2844b8ef5d61b04a2a65ed8b9d20432f01867"
+  },
+  "set_funding_plan": {
+    "english": "Replace a commitment's funding plan — the named sources that say HOW each installment gets paid.",
+    "sha256": "8ef29a33405d6979d3f7ce29e55ff7c16bdacd37638e3a4559460cb41b6f0bd1"
+  },
+  "set_home_budget_engine": {
+    "english": "Switch the book's HOME budget lens — the paradigm the Plan tab/Overview/reports default to.",
+    "sha256": "e959af6c49b81361db6e10cb08609c152bb0273798085c7df11d48ee250df3cb"
+  },
+  "set_instrument_constituents": {
+    "english": "Set (or clear) a fund's look-through breakdown so the X-ray can see inside it.",
+    "sha256": "ee63edefaad41cba3a95ab59b7036bf4fa6c65c6e6bf91befb478f4497d72eb2"
+  },
+  "set_investment_theses": {
+    "english": "Write the user's investment thesis for one or more tickers: reason, what would break it (breaks_if), role and price levels.",
+    "sha256": "d594ef23d2b2a665d7992a31825f64205e2cc0a947d82b0e481ee80e732b4e5c"
+  },
+  "set_news_sources_enabled": {
+    "english": "Enable/disable one or many news sources by id (see get_news_sources).",
+    "sha256": "9397994bb73f31f0505dd53d542301f15e3d299387f7aef3ccb2b1376180ae40"
+  },
+  "set_payees_autocategorize": {
+    "english": "Enable or disable the auto-category feature for one or many payees.",
+    "sha256": "48fe7361d78c531c8d5522737361a90d074af15ed05bd7a39981b8d155f4c64d"
+  },
+  "set_payees_default_category": {
+    "english": "Set or clear a default category for one transaction kind, on one or many payees at once.",
+    "sha256": "643f27c104e5361f056f3bc660ee7878caf7d58dd74865ac5676eea58de90b2f"
+  },
+  "set_payees_hidden": {
+    "english": "Show or hide one or many payees from the autocomplete suggestions in the transaction form.",
+    "sha256": "efac20f0207800348f3fca251f0c4a34355fb366bf36ab701d8cde57c5861823"
+  },
+  "set_payees_rules": {
+    "english": "Replace ALL renaming rules on one or many payees in one call.",
+    "sha256": "abb901e6f60db5d09eacfc262a5a7fb559713aebc7360fa1d2c9fce3738c7ac2"
+  },
+  "set_plan_baseline": {
+    "english": "Store or clear the FIRE baseline override.",
+    "sha256": "0c7a985e547fbaed1eb61c62e3a26d62ad5f6bd6d0f94ed427c34185c72df464"
+  },
+  "set_price_alerts": {
+    "english": "Create one or many price alerts on a ticker ('alert me when X hits Y', 'set a stop at 90', 'X drops 5% today' via kind='move').",
+    "sha256": "27a473a4c334c10afa9ad372e9c84790520786b4a21b87d1a656995a321452d8"
+  },
+  "set_provider_credentials": {
+    "english": "Store the api_key for a secondary AI provider (for per-conversation overrides).",
+    "sha256": "157046d63254e39d968fb392eef422c95b29bcbcc8d31c9ae259fea04ef3e679"
+  },
+  "set_recurring_status": {
+    "english": "Confirm or dismiss a DETECTED recurring stream, correcting the automatic detection.",
+    "sha256": "2c4745f2358921dd305b689d1b1e6c697315b85342c2c3bdbeb6f6ab7b41b8b2"
+  },
+  "set_transactions_cleared": {
+    "english": "Mark one or more transactions cleared or uncleared (cleared/reconcile flow) — i.e.",
+    "sha256": "532831b102ed2b58ee8ce5252bf82f320ff88199bad7b3876abd2317ff44c27d"
+  },
+  "show_guide": {
+    "english": "Light up a control in the user's app to show them how to use it.",
+    "sha256": "fb91f5ea62c9e3a044000fb75456bc63bfa73fdacb08ae9b5df42e919d9a51e4"
+  },
+  "simplefin_fetch_transactions": {
+    "english": "Fetch SimpleFIN transactions for a date window (default: the provider's own 14-day lookback).",
+    "sha256": "49b0c0d2bdf4277a6509027f0d2f74296eb872399a402644f2a8ac6aa99f570a"
+  },
+  "simplefin_get_status": {
+    "english": "Check the SimpleFIN connector: whether it's configured and enabled, and when it was last fetched.",
+    "sha256": "733b42ac3ac109957c3acb8ff83217d259d9287034fa83467171f04f8edb7e49"
+  },
+  "simplefin_list_accounts": {
+    "english": "List the SimpleFIN accounts (balance, suggested account_type, linked_account_id or null) — no transactions.",
+    "sha256": "15de350bb672339c2e655c06c528b4dd3f475af1c064eb0c676d89b521da0b05"
+  },
+  "simulate_cashflow": {
+    "english": "Run a forward cash flow projection with hypothetical income and/or expense values.",
+    "sha256": "b642bed05055f157d7127d3855409633301dc1419d851f0cbf2eb70ce237c03d"
+  },
+  "simulate_retirement": {
+    "english": "Run the retirement simulation: the SAME engine and random paths as Plan > Outlook, so the user's plan has ONE answer.",
+    "sha256": "b93246d33716cc85979c5c0cfa0bdd386ae6be5244412d479dfe8a8df788d92a"
+  },
+  "submit_trading_order": {
+    "english": "Submit an order intent to this run's execution environment; acknowledgement is not a fill.",
+    "sha256": "9fab034532feac21cd02d2126e790fb7bf9944908be85529034b90d300e50a09"
+  },
+  "swap_review_canonical": {
+    "english": "Swap a pending match-review's canonical to one of its tied alternatives (F20).",
+    "sha256": "270ee1db51945394669e64b435246fcacb970b9a8f887d59ce6e2fbb0a19d13e"
+  },
+  "tavily_fetch_page": {
+    "english": "Fetch and read the full text of a URL via Tavily specifically — bypasses the active-provider selection.",
+    "sha256": "10fc048c73d691de05e8e90b38eca52d81125387164e9f5c0870c4e0128886d6"
+  },
+  "tavily_search": {
+    "english": "Search the web via Tavily specifically — bypasses the active-provider selection, so this always hits Tavily even if a different provider is currently active.",
+    "sha256": "96addf36c5776b85e91a80f13a9666c892b06bedeb72b001f15f65668940db8f"
+  },
+  "telegram_send_message": {
+    "english": "Send a message to the user's Telegram right now.",
+    "sha256": "8e79ac69c22634cd5dca1be27c599a369cb956343bf5be542b3fbe801b1359c1"
+  },
+  "trace_transactions": {
+    "english": "Trace the provenance / audit history of one or more transactions: how each was created, and every edit or deletion since.",
+    "sha256": "91c35987789250825cee7a8555d96f131a7662122db5a3f42a830c6658f487cf"
+  },
+  "undo_lot_disposals": {
+    "english": "REVERSE a disposal (sell / transfer-out) — use this to remove a duplicate or mistaken sale from the realized history.",
+    "sha256": "0abc3630b3935944c37cfb3ff575289826904eab14e6645d313316733c2402a1"
+  },
+  "undo_vest": {
+    "english": "REVERSE a vest event — shows what will be undone before writing anything.",
+    "sha256": "4480966fa8bef2550d0075a493eda0875567f0a02b989cb6117851c89939734e"
+  },
+  "unlink_categories": {
+    "english": "UNLINK categories from an envelope.",
+    "sha256": "25e29de13539e25eab0fae7776768d5a5a399b1ca4c9a138573946bd93fb468a"
+  },
+  "unlink_receipt": {
+    "english": "Remove the link between one receipt and one transaction.",
+    "sha256": "a1912d9e043bd8cce68d529bf8302ac122bccc9dd90315321313baed21a005b0"
+  },
+  "update_accounts": {
+    "english": "Edit one or many existing accounts — name, institution (custodian grouping key), initial_balance, initial_balance_date, credit_limit, last_four, note, or arc…",
+    "sha256": "d58c6f59660b0b315aae6c1c8d7d8994ed0f1b80258eb42826bc4e0c2e7728b0"
+  },
+  "update_action_status": {
+    "english": "Mark a property action as Done or Not Started.",
+    "sha256": "c8e2ab84fd5d5c4fe9129c155466c2f9be362d1f46fdbf64d8799777ec987f84"
+  },
+  "update_asset": {
+    "english": "Patch an owned asset's IDENTITY fields — name, category, description, notes, cost, share, insurance, maturity date, or linked loan.",
+    "sha256": "12a01c35c2af2890166294081f4e8bb453bd3d2584304713e919adb5be862c46"
+  },
+  "update_automations": {
+    "english": "Update one or more existing Automations, including their trigger or paused state.",
+    "sha256": "b90a3c43192009b1db1c2d88083094e2f51932f90ab6f293993e0cf6f04b36d3"
+  },
+  "update_commitment_actions": {
+    "english": "Patch ONE action/event on a commitment — typically mark it done, or fix its date/amount.",
+    "sha256": "59e50e98589a710a6ad4354215a1430837c8ab2a3f923dfb43cec299db0f7d25"
+  },
+  "update_commitment_installments": {
+    "english": "Patch ONE installment row (fix a wrong amount/date/label, or mark it paid).",
+    "sha256": "60706e483dc0a002dd3cb3a1b9ca1ad893b44f689317278ec794ebc34d268b91"
+  },
+  "update_commitments": {
+    "english": "Patch a commitment's TOP-LEVEL fields — rename it, change its currency or kind, re-link the funded position/liability account, mark the whole commitment comp…",
+    "sha256": "10bfa4ad958d6c7778afd281f84855b02585750f88a938b0a4f8dd831c919447"
+  },
+  "update_envelopes": {
+    "english": "Edit envelopes — each update sets any of name, color and note (note '' clears it; absent fields are unchanged).",
+    "sha256": "82cba2f5829212ab52b24dcad051991f5f785bc060ec93a3e5b9f1a882f29a2e"
+  },
+  "update_funding_source": {
+    "english": "Patch ONE funding source on a commitment — mark it done once the money actually arrived (status='done'), fix its amount/date, or disable it (disabled=true) w…",
+    "sha256": "bd37bbdb60a5ef642cd5b7e2a072745057495a1a508b5b3fb402a2a63ddb4e72"
+  },
+  "update_goal": {
+    "english": "Update a savings goal — change its amount, deadline, current saved amount, linked accounts, category, priority, note, or mark it completed/cancelled (status).",
+    "sha256": "7c16a5554e761e09c382331e348fd4d5d5f2be0488b1ee6e3c4e3c13c75af5a9"
+  },
+  "update_grant": {
+    "english": "Update a grant.",
+    "sha256": "c6b7272fc3218293f3c36998a3ba330f6c39217b05aa80e6be3601086a6e690a"
+  },
+  "update_instruments": {
+    "english": "Edit an existing instrument's record — the UPDATE half of the instrument pair (resolve_instruments fetches facts).",
+    "sha256": "a38a5f24674301b890b60ac6447379ed4bb91121f7c6cb1eecf5a63c860529eb"
+  },
+  "update_lots": {
+    "english": "Correct a recorded lot — its purchase date, quantity, unit cost, fees, kind or note — including a lot whose shares have been sold (sold lots are correctable).",
+    "sha256": "d629970a3c0023e22807d6a7ea137e2023fd62328bee0e357b1ad9e48d00fbf2"
+  },
+  "update_model_config": {
+    "english": "Change which provider/model the assistant runs on.",
+    "sha256": "22cf34b1e78cd12dd1027b52e56f467aa2deba671e316fae8220ef3780cf28cc"
+  },
+  "update_monitoring_config": {
+    "english": "Update the monitoring schedule — how often prices are checked and news is scanned, crash-watch thresholds, news-spike tuning, the AI analysis on watched tick…",
+    "sha256": "d8ee26e276a13342b6d45f4182076da0c8960c98ad39ce2f4cb0a76e3dad2a70"
+  },
+  "update_option": {
+    "english": "Edit option metadata (note, strategy_tag, collateral linkage, open_date).",
+    "sha256": "f91d0968b9fb3afaeeb0418742f0f4395c6e4bd628b76f874138a0d8759d6b54"
+  },
+  "update_plan_scenario": {
+    "english": "Replace the levers of an existing Outlook plan scenario.",
+    "sha256": "a14a0455e55f652f3ebcf548e804478f0ecf6b7843829ed5c348d194fa867fbd"
+  },
+  "update_positions": {
+    "english": "Move an existing position to another account (account_id/account_name).",
+    "sha256": "840d7d415bbc2c522b7be5a30fb2fda291431fb8ccf643e4302e8383fdffd619"
+  },
+  "update_price_alerts": {
+    "english": "Change one or many alerts' op/value/kind, note, label, name, or channels by id (get_alerts to find it).",
+    "sha256": "eb1dbb4a1a580933627bdf4c19b7b618cdd08555e9cb0515f387f076aa9e2577"
+  },
+  "update_profile": {
+    "english": "Update the user's financial profile.",
+    "sha256": "7b40f6a1895097a9c5352add785ef803c858067029180f6c0b7e030dedc9a992"
+  },
+  "update_run_task": {
+    "english": "Mark one task on this Automation run's list started, finished, or failed.",
+    "sha256": "7fb93453e2e46912431f27735629a2d9ff958bbecbdc3a976c26935af3950d35"
+  },
+  "update_skill": {
+    "english": "Propose editing an existing skill (name, description, body, or enabled).",
+    "sha256": "21ff87914e3ed558483a689f7fe19daf0ec7bdfd2347b4c0db3d256f1cadf821"
+  },
+  "update_transactions": {
+    "english": "Update fields on one or many existing ledger entries.",
+    "sha256": "70815755f3822221d4b0e5a3ad4d620f2b16e933c867faed3dc9221b38fbd564"
+  },
+  "update_watchlist_items": {
+    "english": "Update one or many watchlist items' settings — toggle news monitoring (monitor_news, also the per-ticker alert mute), label/note, (tickers) intent = the user…",
+    "sha256": "dda15ed663d33d7c10b6242a80c9b73bea734288a1aa73825f8fe0ff2b54491d"
+  },
+  "update_watchlists": {
+    "english": "Update one or many watchlists' name, description, or order.",
+    "sha256": "2718b4d50274c4edad3fcc8d6396dc4994e766182da6fa1137c334a8f898da5b"
+  },
+  "verify_statement_balance": {
+    "english": "Verify a statement import by checking that the net change of the imported transactions matches what the statement says.",
+    "sha256": "0281661ded8e29c141f915bf41688ac2ea2d0b4b7790b9f70b31bdad740cee17"
+  },
+  "webhook_send_message": {
+    "english": "Send a message to the user's configured webhook right now.",
+    "sha256": "0a6aaa4b8df2b679469157b6bc8d8d943625944b772e1bb079bb0fcbb4cc48d3"
+  },
+  "write_trading_file": {
+    "english": "Save an immutable version of a relative workspace research/code/test file.",
+    "sha256": "8c98fdbb2134820a1754843febe51c034af53772e5d86d5a30f85f4886fac42a"
+  },
+  "x_search": {
+    "english": "Search X (formerly Twitter) for social posts and chatter.",
+    "sha256": "92e41f2881cefcaf8eb2e581c833882f9d269afbee0d29b1a8c3d14dbd13dc38"
+  },
+  "yahoo_get_price_history": {
+    "english": "Fetch historical price points FROM YAHOO FINANCE DIRECTLY for one ticker — no CoinGecko fallback.",
+    "sha256": "49aa2bbcd84ed26ca43d223540bef4b10e7ee12e1b01c489a568d57727a8ed1f"
+  },
+  "yahoo_get_ticker_prices": {
+    "english": "Query Yahoo Finance DIRECTLY for one or more tickers — no CoinGecko fallback.",
+    "sha256": "2bcc1d039419a3ea5e89d5316f21631f28606167f4ac5d9015bc44fcb5acb9f9"
+  },
+  "ynab_fetch_transactions": {
+    "english": "Fetch YNAB transactions for a date window (default: the provider's own 14-day lookback).",
+    "sha256": "54379ac78467e7747ffdfa4733d8cb7e0c1d55867e2e8602816515404dfd3303"
+  },
+  "ynab_get_plan": {
+    "english": "Read one YNAB plan live: its accounts (type, on/off budget, closed, balance, cleared balance) and one month's budget — Ready to Assign, income, assigned and…",
+    "sha256": "fece1a99bc0fd02987bd190d513ec13bb46d5a2aba4b45fdb0b09289516d6a76"
+  },
+  "ynab_get_status": {
+    "english": "Check the YNAB connector: whether it's configured and enabled, and when it was last fetched.",
+    "sha256": "48863584f9ac826e462e86e2404d02b3ab1eb1dc720d58626b5df62e22e3e40f"
+  },
+  "ynab_list_accounts": {
+    "english": "List the YNAB accounts (balance, suggested account_type, linked_account_id or null) — no transactions.",
+    "sha256": "a94e603369ff02077f2bc6284766454dc363f73790644eac6bfbeb9a5f377775"
+  },
+  "ynab_list_plans": {
+    "english": "List the YNAB plans (budgets) the saved token can see: id, name and currency.",
+    "sha256": "e8b6b75da98e52d7d06761e382bf3a9c20f8e66bb38d2907b87a8510b0b90d6d"
+  }
+}

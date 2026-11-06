@@ -8,8 +8,8 @@
 import * as PD from './planData'
 import { Panel } from '../../ui'
 import { stripYear } from './rtaLines'
-import { monthLabel } from '../../../hooks/useBudget'
-import { buildAutoAssignItems, type AutoBudget } from './budgetParts'
+import { useAppIntl } from '../../../i18n/useAppIntl'
+import { buildAutoAssignItems, useAutoAssignLabel, type AutoBudget } from './budgetParts'
 
 const { fBase } = PD
 
@@ -31,24 +31,31 @@ function MonthTotalsBlock({
   totalAvailable: number
   totalTargets: number
 }) {
+  const { formatMessage } = useAppIntl()
   const leftOver = Math.round((totalAvailable - totalAssigned - totalActivity) * 100) / 100
   const availNeg = totalAvailable < -0.005,
     availZero = Math.abs(totalAvailable) <= 0.005
   return (
     <>
       <div className="pl-rtapop-row">
-        <span className="lbl">Left over from last month</span>
+        <span className="lbl">
+          {formatMessage({ id: 'plan.leftLastMonth', defaultMessage: 'Left over from last month' })}
+        </span>
         <span className="val mask">{fBase(leftOver)}</span>
       </div>
       <div className="pl-rtapop-row">
         {/* Not "Assigned in September" — the panel's own title already says whose month
             this is (owner ask, 2026-09-15). Every row here is about that one month; naming
             it again on each line is noise. */}
-        <span className="lbl">Assigned</span>
+        <span className="lbl">
+          {formatMessage({ id: 'plan.assigned', defaultMessage: 'Assigned' })}
+        </span>
         <span className="val mask">{fBase(totalAssigned)}</span>
       </div>
       <div className="pl-rtapop-row">
-        <span className="lbl">Activity</span>
+        <span className="lbl">
+          {formatMessage({ id: 'plan.activity', defaultMessage: 'Activity' })}
+        </span>
         <span className="val mask">{fBase(totalActivity)}</span>
       </div>
       <div className="pl-rtapop-div" />
@@ -58,7 +65,9 @@ function MonthTotalsBlock({
           (availZero ? ' zero' : availNeg ? ' neg' : ' pos')
         }
       >
-        <span className="lbl">Available</span>
+        <span className="lbl">
+          {formatMessage({ id: 'plan.available', defaultMessage: 'Available' })}
+        </span>
         <span className="val mask">{fBase(totalAvailable)}</span>
       </div>
       {/* Real YNAB's "Cost to Be Me" figure (owner ask, 2026-09-15) — what fully funding every
@@ -68,7 +77,9 @@ function MonthTotalsBlock({
           twice. Always rendered, $0.00 included — a book with no targets should say so. */}
       <div className="pl-rtapop-div pl-rtapop-div--targets" />
       <div className="pl-rtapop-row pl-rtapop-row--targets">
-        <span className="lbl">This month's targets</span>
+        <span className="lbl">
+          {formatMessage({ id: 'plan.monthTargets', defaultMessage: "This month's targets" })}
+        </span>
         <span className="val mask">{fBase(totalTargets)}</span>
       </div>
     </>
@@ -90,15 +101,25 @@ type BudgetSummaryTerms = {
   totalTargets: number
 }
 export function BudgetSummaryPanel(terms: BudgetSummaryTerms) {
+  const { formatMessage } = useAppIntl()
   return (
     // Titled the way real YNAB titles its own card — "September's Summary", the month named
     // rather than "this month" (owner ask, 2026-09-15). stripYear keeps it to the bare month,
     // the same convention the rows below and the RTA popover already use.
-    <Panel collapsible defaultCollapsed={false} title={`${stripYear(terms.monthLabel)}'s Summary`}>
+    <Panel
+      collapsible
+      defaultCollapsed={false}
+      title={formatMessage(
+        { id: 'plan.monthSummary', defaultMessage: "{month}'s Summary" },
+        { month: stripYear(terms.monthLabel) },
+      )}
+    >
       {/* Data isn't ready yet — same guard RtaHero uses, so a half-loaded month looks
           loading rather than an empty/broken breakdown. */}
       {terms.onBudgetCash == null ? (
-        <div className="pl-budget-rail-loading">Loading…</div>
+        <div className="pl-budget-rail-loading">
+          {formatMessage({ id: 'plan.loadingEllipsis', defaultMessage: 'Loading\u2026' })}
+        </div>
       ) : (
         <MonthTotalsBlock
           totalAssigned={terms.totalAssigned}
@@ -121,19 +142,29 @@ export function BudgetFutureAssignedPanel({
 }: {
   data: Array<{ month: string; amount: number }>
 }) {
+  const { formatMessage, locale } = useAppIntl()
   if (!data.length) return null
   const total = Math.round(data.reduce((sum, d) => sum + d.amount, 0) * 100) / 100
+  const displayMonth = (month: string) => {
+    const date = new Date(`${month}-01T00:00:00Z`)
+    return Number.isNaN(date.getTime())
+      ? month
+      : new Intl.DateTimeFormat(locale, { month: 'long', timeZone: 'UTC' }).format(date)
+  }
   return (
     <Panel
       collapsible
       defaultCollapsed={false}
-      title="Assigned in Future Months"
+      title={formatMessage({
+        id: 'plan.assignedFuture',
+        defaultMessage: 'Assigned in Future Months',
+      })}
       badge={<span className="mask">{fBase(total)}</span>}
     >
       <div className="pl-budget-rail-pills">
         {data.map((d) => (
           <div key={d.month} className="pl-budget-rail-stat">
-            <span>{stripYear(monthLabel(d.month))}</span>
+            <span>{displayMonth(d.month)}</span>
             <span className="mask">{fBase(d.amount)}</span>
           </div>
         ))}
@@ -153,9 +184,15 @@ export function BudgetAutoAssignPanel({
   onPick: (label: string) => void
   b: AutoBudget
 }) {
+  const { formatMessage } = useAppIntl()
+  const autoLabel = useAutoAssignLabel()
   const items = buildAutoAssignItems(b)
   return (
-    <Panel collapsible defaultCollapsed={false} title="Auto-Assign">
+    <Panel
+      collapsible
+      defaultCollapsed={false}
+      title={formatMessage({ id: 'plan.autoAssignTitle', defaultMessage: 'Auto-Assign' })}
+    >
       {/* Rail-only pill rows (owner feedback #2) — each its own rounded chip, separated by the
           container's gap rather than the dropdown's divider lines, so the `__div` group marker
           (splitting Underfunded / the history modes / the 2 resets) is dropped here; a plain
@@ -174,7 +211,7 @@ export function BudgetAutoAssignPanel({
               className={'pl-menu-item pl-budget-rail-pill' + (danger ? ' danger' : '')}
               onClick={() => onPick(label)}
             >
-              <span>{label}</span>
+              <span>{autoLabel(label)}</span>
               {hint && <span className="hint">{hint}</span>}
             </button>
           ),

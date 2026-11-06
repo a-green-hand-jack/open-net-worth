@@ -210,6 +210,28 @@ def test_update_grant_note(client):
 def test_update_grant_not_found_404(client):
     r = client.patch("/api/equity/grants/nonexistent", json={"note": "x"})
     assert r.status_code == 404
+    assert r.json()["message_id"] == "equity.error.grantNotFound"
+    assert r.json()["message_params"] == {}
+
+
+def test_equity_message_contract_tracks_emitted_ids():
+    import ast
+    import json
+    from pathlib import Path
+
+    root = Path(__file__).resolve().parents[1]
+    contract = json.loads((root / "backend/core/equity_message_contract.json").read_text())
+    emitted = set()
+    for name in ("equity", "equity_release"):
+        tree = ast.parse((root / f"backend/services/{name}.py").read_text())
+        emitted.update(
+            keyword.value.value
+            for node in ast.walk(tree)
+            if isinstance(node, ast.Call)
+            for keyword in node.keywords
+            if keyword.arg == "message_id" and isinstance(keyword.value, ast.Constant)
+        )
+    assert emitted == set(contract)
 
 
 # ── POST /api/equity/grants/{id}/cancel ──────────────────────────────────────

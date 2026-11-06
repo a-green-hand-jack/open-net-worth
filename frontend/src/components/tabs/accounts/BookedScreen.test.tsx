@@ -5,11 +5,13 @@
 
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { IntlProvider } from 'react-intl'
+import messages from './zh-CN.messages.json'
 import { BookedScreen, type BookedScreenProps } from './BookedScreen'
 
 afterEach(cleanup)
 
-function renderBooked(over: Partial<BookedScreenProps> = {}) {
+function renderBooked(over: Partial<BookedScreenProps> = {}, chinese = false) {
   const props: BookedScreenProps = {
     result: {
       created: 21,
@@ -35,7 +37,7 @@ function renderBooked(over: Partial<BookedScreenProps> = {}) {
     onDone: vi.fn(),
     ...over,
   }
-  render(<BookedScreen {...props} />)
+  render(chinese ? <IntlProvider locale="zh-CN" messages={messages}><BookedScreen {...props} /></IntlProvider> : <BookedScreen {...props} />)
   return props
 }
 
@@ -115,4 +117,13 @@ describe('BookedScreen', () => {
       'The 1 row you deleted stays deleted.',
     )
   })
+})
+
+it('explains the financial effects of undo in Chinese', () => {
+  renderBooked({ result: { created: 2, merged: 1, deleted: 1, duplicates: 0, skipped: 0, accounts: 1, batchId: 'b1' } }, true)
+  fireEvent.click(screen.getByRole('button', { name: '撤销导入' }))
+  const text = screen.getByRole('alertdialog', { name: '撤销此次导入？' }).textContent
+  expect(text).toContain('将移除已添加的 2 条记录')
+  expect(text).toContain('1 条关联记录恢复原状')
+  expect(text).toContain('您删除的 1 条记录也将恢复')
 })

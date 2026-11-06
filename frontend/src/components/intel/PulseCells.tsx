@@ -1,3 +1,5 @@
+import type { IntlShape } from 'react-intl'
+import { useAppIntl } from '../../i18n/useAppIntl'
 import { fPct } from '../../utils/format'
 import { Sparkline } from '../ui/Sparkline'
 import { Explain } from './Explain'
@@ -9,13 +11,13 @@ import type { TrendPeriod, WatchPulseRow } from '../../types/watchPulse'
 // event, and today's move with how unusual it is for this stock.
 
 // The 52-week context and your buy zone, in words — the trend cell's tooltip when there's no line.
-function rangeText(row: WatchPulseRow, sym: string): string | null {
+function rangeText(row: WatchPulseRow, sym: string, intl: IntlShape): string | null {
   const lo = row.week52_low
   const hi = row.week52_high
   if (lo == null || hi == null) return null
   const fromHigh = row.from_high_pct ?? 0
   const where =
-    fromHigh >= -0.1 ? 'at the 52-week high' : `${Math.abs(fromHigh).toFixed(1)}% below the high`
+    fromHigh >= -0.1 ? intl.formatMessage({ id: 'intel.trend.atHigh', defaultMessage: 'at the 52-week high' }) : intl.formatMessage({ id: 'intel.trend.belowHigh', defaultMessage: '{percent}% below the high' }, { percent: Math.abs(fromHigh).toFixed(1) })
   const top = row.intent?.buy_below
   const zone = top
     ? row.intent?.buy_above
@@ -23,20 +25,9 @@ function rangeText(row: WatchPulseRow, sym: string): string | null {
       : `≤ ${fLevel(top)}`
     : null
   return (
-    `52-week range ${sym}${fLevel(lo)} to ${sym}${fLevel(hi)} · ${where}` +
-    (zone ? ` · your buy zone ${zone}` : '')
+    intl.formatMessage({ id: 'intel.trend.range', defaultMessage: '52-week range {low} to {high} · {where}' }, { low: sym + fLevel(lo), high: sym + fLevel(hi), where }) +
+    (zone ? intl.formatMessage({ id: 'intel.trend.zone', defaultMessage: ' · your buy zone {zone}' }, { zone }) : '')
   )
-}
-
-const PERIOD_WORDS: Record<TrendPeriod, string> = {
-  '1M': 'Past month',
-  '3M': 'Past 3 months',
-  '1Y': 'Past year',
-}
-const PERIOD_SPAN: Record<TrendPeriod, string> = {
-  '1M': 'a month',
-  '3M': '3 months',
-  '1Y': 'a year',
 }
 
 // No line for this period: a flat dotted stand-in the same shape as a trend, never a second kind
@@ -50,10 +41,11 @@ function TrendEmpty({
   period: TrendPeriod
   sym: string
 }) {
-  const text = row.trend ? `Under ${PERIOD_SPAN[period]} of history` : 'No history yet'
+  const intl = useAppIntl()
+  const text = row.trend ? intl.formatMessage({ id: 'intel.trend.shortHistory', defaultMessage: 'Under {period, select, 1M {a month} 3M {3 months} other {a year}} of history' }, { period }) : intl.formatMessage({ id: 'intel.trend.noHistory', defaultMessage: 'No history yet' })
   const tip = [
-    `${text} — the line appears once enough daily closes are on file`,
-    rangeText(row, sym),
+    intl.formatMessage({ id: 'intel.trend.historyHelp', defaultMessage: '{text} — the line appears once enough daily closes are on file' }, { text }),
+    rangeText(row, sym, intl),
   ]
     .filter(Boolean)
     .join(' · ')
@@ -90,13 +82,14 @@ export function TrendCell({
   sym: string
   benchSymbol?: string | null
 }) {
+  const intl = useAppIntl()
   const s = row.trend?.[period]
   if (!s || s.closes.length < 2) return <TrendEmpty row={row} period={period} sym={sym} />
   const intent = row.intent
   const band = intent?.buy_below ? { lo: intent.buy_above ?? 0, hi: intent.buy_below } : null
-  const cmp = row.compare?.symbol || benchSymbol || 'market'
+  const cmp = row.compare?.symbol || benchSymbol || intl.formatMessage({ id: 'intel.trend.market', defaultMessage: 'market' })
   const cmpWords =
-    row.compare?.kind === 'sector' ? `${cmp}, its sector fund` : `${cmp}, your benchmark`
+    row.compare?.kind === 'sector' ? intl.formatMessage({ id: 'intel.trend.sectorFund', defaultMessage: '{comparison}, its sector fund' }, { comparison: cmp }) : intl.formatMessage({ id: 'intel.trend.benchmark', defaultMessage: '{comparison}, your benchmark' }, { comparison: cmp })
   const first = s.closes[0]!
   const last = s.closes[s.closes.length - 1]!
   // The comparison rebased to the stock's first close, so both lines start together and the gap
@@ -104,17 +97,17 @@ export function TrendCell({
   const b0 = s.bench?.[0]
   const compare = s.bench && b0 ? s.bench.map((b) => (b / b0) * first) : null
   const tip = [
-    `${PERIOD_WORDS[period]}: ${sym}${fLevel(first)} → ${sym}${fLevel(last)} (${pct1(s.pct)})`,
+    intl.formatMessage({ id: 'intel.trend.change', defaultMessage: '{period, select, 1M {Past month} 3M {Past 3 months} other {Past year}}: {first} → {last} ({change})' }, { period, first: sym + fLevel(first), last: sym + fLevel(last), change: pct1(s.pct) }),
     s.vs_bench_pct != null && compare
-      ? `Dashed line: ${cmpWords} — ${pct1(s.vs_bench_pct)} vs it`
+      ? intl.formatMessage({ id: 'intel.trend.dashed', defaultMessage: 'Dashed line: {comparison} — {percent} vs it' }, { comparison: cmpWords, percent: pct1(s.vs_bench_pct) })
       : null,
     s.vs_market_pct != null && benchSymbol
-      ? `${pct1(s.vs_market_pct)} vs ${benchSymbol}, your benchmark`
+      ? intl.formatMessage({ id: 'intel.trend.vsBenchmark', defaultMessage: '{percent} vs {benchmark}, your benchmark' }, { percent: pct1(s.vs_market_pct), benchmark: benchSymbol })
       : null,
-    compare ? `Shading: green where it's ahead of ${cmp}, red where it's behind` : null,
-    band ? 'Tinted band: your buy zone' : null,
+    compare ? intl.formatMessage({ id: 'intel.trend.shading', defaultMessage: "Shading: green where it's ahead of {comparison}, red where it's behind" }, { comparison: cmp }) : null,
+    band ? intl.formatMessage({ id: 'intel.trend.band', defaultMessage: 'Tinted band: your buy zone' }) : null,
     period === '1Y' && row.week52_low != null && row.week52_high != null
-      ? `52-week range ${sym}${fLevel(row.week52_low)}–${sym}${fLevel(row.week52_high)}`
+      ? intl.formatMessage({ id: 'intel.trend.rangeCompact', defaultMessage: '52-week range {low}–{high}' }, { low: sym + fLevel(row.week52_low), high: sym + fLevel(row.week52_high) })
       : null,
   ]
     .filter(Boolean)
@@ -139,7 +132,7 @@ export function TrendCell({
           <span className="intel-pulse-trend-vs">
             {' · '}
             <DashKey />
-            {pct1(s.vs_bench_pct)} vs {cmp}
+            {intl.formatMessage({ id: 'intel.trend.vs', defaultMessage: '{percent} vs {comparison}' }, { percent: pct1(s.vs_bench_pct), comparison: cmp })}
           </span>
         )}
       </span>
@@ -148,7 +141,8 @@ export function TrendCell({
 }
 
 export function NextCell({ row }: { row: WatchPulseRow }) {
-  const t = row.next_event ? nextEventText(row.next_event) : null
+  const intl = useAppIntl()
+  const t = row.next_event ? nextEventText(row.next_event, intl) : null
   if (!t) return <span className="intel-pulse-next intel-pulse-next--none">—</span>
   return (
     <Explain
@@ -162,9 +156,10 @@ export function NextCell({ row }: { row: WatchPulseRow }) {
 }
 
 export function TodayCell({ row }: { row: WatchPulseRow }) {
-  const note = moveNote(row.move)
+  const intl = useAppIntl()
+  const note = moveNote(row.move, intl)
   return (
-    <span className="intel-pulse-today" role="group" aria-label="Change today">
+    <span className="intel-pulse-today" role="group" aria-label={intl.formatMessage({ id: "intel.field.0d417f64", defaultMessage: "Change today" })}>
       <span className="intel-pulse-day money" style={{ color: toneColor(row.day_pct) }}>
         {row.day_pct != null ? fPct(row.day_pct, { sign: true }) : '—'}
       </span>

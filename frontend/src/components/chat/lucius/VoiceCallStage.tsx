@@ -1,3 +1,4 @@
+import { useAppIntl } from '../../../i18n/useAppIntl'
 import { useEffect, useRef } from 'react'
 import { ChevronDown, Keyboard, Maximize2, Mic, MicOff, PhoneOff } from 'lucide-react'
 import { expandCall, hangUp, minimizeCall, toggleMute, useVoiceCall } from './voiceCall'
@@ -22,9 +23,10 @@ export function VoiceCallStage({
   busy: boolean
   expandable?: boolean
 }) {
+  const intl = useAppIntl()
   const call = useVoiceCall()
   const now = useCallClock(call)
-  const status = callStatus(call, now, busy)
+  const status = callStatus(call, now, busy, intl)
   const ended = call.phase === 'ended'
   const top = ended ? status.text : status.time
   // Something is under way (ringing, reconnecting, Lucius working): the words shimmer.
@@ -41,8 +43,8 @@ export function VoiceCallStage({
   }, [screen])
 
   const dialog = screen
-    ? { role: 'dialog', 'aria-modal': true, 'aria-label': 'Voice call with Lucius', tabIndex: -1 }
-    : { role: 'group', 'aria-label': 'Voice call' }
+    ? { role: 'dialog', 'aria-modal': true, 'aria-label': intl.formatMessage({ id: 'chat.voice.withLucius', defaultMessage: 'Voice call with Lucius' }), tabIndex: -1 }
+    : { role: 'group', 'aria-label': intl.formatMessage({ id: 'chat.voice.call', defaultMessage: 'Voice call' }) }
   return (
     <div
       ref={root}
@@ -60,7 +62,7 @@ export function VoiceCallStage({
           {top && (
             <span className={`lx-callbar-dot lx-callbar-dot--${status.dot}`} aria-hidden="true" />
           )}
-          <span className="lx-callstage-clock" role="timer" aria-label="Call duration">
+          <span className="lx-callstage-clock" role="timer" aria-label={intl.formatMessage({ id: 'chat.voice.duration', defaultMessage: 'Call duration' })}>
             {top}
           </span>
           {screen && (
@@ -69,8 +71,8 @@ export function VoiceCallStage({
               className="lx-callstage-min"
               data-ended={ended || undefined}
               tabIndex={ended ? -1 : undefined}
-              aria-label="Minimise call"
-              title="Minimise"
+              aria-label={intl.formatMessage({ id: 'chat.voice.minimiseCall', defaultMessage: 'Minimise call' })}
+              title={intl.formatMessage({ id: 'chat.voice.minimise', defaultMessage: 'Minimise' })}
               onClick={minimizeCall}
             >
               <ChevronDown size={22} />
@@ -82,8 +84,8 @@ export function VoiceCallStage({
               className="lx-callstage-min"
               data-ended={ended || undefined}
               tabIndex={ended ? -1 : undefined}
-              aria-label="Open call"
-              title="Open call"
+              aria-label={intl.formatMessage({ id: 'chat.voice.open', defaultMessage: 'Open call' })}
+              title={intl.formatMessage({ id: 'chat.voice.open', defaultMessage: 'Open call' })}
               onClick={expandCall}
             >
               <Maximize2 size={16} />
@@ -120,13 +122,13 @@ export function VoiceCallStage({
                 type="button"
                 className="lx-callstage-btn"
                 aria-pressed={call.muted}
-                aria-label={call.muted ? 'Unmute' : 'Mute'}
+                aria-label={call.muted ? intl.formatMessage({ id: 'chat.voice.unmute', defaultMessage: 'Unmute' }) : intl.formatMessage({ id: 'chat.voice.mute', defaultMessage: 'Mute' })}
                 disabled={call.phase !== 'live'}
                 onClick={() => void toggleMute()}
               >
                 {call.muted ? <MicOff size={screen ? 26 : 14} /> : <Mic size={screen ? 26 : 14} />}
               </button>
-              <span className="lx-callstage-label">{call.muted ? 'Unmute' : 'Mute'}</span>
+              <span className="lx-callstage-label">{call.muted ? intl.formatMessage({ id: 'chat.voice.unmute', defaultMessage: 'Unmute' }) : intl.formatMessage({ id: 'chat.voice.mute', defaultMessage: 'Mute' })}</span>
             </div>
             {screen && (
               // The phone's call covers the chat: Type folds it to the bar, over the message box.
@@ -134,26 +136,26 @@ export function VoiceCallStage({
                 <button
                   type="button"
                   className="lx-callstage-btn"
-                  aria-label="Type a message"
+                  aria-label={intl.formatMessage({ id: 'chat.voice.typeMessage', defaultMessage: 'Type a message' })}
                   disabled={ended}
                   onClick={minimizeCall}
                 >
                   <Keyboard size={26} />
                 </button>
-                <span className="lx-callstage-label">Type</span>
+                <span className="lx-callstage-label">{intl.formatMessage({ id: 'chat.voice.type', defaultMessage: 'Type' })}</span>
               </div>
             )}
             <div className="lx-callstage-ctl">
               <button
                 type="button"
                 className="lx-callstage-btn lx-callstage-btn--end"
-                aria-label="End call"
+                aria-label={intl.formatMessage({ id: 'chat.voice.endCall', defaultMessage: 'End call' })}
                 disabled={ended}
                 onClick={() => void hangUp()}
               >
                 <PhoneOff size={screen ? 28 : 14} />
               </button>
-              <span className="lx-callstage-label">End</span>
+              <span className="lx-callstage-label">{intl.formatMessage({ id: 'chat.voice.end', defaultMessage: 'End' })}</span>
             </div>
           </div>
         }

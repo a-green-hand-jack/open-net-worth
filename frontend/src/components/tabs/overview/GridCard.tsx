@@ -9,6 +9,7 @@
 
 import type { ReactNode } from 'react'
 import { GAP_PX } from './layoutConstants'
+import { useAppIntl } from '../../../i18n/useAppIntl'
 
 /** Resize direction: 1 = grow toward bottom/right, -1 = mirrored (the
  * opposite edge stays pinned), 0 = axis locked. Mirrors the handoff's
@@ -144,15 +145,15 @@ const expandIcon = (
   </svg>
 )
 
-const RESIZE_HANDLES: Array<{ cls: string; dirX: ResizeDir; dirY: ResizeDir; label: string }> = [
-  { cls: 'e-r', dirX: 1, dirY: 0, label: 'Resize width' },
-  { cls: 'e-l', dirX: -1, dirY: 0, label: 'Resize width' },
-  { cls: 'e-b', dirX: 0, dirY: 1, label: 'Resize height' },
-  { cls: 'e-t', dirX: 0, dirY: -1, label: 'Resize height' },
-  { cls: 'c-se', dirX: 1, dirY: 1, label: 'Resize' },
-  { cls: 'c-sw', dirX: -1, dirY: 1, label: 'Resize' },
-  { cls: 'c-ne', dirX: 1, dirY: -1, label: 'Resize' },
-  { cls: 'c-nw', dirX: -1, dirY: -1, label: 'Resize' },
+const RESIZE_HANDLES: Array<{ cls: string; dirX: ResizeDir; dirY: ResizeDir }> = [
+  { cls: 'e-r', dirX: 1, dirY: 0 },
+  { cls: 'e-l', dirX: -1, dirY: 0 },
+  { cls: 'e-b', dirX: 0, dirY: 1 },
+  { cls: 'e-t', dirX: 0, dirY: -1 },
+  { cls: 'c-se', dirX: 1, dirY: 1 },
+  { cls: 'c-sw', dirX: -1, dirY: 1 },
+  { cls: 'c-ne', dirX: 1, dirY: -1 },
+  { cls: 'c-nw', dirX: -1, dirY: -1 },
 ]
 
 export function GridCard({
@@ -185,6 +186,7 @@ export function GridCard({
   onMoveDown,
   children,
 }: GridCardProps) {
+  const { formatMessage } = useAppIntl()
   const accentStyle = accent
     ? ({
         '--wtint': accent.startsWith('#')
@@ -246,11 +248,28 @@ export function GridCard({
               type="button"
               className="ov-w-ctrl ov-w-ctrl--label ov-w-ctrl--fit"
               onClick={onToggleFit}
-              title={fitOn ? 'Switch to fixed height' : 'Fit height to content'}
-              aria-label="Toggle height mode"
+              title={
+                fitOn
+                  ? formatMessage({
+                      id: 'overview.grid.switchFixed',
+                      defaultMessage: 'Switch to fixed height',
+                    })
+                  : formatMessage({
+                      id: 'overview.grid.fitContent',
+                      defaultMessage: 'Fit height to content',
+                    })
+              }
+              aria-label={formatMessage({
+                id: 'overview.grid.toggleHeight',
+                defaultMessage: 'Toggle height mode',
+              })}
             >
               {fitOn ? fitIcon : fixedIcon}
-              <span>{fitOn ? 'Fit' : 'Fixed'}</span>
+              <span>
+                {fitOn
+                  ? formatMessage({ id: 'overview.fs.fit', defaultMessage: 'Fit' })
+                  : formatMessage({ id: 'overview.fs.fixed', defaultMessage: 'Fixed' })}
+              </span>
             </button>
           )}
           {onOpenFullscreen && (
@@ -258,11 +277,17 @@ export function GridCard({
               type="button"
               className="ov-w-ctrl ov-w-ctrl--label"
               onClick={onEdit ?? onOpenFullscreen}
-              title="Edit widget"
-              aria-label="Edit widget"
+              title={formatMessage({
+                id: 'overview.grid.editWidget',
+                defaultMessage: 'Edit widget',
+              })}
+              aria-label={formatMessage({
+                id: 'overview.grid.editWidget',
+                defaultMessage: 'Edit widget',
+              })}
             >
               {editIcon}
-              <span>Edit</span>
+              <span>{formatMessage({ id: 'overview.edit', defaultMessage: 'Edit' })}</span>
             </button>
           )}
           {onRemove && (
@@ -270,8 +295,14 @@ export function GridCard({
               type="button"
               className="ov-w-remove"
               onClick={onRemove}
-              title="Remove widget"
-              aria-label="Remove widget"
+              title={formatMessage({
+                id: 'overview.grid.removeWidget',
+                defaultMessage: 'Remove widget',
+              })}
+              aria-label={formatMessage({
+                id: 'overview.grid.removeWidget',
+                defaultMessage: 'Remove widget',
+              })}
             >
               {removeIcon}
             </button>
@@ -280,7 +311,12 @@ export function GridCard({
       )}
       {editing && (onMoveUp || onMoveDown) && (
         <div className="ov-card-mobile-move" aria-hidden={false}>
-          <button type="button" aria-label="Move up" onClick={onMoveUp} disabled={!onMoveUp}>
+          <button
+            type="button"
+            aria-label={formatMessage({ id: 'overview.grid.moveUp', defaultMessage: 'Move up' })}
+            onClick={onMoveUp}
+            disabled={!onMoveUp}
+          >
             <svg
               width="14"
               height="14"
@@ -294,7 +330,15 @@ export function GridCard({
               <path d="M6 15l6-6 6 6" />
             </svg>
           </button>
-          <button type="button" aria-label="Move down" onClick={onMoveDown} disabled={!onMoveDown}>
+          <button
+            type="button"
+            aria-label={formatMessage({
+              id: 'overview.grid.moveDown',
+              defaultMessage: 'Move down',
+            })}
+            onClick={onMoveDown}
+            disabled={!onMoveDown}
+          >
             <svg
               width="14"
               height="14"
@@ -317,7 +361,7 @@ export function GridCard({
             type="button"
             className="ov-griditem-collapsed"
             onClick={onToggleCollapse}
-            title="Expand"
+            title={formatMessage({ id: 'overview.expand', defaultMessage: 'Expand' })}
           >
             <span className="ov-griditem-collapsed-t">{collapsedLabel}</span>
             {expandIcon}
@@ -343,7 +387,16 @@ export function GridCard({
             key={r.cls}
             type="button"
             className={`ov-resize-handle ov-resize-handle--${r.cls}`}
-            aria-label={r.label}
+            aria-label={
+              r.dirY === 0
+                ? formatMessage({ id: 'overview.grid.resizeWidth', defaultMessage: 'Resize width' })
+                : r.dirX === 0
+                  ? formatMessage({
+                      id: 'overview.grid.resizeHeight',
+                      defaultMessage: 'Resize height',
+                    })
+                  : formatMessage({ id: 'overview.grid.resize', defaultMessage: 'Resize' })
+            }
             onPointerDown={(e) => onResizePointerDown(e, r.dirX, r.dirY)}
           />
         ))}

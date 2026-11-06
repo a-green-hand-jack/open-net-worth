@@ -69,7 +69,18 @@ def test_duplicate_id_409(client):
     c, _ = client
     payload = {"id": "drive", "url": "http://fake/mcp"}
     assert c.post("/api/mcp-clients", json=payload).status_code == 200
-    assert c.post("/api/mcp-clients", json=payload).status_code == 409
+    duplicate = c.post("/api/mcp-clients", json=payload)
+    assert duplicate.status_code == 409
+    assert duplicate.json()["message_id"] == "connector.error.mcpDuplicate"
+    assert duplicate.json()["message_params"] == {"server": "drive"}
+
+
+def test_unknown_mcp_server_has_stable_message(client):
+    c, _ = client
+    response = c.delete("/api/mcp-clients/missing")
+    assert response.status_code == 404
+    assert response.json()["message_id"] == "connector.error.mcpUnknown"
+    assert response.json()["message_params"] == {"server": "missing"}
 
 
 def test_patch_blank_token_keeps_saved(client):

@@ -1,3 +1,4 @@
+import { useAppIntl } from '../../i18n/useAppIntl'
 // The intro's picture: what a screen holds, as round icons orbiting its two-line title. The
 // ring turns once a minute; each icon turns back the other way so it stays upright.
 import type { CSSProperties } from 'react'
@@ -12,9 +13,16 @@ export interface OrbitItem {
 }
 
 export function OrbitHero({ title, items }: { title: [string, string]; items: OrbitItem[] }) {
+  const { formatMessage } = useAppIntl()
   return (
     <div className="fi-orbit">
-      <ul className="fi-orbit-ring" aria-label="What this screen holds">
+      <ul
+        className="fi-orbit-ring"
+        aria-label={formatMessage({
+          id: 'firstrun.intro.contents',
+          defaultMessage: 'What this screen holds',
+        })}
+      >
         {items.map(({ label, Icon, color }, n) => (
           <li
             key={label}

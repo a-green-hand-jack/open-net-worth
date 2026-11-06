@@ -1,3 +1,4 @@
+import { getNumberLocale } from '../../../utils/format'
 // plan/Plan.tsx — Plan tab shell. Ported from design_handoffs/plan_handoff/prototype/plan/app.jsx
 // (the `App` shell + `FireSettingsModal`), adapted to the real RouterShell:
 //   • drops the prototype's standalone nav rail / .onw-root / .pl-content (the shell owns those)
@@ -5,6 +6,7 @@
 //     IMPLEMENTATION_PLAN.md "Lucius"). "Ask Lucius" routes to the onAskLucius prefill path.
 //   • FIRE Settings persists to the real /api/profile (the server recomputes /api/fire).
 import { useState, useEffect, useRef } from 'react'
+import { useAppIntl } from '../../../i18n/useAppIntl'
 import { useNavigate } from '@tanstack/react-router'
 import {
   ActionMenu,
@@ -53,7 +55,7 @@ import {
   fireHorizon,
   fireNumberOf,
   fireSwrMatches,
-  fireSwrNote,
+  fireSwrNoteParts,
   fireSwrSuggestion,
   saveFireDraft,
   seedFireDraft,
@@ -81,6 +83,7 @@ function FireSettingsModal({
   onClose: () => void
   onSaved: () => void
 }) {
+  const { formatMessage } = useAppIntl()
   const [s, setS] = useState<FireDraft>(EMPTY_FIRE_DRAFT)
   const [saving, setSaving] = useState(false)
   const profileQuery = useQueryCache(PROFILE_KEY, () => fetchJson<FireProfile>(PROFILE_KEY), {
@@ -101,7 +104,34 @@ function FireSettingsModal({
   const horizon = fireHorizon(s)
   const swrSuggest = fireSwrSuggestion(s)
   const swrMatches = fireSwrMatches(s)
-  const swrNote = fireSwrNote(s)
+  const noteParts = fireSwrNoteParts(s)
+  const swrNote = !noteParts
+    ? null
+    : noteParts.kind === 'usual'
+      ? formatMessage(
+          {
+            id: 'plan.swrUsual',
+            defaultMessage: '{suggest}% is the usual rate for a {horizon}-yr retirement.',
+          },
+          noteParts,
+        )
+      : noteParts.kind === 'cautious'
+        ? formatMessage(
+            {
+              id: 'plan.swrCautious',
+              defaultMessage:
+                'A {horizon}-yr retirement usually allows {suggest}%. Your plan keeps {rate}%, the more cautious choice.',
+            },
+            noteParts,
+          )
+        : formatMessage(
+            {
+              id: 'plan.swrAggressive',
+              defaultMessage:
+                'A {horizon}-yr retirement is safer at {suggest}%. Your plan uses {rate}%, which is more aggressive.',
+            },
+            noteParts,
+          )
   const fireNum = fireNumberOf(s)
 
   async function save() {
@@ -122,77 +152,126 @@ function FireSettingsModal({
   }> = [
     {
       k: 'monthlyRetirementSpending',
-      label: 'Monthly retirement spending',
+      label: formatMessage({ id: 'plan.spending', defaultMessage: 'Monthly retirement spending' }),
       step: 100,
-      ph: `${getCurrencySymbol()} / month`,
-      tip: "What you expect to spend per month once retired, in today's dollars. It is annualized only when calculating your FIRE number.",
+      ph: formatMessage(
+        { id: 'plan.monthlyPlaceholder', defaultMessage: '{currency} / month' },
+        { currency: getCurrencySymbol() },
+      ),
+      tip: formatMessage({
+        id: 'plan.spendingTip',
+        defaultMessage:
+          "What you expect to spend per month once retired, in today's dollars. It is annualized only when calculating your FIRE number.",
+      }),
     },
     {
       k: 'withdrawalRate',
-      label: 'Safe withdrawal rate %',
+      label: formatMessage({ id: 'plan.withdrawal', defaultMessage: 'Safe withdrawal rate %' }),
       step: 0.1,
       ph: '4',
-      tip: 'The % of savings withdrawn each year in retirement. The classic 4% rule assumes ~30 years — retiring early stretches it longer, so a lower rate is safer.',
+      tip: formatMessage({
+        id: 'plan.withdrawalTip',
+        defaultMessage:
+          'The % of savings withdrawn each year in retirement. The classic 4% rule assumes ~30 years — retiring early stretches it longer, so a lower rate is safer.',
+      }),
     },
     {
       k: 'expectedReturn',
-      label: 'Expected return %',
+      label: formatMessage({ id: 'plan.return', defaultMessage: 'Expected return %' }),
       step: 0.5,
-      ph: '7, before inflation',
-      tip: "Roughly how much your investments grow each year, before inflation. That means future balances look bigger than what they'll actually buy. For a \"today's money\" view, subtract your country's expected long-run inflation.",
+      ph: formatMessage({ id: 'plan.returnPlaceholder', defaultMessage: '7, before inflation' }),
+      tip: formatMessage({
+        id: 'plan.returnTip',
+        defaultMessage:
+          "Roughly how much your investments grow each year, before inflation. That means future balances look bigger than what they'll actually buy. For a \"today's money\" view, subtract your country's expected long-run inflation.",
+      }),
     },
     {
       k: 'volatility',
-      label: 'Return volatility %',
+      label: formatMessage({ id: 'plan.volatility', defaultMessage: 'Return volatility %' }),
       step: 1,
-      ph: '14–15 for diversified portfolio',
-      tip: 'How much returns swing year to year (standard deviation). ~14–15% is typical for a diversified global portfolio; a higher number widens the range of outcomes in the simulations.',
+      ph: formatMessage({
+        id: 'plan.volatilityPlaceholder',
+        defaultMessage: '14–15 for diversified portfolio',
+      }),
+      tip: formatMessage({
+        id: 'plan.volatilityTip',
+        defaultMessage:
+          'How much returns swing year to year (standard deviation). ~14–15% is typical for a diversified global portfolio; a higher number widens the range of outcomes in the simulations.',
+      }),
     },
     {
       k: 'targetAge',
-      label: 'Target retirement age',
+      label: formatMessage({ id: 'plan.targetAge', defaultMessage: 'Target retirement age' }),
       step: 1,
-      ph: 'when you want to stop working',
-      tip: "The age you want to stop working. Projections check whether you'll reach your FIRE number by then.",
+      ph: formatMessage({
+        id: 'plan.targetPlaceholder',
+        defaultMessage: 'when you want to stop working',
+      }),
+      tip: formatMessage({
+        id: 'plan.ageTip',
+        defaultMessage:
+          "The age you want to stop working. Projections check whether you'll reach your FIRE number by then.",
+      }),
     },
     {
       k: 'lifeExpectancy',
-      label: 'Life expectancy',
+      label: formatMessage({ id: 'plan.lifeExpectancy', defaultMessage: 'Life expectancy' }),
       step: 1,
       ph: '90',
-      tip: 'How long your money needs to last. A longer horizon lowers the safe withdrawal rate, since savings must stretch further.',
+      tip: formatMessage({
+        id: 'plan.lifeTip',
+        defaultMessage:
+          'How long your money needs to last. A longer horizon lowers the safe withdrawal rate, since savings must stretch further.',
+      }),
     },
     {
       k: 'monthlySaving',
-      label: 'Monthly saving until retire',
+      label: formatMessage({
+        id: 'plan.monthlySaving',
+        defaultMessage: 'Monthly saving until retire',
+      }),
       step: 50,
-      ph: 'net savings per month',
-      tip: 'Net amount you add to investments each month until you retire. Drives how fast you reach your FIRE number.',
+      ph: formatMessage({ id: 'plan.savingPlaceholder', defaultMessage: 'net savings per month' }),
+      tip: formatMessage({
+        id: 'plan.savingTip',
+        defaultMessage:
+          'Net amount you add to investments each month until you retire. Drives how fast you reach your FIRE number.',
+      }),
     },
   ]
   return (
     <PlanningModal
       onClose={onClose}
-      label="FIRE Settings"
+      label={formatMessage({ id: 'plan.fireSettings', defaultMessage: 'FIRE Settings' })}
       className="fire-modal"
       style={{ width: 560, maxWidth: '100%' }}
     >
       <div className="pl-modal-head">
-        <h3>FIRE Settings</h3>
-        <button className="pl-modal-x" onClick={onClose} aria-label="Close">
+        <h3>{formatMessage({ id: 'plan.fireSettings', defaultMessage: 'FIRE Settings' })}</h3>
+        <button
+          className="pl-modal-x"
+          onClick={onClose}
+          aria-label={formatMessage({ id: 'plan.close', defaultMessage: 'Close' })}
+        >
           <X />
         </button>
       </div>
       <div className="pl-modal-body" style={{ overflowY: 'auto', maxHeight: 'calc(85vh - 130px)' }}>
         <p style={{ margin: '0 0 16px', fontSize: 12.5, color: 'var(--faint)', lineHeight: 1.5 }}>
-          These settings affect both the Cash Flow and Outlook tabs.
+          {formatMessage({
+            id: 'plan.settingsEffect',
+            defaultMessage: 'These settings affect both the Cash Flow and Outlook tabs.',
+          })}
         </p>
         {fireNum !== null && (
           <div className="fire-formula">
-            <span className="fire-formula-k">FIRE number</span>
+            <span className="fire-formula-k">
+              {formatMessage({ id: 'plan.fireNumber', defaultMessage: 'FIRE number' })}
+            </span>
             <span className="fire-formula-calc">
               {getCurrencySymbol()}
-              {Number(s.monthlyRetirementSpending).toLocaleString()} × 12 ÷ {s.withdrawalRate}%
+              {Number(s.monthlyRetirementSpending).toLocaleString(getNumberLocale())} × 12 ÷ {s.withdrawalRate}%
             </span>
             <span className="fire-formula-eq">=</span>
             <strong className="fire-formula-v mask">{fBaseCompact(fireNum)}</strong>
@@ -220,7 +299,7 @@ function FireSettingsModal({
                     className="stat-info"
                     tabIndex={0}
                     role="button"
-                    aria-label="More info"
+                    aria-label={formatMessage({ id: 'plan.moreInfo', defaultMessage: 'More info' })}
                     style={{ flexShrink: 0 }}
                   >
                     i
@@ -256,7 +335,15 @@ function FireSettingsModal({
                     >
                       <polyline points="20 6 9 17 4 12" />
                     </svg>
-                    <span>Matches a {horizon}-yr retirement</span>
+                    <span>
+                      {formatMessage(
+                        {
+                          id: 'plan.swrMatches',
+                          defaultMessage: 'Matches a {horizon}-yr retirement',
+                        },
+                        { horizon },
+                      )}
+                    </span>
                   </div>
                 ) : (
                   <>
@@ -267,7 +354,10 @@ function FireSettingsModal({
                       className="fire-suggest-use"
                       onClick={() => set('withdrawalRate', String(swrSuggest))}
                     >
-                      Use {swrSuggest}%
+                      {formatMessage(
+                        { id: 'plan.swrUse', defaultMessage: 'Use {suggest}%' },
+                        { suggest: swrSuggest },
+                      )}
                     </Button>
                   </>
                 ))}
@@ -277,10 +367,12 @@ function FireSettingsModal({
       </div>
       <div className="pl-modal-foot">
         <Button variant="secondary" size="dense" onClick={onClose}>
-          Cancel
+          {formatMessage({ id: 'plan.cancel', defaultMessage: 'Cancel' })}
         </Button>
         <Button variant="primary" size="dense" disabled={saving} onClick={save}>
-          {saving ? 'Saving…' : 'Save settings'}
+          {saving
+            ? formatMessage({ id: 'plan.saving', defaultMessage: 'Saving…' })
+            : formatMessage({ id: 'plan.saveSettings', defaultMessage: 'Save settings' })}
         </Button>
       </div>
     </PlanningModal>
@@ -299,6 +391,7 @@ export function Plan({
   /** Deep-link request (?sub=outlook — e.g. a parked screen-command chip). */
   subTabRequest?: string
 }) {
+  const { formatMessage } = useAppIntl()
   const navigate = useNavigate()
   const openAccounts = () =>
     navigate({
@@ -638,19 +731,33 @@ export function Plan({
   const methodItems: ActionMenuItem[] = onBudget
     ? [
         ...METHODS.filter((m) => m.id !== lens.homeId).map((m) => ({
-          label: `Switch to ${m.name}`,
+          label: formatMessage(
+            { id: 'plan.switchMethod', defaultMessage: 'Switch to {method}' },
+            {
+              method:
+                m.id === 'zero_based'
+                  ? formatMessage({ id: 'plan.zeroBased', defaultMessage: 'Zero-Based' })
+                  : m.name,
+            },
+          ),
           onSelect: () => lens.requestSwitch(m.id),
         })),
-        { label: 'Compare methods…', onSelect: lens.openCompare },
+        {
+          label: formatMessage({ id: 'plan.compareMethods', defaultMessage: 'Compare methods…' }),
+          onSelect: lens.openCompare,
+        },
       ]
     : []
   const manageCategories: ActionMenuItem = {
-    label: 'Manage categories',
+    label: formatMessage({ id: 'plan.manageCategories', defaultMessage: 'Manage categories' }),
     onSelect: () => setCatMgrOpen(true),
   }
   const planOverflowItems: ActionMenuItem[] = [
     manageCategories,
-    { label: 'FIRE Settings', onSelect: () => setFireOpen(true) },
+    {
+      label: formatMessage({ id: 'plan.fireSettings', defaultMessage: 'FIRE Settings' }),
+      onSelect: () => setFireOpen(true),
+    },
     ...methodItems,
     ...budgetOverflowItems,
   ]
@@ -690,8 +797,12 @@ export function Plan({
           aria-hidden="true"
         />
         <PageHeader
-          title="Plan"
-          subtitle="Budget your month, project your wealth, and chart your path to financial independence"
+          title={formatMessage({ id: 'plan.plan', defaultMessage: 'Plan' })}
+          subtitle={formatMessage({
+            id: 'plan.subtitle',
+            defaultMessage:
+              'Budget your month, project your wealth, and chart your path to financial independence',
+          })}
           actions={
             isMobile ? (
               // Separate controls each wrapped the masthead onto its own row on phones and one
@@ -699,13 +810,13 @@ export function Plan({
               // each shipping its own responsive collapse — the budgeting-method choices
               // included (methodItems).
               <ActionMenu
-                label="Plan settings"
+                label={formatMessage({ id: 'plan.planSettings', defaultMessage: 'Plan settings' })}
                 trigger={<MoreHorizontal size={18} aria-hidden="true" />}
                 items={planOverflowItems}
               />
             ) : (
               <Button variant="secondary" size="dense" onClick={() => setFireOpen(true)}>
-                FIRE Settings
+                {formatMessage({ id: 'plan.fireSettings', defaultMessage: 'FIRE Settings' })}
               </Button>
             )
           }
@@ -721,20 +832,32 @@ export function Plan({
               buttons (which are the two that stay put on every sub-tab). */}
           <div className="pl-mast-row">
             <PageTabs
-              ariaLabel="Plan sections"
+              ariaLabel={formatMessage({ id: 'plan.sections', defaultMessage: 'Plan sections' })}
               value={tab}
               onChange={setTab}
               tabs={[
-                { key: 'budget', label: 'Budget' },
-                { key: 'cashflow', label: 'Cash Flow' },
-                { key: 'outlook', label: 'Outlook' },
+                {
+                  key: 'budget',
+                  label: formatMessage({ id: 'plan.budget', defaultMessage: 'Budget' }),
+                },
+                {
+                  key: 'cashflow',
+                  label: formatMessage({ id: 'plan.cashFlow', defaultMessage: 'Cash Flow' }),
+                },
+                {
+                  key: 'outlook',
+                  label: formatMessage({ id: 'plan.outlook', defaultMessage: 'Outlook' }),
+                },
               ]}
             />
             {onBudget && !isMobile && (
               <div className="pl-mast-tools">
                 <MethodMenu lens={lens} />
                 <ActionMenu
-                  label="Budget options"
+                  label={formatMessage({
+                    id: 'plan.budgetOptions',
+                    defaultMessage: 'Budget options',
+                  })}
                   trigger={<MoreHorizontal size={18} aria-hidden="true" />}
                   items={[manageCategories, ...budgetOverflowItems]}
                 />
@@ -752,7 +875,10 @@ export function Plan({
             {lens.loading ? (
               <TabSkeleton
                 variant={budgetSkeletonVariant()}
-                label="Loading your budget…"
+                label={formatMessage({
+                  id: 'plan.loadingBudget',
+                  defaultMessage: 'Loading your budget…',
+                })}
                 header={false}
               />
             ) : (
@@ -769,17 +895,33 @@ export function Plan({
           </div>
           <div style={tab === 'cashflow' ? undefined : { display: 'none' }}>
             {accountsQuery.initialLoading ? (
-              <TabSkeleton variant="cashflow" label="Loading cash flow…" header={false} />
+              <TabSkeleton
+                variant="cashflow"
+                label={formatMessage({
+                  id: 'plan.loadingCashFlow',
+                  defaultMessage: 'Loading cash flow…',
+                })}
+                header={false}
+              />
             ) : accountsQuery.data === undefined ? (
               <ErrorState
-                message="Could not load accounts for cash flow."
+                message={formatMessage({
+                  id: 'plan.accountsError',
+                  defaultMessage: 'Could not load accounts for cash flow.',
+                })}
                 onRetry={() => void accountsQuery.refresh()}
               />
             ) : emptyBook ? (
               <PlanEmptyBook
                 icon={<ChartArea size={28} strokeWidth={1.5} aria-hidden="true" />}
-                title="Add an account to see cash flow"
-                body="Cash flow needs a cash balance before it can show a projection."
+                title={formatMessage({
+                  id: 'plan.addAccountTitle',
+                  defaultMessage: 'Add an account to see cash flow',
+                })}
+                body={formatMessage({
+                  id: 'plan.addAccountBody',
+                  defaultMessage: 'Cash flow needs a cash balance before it can show a projection.',
+                })}
                 onAddAccount={openAccounts}
                 onAskLucius={onAskLucius}
               />
@@ -793,10 +935,20 @@ export function Plan({
           </div>
           <div style={tab === 'outlook' ? undefined : { display: 'none' }}>
             {accountsQuery.initialLoading || profileQuery.initialLoading ? (
-              <TabSkeleton variant="cashflow" label="Loading outlook…" header={false} />
+              <TabSkeleton
+                variant="cashflow"
+                label={formatMessage({
+                  id: 'plan.loadingOutlook',
+                  defaultMessage: 'Loading outlook…',
+                })}
+                header={false}
+              />
             ) : accountsQuery.data === undefined || profileQuery.data === undefined ? (
               <ErrorState
-                message="Could not load the inputs for your outlook."
+                message={formatMessage({
+                  id: 'plan.outlookError',
+                  defaultMessage: 'Could not load the inputs for your outlook.',
+                })}
                 onRetry={() => {
                   void accountsQuery.refresh()
                   void profileQuery.refresh()
@@ -805,8 +957,15 @@ export function Plan({
             ) : emptyBook ? (
               <PlanEmptyBook
                 icon={<Sunrise size={28} strokeWidth={1.5} aria-hidden="true" />}
-                title="Add your finances to see an outlook"
-                body="Your retirement outlook starts with an account balance. No forecast is available yet."
+                title={formatMessage({
+                  id: 'plan.addFinancesTitle',
+                  defaultMessage: 'Add your finances to see an outlook',
+                })}
+                body={formatMessage({
+                  id: 'plan.addFinancesBody',
+                  defaultMessage:
+                    'Your retirement outlook starts with an account balance. No forecast is available yet.',
+                })}
                 onAddAccount={openAccounts}
                 onAskLucius={onAskLucius}
               />

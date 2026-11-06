@@ -23,6 +23,8 @@ const POPUP_FEATURES = 'width=520,height=680'
 export interface LunchFlowOAuthOutcome {
   ok: boolean
   error: string | null
+  reason?: string
+  status?: number
 }
 
 /** Open a blank popup SYNCHRONOUSLY, before any `await` — `beginLunchFlowOAuth`'s fetch is
@@ -73,14 +75,14 @@ export function startLunchFlowOAuth(
     onOutcome(outcome)
   }
 
-  function fail(error: string) {
-    finish({ ok: false, error })
+  function fail(error: string, reason: string) {
+    finish({ ok: false, error, reason })
   }
 
   async function tick(flowId: string) {
     if (cancelled || polling) return
     if (popup && popup.closed) {
-      fail('The sign-in window was closed before finishing.')
+      fail('The sign-in window was closed before finishing.', 'popup_closed')
       return
     }
     polling = true
@@ -88,26 +90,26 @@ export function startLunchFlowOAuth(
     polling = false
     if (cancelled) return
     if (poll.status === 'pending') return
-    finish({ ok: poll.status === 'ok', error: poll.status === 'error' ? poll.error : null })
+    finish({ ok: poll.status === 'ok', error: poll.status === 'error' ? poll.error : null, reason: poll.reason })
   }
 
   void (async () => {
     const result = await beginLunchFlowOAuth()
     if (cancelled) return
     if (!result.ok) {
-      finish({ ok: false, error: result.error ?? 'Could not start the sign-in.' })
+      finish({ ok: false, error: result.error ?? 'Could not start the sign-in.', reason: result.reason, status: result.status })
       return
     }
     const flowId = result.flow_id
     const authorizeUrl = result.authorize_url
     if (!flowId || !authorizeUrl) {
-      fail('The sign-in could not be started.')
+      fail('The sign-in could not be started.', 'bad_response')
       return
     }
     if (popup) popup.location.href = authorizeUrl
     else popup = window.open(authorizeUrl, POPUP_NAME, POPUP_FEATURES)
     if (!popup) {
-      fail('Your browser blocked the sign-in window. Allow pop-ups for this site and try again.')
+      fail('Your browser blocked the sign-in window. Allow pop-ups for this site and try again.', 'popup_blocked')
       return
     }
 

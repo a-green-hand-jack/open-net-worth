@@ -5,6 +5,7 @@
 // first open, dead after 10 minutes or a token rotation). There is no Lucius on this page, so
 // showing the setup code as text is fine here — it never is inside the app.
 import { useEffect, useState } from 'react'
+import { useAppIntl } from '../../i18n/useAppIntl'
 import { useBrand } from '../../brand-context'
 import { openShortcutInstall } from '../../utils/openShortcutInstall'
 import {
@@ -24,15 +25,10 @@ import {
 import { iosMajor } from '../tabs/settings/sections/phoneShortcuts'
 import { loadSetup, type SetupData, type SetupShortcut } from './setupData'
 
-type Load =
-  | { state: 'loading' }
-  | { state: 'gone'; message: string }
-  | { state: 'ready'; data: SetupData }
-
-const GONE =
-  'This setup link expired, or was already opened on another device. Make a new one in Settings → Phone shortcuts.'
+type Load = { state: 'loading' } | { state: 'gone' } | { state: 'ready'; data: SetupData }
 
 export function PhoneSetupPage() {
+  const { formatMessage } = useAppIntl()
   const brand = useBrand()
   const [load, setLoad] = useState<Load>({ state: 'loading' })
 
@@ -46,7 +42,7 @@ export function PhoneSetupPage() {
     const t = new URLSearchParams(window.location.search).get('t') ?? ''
     loadSetup(t)
       .then((data) => live && setLoad({ state: 'ready', data }))
-      .catch(() => live && setLoad({ state: 'gone', message: GONE }))
+      .catch(() => live && setLoad({ state: 'gone' }))
     return () => {
       live = false
       meta.remove()
@@ -61,16 +57,39 @@ export function PhoneSetupPage() {
             {brand.app_name.toUpperCase()}
           </Text>
           <PageHeader
-            title="Phone shortcuts"
+            title={formatMessage({ id: 'firstrun.phone.title', defaultMessage: 'Phone shortcuts' })}
             subtitle={
               load.state === 'ready'
-                ? `This link works on this phone for ${Math.round(load.data.expires_in / 60)} minutes.`
+                ? formatMessage(
+                    {
+                      id: 'firstrun.phone.expiry',
+                      defaultMessage: 'This link works on this phone for {count} minutes.',
+                    },
+                    { count: Math.round(load.data.expires_in / 60) },
+                  )
                 : undefined
             }
           />
-          {load.state === 'loading' ? <Loading label="Opening setup…" /> : null}
+          {load.state === 'loading' ? (
+            <Loading
+              label={formatMessage({
+                id: 'firstrun.phone.opening',
+                defaultMessage: 'Opening setup…',
+              })}
+            />
+          ) : null}
           {load.state === 'gone' ? (
-            <ErrorState title="Link no longer works" message={load.message} />
+            <ErrorState
+              title={formatMessage({
+                id: 'firstrun.phone.expiredTitle',
+                defaultMessage: 'Link no longer works',
+              })}
+              message={formatMessage({
+                id: 'firstrun.phone.expired',
+                defaultMessage:
+                  'This setup link expired, or was already opened on another device. Make a new one in Settings → Phone shortcuts.',
+              })}
+            />
           ) : null}
           {load.state === 'ready' ? <Steps data={load.data} /> : null}
         </Stack>
@@ -94,6 +113,7 @@ function initialIos(): Ios {
 }
 
 function Steps({ data }: { data: SetupData }) {
+  const { formatMessage } = useAppIntl()
   const [ios, setIos] = useState<Ios>(initialIos)
   const applePay = data.shortcuts.find(
     (s) => s.slug === (ios === '27' ? 'log-apple-pay' : 'log-apple-pay-ios26'),
@@ -102,31 +122,67 @@ function Steps({ data }: { data: SetupData }) {
   return (
     <>
       <SegmentedControl
-        ariaLabel="iOS version"
-        options={IOS_OPTIONS}
+        ariaLabel={formatMessage({
+          id: 'firstrun.phone.iosVersion',
+          defaultMessage: 'iOS version',
+        })}
+        options={IOS_OPTIONS.map((o) =>
+          o.value === '26'
+            ? {
+                ...o,
+                label: formatMessage({
+                  id: 'firstrun.phone.oldIos',
+                  defaultMessage: 'iOS 26 or earlier',
+                }),
+              }
+            : o,
+        )}
         value={ios}
         onChange={setIos}
       />
       <Panel
-        title="Setup code"
-        subtitle="Your address and API token. Each shortcut asks for it once."
+        title={formatMessage({ id: 'firstrun.phone.code', defaultMessage: 'Setup code' })}
+        subtitle={formatMessage({
+          id: 'firstrun.phone.codeHelp',
+          defaultMessage: 'Your address and API token. Each shortcut asks for it once.',
+        })}
       >
         <CopyCode code={data.setup_code} />
       </Panel>
       {applePay ? (
         <OptionPanel
-          title="Apple Pay taps"
-          what="Amount, merchant and card, as you tap"
+          title={formatMessage({ id: 'firstrun.phone.apple', defaultMessage: 'Apple Pay taps' })}
+          what={formatMessage({
+            id: 'firstrun.phone.appleHelp',
+            defaultMessage: 'Amount, merchant and card, as you tap',
+          })}
           shortcut={applePay}
           trigger={
             ios === '27' ? (
               <>
-                <strong>Search → Automation → Wallet</strong> → your cards
+                <strong>
+                  {formatMessage({
+                    id: 'firstrun.phone.osStep0',
+                    defaultMessage: 'Search → Automation → Wallet',
+                  })}
+                </strong>{' '}
+                → {formatMessage({ id: 'firstrun.phone.cards', defaultMessage: 'your cards' })}
               </>
             ) : (
               <>
-                <strong>Automation → + → Wallet</strong> → your cards →{' '}
-                <strong>Run Immediately</strong>
+                <strong>
+                  {formatMessage({
+                    id: 'firstrun.phone.osStep1',
+                    defaultMessage: 'Automation → + → Wallet',
+                  })}
+                </strong>{' '}
+                → {formatMessage({ id: 'firstrun.phone.cards', defaultMessage: 'your cards' })} →{' '}
+                <strong>
+                  {formatMessage({
+                    id: 'firstrun.phone.osStep2',
+                    defaultMessage: 'Run Immediately',
+                  })}
+                </strong>
               </>
             )
           }
@@ -135,12 +191,24 @@ function Steps({ data }: { data: SetupData }) {
       {ios === '27' && notifications ? (
         <>
           <OptionPanel
-            title="Finance notifications"
-            what="Bank, wallet, broker and crypto alerts"
+            title={formatMessage({
+              id: 'firstrun.phone.notifications',
+              defaultMessage: 'Finance notifications',
+            })}
+            what={formatMessage({
+              id: 'firstrun.phone.notificationsHelp',
+              defaultMessage: 'Bank, wallet, broker and crypto alerts',
+            })}
             shortcut={notifications}
             trigger={
               <>
-                <strong>Search → Automation → Notification → App</strong> → your apps
+                <strong>
+                  {formatMessage({
+                    id: 'firstrun.phone.osStep3',
+                    defaultMessage: 'Search → Automation → Notification → App',
+                  })}
+                </strong>{' '}
+                → {formatMessage({ id: 'firstrun.phone.apps', defaultMessage: 'your apps' })}
               </>
             }
           />
@@ -162,12 +230,21 @@ function OptionPanel({
   shortcut: SetupShortcut
   trigger: React.ReactNode
 }) {
+  const { formatMessage } = useAppIntl()
   return (
     <Panel title={title} subtitle={what}>
       <Stack gap="--space-5">
-        <Install shortcut={shortcut} label="Install" />
+        <Install
+          shortcut={shortcut}
+          label={formatMessage({ id: 'firstrun.phone.install', defaultMessage: 'Install' })}
+        />
         <List ordered>
-          <li>Open the download, install the shortcut, paste your setup code</li>
+          <li>
+            {formatMessage({
+              id: 'firstrun.phone.paste',
+              defaultMessage: 'Open the download, install the shortcut, paste your setup code',
+            })}
+          </li>
           <li>{trigger}</li>
         </List>
       </Stack>
@@ -176,6 +253,7 @@ function OptionPanel({
 }
 
 function CopyCode({ code }: { code: string }) {
+  const { formatMessage } = useAppIntl()
   const [copied, setCopied] = useState<boolean | null>(null)
 
   async function copy() {
@@ -200,11 +278,18 @@ function CopyCode({ code }: { code: string }) {
         readOnly
         rows={3}
         value={code}
-        aria-label="Setup code"
+        aria-label={formatMessage({ id: 'firstrun.phone.code', defaultMessage: 'Setup code' })}
         onFocus={(e) => e.currentTarget.select()}
       />
       <Button variant="secondary" fullWidth className="tap-target" onClick={() => void copy()}>
-        {copied === null ? 'Copy' : copied ? 'Copied' : 'Select the code above and copy it'}
+        {copied === null
+          ? formatMessage({ id: 'firstrun.phone.copy', defaultMessage: 'Copy' })
+          : copied
+            ? formatMessage({ id: 'firstrun.phone.copied', defaultMessage: 'Copied' })
+            : formatMessage({
+                id: 'firstrun.phone.copyManual',
+                defaultMessage: 'Select the code above and copy it',
+              })}
       </Button>
     </Stack>
   )
@@ -219,11 +304,30 @@ function Install({
   secondary?: boolean
   label?: string
 }) {
+  const { formatMessage } = useAppIntl()
+  const name =
+    shortcut.slug === 'log-apple-pay' || shortcut.slug === 'log-apple-pay-ios26'
+      ? formatMessage({
+          id: 'firstrun.phone.appleName',
+          defaultMessage: 'Log Apple Pay to Open Net Worth',
+        })
+      : shortcut.slug === 'log-notifications'
+        ? formatMessage({
+            id: 'firstrun.phone.notificationName',
+            defaultMessage: 'Log Finance Notifications to Open Net Worth',
+          })
+        : shortcut.name
   if (!shortcut.install_url) {
     return (
       <Text as="p" size="md" tone="muted">
-        <Badge tone="warn">Not signed</Badge> {shortcut.name} isn’t signed in this build, so iOS
-        would refuse it. Build it by hand — see “Log a spend from your phone” in Help.
+        {formatMessage(
+          {
+            id: 'firstrun.phone.unsignedHelp',
+            defaultMessage:
+              '<badge>Not signed</badge> {name} isn’t signed in this build, so iOS would refuse it. Build it by hand — see “Log a spend from your phone” in Help.',
+          },
+          { name, badge: (chunks) => <Badge tone="warn">{chunks}</Badge> },
+        )}
       </Text>
     )
   }
@@ -235,7 +339,11 @@ function Install({
       className="tap-target"
       onClick={() => openShortcutInstall(href)}
     >
-      {label ?? `Install “${shortcut.name}”`}
+      {label ??
+        formatMessage(
+          { id: 'firstrun.phone.installName', defaultMessage: 'Install “{name}”' },
+          { name },
+        )}
     </Button>
   )
 }

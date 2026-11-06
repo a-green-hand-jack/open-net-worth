@@ -339,6 +339,7 @@ def test_review_created_rows_queues_exactly_the_near_duplicate(book):
         "score": 0.95,
         "become_transfer": False,
         "reasons": ["same amount, similar description, near date, different source"],
+        "reason_messages": [{"id": "matching.similar_description", "params": {}}],
         "llm_reason": None,
         "batch_id": "batch-x",
         "alternatives": [],

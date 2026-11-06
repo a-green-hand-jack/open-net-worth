@@ -1,5 +1,8 @@
+import { watchStoryHeadline } from './watchStoryPresentation'
+import { queueLabel, signalLabel } from './labels'
+import { useAppIntl } from '../../i18n/useAppIntl'
+import { intelTimeAgo } from './relativeTime'
 import { ChevronRight } from '../../ui/icons'
-import { timeAgo } from '../../utils/format'
 import { StoryArcCard } from './StoryArcCard'
 import { signalMeta, storyHeadline } from './storyMeta'
 import { QUEUE_META, classifySignal } from './signalQueue'
@@ -17,6 +20,7 @@ export interface StoryHandlers {
 }
 
 export function StoryCards({ stories, h }: { stories: StoryArc[]; h: StoryHandlers }) {
+  const intl = useAppIntl()
   return (
     <>
       {stories.map((s) => (
@@ -24,7 +28,7 @@ export function StoryCards({ stories, h }: { stories: StoryArc[]; h: StoryHandle
           key={s.id}
           story={s}
           active={h.active === s.id}
-          updatedLabel={timeAgo(s.updated_at)}
+          updatedLabel={intelTimeAgo(s.updated_at, intl)}
           read={!!s.read}
           dismissed={!!s.dismissed}
           resolved={!!s.resolved}
@@ -56,6 +60,7 @@ export function StoryLine({
   onToggle: () => void
   flagCount?: number
 }) {
+  const intl = useAppIntl()
   const top = stories[0]!
   const st = QUEUE_META[classifySignal(top)]
   const explained = stories.find((s) => s.explained)?.explained
@@ -67,10 +72,10 @@ export function StoryLine({
   const title = explained
     ? explained.what_happened
     : lead
-      ? storyHeadline(lead)
+      ? watchStoryHeadline(lead, storyHeadline(lead), intl)
       : flags > 0
-        ? `${flags} flag${flags === 1 ? '' : 's'}`
-        : storyHeadline(top)
+        ? intl.formatMessage({ id: 'intel.story.flags', defaultMessage: '{count} {count, plural, one {flag} other {flags}}' }, { count: flags })
+        : watchStoryHeadline(top, storyHeadline(top), intl)
   return (
     <button
       type="button"
@@ -80,7 +85,7 @@ export function StoryLine({
     >
       <span className="intel-desk-line-dot" style={{ background: st.color }} aria-hidden />
       <span className="intel-desk-line-status" style={{ color: st.color }}>
-        {st.label}
+        {queueLabel(classifySignal(top), intl, st.label)}
       </span>
       <span
         className={`intel-desk-line-type${
@@ -92,17 +97,17 @@ export function StoryLine({
         }`}
       >
         {explained
-          ? 'Explained'
+          ? intl.formatMessage({ id: 'intel.story.explained', defaultMessage: 'Explained' })
           : lead
-            ? signalMeta(lead.type).label
+            ? signalLabel(lead.type, intl, signalMeta(lead.type).label)
             : hasRead
-              ? 'Lucius’s read'
-              : 'Price signal'}
+              ? intl.formatMessage({ id: 'intel.story.luciusRead', defaultMessage: 'Lucius’s read' })
+              : intl.formatMessage({ id: 'intel.story.priceSignal', defaultMessage: 'Price signal' })}
       </span>
       <span className="intel-desk-line-title">{title}</span>
-      {more > 0 && <span className="intel-desk-line-more">+{more} more</span>}
+      {more > 0 && <span className="intel-desk-line-more">{intl.formatMessage({ id: 'intel.story.more', defaultMessage: '+{count} more' }, { count: more })}</span>}
       {unread > 0 && (
-        <span className="intel-desk-line-unread" aria-label={`${unread} unread`}>
+        <span className="intel-desk-line-unread" aria-label={intl.formatMessage({ id: 'intel.story.unread', defaultMessage: '{count} unread' }, { count: unread })}>
           {unread}
         </span>
       )}

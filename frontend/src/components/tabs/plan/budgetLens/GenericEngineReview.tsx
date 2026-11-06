@@ -3,6 +3,7 @@
 // category-id list (see genericRows.ts), so each row is a toggle and the footer recap is a
 // plain count.
 import { useState } from 'react'
+import { useAppIntl } from '../../../../i18n/useAppIntl'
 import { Button } from '../../../ui'
 import type { GenericDraftRow } from './types'
 
@@ -20,10 +21,6 @@ export interface GenericEngineReviewProps {
   onCancel: () => void
 }
 
-const HONESTY_COPY =
-  'Drafted from category names and recent spending — a quick, name-based best guess, not ' +
-  'something Lucius reviewed. Check anything that looks off before applying.'
-
 export function GenericEngineReview({
   rows,
   initialSelected,
@@ -33,6 +30,7 @@ export function GenericEngineReview({
   onApply,
   onCancel,
 }: GenericEngineReviewProps) {
+  const { formatMessage } = useAppIntl()
   const [selected, setSelected] = useState<ReadonlySet<string>>(initialSelected)
 
   function toggle(categoryId: string, checked: boolean) {
@@ -46,14 +44,27 @@ export function GenericEngineReview({
 
   return (
     <div className="bgl-review">
-      {source === 'draft' && <p className="bgl-review__honesty">{HONESTY_COPY}</p>}
+      {source === 'draft' && (
+        <p className="bgl-review__honesty">
+          {formatMessage({
+            id: 'plan.genericDraftHonesty',
+            defaultMessage:
+              'Drafted from category names and recent spending — a quick, name-based best guess, not something Lucius reviewed. Check anything that looks off before applying.',
+          })}
+        </p>
+      )}
 
       {/* Bulk actions: the real book this was built against has ~25 categories, and "start from
           none" / "start from all" then correcting a handful is far less work than flipping 25
           switches one at a time. */}
       {rows.length > 0 && (
         <div className="bgl-review__bulk">
-          <span className="bgl-review__bulk-label">Include which categories?</span>
+          <span className="bgl-review__bulk-label">
+            {formatMessage({
+              id: 'plan.includeCategories',
+              defaultMessage: 'Include which categories?',
+            })}
+          </span>
           <span className="bgl-review__bulk-actions">
             <Button
               variant="ghost"
@@ -61,7 +72,7 @@ export function GenericEngineReview({
               disabled={busy || selected.size === rows.length}
               onClick={() => setSelected(new Set(rows.map((r) => r.category_id)))}
             >
-              Select all
+              {formatMessage({ id: 'plan.selectAll', defaultMessage: 'Select all' })}
             </Button>
             <Button
               variant="ghost"
@@ -69,7 +80,7 @@ export function GenericEngineReview({
               disabled={busy || selected.size === 0}
               onClick={() => setSelected(new Set())}
             >
-              Clear
+              {formatMessage({ id: 'plan.clear', defaultMessage: 'Clear' })}
             </Button>
           </span>
         </div>
@@ -77,7 +88,12 @@ export function GenericEngineReview({
 
       <div className="bgl-review-list">
         {rows.length === 0 ? (
-          <p className="bgl-review-list__empty">No categories available to choose from yet.</p>
+          <p className="bgl-review-list__empty">
+            {formatMessage({
+              id: 'plan.noCategoriesAvailable',
+              defaultMessage: 'No categories available to choose from yet.',
+            })}
+          </p>
         ) : (
           rows.map((row) => {
             const on = selected.has(row.category_id)
@@ -94,7 +110,10 @@ export function GenericEngineReview({
                 aria-checked={on}
                 // Names the ACTION, not just the category — "Include Groceries" tells a screen
                 // reader what flipping this does, which the visible label alone does not.
-                aria-label={`Include ${row.label}`}
+                aria-label={formatMessage(
+                  { id: 'plan.includeNamed', defaultMessage: 'Include {name}' },
+                  { name: row.label },
+                )}
                 className={`bgl-pickrow${on ? ' bgl-pickrow--on' : ''}`}
                 onClick={() => toggle(row.category_id, !on)}
               >
@@ -107,9 +126,15 @@ export function GenericEngineReview({
                   {row.low_confidence && (
                     <span
                       className="bgl-review-row__lowconf"
-                      title="Ambiguous label — double-check this one"
+                      title={formatMessage({
+                        id: 'plan.ambiguousLabel',
+                        defaultMessage: 'Ambiguous label — double-check this one',
+                      })}
                     >
-                      low confidence
+                      {formatMessage({
+                        id: 'plan.lowConfidence',
+                        defaultMessage: 'low confidence',
+                      })}
                     </span>
                   )}
                 </span>
@@ -124,14 +149,19 @@ export function GenericEngineReview({
 
       <div className="bgl-review__footer">
         <span className="bgl-review__recap">
-          {selected.size} of {rows.length} selected
+          {formatMessage(
+            { id: 'plan.selectedCount', defaultMessage: '{selected} of {total} selected' },
+            { selected: selected.size, total: rows.length },
+          )}
         </span>
         <span className="bgl-review__actions">
           <Button variant="secondary" size="dense" disabled={busy} onClick={onCancel}>
-            Cancel
+            {formatMessage({ id: 'plan.cancel', defaultMessage: 'Cancel' })}
           </Button>
           <Button variant="primary" size="dense" disabled={busy} onClick={() => onApply(selected)}>
-            {busy ? 'Applying…' : 'Apply'}
+            {busy
+              ? formatMessage({ id: 'plan.applying', defaultMessage: 'Applying…' })
+              : formatMessage({ id: 'plan.apply', defaultMessage: 'Apply' })}
           </Button>
         </span>
       </div>

@@ -5,6 +5,7 @@
 // CatMgrRowProps) without a categoriesManager.tsx <-> CatMgrCard.tsx import cycle — mirrors
 // how accounts/TxnRow.tsx and accounts/TxnCard.tsx are split (TxnCard imports from TxnRow,
 // TxnRow never imports from Register).
+import { useAppIntl } from '../../../i18n/useAppIntl'
 import { ColorDot, ColorIcon, InlineEdit, Kebab } from './budgetParts'
 import { STRUCTURAL_CATEGORY_KEYS } from '../../../hooks/useCategories'
 import { EntityRow } from '../../../lucius/EntityRow'
@@ -36,6 +37,16 @@ export const KIND_LABEL: Record<string, string> = {
   transfer: 'Transfer',
   investment: 'Investment',
 }
+export function useKindLabel(kind: string): string {
+  const { formatMessage } = useAppIntl()
+  const labels: Record<string, string> = {
+    expense: formatMessage({ id: 'plan.kindExpense', defaultMessage: 'Expense' }),
+    income: formatMessage({ id: 'plan.kindIncome', defaultMessage: 'Inflow' }),
+    transfer: formatMessage({ id: 'plan.kindTransfer', defaultMessage: 'Transfer' }),
+    investment: formatMessage({ id: 'plan.kindInvestment', defaultMessage: 'Investment' }),
+  }
+  return labels[kind] ?? kind
+}
 export function kindPillClass(kind: string): string {
   // Every kind gets its colour (owner, 2026-07-04): expense red, inflow green, transfer blue,
   // investment purple; unknown legacy kinds (e.g. a grandfathered 'adjustment' row) stay plain.
@@ -57,13 +68,17 @@ export function EnvelopeCell({
   envelope: EnvelopeRow | undefined
   labelOf: (key: string) => string
 }) {
+  const { formatMessage } = useAppIntl()
   if (!envelope)
     return (
       <span
         className="pl-catmgr-env pl-catmgr-env--none"
-        title="Link it to an envelope on the Budget table to budget for it"
+        title={formatMessage({
+          id: 'plan.linkEnvelopeHelp',
+          defaultMessage: 'Link it to an envelope on the Budget table to budget for it',
+        })}
       >
-        Not budgeted
+        {formatMessage({ id: 'plan.notBudgeted', defaultMessage: 'Not budgeted' })}
       </span>
     )
   return (
@@ -110,6 +125,8 @@ export function CatMgrRow({
   onDelete,
   onAddToEnvelope,
 }: CatMgrRowProps) {
+  const { formatMessage } = useAppIntl()
+  const kindLabel = useKindLabel(c.kind)
   const locked = STRUCTURAL_CATEGORY_KEYS.has(c.id)
   return (
     // Lucius mention source — THIS is the category-identity surface (budget rows emit
@@ -138,7 +155,15 @@ export function CatMgrRow({
             </span>
           </span>
         ) : (
-          <ColorDot color={c.color} onPick={onRecolor} label={'Color for ' + c.label} icon="tag" />
+          <ColorDot
+            color={c.color}
+            onPick={onRecolor}
+            label={formatMessage(
+              { id: 'plan.colorFor', defaultMessage: 'Color for {name}' },
+              { name: c.label },
+            )}
+            icon="tag"
+          />
         )}
         <span className="pl-cmain">
           {renaming ? (
@@ -146,7 +171,14 @@ export function CatMgrRow({
           ) : (
             <span
               className="pl-clabel"
-              title={locked ? undefined : 'Double-click to rename'}
+              title={
+                locked
+                  ? undefined
+                  : formatMessage({
+                      id: 'plan.doubleClickRename',
+                      defaultMessage: 'Double-click to rename',
+                    })
+              }
               onDoubleClick={() => {
                 if (!locked) onStartRename()
               }}
@@ -165,25 +197,48 @@ export function CatMgrRow({
           </span>
         ) : (
           <Kebab
-            label={c.label + ' options'}
+            label={formatMessage(
+              { id: 'plan.optionsFor', defaultMessage: '{name} options' },
+              { name: c.label },
+            )}
             items={[
-              { label: 'Rename', onClick: onStartRename },
+              {
+                label: formatMessage({ id: 'plan.rename', defaultMessage: 'Rename' }),
+                onClick: onStartRename,
+              },
               // ENV-RES-06 — a dormant unlinked category (no activity this month) never shows
               // up under Outside envelopes' Unbudgeted section, so the manager needs its OWN
               // re-link path; leads right after Rename, mirroring the empty-envelope row's own
               // "Add categories…" precedence in the Budget table's kebab (budgetEnvelopeOps.tsx).
-              ...(onAddToEnvelope ? [{ label: 'Add to envelope…', onClick: onAddToEnvelope }] : []),
-              { label: c.hidden ? 'Unhide' : 'Hide', onClick: onToggleHide },
+              ...(onAddToEnvelope
+                ? [
+                    {
+                      label: formatMessage({
+                        id: 'plan.addToEnvelope',
+                        defaultMessage: 'Add to envelope…',
+                      }),
+                      onClick: onAddToEnvelope,
+                    },
+                  ]
+                : []),
+              {
+                label: c.hidden
+                  ? formatMessage({ id: 'plan.unhide', defaultMessage: 'Unhide' })
+                  : formatMessage({ id: 'plan.hide', defaultMessage: 'Hide' }),
+                onClick: onToggleHide,
+              },
               { divider: true },
-              { label: 'Delete…', danger: true, onClick: onDelete },
+              {
+                label: formatMessage({ id: 'plan.deleteEllipsis', defaultMessage: 'Delete…' }),
+                danger: true,
+                onClick: onDelete,
+              },
             ]}
           />
         )}
       </span>
       <span>
-        <span className={'pl-kindpill ' + kindPillClass(c.kind)}>
-          {KIND_LABEL[c.kind] ?? c.kind}
-        </span>
+        <span className={'pl-kindpill ' + kindPillClass(c.kind)}>{kindLabel}</span>
       </span>
       <span>
         <EnvelopeCell envelope={envelope} labelOf={labelOf} />
@@ -199,10 +254,31 @@ export function CatMgrRow({
           className={'pl-tgt-switch' + (c.hidden ? ' on' : '')}
           title={
             locked
-              ? 'A structural category cannot be hidden'
-              : (c.hidden ? 'Unhide ' : 'Hide ') + c.label
+              ? formatMessage({
+                  id: 'plan.structuralCategory',
+                  defaultMessage: 'A structural category cannot be hidden',
+                })
+              : c.hidden
+                ? formatMessage(
+                    { id: 'plan.unhideNamed', defaultMessage: 'Unhide {name}' },
+                    { name: c.label },
+                  )
+                : formatMessage(
+                    { id: 'plan.hideNamed', defaultMessage: 'Hide {name}' },
+                    { name: c.label },
+                  )
           }
-          aria-label={(c.hidden ? 'Unhide ' : 'Hide ') + c.label}
+          aria-label={
+            c.hidden
+              ? formatMessage(
+                  { id: 'plan.unhideNamed', defaultMessage: 'Unhide {name}' },
+                  { name: c.label },
+                )
+              : formatMessage(
+                  { id: 'plan.hideNamed', defaultMessage: 'Hide {name}' },
+                  { name: c.label },
+                )
+          }
           onClick={() => {
             if (!locked) onToggleHide()
           }}

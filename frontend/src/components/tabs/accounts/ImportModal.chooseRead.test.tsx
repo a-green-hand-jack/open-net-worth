@@ -12,6 +12,9 @@
 
 import { describe, it, expect, afterEach, vi } from 'vitest'
 import { render, cleanup, screen, fireEvent, waitFor, act } from '@testing-library/react'
+import { IntlProvider } from 'react-intl'
+import messages from './zh-CN.messages.json'
+import commonMessages from '../../../i18n/zh-CN.json'
 import { ImportModal } from './ImportModal'
 import type { Account } from './types'
 
@@ -514,4 +517,11 @@ describe('Choose step — "Into accounts" chips', () => {
     // pair, not the chip failing to match.
     expect(decisions.find((d) => d.row === 1)).toBeUndefined() // the IN leg is absorbed
   })
+})
+
+it('shows the import file chooser in Chinese', () => {
+  render(<IntlProvider locale="zh-CN" messages={{ ...commonMessages, ...messages }}><ImportModal open accounts={ACCOUNTS} onClose={() => {}} onPreview={vi.fn() as never} onDecisionCommit={vi.fn() as never} /></IntlProvider>)
+  expect(screen.getByRole('button', { name: '选择账单文件或拖放至此' })).toBeTruthy()
+  expect(screen.getByText('浏览文件')).toBeTruthy()
+  expect(screen.getByRole('button', { name: '或粘贴网址 / Google 表格链接' })).toBeTruthy()
 })

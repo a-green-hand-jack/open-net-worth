@@ -618,5 +618,6 @@ async def test_a_line_the_model_never_sorts_is_shown_not_dropped(isolated, monke
             "line": "Likes tea.",
             "destination": "skip",
             "reason": "Lucius couldn't sort this line. Add it by hand if you want to keep it.",
+            "reason_message": {"id": "memoryImport.reason.unsorted", "params": {}},
         }
     ]

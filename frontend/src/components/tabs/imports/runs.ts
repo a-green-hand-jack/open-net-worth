@@ -1,7 +1,8 @@
+import type { IntlShape } from 'react-intl'
 import { useState } from 'react'
 import { authFetch } from '../../../api/client'
 import { invalidateQueryCache, useQueryCache } from '../../../state/queryCache'
-import { fDateTime } from '../../../utils/format'
+import { fDateTime, getNumberLocale } from '../../../utils/format'
 import type { BadgeTone } from '../../ui'
 import type { Version } from './sync'
 
@@ -11,6 +12,11 @@ import type { Version } from './sync'
 
 export type RunKind = 'import' | 'verify' | 'preview' | 'sync'
 export type RunStatus = 'running' | 'done' | 'failed' | 'interrupted'
+
+export interface RunMessage {
+  message_id: string
+  params: Record<string, string | number>
+}
 
 export interface RunSummary {
   id: string
@@ -23,8 +29,10 @@ export interface RunSummary {
   plan_id: string
   plan_name: string
   outcome: string
+  outcome_message?: RunMessage | null
   archived_at: string | null
   phase: string
+  phase_message?: RunMessage | null
   progress: { done: number; total: number }
   error: string | null
 }
@@ -39,14 +47,20 @@ export interface Problem {
   item: string
   reason: string
   hint: string
+  hint_message?: RunMessage | null
 }
 export interface Check {
   check: string
+  check_message?: RunMessage | null
   unit: 'money' | 'count' | 'text'
   ynab_value: number | string
+  ynab_value_message?: RunMessage | null
   onw_value: number | string
+  onw_value_message?: RunMessage | null
   difference: number | null
   note: string
+  note_message?: RunMessage | null
+  note_details?: { onlyYnab: { amount: number; ref: string }[]; onlyHere: { amount: number; ref: string }[] } | null
 }
 export interface Verification {
   ok: boolean
@@ -112,6 +126,7 @@ export interface PreviewCategory {
   new_name?: string
   /** One line on what its budget does. */
   note: string
+  note_message?: RunMessage | null
 }
 export interface PreviewGroup {
   /** The YNAB category group's id. */
@@ -160,6 +175,7 @@ export interface Preview {
   transfers: number
   budget_months: number
   warnings: string[]
+  warnings_messages?: (RunMessage | null)[]
   book_state: 'fresh' | 'rerun' | 'foreign'
   base_currency: string
   currency_change: boolean
@@ -173,6 +189,7 @@ export interface Preview {
 }
 export interface FieldChange {
   name: string
+  field_id?: string
   before: string
   after: string
 }
@@ -197,18 +214,23 @@ export interface AssignedChange {
 export interface CategoryChange {
   direction: 'sent' | 'pulled'
   text: string
+  text_message?: RunMessage | null
 }
 export interface SyncConflict {
   id: string
   description: string
+  description_message?: RunMessage | null
   reason: string
+  reason_message?: RunMessage | null
   onw_value: Version | null
   ynab_value: Version | null
   status: 'open'
 }
 export interface Note {
   item: string
+  item_message?: RunMessage | null
   reason: string
+  reason_message?: RunMessage | null
 }
 export interface SyncTotals {
   sent: number
@@ -231,7 +253,7 @@ export interface RunRecord extends RunSummary {
   deferred?: Note[]
   errors?: Note[]
   not_stored?: Record<string, number>
-  log: { at: string; line: string }[]
+  log: { at: string; line: string; line_message?: RunMessage | null }[]
   counts: Record<string, Counts>
   problems: Problem[]
   warnings: Problem[]
@@ -307,16 +329,16 @@ export function useRun(id: string | undefined) {
   return run
 }
 
-export async function setArchived(id: string, archived: boolean): Promise<string | null> {
+export async function setArchived(id: string, archived: boolean, intl?: IntlShape): Promise<string | null> {
   try {
     const r = await authFetch(`/api/imports/runs/${id}/${archived ? 'archive' : 'unarchive'}`, {
       method: 'POST',
     })
-    if (!r.ok) return await detailOf(r, 'Could not update the run.')
+    if (!r.ok) return await detailOf(r, intl ? intl.formatMessage({ id: 'imports.run.updateError', defaultMessage: 'Could not update the run.' }) : 'Could not update the run.')
     invalidateQueryCache('/api/imports/runs')
     return null
   } catch {
-    return 'Could not reach the server.'
+    return intl ? intl.formatMessage({ id: 'imports.import.serverError', defaultMessage: 'Could not reach the server.' }) : 'Could not reach the server.'
   }
 }
 
@@ -325,14 +347,20 @@ export function formatWhen(iso: string | null): string {
   return fDateTime(iso, 'short', 'always')
 }
 
-export function formatDuration(run: Pick<RunSummary, 'started_at' | 'finished_at'>): string {
+export function formatDuration(run: Pick<RunSummary, 'started_at' | 'finished_at'>, intl?: IntlShape): string {
   if (!run.finished_at) return '—'
   const seconds = Math.max(
     0,
     Math.round((Date.parse(run.finished_at) - Date.parse(run.started_at)) / 1000),
   )
-  if (seconds < 60) return `${seconds}s`
-  return `${Math.floor(seconds / 60)}m ${seconds % 60}s`
+  const count = (n: number) => new Intl.NumberFormat(getNumberLocale(), { maximumFractionDigits: 0 }).format(n)
+  if (intl && !intl.locale.toLowerCase().startsWith('en')) {
+    return seconds < 60
+      ? intl.formatMessage({ id: 'imports.run.durationSeconds', defaultMessage: '{seconds}s' }, { seconds: count(seconds) })
+      : intl.formatMessage({ id: 'imports.run.durationMinutes', defaultMessage: '{minutes}m {seconds}s' }, { minutes: count(Math.floor(seconds / 60)), seconds: count(seconds % 60) })
+  }
+  if (seconds < 60) return `${count(seconds)}s`
+  return `${count(Math.floor(seconds / 60))}m ${count(seconds % 60)}s`
 }
 
 export function runTitle(run: Pick<RunSummary, 'kind' | 'plan_name' | 'plan_id'>): string {

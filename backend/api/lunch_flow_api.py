@@ -28,12 +28,13 @@ from __future__ import annotations
 import asyncio
 from typing import Optional
 
-from fastapi import APIRouter, HTTPException, Request
+from fastapi import APIRouter, Request
 from fastapi.responses import HTMLResponse
 from pydantic import BaseModel
 
+from backend.api.connector_error_responses import connector_domain_error
 from backend.api.shortcuts import detect_base_url
-from backend.core.errors import OpenNetWorthError, to_http_status
+from backend.core.errors import OpenNetWorthError
 from backend.db.lunch_flow_config_store import LunchFlowConfigStore
 from backend.services.aggregation import lunch_flow as lunch_flow_service
 from backend.services.aggregation import lunch_flow_oauth, lunch_flow_pending
@@ -135,5 +136,5 @@ async def disconnect_lunch_flow_connection(connection_id: int):
     try:
         result = await asyncio.to_thread(lunch_flow_service.disconnect_connection, connection_id)
     except OpenNetWorthError as exc:
-        raise HTTPException(to_http_status(exc), exc.message or str(exc)) from exc
+        return connector_domain_error(exc)
     return result

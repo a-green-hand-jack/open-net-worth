@@ -18,6 +18,7 @@ import type { ComponentType, ReactElement, ReactNode } from 'react'
 import { Button } from '../../ui'
 import { BottomSheet } from '../../ui/BottomSheet'
 import { useIsMobile } from '../../../hooks/useIsMobile'
+import { useAppIntl } from '../../../i18n/useAppIntl'
 import { CheckboxGroup } from '../../ui/CheckboxGroup'
 import { X, ChevronDown } from '../../../ui/icons'
 import { useCategories, usePlanningSummary } from '../../../hooks/serverState'
@@ -214,6 +215,7 @@ function PairsEditor({
   value: unknown
   onChange: (pairs: [string, string][]) => void
 }) {
+  const { formatMessage } = useAppIntl()
   const pairs: [string, string][] = Array.isArray(value) ? (value as [string, string][]) : []
   const [base, setBase] = useState('GBP')
   const [quote, setQuote] = useState('SGD')
@@ -230,7 +232,14 @@ function PairsEditor({
           {pairs.map((p, i) => (
             <span className="ov-fs-pairchip" key={p[0] + p[1]}>
               {p[0]}/{p[1]}
-              <button type="button" onClick={() => remove(i)} aria-label={`Remove ${p[0]}/${p[1]}`}>
+              <button
+                type="button"
+                onClick={() => remove(i)}
+                aria-label={formatMessage(
+                  { id: 'overview.removePair', defaultMessage: 'Remove {pair}' },
+                  { pair: `${p[0]}/${p[1]}` },
+                )}
+              >
                 <X size={12} aria-hidden="true" />
               </button>
             </span>
@@ -238,7 +247,14 @@ function PairsEditor({
         </div>
       )}
       <div className="ov-fs-pairadd">
-        <select value={base} onChange={(e) => setBase(e.target.value)} aria-label="Base currency">
+        <select
+          value={base}
+          onChange={(e) => setBase(e.target.value)}
+          aria-label={formatMessage({
+            id: 'overview.baseCurrency',
+            defaultMessage: 'Base currency',
+          })}
+        >
           {COMMON_CCY.map((c) => (
             <option key={c} value={c}>
               {c}
@@ -249,7 +265,10 @@ function PairsEditor({
         <select
           value={quote}
           onChange={(e) => setQuote(e.target.value)}
-          aria-label="Quote currency"
+          aria-label={formatMessage({
+            id: 'overview.quoteCurrency',
+            defaultMessage: 'Quote currency',
+          })}
         >
           {COMMON_CCY.map((c) => (
             <option key={c} value={c}>
@@ -258,7 +277,7 @@ function PairsEditor({
           ))}
         </select>
         <button type="button" className="ov-fs-pairbtn" onClick={add}>
-          Add
+          {formatMessage({ id: 'overview.add', defaultMessage: 'Add' })}
         </button>
       </div>
     </div>
@@ -304,6 +323,13 @@ function SwatchRow({
   value: string | null | undefined
   onPick: (v: string | null) => void
 }) {
+  const { formatMessage } = useAppIntl()
+  const colors: Record<string, string> = {
+    blue: formatMessage({ id: 'overview.color.blue', defaultMessage: 'Blue' }),
+    green: formatMessage({ id: 'overview.color.green', defaultMessage: 'Green' }),
+    amber: formatMessage({ id: 'overview.color.amber', defaultMessage: 'Amber' }),
+    violet: formatMessage({ id: 'overview.color.violet', defaultMessage: 'Violet' }),
+  }
   const isCustom = value != null && !CURATED_ACCENTS.some((c) => c.key === value)
   const hex = isCustom ? (value as string) : DEFAULT_CUSTOM_HEX
   return (
@@ -311,8 +337,8 @@ function SwatchRow({
       <button
         type="button"
         className={'ov-fs-sw ov-fs-sw--none' + (value == null ? ' on' : '')}
-        title="None"
-        aria-label="None"
+        title={formatMessage({ id: 'overview.none', defaultMessage: 'None' })}
+        aria-label={formatMessage({ id: 'overview.none', defaultMessage: 'None' })}
         onClick={() => onPick(null)}
       />
       {CURATED_ACCENTS.map((c) => (
@@ -321,8 +347,8 @@ function SwatchRow({
           type="button"
           className={'ov-fs-sw' + (value === c.key ? ' on' : '')}
           style={{ background: c.cssVar }}
-          title={c.label}
-          aria-label={c.label}
+          title={colors[c.key] ?? c.label}
+          aria-label={colors[c.key] ?? c.label}
           onClick={() => onPick(c.key)}
         />
       ))}
@@ -368,6 +394,53 @@ export function WidgetFullscreen({
   onOpenRegister,
   mode = 'edit',
 }: WidgetFullscreenProps) {
+  const { formatMessage } = useAppIntl()
+  const vizLabels: Record<string, string> = {
+    list: formatMessage({ id: 'overview.viz.list', defaultMessage: 'List' }),
+    bar: formatMessage({ id: 'overview.viz.bar', defaultMessage: 'Bar' }),
+    pie: formatMessage({ id: 'overview.viz.pie', defaultMessage: 'Pie' }),
+    full: formatMessage({ id: 'overview.viz.full', defaultMessage: 'Chart + numbers' }),
+    chart: formatMessage({ id: 'overview.viz.chart', defaultMessage: 'Chart' }),
+    numbers: formatMessage({ id: 'overview.viz.numbers', defaultMessage: 'Numbers' }),
+    trend: formatMessage({ id: 'overview.viz.trend', defaultMessage: 'Trend' }),
+    comp: formatMessage({ id: 'overview.viz.composition', defaultMessage: 'Composition' }),
+    line: formatMessage({ id: 'overview.viz.line', defaultMessage: 'Line' }),
+    treemap: formatMessage({ id: 'overview.viz.treemap', defaultMessage: 'Treemap' }),
+  }
+  const settingLabels: Record<string, string> = {
+    chart: formatMessage({ id: 'overview.setting.chart', defaultMessage: 'Chart' }),
+    range: formatMessage({ id: 'overview.setting.range', defaultMessage: 'Range' }),
+    categories:
+      instance.defId === 'spending-pace'
+        ? formatMessage({
+            id: 'overview.setting.categoriesDisplay',
+            defaultMessage: 'Categories to display',
+          })
+        : formatMessage({ id: 'overview.setting.categories', defaultMessage: 'Categories' }),
+    pairs: formatMessage({ id: 'overview.setting.pairs', defaultMessage: 'Watch pairs' }),
+    group: formatMessage({ id: 'overview.setting.group', defaultMessage: 'Group by' }),
+    detail: formatMessage({ id: 'overview.setting.detail', defaultMessage: 'Detail' }),
+    url: formatMessage({ id: 'overview.setting.url', defaultMessage: 'Source URL' }),
+  }
+  const optionLabels: Record<string, string> = {
+    Trend: formatMessage({ id: 'overview.viz.trend', defaultMessage: 'Trend' }),
+    Composition: formatMessage({ id: 'overview.viz.composition', defaultMessage: 'Composition' }),
+    Sector: formatMessage({ id: 'overview.option.sector', defaultMessage: 'Sector' }),
+    'Asset type': formatMessage({ id: 'overview.option.assetType', defaultMessage: 'Asset type' }),
+    Account: formatMessage({ id: 'overview.option.account', defaultMessage: 'Account' }),
+    None: formatMessage({ id: 'overview.none', defaultMessage: 'None' }),
+    Totals: formatMessage({ id: 'overview.option.totals', defaultMessage: 'Totals' }),
+    'By category': formatMessage({
+      id: 'overview.option.byCategory',
+      defaultMessage: 'By category',
+    }),
+    All: formatMessage({ id: 'overview.all', defaultMessage: 'All' }),
+    ALL: formatMessage({ id: 'overview.option.allUpper', defaultMessage: 'ALL' }),
+    '1M': formatMessage({ id: 'overview.option.oneMonth', defaultMessage: '1M' }),
+    '3M': formatMessage({ id: 'overview.option.threeMonths', defaultMessage: '3M' }),
+    '6M': formatMessage({ id: 'overview.option.sixMonths', defaultMessage: '6M' }),
+    '1Y': formatMessage({ id: 'overview.option.oneYear', defaultMessage: '1Y' }),
+  }
   const isPhone = useIsMobile()
   const [viewMode, setViewMode] = useState(mode)
   const cfg = instance.config || {}
@@ -390,10 +463,14 @@ export function WidgetFullscreen({
     key: 'title',
     node: (
       <div className="ov-fs-ctl" key="title">
-        <span className="ov-fs-ctl-l">Title</span>
+        <span className="ov-fs-ctl-l">
+          {formatMessage({ id: 'overview.fs.title', defaultMessage: 'Title' })}
+        </span>
         <FsTextInput
           value={instance.title || def.title || ''}
-          placeholder={def.title || 'Title'}
+          placeholder={
+            def.title || formatMessage({ id: 'overview.fs.title', defaultMessage: 'Title' })
+          }
           apply={(v) => {
             const t = v.trim()
             onPatch({ title: t && t !== def.title ? t : undefined })
@@ -407,7 +484,9 @@ export function WidgetFullscreen({
     key: 'showtitle',
     node: (
       <div className="ov-fs-ctl" key="showtitle">
-        <span className="ov-fs-ctl-l">Show title</span>
+        <span className="ov-fs-ctl-l">
+          {formatMessage({ id: 'overview.fs.showTitle', defaultMessage: 'Show title' })}
+        </span>
         <div className="ov-fs-seg">
           {(['Show', 'Hide'] as const).map((o) => (
             <button
@@ -416,7 +495,9 @@ export function WidgetFullscreen({
               className={'ov-fs-chip' + ((instance.hideTitle ? 'Hide' : 'Show') === o ? ' on' : '')}
               onClick={() => onPatch({ hideTitle: o === 'Hide' })}
             >
-              {o}
+              {o === 'Show'
+                ? formatMessage({ id: 'overview.fs.show', defaultMessage: 'Show' })
+                : formatMessage({ id: 'overview.fs.hide', defaultMessage: 'Hide' })}
             </button>
           ))}
         </div>
@@ -430,7 +511,9 @@ export function WidgetFullscreen({
       key: 'viz',
       node: (
         <div className="ov-fs-ctl" key="viz">
-          <span className="ov-fs-ctl-l">Show as</span>
+          <span className="ov-fs-ctl-l">
+            {formatMessage({ id: 'overview.fs.showAs', defaultMessage: 'Show as' })}
+          </span>
           <div className="ov-fs-seg">
             {vizOpts.map((o) => (
               <button
@@ -438,14 +521,19 @@ export function WidgetFullscreen({
                 type="button"
                 className={'ov-fs-chip ov-fs-chip--viz' + (current === o.id ? ' on' : '')}
                 onClick={() => onPatch({ config: { ...cfg, viz: o.id } })}
-                title={o.label}
+                title={vizLabels[o.id] ?? o.label}
               >
                 {VIZ_ICON[o.id]}
-                <span>{o.label}</span>
+                <span>{vizLabels[o.id] ?? o.label}</span>
               </button>
             ))}
           </div>
-          <span className="ov-fs-ctl-hint">Ways this widget can show its data</span>
+          <span className="ov-fs-ctl-hint">
+            {formatMessage({
+              id: 'overview.fs.vizHelp',
+              defaultMessage: 'Ways this widget can show its data',
+            })}
+          </span>
         </div>
       ),
     })
@@ -457,7 +545,9 @@ export function WidgetFullscreen({
       key: 'height',
       node: (
         <div className="ov-fs-ctl" key="height">
-          <span className="ov-fs-ctl-l">Height</span>
+          <span className="ov-fs-ctl-l">
+            {formatMessage({ id: 'overview.fs.height', defaultMessage: 'Height' })}
+          </span>
           <div className="ov-fs-seg">
             {(['Fit', 'Fixed'] as const).map((o) => (
               <button
@@ -468,12 +558,18 @@ export function WidgetFullscreen({
                   onPatch({ heightMode: o === 'Fit' ? undefined : ('fixed' as HeightMode) })
                 }
               >
-                {o}
+                {o === 'Fit'
+                  ? formatMessage({ id: 'overview.fs.fit', defaultMessage: 'Fit' })
+                  : formatMessage({ id: 'overview.fs.fixed', defaultMessage: 'Fixed' })}
               </button>
             ))}
           </div>
           <span className="ov-fs-ctl-hint">
-            Fit grows the widget to its content • Fixed keeps a set height and scrolls inside
+            {formatMessage({
+              id: 'overview.fs.heightHelp',
+              defaultMessage:
+                'Fit grows the widget to its content • Fixed keeps a set height and scrolls inside',
+            })}
           </span>
         </div>
       ),
@@ -484,7 +580,9 @@ export function WidgetFullscreen({
     key: 'color',
     node: (
       <div className="ov-fs-ctl" key="color">
-        <span className="ov-fs-ctl-l">Color</span>
+        <span className="ov-fs-ctl-l">
+          {formatMessage({ id: 'overview.fs.color', defaultMessage: 'Color' })}
+        </span>
         <SwatchRow value={instance.accent} onPick={(v) => onPatch({ accent: v })} />
       </div>
     ),
@@ -494,7 +592,8 @@ export function WidgetFullscreen({
   // widget def gets for free, never a hand-built per-widget control) + the
   // list row-cap, in that order (mirrors the handoff). ──────────────────────
   const data: Ctrl[] = []
-  ;(def.settings || []).forEach((st) => {
+  ;(def.settings || []).forEach((rawSetting) => {
+    const st = { ...rawSetting, label: settingLabels[rawSetting.key] ?? rawSetting.label }
     const cur = cfg[st.key] !== undefined ? cfg[st.key] : st.default
     if (st.type === 'segment' && st.options) {
       appearance.push({
@@ -511,7 +610,7 @@ export function WidgetFullscreen({
                   className={'ov-fs-chip' + (cur === o ? ' on' : '')}
                   onClick={() => onPatch({ config: { ...cfg, [st.key]: o } })}
                 >
-                  {o}
+                  {optionLabels[o] ?? o}
                 </button>
               ))}
             </div>
@@ -574,7 +673,9 @@ export function WidgetFullscreen({
       key: 'rows',
       node: (
         <div className="ov-fs-ctl" key="rows">
-          <span className="ov-fs-ctl-l">Rows</span>
+          <span className="ov-fs-ctl-l">
+            {formatMessage({ id: 'overview.fs.rows', defaultMessage: 'Rows' })}
+          </span>
           <div className="ov-fs-seg">
             {def.rows.options.map((o) => {
               const value = o === 'all' ? null : o
@@ -585,7 +686,7 @@ export function WidgetFullscreen({
                   className={'ov-fs-chip' + (shown === value ? ' on' : '')}
                   onClick={() => onPatch({ limit: value ?? ALL_ROWS })}
                 >
-                  {o === 'all' ? 'All' : o}
+                  {o === 'all' ? formatMessage({ id: 'overview.all', defaultMessage: 'All' }) : o}
                 </button>
               )
             })}
@@ -628,11 +729,16 @@ export function WidgetFullscreen({
       key: 'prompt',
       node: (
         <div className="ov-fs-ctl" key="prompt">
-          <span className="ov-fs-ctl-l">Lucius prompt</span>
+          <span className="ov-fs-ctl-l">
+            {formatMessage({ id: 'overview.fs.luciusPrompt', defaultMessage: 'Lucius prompt' })}
+          </span>
           <textarea
             className="ov-fs-prompt"
             defaultValue={promptValue}
-            placeholder="Describe the widget you want Lucius to build…"
+            placeholder={formatMessage({
+              id: 'overview.fs.promptPlaceholder',
+              defaultMessage: 'Describe the widget you want Lucius to build…',
+            })}
             onBlur={(e) => onPatch({ config: { ...cfg, prompt: e.target.value } })}
           />
           <button
@@ -644,7 +750,7 @@ export function WidgetFullscreen({
               onAskLucius?.(p)
             }}
           >
-            ✦ Regenerate
+            {formatMessage({ id: 'overview.fs.regenerate', defaultMessage: '✦ Regenerate' })}
           </button>
         </div>
       ),
@@ -691,15 +797,18 @@ export function WidgetFullscreen({
   if (isPhone && viewMode === 'edit') {
     return (
       <BottomSheet
-        title={`Edit ${label}`}
+        title={formatMessage(
+          { id: 'overview.fs.editNamed', defaultMessage: 'Edit {name}' },
+          { name: label },
+        )}
         onClose={onDiscard}
         footer={
           <>
             <Button variant="secondary" size="sm" onClick={onDiscard}>
-              Discard
+              {formatMessage({ id: 'overview.fs.discard', defaultMessage: 'Discard' })}
             </Button>
             <Button variant="primary" size="sm" onClick={onSave}>
-              Save changes
+              {formatMessage({ id: 'overview.fs.saveChanges', defaultMessage: 'Save changes' })}
             </Button>
           </>
         }
@@ -708,7 +817,9 @@ export function WidgetFullscreen({
           {appearance.map((c) => c.node)}
           {hasData && (
             <>
-              <div className="ov-fs-bar-h">Data</div>
+              <div className="ov-fs-bar-h">
+                {formatMessage({ id: 'overview.fs.data', defaultMessage: 'Data' })}
+              </div>
               {data.map((c) => c.node)}
             </>
           )}
@@ -725,7 +836,7 @@ export function WidgetFullscreen({
         onClose={onDiscard}
         headerAction={
           <Button variant="secondary" size="sm" onClick={() => setViewMode('edit')}>
-            Edit
+            {formatMessage({ id: 'overview.edit', defaultMessage: 'Edit' })}
           </Button>
         }
       >
@@ -747,17 +858,22 @@ export function WidgetFullscreen({
         <Dialog.Portal>
           <Dialog.Overlay className="ov-fs-backdrop">
             <Dialog.Content className="ov-fs-shell ov-fs-shell--view" aria-describedby={undefined}>
-              <Dialog.Title className="ui-visually-hidden">{label} — full screen</Dialog.Title>
+              <Dialog.Title className="ui-visually-hidden">
+                {formatMessage(
+                  { id: 'overview.fs.fullTitle', defaultMessage: '{name} — full screen' },
+                  { name: label },
+                )}
+              </Dialog.Title>
               <div className="ov-fs-main">
                 <div className="ov-fs-viewbar">
                   <Button variant="secondary" size="sm" onClick={() => setViewMode('edit')}>
-                    Edit
+                    {formatMessage({ id: 'overview.edit', defaultMessage: 'Edit' })}
                   </Button>
                   <button
                     type="button"
                     className="ov-fs-close"
-                    title="Close"
-                    aria-label="Close"
+                    title={formatMessage({ id: 'overview.close', defaultMessage: 'Close' })}
+                    aria-label={formatMessage({ id: 'overview.close', defaultMessage: 'Close' })}
                     onClick={onDiscard}
                   >
                     <X size={18} strokeWidth={1.6} aria-hidden="true" />
@@ -782,14 +898,21 @@ export function WidgetFullscreen({
       <Dialog.Portal>
         <Dialog.Overlay className="ov-fs-backdrop">
           <Dialog.Content className="ov-fs-shell" aria-describedby={undefined}>
-            <Dialog.Title className="ui-visually-hidden">{label} — full screen</Dialog.Title>
+            <Dialog.Title className="ui-visually-hidden">
+              {formatMessage(
+                { id: 'overview.fs.fullTitle', defaultMessage: '{name} — full screen' },
+                { name: label },
+              )}
+            </Dialog.Title>
             <div className="ov-fs-main">
               <div className="ov-fs-preview">{preview}</div>
               {(hasData || hasLux) && (
                 <div className="ov-fs-data">
                   {hasData && (
                     <div className="ov-fs-data-sec">
-                      <div className="ov-fs-bar-h">Data</div>
+                      <div className="ov-fs-bar-h">
+                        {formatMessage({ id: 'overview.fs.data', defaultMessage: 'Data' })}
+                      </div>
                       <div className="ov-fs-inline">{data.map((c) => c.node)}</div>
                     </div>
                   )}
@@ -798,22 +921,24 @@ export function WidgetFullscreen({
               )}
             </div>
             <div className="ov-fs-rail">
-              <div className="ov-fs-bar-h">Appearance</div>
+              <div className="ov-fs-bar-h">
+                {formatMessage({ id: 'overview.fs.appearance', defaultMessage: 'Appearance' })}
+              </div>
               <div className="ov-fs-stack">{appearance.map((c) => c.node)}</div>
               <div className="ov-fs-actions">
                 <Button variant="secondary" size="sm" onClick={onDiscard}>
-                  Discard
+                  {formatMessage({ id: 'overview.fs.discard', defaultMessage: 'Discard' })}
                 </Button>
                 <Button variant="primary" size="sm" onClick={onSave}>
-                  Save changes
+                  {formatMessage({ id: 'overview.fs.saveChanges', defaultMessage: 'Save changes' })}
                 </Button>
               </div>
             </div>
             <button
               type="button"
               className="ov-fs-close"
-              title="Close"
-              aria-label="Close"
+              title={formatMessage({ id: 'overview.close', defaultMessage: 'Close' })}
+              aria-label={formatMessage({ id: 'overview.close', defaultMessage: 'Close' })}
               onClick={onDiscard}
             >
               <X size={18} strokeWidth={1.6} aria-hidden="true" />
@@ -860,6 +985,7 @@ function CategoryPickerRow({
   onPatch,
   options,
 }: CategorySettingProps & { options: { value: string; label: string }[] }) {
+  const { formatMessage } = useAppIntl()
   const [open, setOpen] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
 
@@ -875,10 +1001,13 @@ function CategoryPickerRow({
   const labelOf = (v: string) => options.find((o) => o.value === v)?.label ?? v
   const display =
     value.length === 0
-      ? 'None'
+      ? formatMessage({ id: 'overview.none', defaultMessage: 'None' })
       : value.length === 1
         ? labelOf(value[0]!)
-        : `${value.length} selected`
+        : formatMessage(
+            { id: 'overview.selectedCount', defaultMessage: '{count} selected' },
+            { count: value.length },
+          )
 
   return (
     <div className="ov-fs-ctl" ref={ref} style={{ position: 'relative' }}>

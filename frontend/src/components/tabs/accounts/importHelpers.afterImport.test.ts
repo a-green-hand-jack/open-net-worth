@@ -6,6 +6,9 @@
 // only when the existing row LACKS one.
 
 import { describe, it, expect } from 'vitest'
+import { createIntl } from 'react-intl'
+import { setDisplayFormats } from '../../../utils/format'
+import messages from './zh-CN.messages.json'
 import { afterImportProjection, driftPhrase, driftPct } from './importHelpers'
 import type { ImportPreviewDraft } from './importHelpers'
 
@@ -201,6 +204,12 @@ describe('afterImportProjection', () => {
 // shared by the weak suggestion line and the match picker's option lines, so they can never
 // quote different numbers for the same pair.
 describe('driftPct / driftPhrase', () => {
+  it('uses the profile decimal separator for displayed drift', () => {
+    setDisplayFormats({ number_format: 'dot' })
+    expect(driftPhrase(-18.8, -18.2)).toBe('3,3% off')
+    setDisplayFormats({})
+  })
+
   it('settled % off the ledger figure', () => {
     expect(driftPct(18.8, -18.2)!.toFixed(1)).toBe('3.3')
     expect(driftPhrase(-18.8, -18.2)).toBe('3.3% off')
@@ -217,4 +226,13 @@ describe('driftPct / driftPhrase', () => {
     expect(driftPhrase(null, -18.2)).toBeNull()
     expect(driftPhrase(-18.8, 0)).toBeNull()
   })
+})
+
+it('localizes projection labels while preserving amounts and category names', () => {
+  const intl = createIntl({ locale: 'zh-CN', messages })
+  const p = afterImportProjection({ action: 'new', draft, existing, catMap, intl })
+  expect(p.count).toBe('2 条记录')
+  expect(p.records[0]!.category).toBe('Subscriptions')
+  expect(p.records[1]!.category).toBe('未分类')
+  expect(p.records[1]!.amount?.value).toBe('-S$18.80')
 })

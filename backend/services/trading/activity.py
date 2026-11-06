@@ -20,7 +20,9 @@ from backend.services.trading.work_records import safe_work_payload
 
 def record_activity(run_id, kind, payload):
     if not isinstance(kind, str) or len(kind) > 80:
-        raise ValidationError("Invalid trading activity kind")
+        raise ValidationError(
+            "Invalid trading activity kind", message_id="trading.error.activity_kind"
+        )
     with trading_transaction() as conn:
         require_bound_run(conn, run_id)
         run = TradingStore("runs").required(run_id, conn=conn)
@@ -70,7 +72,10 @@ def record_agent_usage(run_id, data, *, conn=None):
     cost = amount(data.get("model_cost_usd", 0))
     receipt_id = data.get("receipt_id") or data.get("turn_id")
     if cost < 0 or not receipt_id:
-        raise ValidationError("Usage needs a unique receipt ID and nonnegative cost")
+        raise ValidationError(
+            "Usage needs a unique receipt ID and nonnegative cost",
+            message_id="trading.error.usage_receipt_invalid",
+        )
     if conn is None:
         with trading_transaction() as connection:
             return record_agent_usage(run_id, data, conn=connection)

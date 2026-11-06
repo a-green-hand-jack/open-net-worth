@@ -463,6 +463,7 @@ def book(as_of: date | None = None, base: str | None = None) -> dict:
                 "side": side,
                 "underlying_symbol": symbol,
                 "strategy_tag": c.get("strategy_tag") or "",
+                "strategy_preset": c.get("strategy_preset"),
                 "strategy_group": strategy_group,
                 "contracts": float(c.get("contracts") or 0),
                 "strike": float(c.get("strike") or 0),
@@ -695,6 +696,29 @@ def _validate_open(change: dict) -> str | None:
         return "account_id is required"
     if not change.get("underlying_instrument_id"):
         return "underlying_instrument_id is required"
+    preset = change.get("strategy_preset")
+    if preset is not None:
+        specifications = {
+            "covered_call": ("call", "short"),
+            "csp": ("put", "short"),
+            "long_call": ("call", "long"),
+            "long_put": ("put", "long"),
+            "protective_put": ("put", "long"),
+            "custom": None,
+        }
+        if (
+            not isinstance(preset, str)
+            or preset not in specifications
+            or change.get("strategy_tag") != preset
+        ):
+            return "invalid strategy preset"
+        expected = specifications[preset]
+        if (
+            expected is not None
+            and (str(change.get("option_type")).lower(), str(change.get("side")).lower())
+            != expected
+        ):
+            return "strategy preset does not match option type and side"
     return None
 
 
@@ -769,6 +793,7 @@ def _apply_open(change: dict) -> dict:
                 "collateral_account_id": change.get("collateral_account_id"),
                 "collateral_amount": change.get("collateral_amount"),
                 "strategy_tag": change.get("strategy_tag", ""),
+                "strategy_preset": change.get("strategy_preset"),
                 "idempotency_key": idem_key,
                 "note": change.get("note", ""),
             },
@@ -1016,6 +1041,8 @@ def _apply_update(change: dict) -> dict:
         return {"error": "contract not found"}
     allowed = {"note", "strategy_tag", "collateral_account_id", "collateral_amount", "open_date"}
     patch = {k: v for k, v in change.items() if k in allowed}
+    if "strategy_tag" in patch:
+        patch["strategy_preset"] = None
     if not patch:
         return {"ok": True, "contract_id": contract_id, "no_change": True}
     if patch.get("collateral_account_id"):

@@ -9,6 +9,8 @@ import { fmt, pct } from './assetsData'
 import { Icons } from './icons'
 import { AssetCard, ClassCard, Thumb } from './register'
 import { byValue, registerItems, type AssetStack } from './stacks'
+import { useAppIntl } from '../../../i18n/useAppIntl'
+import { assetCategoryPlural } from './categoryLabels'
 
 function Delta({ value }: { value: number | null }) {
   return (
@@ -28,6 +30,7 @@ interface StackCardProps {
  *  most valuable pictured thing, its total, its gain and its three most valuable things by
  *  name. Tapping it opens the category. */
 export function StackCard({ stack, cats, onCat }: StackCardProps) {
+  const intl = useAppIntl()
   const c = stack.category
   const top = stack.assets.slice(0, 3).map((a) => a.name)
   const more = stack.assets.length - top.length
@@ -37,14 +40,28 @@ export function StackCard({ stack, cats, onCat }: StackCardProps) {
       <button
         type="button"
         className="as-card as-stack"
-        aria-label={`${c.plural}, ${stack.assets.length} items`}
+        aria-label={intl.formatMessage(
+          {
+            id: 'assets.stack.aria',
+            defaultMessage: '{category}, {count, plural, one {# item} other {# items}}',
+          },
+          { category: assetCategoryPlural(intl, c), count: stack.assets.length },
+        )}
         onClick={() => onCat(c.key)}
       >
         <div className="as-card-top">
           <Thumb a={stack.cover} cats={cats} />
           <div className="as-card-id">
-            <div className="as-card-nm">{c.plural}</div>
-            <div className="as-card-sub">{stack.assets.length} items</div>
+            <div className="as-card-nm">{assetCategoryPlural(intl, c)}</div>
+            <div className="as-card-sub">
+              {intl.formatMessage(
+                {
+                  id: 'assets.stack.count',
+                  defaultMessage: '{count, plural, one {# item} other {# items}}',
+                },
+                { count: stack.assets.length },
+              )}
+            </div>
           </div>
         </div>
         <div className="as-card-row">
@@ -55,7 +72,12 @@ export function StackCard({ stack, cats, onCat }: StackCardProps) {
         </div>
         <div className="as-stack-top">
           {top.join(' · ')}
-          {more > 0 ? ` +${more} more` : ''}
+          {more > 0
+            ? intl.formatMessage(
+                { id: 'assets.stack.more', defaultMessage: ' +{count} more' },
+                { count: more },
+              )
+            : ''}
         </div>
       </button>
     </div>
@@ -79,6 +101,7 @@ export interface CardGridProps {
 // Liquidity order, like a balance sheet: cash, then market, then things. Classes hold a
 // fixed slot; things follow most valuable first.
 export function CardGrid(props: CardGridProps) {
+  const intl = useAppIntl()
   const { list, classes, cats, loans, cat, onOpen, onAdd, onNav, onCat } = props
   const assets =
     cat === 'all'
@@ -104,13 +127,22 @@ export function CardGrid(props: CardGridProps) {
           <AssetCard key={a.id} a={a} cats={cats} loans={loans} onOpen={onOpen} />
         ))
   const items = [...classes.map((c) => <ClassCard key={c.key} c={c} onNav={onNav} />), ...assets]
-  if (!items.length) return <div className="as-empty">Nothing matches that filter.</div>
+  if (!items.length)
+    return (
+      <div className="as-empty">
+        {intl.formatMessage({
+          id: 'assets.filterEmpty',
+          defaultMessage: 'Nothing matches that filter.',
+        })}
+      </div>
+    )
   return (
     <div className="as-grid">
       {items}
       {onAdd && (
         <button className="as-add" onClick={onAdd}>
-          {Icons.plus!()}Add an asset
+          {Icons.plus!()}
+          {intl.formatMessage({ id: 'assets.addAnAsset', defaultMessage: 'Add an asset' })}
         </button>
       )}
     </div>

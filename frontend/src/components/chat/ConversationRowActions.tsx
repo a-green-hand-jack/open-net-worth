@@ -15,6 +15,8 @@ import { ActionMenu } from '../ui/ActionMenu'
 import { ConfirmDialog } from '../ui/ConfirmDialog'
 import type { ConversationMeta } from '../../hooks/useConversations'
 import type { ConvRowStatus } from '../../types/chat'
+import { useAppIntl } from '../../i18n/useAppIntl'
+import { displayConversationTitle } from './conversationTitle'
 
 /** An Automation's conversation is owned by its Automation — DELETE /api/chat/{id} refuses
  *  it with a 409 ("delete the Automation to remove its run history"). Offering the item
@@ -51,6 +53,8 @@ export function ConversationRowMenu({
    *  otherwise reads as "left the flyout." Optional; omitted everywhere else this row renders. */
   onMenuOpenChange?: (open: boolean) => void
 }) {
+  const intl = useAppIntl()
+  const title = displayConversationTitle(conv, intl)
   const [kebabOpen, setKebabOpen] = useState(false)
   const [confirmingDelete, setConfirmingDelete] = useState(false)
 
@@ -69,12 +73,12 @@ export function ConversationRowMenu({
   }, [kebabOpen, confirmingDelete, onMenuOpenChange])
 
   const items = [
-    ...(status === 'working' && onStop ? [{ label: 'Stop', onSelect: () => onStop(conv.id) }] : []),
-    { label: 'Rename', onSelect: () => onStartRename(conv.id) },
+    ...(status === 'working' && onStop ? [{ label: intl.formatMessage({ id: 'chat.stop', defaultMessage: 'Stop' }), onSelect: () => onStop(conv.id) }] : []),
+    { label: intl.formatMessage({ id: 'chat.rename', defaultMessage: 'Rename' }), onSelect: () => onStartRename(conv.id) },
     ...(isDeletable(conv) && onDelete
       ? [
           {
-            label: 'Delete',
+            label: intl.formatMessage({ id: 'chat.delete', defaultMessage: 'Delete' }),
             tone: 'danger' as const,
             onSelect: () => setConfirmingDelete(true),
           },
@@ -90,7 +94,7 @@ export function ConversationRowMenu({
     <span className={`conv-row-kebab${className ? ` ${className}` : ''}`}>
       <ActionMenu
         items={items}
-        label={conv.title}
+        label={title}
         trigger={<MoreHorizontal size={15} aria-hidden="true" />}
         onOpenChange={setKebabOpen}
       />
@@ -98,9 +102,9 @@ export function ConversationRowMenu({
         data={
           confirmingDelete
             ? {
-                title: 'Delete conversation?',
-                body: `Delete "${conv.title?.trim() || 'this conversation'}"? This can't be undone.`,
-                confirmLabel: 'Delete',
+                title: intl.formatMessage({ id: 'chat.deleteTitle', defaultMessage: 'Delete conversation?' }),
+                body: intl.formatMessage({ id: 'chat.deleteBody', defaultMessage: "Delete \"{title}\"? This can't be undone." }, { title: title.trim() || intl.formatMessage({ id: 'chat.thisConversation', defaultMessage: 'this conversation' }) }),
+                confirmLabel: intl.formatMessage({ id: 'chat.delete', defaultMessage: 'Delete' }),
                 danger: true,
               }
             : null
@@ -132,6 +136,7 @@ export function ConversationRenameInput({
   onCancel: () => void
   className: string
 }) {
+  const intl = useAppIntl()
   const [value, setValue] = useState(initial)
   const inputRef = useRef<HTMLInputElement>(null)
   // Escape must not also commit via the blur that follows it.
@@ -147,7 +152,7 @@ export function ConversationRenameInput({
       className={className}
       value={value}
       maxLength={80}
-      aria-label="Conversation title"
+      aria-label={intl.formatMessage({ id: 'chat.conversationTitle', defaultMessage: 'Conversation title' })}
       autoFocus
       onChange={(event) => setValue(event.target.value)}
       onKeyDown={(event) => {

@@ -128,16 +128,28 @@ def _clean_item(raw, pasted: set[str], sensitive_ok: bool, profile: dict) -> dic
     reason = " ".join(str(raw.get("reason") or "").split())[:MAX_REASON_CHARS]
     dest = raw.get("destination") if raw.get("destination") in DESTINATIONS else "skip"
     item = {"line": line, "destination": dest, "reason": reason or "Sorted by Lucius."}
+    if not reason:
+        item["reason_message"] = {"id": "memoryImport.reason.sorted", "params": {}}
     item = _route(item, raw, profile)
     if item["destination"] == "memory" and item.get("sensitive") and not sensitive_ok:
-        return {"line": line, "destination": "skip", "reason": _SKIP_SENSITIVE}
+        return {
+            "line": line,
+            "destination": "skip",
+            "reason": _SKIP_SENSITIVE,
+            "reason_message": {"id": "memoryImport.reason.sensitive", "params": {}},
+        }
     return item
 
 
 def _route(item: dict, raw: dict, profile: dict) -> dict:
     text = " ".join(str(raw.get(k) or "") for k in ("value", "content", "line"))
     if item["destination"] != "skip" and has_identifier(text):
-        return {**item, "destination": "skip", "reason": _SKIP_IDENTIFIER}
+        return {
+            **item,
+            "destination": "skip",
+            "reason": _SKIP_IDENTIFIER,
+            "reason_message": {"id": "memoryImport.reason.identifier", "params": {}},
+        }
     if item["destination"] == "instructions":
         value = " ".join(str(raw.get("value") or item["line"]).split())
         return {**item, "value": value}
@@ -159,6 +171,7 @@ def _as_memory(item: dict, raw: dict, reason: str | None) -> dict:
     out = {**item, "destination": "memory", "section": section, "topic": topic, "content": content}
     if reason:
         out["reason"] = reason
+        out["reason_message"] = {"id": "memoryImport.reason.profileFallback", "params": {}}
     if _flagged(raw):
         out["sensitive"] = True
     return out
@@ -240,4 +253,5 @@ def _unsorted_item(line: str) -> dict:
         "line": entry_text(line),
         "destination": "skip",
         "reason": UNSORTED_REASON,
+        "reason_message": {"id": "memoryImport.reason.unsorted", "params": {}},
     }

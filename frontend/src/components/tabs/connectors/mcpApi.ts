@@ -1,3 +1,4 @@
+import type { ConnectorServerMessage } from './connectorServerMessages'
 // Wire calls for the add-an-MCP-server flow, plus the form→wire translation.
 //
 // The flow's rule is that an UNREACHED SERVER IS NEVER SAVED (spec §7). That is only possible
@@ -64,12 +65,14 @@ export interface McpProbeResult {
   trust: McpTrust | null
   /** The REAL connect error, shown inline — never a generic string. */
   error: string | null
+  local_error?: 'request_failed' | 'http'
+  local_status?: number
   /** What a 401 asked for — `oauth` (sign in) or `key` (paste a token) — so the form can offer
    *  the fix instead of leaving a bare HTTP 401. Absent from an older backend. */
   needs_auth?: 'oauth' | 'key' | null
 }
 
-function probeFailure(error: string): McpProbeResult {
+function probeFailure(error: string, localError?: 'request_failed' | 'http', status?: number): McpProbeResult {
   return {
     ok: false,
     server_info: null,
@@ -78,6 +81,8 @@ function probeFailure(error: string): McpProbeResult {
     suggested_id: '',
     trust: null,
     error,
+    ...(localError ? { local_error: localError } : {}),
+    ...(status === undefined ? {} : { local_status: status }),
   }
 }
 
@@ -171,10 +176,12 @@ export function toWireConfig(form: McpConnectionForm, savedAuth?: SavedAuth): Mc
   }
 }
 
-async function errorDetail(res: Response, fallback: string): Promise<string> {
-  const body = (await res.json().catch(() => null)) as { detail?: unknown } | null
+async function errorDetail(res: Response, fallback: string): Promise<{ error: string; fallbackStatus?: number; serverMessage?: ConnectorServerMessage }> {
+  const body = (await res.json().catch(() => null)) as { detail?: unknown; message_id?: unknown; message_params?: unknown } | null
   const detail = body?.detail
-  return typeof detail === 'string' && detail ? detail : `${fallback} (${res.status})`
+  if (typeof detail !== 'string' || !detail) return { error: `${fallback} (${res.status})`, fallbackStatus: res.status }
+  const params = body?.message_params
+  return { error: detail, ...(typeof body?.message_id === 'string' && params && typeof params === 'object' && !Array.isArray(params) ? { serverMessage: { id: body.message_id, params: params as Record<string, unknown> } } : {}) }
 }
 
 // ── OAuth sign-in (RFC `2026-08-14-mcp-oauth` §4.2) ─────────────────────────────
@@ -219,6 +226,7 @@ export interface OAuthBeginResult {
   authorize_url?: string
   flow_id?: string
   expires_in?: number
+  status?: number
   reason?: string
   error?: string
   needs_client_id?: boolean
@@ -233,17 +241,19 @@ export async function beginOAuth(body: OAuthBeginBody): Promise<OAuthBeginResult
       body: JSON.stringify(body),
     })
     if (!res.ok) {
-      return { ok: false, error: await errorDetail(res, 'Could not start the sign-in') }
+      const failure = await errorDetail(res, 'Could not start the sign-in')
+      return { ok: false, error: failure.error, ...(failure.fallbackStatus === undefined ? {} : { reason: 'start_http', status: failure.fallbackStatus }) }
     }
     return (await res.json()) as OAuthBeginResult
   } catch {
-    return { ok: false, error: 'Could not start the sign-in — the request failed.' }
+    return { ok: false, reason: 'request_failed', error: 'Could not start the sign-in — the request failed.' }
   }
 }
 
 /** `{status: pending|ok|error, error}` — NEVER a token (RFC §4.2 "Learning it finished"). */
 export interface OAuthPollResult {
   status: 'pending' | 'ok' | 'error'
+  reason?: string
   error: string | null
 }
 
@@ -252,10 +262,10 @@ export async function pollOAuth(flowId: string): Promise<OAuthPollResult> {
     const res = await authFetch(`/api/mcp-clients/oauth/${encodeURIComponent(flowId)}`, {
       cache: 'no-store',
     })
-    if (!res.ok) return { status: 'error', error: 'Could not check the sign-in status.' }
+    if (!res.ok) return { status: 'error', reason: 'status_unavailable', error: 'Could not check the sign-in status.' }
     return (await res.json()) as OAuthPollResult
   } catch {
-    return { status: 'error', error: 'Could not check the sign-in status — the request failed.' }
+    return { status: 'error', reason: 'status_request_failed', error: 'Could not check the sign-in status — the request failed.' }
   }
 }
 
@@ -326,10 +336,13 @@ export async function probeMcpServer(
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(probeId ? { ...config, probe_id: probeId } : config),
     })
-    if (!res.ok) return probeFailure(await errorDetail(res, 'Could not reach the server'))
+    if (!res.ok) {
+      const failure = await errorDetail(res, 'Could not reach the server')
+      return probeFailure(failure.error, failure.fallbackStatus === undefined ? undefined : 'http', failure.fallbackStatus)
+    }
     return (await res.json()) as McpProbeResult
   } catch {
-    return probeFailure('Could not reach the server — the request failed.')
+    return probeFailure('Could not reach the server — the request failed.', 'request_failed')
   }
 }
 
@@ -455,7 +468,7 @@ export async function createMcpServer(input: {
   tool_permissions: Record<string, string>
   /** False saves it switched off and untested (the add form's Save); the server is not reached. */
   enabled?: boolean
-}): Promise<{ ok: true } | { ok: false; error: string }> {
+}): Promise<{ ok: true } | { ok: false; error: string; permissionFailures?: number; created?: boolean; localError?: 'add' | 'save' | 'add_http' | 'save_http'; localStatus?: number; serverMessage?: ConnectorServerMessage }> {
   try {
     const res = await authFetch('/api/mcp-clients', {
       method: 'POST',
@@ -467,7 +480,10 @@ export async function createMcpServer(input: {
         enabled: input.enabled ?? true,
       }),
     })
-    if (!res.ok) return { ok: false, error: await errorDetail(res, 'Could not add the server') }
+    if (!res.ok) {
+      const failure = await errorDetail(res, 'Could not add the server')
+      return { ok: false, error: failure.error, serverMessage: failure.serverMessage, ...(failure.fallbackStatus === undefined ? {} : { localError: 'add_http' as const, localStatus: failure.fallbackStatus }) }
+    }
 
     const connectorId = mcpConnectorId(input.id)
     let failed = 0
@@ -475,18 +491,19 @@ export async function createMcpServer(input: {
       if (level === 'needs_approval') continue
       if (!(await setToolPermission(connectorId, tool, level))) failed += 1
     }
-    if (failed > 0) return { ok: false, error: permissionWriteError(failed) }
+    if (failed > 0) return { ok: false, error: permissionWriteError(failed, true), permissionFailures: failed, created: true }
     return { ok: true }
   } catch {
-    return { ok: false, error: 'Could not add the server — the request failed.' }
+    return { ok: false, error: 'Could not add the server — the request failed.', localError: 'add' }
   }
 }
 
 /** Said the same way on both commit paths: the connection landed, the levels did not, and
  *  the levels are what matters for what Lucius may fire. */
-function permissionWriteError(failed: number): string {
+function permissionWriteError(failed: number, created = false): string {
   const changes = `${failed} permission ${failed === 1 ? 'level' : 'levels'}`
-  return `The server was saved, but ${changes} could not be written — those tools are still at Needs approval. Try again.`
+  const state = created ? 'are still at Needs approval' : 'retain their previous permissions'
+  return `The server was saved, but ${changes} could not be written — those tools ${state}. Try again.`
 }
 
 /**
@@ -526,7 +543,7 @@ export async function updateMcpServer(input: {
    *  it" rule for every other transport. Omitted (the ordinary edit path) leaves `enabled`
    *  untouched. */
   enable?: boolean
-}): Promise<{ ok: true } | { ok: false; error: string }> {
+}): Promise<{ ok: true } | { ok: false; error: string; permissionFailures?: number; created?: boolean; localError?: 'add' | 'save' | 'add_http' | 'save_http'; localStatus?: number; serverMessage?: ConnectorServerMessage }> {
   const { config } = input
   const remote = config.transport === 'http'
   const body: Record<string, unknown> = { name: input.name }
@@ -548,17 +565,20 @@ export async function updateMcpServer(input: {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body),
     })
-    if (!res.ok) return { ok: false, error: await errorDetail(res, 'Could not save the server') }
+    if (!res.ok) {
+      const failure = await errorDetail(res, 'Could not save the server')
+      return { ok: false, error: failure.error, serverMessage: failure.serverMessage, ...(failure.fallbackStatus === undefined ? {} : { localError: 'save_http' as const, localStatus: failure.fallbackStatus }) }
+    }
 
     const connectorId = mcpConnectorId(input.id)
     let failed = 0
     for (const [tool, level] of Object.entries(input.tool_permissions)) {
       if (!(await setToolPermission(connectorId, tool, level))) failed += 1
     }
-    if (failed > 0) return { ok: false, error: permissionWriteError(failed) }
+    if (failed > 0) return { ok: false, error: permissionWriteError(failed), permissionFailures: failed }
     return { ok: true }
   } catch {
-    return { ok: false, error: 'Could not save the server — the request failed.' }
+    return { ok: false, error: 'Could not save the server — the request failed.', localError: 'save' }
   }
 }
 
@@ -568,14 +588,17 @@ export async function updateMcpServer(input: {
  */
 export async function deleteMcpServer(
   serverId: string,
-): Promise<{ ok: true } | { ok: false; error: string }> {
+): Promise<{ ok: true } | { ok: false; error: string; localError?: 'remove' | 'remove_http'; localStatus?: number; serverMessage?: ConnectorServerMessage }> {
   try {
     const res = await authFetch(`/api/mcp-clients/${encodeURIComponent(serverId)}`, {
       method: 'DELETE',
     })
-    if (!res.ok) return { ok: false, error: await errorDetail(res, 'Could not remove the server') }
+    if (!res.ok) {
+      const failure = await errorDetail(res, 'Could not remove the server')
+      return { ok: false, error: failure.error, serverMessage: failure.serverMessage, ...(failure.fallbackStatus === undefined ? {} : { localError: 'remove_http' as const, localStatus: failure.fallbackStatus }) }
+    }
     return { ok: true }
   } catch {
-    return { ok: false, error: 'Could not remove the server — the request failed.' }
+    return { ok: false, error: 'Could not remove the server — the request failed.', localError: 'remove' }
   }
 }

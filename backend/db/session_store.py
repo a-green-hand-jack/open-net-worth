@@ -582,15 +582,19 @@ class SessionStore:
 
         ``user`` always wins. ``ai`` never overwrites ``user`` or an earlier ``ai`` and never
         CREATES a row (a conversation deleted mid-generation stays deleted). ``auto`` (the
-        client's own derivation) yields to both. Returns whether the title was written."""
-        if source not in ("user", "ai", "auto"):
+        client's own derivation) yields to both. ``placeholder`` yields to every other source,
+        so a delayed draft-creation request cannot replace a real title. Returns whether the
+        title was written."""
+        if source not in ("user", "ai", "auto", "placeholder", "onboarding"):
             raise ValueError(f"unknown title source {source!r}")
         with self._use_conn(None) as conn:
             existing = self._row(conn, session_id)
             owner = ((existing or {}).get("meta") or {}).get("title_source")
+            if source == "placeholder" and owner not in (None, "placeholder"):
+                return False
             if source == "ai" and (existing is None or owner in ("user", "ai")):
                 return False
-            if source == "auto" and owner in ("user", "ai"):
+            if source in ("auto", "onboarding") and owner in ("user", "ai"):
                 return False
             self._upsert(conn, session_id, meta_patch={"title": title, "title_source": source})
             return True

@@ -10,6 +10,8 @@
 import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { ModelOption } from '../../api/models'
+import { IntlProvider } from 'react-intl'
+import zh from '../../i18n/zh-CN.json'
 import {
   ModelPicker,
   bareModelId,
@@ -57,6 +59,24 @@ function mockMobile(isMobile: boolean) {
 }
 
 afterEach(() => cleanup())
+
+it('translates picker chrome while keeping provider and model names', () => {
+  render(
+    <IntlProvider locale="zh-CN" defaultLocale="en" messages={zh}>
+      <ModelPicker
+        label="Chat model"
+        models={MODELS}
+        value=""
+        defaultLabel="Default (sonnet)"
+        onChange={vi.fn()}
+      />
+    </IntlProvider>,
+  )
+  openPanel()
+  expect(screen.getByLabelText('搜索模型')).toBeTruthy()
+  expect(screen.getByText('首选')).toBeTruthy()
+  expect(screen.getAllByText('Claude').length).toBeGreaterThan(0)
+})
 
 // ── pure helpers ─────────────────────────────────────────────────────────────
 

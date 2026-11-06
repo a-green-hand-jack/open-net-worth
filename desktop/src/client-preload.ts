@@ -1,8 +1,24 @@
 import { contextBridge, ipcRenderer } from 'electron';
 import type { DesktopClientBridge, DesktopCommand, DesktopUpdateState } from './contracts';
 
+let displayRequestPending = false;
+let displayRequestListener: (() => void) | null = null;
+ipcRenderer.on('desktop-client:request-profile-display', () => {
+  ipcRenderer.send('desktop-client:browser-languages', Array.from(navigator.languages));
+  if (displayRequestListener) displayRequestListener();
+  else displayRequestPending = true;
+});
+
 const client: DesktopClientBridge = {
   version: 1,
+  setLocale: locale => ipcRenderer.send('desktop-client:locale', locale),
+  setDateFormat: format => ipcRenderer.send('desktop-client:date-format', format),
+  setProfileDisplay: (locale, format) => ipcRenderer.send('desktop-client:profile-display', locale, format),
+  onRequestProfileDisplay: listener => {
+    displayRequestListener = listener;
+    if (displayRequestPending) { displayRequestPending = false; listener(); }
+    return () => { if (displayRequestListener === listener) displayRequestListener = null; };
+  },
   getConnection: () => ipcRenderer.invoke('desktop-client:get-connection'),
   changeConnection: (serverForm?: boolean) => ipcRenderer.invoke('desktop-client:change-connection', serverForm === true),
   openBrowser: () => ipcRenderer.invoke('desktop-client:open-browser'),

@@ -1,3 +1,4 @@
+import { useAppIntl } from '../../../i18n/useAppIntl'
 // Commitments tab — faithful port of frontend/design_handoffs/commitments_handoff (v3
 // prototype). See docs/adr/2026-07-22-commitments-tab-redesign-faithful-port.md for the port
 // strategy: the coverage/proposal engine is client-side pure math over the REAL backend's
@@ -40,6 +41,7 @@ import type { NeedItem } from './needsLane'
 import { CommitmentRows } from './rows'
 import type { CommitmentFilter, CommitmentSort } from './rows'
 import { CommitmentDetail } from './detail'
+import { displayActionLabel } from './actionLabel'
 import { CarIcon, CoinsIcon, DocIcon, PlusIcon, Spark, TargetIcon } from './icons'
 import './commitments.css'
 
@@ -50,7 +52,6 @@ interface Props {
   onSelect?: (id: string | null) => void
 }
 
-const COMMITMENTS_SUBTITLE = "Big payments you've committed to — and how you'll fund them"
 const NEEDS_CAP = 3
 
 /** Every write below goes through this — a non-ok response (404/422) throws instead of the
@@ -69,32 +70,22 @@ async function writeJson(url: string, method: 'PATCH' | 'PUT', body: unknown): P
 const KIND_OPTS: Array<{
   kind: Commitment['kind']
   Icon: () => ReactElement
-  title: string
-  desc: string
 }> = [
   {
     kind: 'purchase',
     Icon: CoinsIcon,
-    title: 'Purchase',
-    desc: 'Property, a car, a big-ticket buy in installments',
   },
   {
     kind: 'loan_repayment',
     Icon: CarIcon,
-    title: 'Loan repayment',
-    desc: 'Pay down financing on a fixed schedule',
   },
   {
     kind: 'auto_pay',
     Icon: DocIcon,
-    title: 'Scheduled payments',
-    desc: 'A fixed series of dated payments — school year fees, insurance installments',
   },
   {
     kind: 'goal',
     Icon: TargetIcon,
-    title: 'Savings & investing goal',
-    desc: 'Build toward a target — a savings fund or a monthly DCA plan',
   },
 ]
 
@@ -115,40 +106,83 @@ function AddSheet({
   onClose: () => void
   onAdd: (kind: Commitment['kind']) => void
 }) {
+  const { formatMessage } = useAppIntl()
+  const optionText = {
+    purchase: [
+      formatMessage({ id: 'commitments.add.purchase', defaultMessage: 'Purchase' }),
+      formatMessage({
+        id: 'commitments.add.purchaseDesc',
+        defaultMessage: 'Property, a car, a big-ticket buy in installments',
+      }),
+    ],
+    loan_repayment: [
+      formatMessage({ id: 'commitments.add.loan', defaultMessage: 'Loan repayment' }),
+      formatMessage({
+        id: 'commitments.add.loanDesc',
+        defaultMessage: 'Pay down financing on a fixed schedule',
+      }),
+    ],
+    auto_pay: [
+      formatMessage({ id: 'commitments.add.scheduled', defaultMessage: 'Scheduled payments' }),
+      formatMessage({
+        id: 'commitments.add.scheduledDesc',
+        defaultMessage:
+          'A fixed series of dated payments — school year fees, insurance installments',
+      }),
+    ],
+    goal: [
+      formatMessage({ id: 'commitments.add.goal', defaultMessage: 'Savings & investing goal' }),
+      formatMessage({
+        id: 'commitments.add.goalDesc',
+        defaultMessage: 'Build toward a target — a savings fund or a monthly DCA plan',
+      }),
+    ],
+  }
   return (
     <Modal
       open
       onClose={onClose}
-      title="New commitment"
-      subtitle="What are you planning to fund? Pick a type and Lucius will draft the schedule and funding plan with you."
+      title={formatMessage({ id: 'commitments.add.new', defaultMessage: 'New commitment' })}
+      subtitle={formatMessage({
+        id: 'commitments.add.sheetSubtitle',
+        defaultMessage:
+          'What are you planning to fund? Pick a type and Lucius will draft the schedule and funding plan with you.',
+      })}
       size="lg"
       className="c2-sheet"
       footer={
         <div className="c2-sheet-foot">
           <span className="c2-sheet-lucius">
-            <Spark size={13} /> Lucius drafts it — you confirm every number.
+            <Spark size={13} />{' '}
+            {formatMessage({
+              id: 'commitments.add.confirm',
+              defaultMessage: 'Lucius drafts it — you confirm every number.',
+            })}
           </span>
           <Button variant="secondary" size="sm" onClick={onClose}>
-            Cancel
+            {formatMessage({ id: 'commitments.add.cancel', defaultMessage: 'Cancel' })}
           </Button>
         </div>
       }
     >
       <div className="c2-sheet-body">
         <div className="c2-kindpick">
-          {KIND_OPTS.map(({ kind, Icon, title, desc }) => (
+          {KIND_OPTS.map(({ kind, Icon }) => (
             <button key={kind} className="c2-kindopt" onClick={() => onAdd(kind)}>
               <Icon />
               <div>
-                <div className="c2-kindopt-t">{title}</div>
-                <div className="c2-kindopt-d">{desc}</div>
+                <div className="c2-kindopt-t">{optionText[kind][0]}</div>
+                <div className="c2-kindopt-d">{optionText[kind][1]}</div>
               </div>
             </button>
           ))}
         </div>
         <div className="c2-sheet-note">
-          Ongoing bills with no end date — rent, memberships, utilities — belong in Budget →
-          recurring targets.
+          {formatMessage({
+            id: 'commitments.add.ongoing',
+            defaultMessage:
+              'Ongoing bills with no end date — rent, memberships, utilities — belong in Budget → recurring targets.',
+          })}
         </div>
       </div>
     </Modal>
@@ -156,12 +190,20 @@ function AddSheet({
 }
 
 function EmptyStateHero({ onAdd }: { onAdd: () => void }) {
+  const { formatMessage } = useAppIntl()
   return (
     <EmptyState
       fill
       icon={<CalendarClock size={28} strokeWidth={1.5} aria-hidden="true" />}
-      title="Plan the big payments ahead"
-      body="Property installments, a car, school fees, a loan — or a monthly investing plan. See whether every payment is funded."
+      title={formatMessage({
+        id: 'commitments.add.emptyTitle',
+        defaultMessage: 'Plan the big payments ahead',
+      })}
+      body={formatMessage({
+        id: 'commitments.add.emptyBody',
+        defaultMessage:
+          'Property installments, a car, school fees, a loan — or a monthly investing plan. See whether every payment is funded.',
+      })}
       action={
         <Cluster gap="--space-3" justify="center">
           <Button
@@ -171,7 +213,10 @@ function EmptyStateHero({ onAdd }: { onAdd: () => void }) {
             iconLeft={<Spark size={15} />}
             onClick={onAdd}
           >
-            Draft a commitment with Lucius
+            {formatMessage({
+              id: 'commitments.add.draft',
+              defaultMessage: 'Draft a commitment with Lucius',
+            })}
           </Button>
         </Cluster>
       }
@@ -180,8 +225,15 @@ function EmptyStateHero({ onAdd }: { onAdd: () => void }) {
 }
 
 function FundingOutlookSkeleton() {
+  const { formatMessage } = useAppIntl()
   return (
-    <section className="c2-sum c2-sum-loading c2-sum-skeleton" aria-label="Loading funding outlook">
+    <section
+      className="c2-sum c2-sum-loading c2-sum-skeleton"
+      aria-label={formatMessage({
+        id: 'commitments.add.loading',
+        defaultMessage: 'Loading funding outlook',
+      })}
+    >
       <div className="c2-sum-skeleton__hero">
         <Skeleton width="42%" height={13} />
         <Skeleton width="52%" height={34} />
@@ -200,6 +252,8 @@ function FundingOutlookSkeleton() {
 }
 
 export function Commitments({ fx, onAskLucius, selectedId, onSelect }: Props) {
+  const intl = useAppIntl()
+  const { formatMessage } = intl
   const { commitments, loading, refresh } = useCommitments()
   // What is overdue and what is due in the next 30 days are the server's figures — the same
   // object the Dashboard's Next-30-days card and the daily briefing read — never a filter of
@@ -402,7 +456,7 @@ export function Commitments({ fx, onAskLucius, selectedId, onSelect }: Props) {
     return (
       <Container size="wide">
         <div className="c2-page">
-          <TabSkeleton variant="commitments" label="Loading commitments…" />
+          <TabSkeleton variant="commitments" label={formatMessage({ id: 'commitments.loading', defaultMessage: 'Loading commitments…' })} />
         </div>
       </Container>
     )
@@ -426,7 +480,16 @@ export function Commitments({ fx, onAskLucius, selectedId, onSelect }: Props) {
     return (
       <Container size="wide">
         <div className="c2-page" data-screen-label="Commitments">
-          <PageHeader title="Commitments" subtitle={COMMITMENTS_SUBTITLE} />
+          <PageHeader
+            title={formatMessage({
+              id: 'commitments.rows.commitments',
+              defaultMessage: 'Commitments',
+            })}
+            subtitle={formatMessage({
+              id: 'commitments.add.subtitle',
+              defaultMessage: "Big payments you've committed to — and how you'll fund them",
+            })}
+          />
           <EmptyStateHero onAdd={() => setAddOpen(true)} />
         </div>
         {addOpen && (
@@ -458,13 +521,20 @@ export function Commitments({ fx, onAskLucius, selectedId, onSelect }: Props) {
       cid: c.id,
       iid: i.id,
       amt: i.amount,
-      payLabel: isTracker(c) ? 'Mark done' : 'Mark paid',
+      payKind: isTracker(c) ? 'done' : 'paid',
       title: (
         <>
           <b>{c.name}</b> — {i.label}
         </>
       ),
-      desc: `Overdue ${-d} day${d === -1 ? '' : 's'} • ${fDual(i.amount, c.currency, fx)} was due ${fmtDate(i.due_date)}`,
+      desc: formatMessage(
+        {
+          id: 'commitments.needs.overdueDetail',
+          defaultMessage:
+            'Overdue {days} {days, plural, one {day} other {days}} • {amount} was due {date}',
+        },
+        { days: -d, amount: fDual(i.amount, c.currency, fx), date: fmtDate(i.due_date) },
+      ),
     })
   }
   for (const s of unmarked) {
@@ -481,7 +551,13 @@ export function Commitments({ fx, onAskLucius, selectedId, onSelect }: Props) {
           <b>{s.commitment_name}</b> — {s.installment_label}
         </>
       ),
-      desc: `Looks paid • a ${fDual(s.amount_base, '', fx)} payment on ${fmtDate(s.txn_date)} matches this installment`,
+      desc: formatMessage(
+        {
+          id: 'commitments.needs.looksPaid',
+          defaultMessage: 'Looks paid • a {amount} payment on {date} matches this installment',
+        },
+        { amount: fDual(s.amount_base, '', fx), date: fmtDate(s.txn_date) },
+      ),
     })
   }
   for (const c of commitments) {
@@ -501,10 +577,10 @@ export function Commitments({ fx, onAskLucius, selectedId, onSelect }: Props) {
         fundingId: a.funding_id,
         title: (
           <>
-            <b>{c.name}</b> — {a.label}
+            <b>{c.name}</b> — {displayActionLabel(intl, a)}
           </>
         ),
-        desc: `${d < 0 ? `Overdue ${-d} day${d === -1 ? '' : 's'}` : d === 0 ? 'Due today' : `Due in ${d} day${d === 1 ? '' : 's'}`} • ${a.counterparty || a.category}${a.funding_id ? ' • unlocks funding' : ''}`,
+        desc: `${d < 0 ? formatMessage({ id: 'commitments.needs.daysOverdue', defaultMessage: 'Overdue {days} {days, plural, one {day} other {days}}' }, { days: -d }) : d === 0 ? formatMessage({ id: 'commitments.needs.dueToday', defaultMessage: 'Due today' }) : formatMessage({ id: 'commitments.needs.dueInDays', defaultMessage: 'Due in {days} {days, plural, one {day} other {days}}' }, { days: d })} • ${a.counterparty || a.category}${a.funding_id ? ` • ${formatMessage({ id: 'commitments.needs.unlockFunding', defaultMessage: 'unlocks funding' })}` : ''}`,
       })
     }
   }
@@ -519,9 +595,16 @@ export function Commitments({ fx, onAskLucius, selectedId, onSelect }: Props) {
           changes: { status: 'paid', paid_txn_id: it.sug.txn_id },
         },
       )
-      showToast('Linked and marked paid')
+      showToast(
+        formatMessage({ id: 'commitments.add.linked', defaultMessage: 'Linked and marked paid' }),
+      )
     } catch {
-      showToast('Could not link the payment — try again')
+      showToast(
+        formatMessage({
+          id: 'commitments.add.linkError',
+          defaultMessage: 'Could not link the payment — try again',
+        }),
+      )
     }
     onChanged()
   }
@@ -535,9 +618,16 @@ export function Commitments({ fx, onAskLucius, selectedId, onSelect }: Props) {
       await writeJson(`/api/commitments/${it.cid}/installments/${it.iid}`, 'PATCH', {
         changes: { status: 'paid' },
       })
-      showToast('Installment marked paid')
+      showToast(
+        formatMessage({ id: 'commitments.add.paid', defaultMessage: 'Installment marked paid' }),
+      )
     } catch {
-      showToast('Could not mark it paid — try again')
+      showToast(
+        formatMessage({
+          id: 'commitments.add.paidError',
+          defaultMessage: 'Could not mark it paid — try again',
+        }),
+      )
     }
     onChanged()
   }
@@ -548,9 +638,14 @@ export function Commitments({ fx, onAskLucius, selectedId, onSelect }: Props) {
         changes: { status: 'done' },
       })
       setDoneActionKeys((d) => [...d, it.key])
-      showToast('Action marked done')
+      showToast(formatMessage({ id: 'commitments.add.done', defaultMessage: 'Action marked done' }))
     } catch {
-      showToast('Could not mark it done — try again')
+      showToast(
+        formatMessage({
+          id: 'commitments.add.doneError',
+          defaultMessage: 'Could not mark it done — try again',
+        }),
+      )
     }
     onChanged()
   }
@@ -567,14 +662,22 @@ export function Commitments({ fx, onAskLucius, selectedId, onSelect }: Props) {
       }
       showToast(
         it.fundingId
-          ? 'Marked not happening — funding pulled, planning a fix'
-          : 'Marked not happening',
+          ? formatMessage({
+              id: 'commitments.add.missedFunding',
+              defaultMessage: 'Marked not happening — funding pulled, planning a fix',
+            })
+          : formatMessage({ id: 'commitments.add.missed', defaultMessage: 'Marked not happening' }),
       )
       onAskLucius(
         `I just marked "${typeof it.title === 'string' ? it.title : 'an action'}" as not happening on one of my commitments${it.fundingId ? ' — it was funding an installment' : ''}. Help me look at the impact and suggest a recovery plan.`,
       )
     } catch {
-      showToast('Could not mark it not happening — try again')
+      showToast(
+        formatMessage({
+          id: 'commitments.add.missedError',
+          defaultMessage: 'Could not mark it not happening — try again',
+        }),
+      )
     }
     onChanged()
   }
@@ -583,8 +686,14 @@ export function Commitments({ fx, onAskLucius, selectedId, onSelect }: Props) {
     <Container size="wide">
       <div className="c2-page" data-screen-label="Commitments">
         <PageHeader
-          title="Commitments"
-          subtitle={COMMITMENTS_SUBTITLE}
+          title={formatMessage({
+            id: 'commitments.rows.commitments',
+            defaultMessage: 'Commitments',
+          })}
+          subtitle={formatMessage({
+            id: 'commitments.add.subtitle',
+            defaultMessage: "Big payments you've committed to — and how you'll fund them",
+          })}
           actions={
             <Button
               variant="primary"
@@ -597,7 +706,13 @@ export function Commitments({ fx, onAskLucius, selectedId, onSelect }: Props) {
                   action fits on the title's own row instead of claiming a third one. The full
                   label stays in the DOM, so the accessible name is unchanged at every width. */}
               <span>
-                New<span className="c2-new-rest">&nbsp;commitment</span>
+                {formatMessage({ id: 'commitments.add.newShort', defaultMessage: 'New' })}
+                <span className="c2-new-rest">
+                  {formatMessage({
+                    id: 'commitments.add.newSuffix',
+                    defaultMessage: ' commitment',
+                  })}
+                </span>
               </span>
             </Button>
           }

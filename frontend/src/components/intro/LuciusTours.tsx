@@ -2,6 +2,7 @@
 // runs the first time the empty Lucius home is shown; the screen tip the first time his
 // screen-awareness bar appears beside another screen. Each runs once per user.
 import { useEffect, useState } from 'react'
+import { useAppIntl } from '../../i18n/useAppIntl'
 import { onGuideRequest } from '../../state/guideRequests'
 import type { GuideRequest } from '../../state/guideRequests'
 import { PageTour } from './PageTour'
@@ -64,6 +65,7 @@ function OnceTour({
   /** A further condition to wait for, checked with the rest. */
   requires?: () => boolean
 }) {
+  const { formatMessage } = useAppIntl()
   const { unseen, markSeen } = useSeenIntro(seenKey)
   const [shown, setShown] = useState<TourStep[] | null>(null)
   useEffect(() => {
@@ -85,9 +87,96 @@ function OnceTour({
     [shown],
   )
   if (!shown) return null
+  const localizedStep = (step: TourStep): TourStep => {
+    switch (step.target) {
+      case 'lucius-mention':
+        return {
+          ...step,
+          title: formatMessage({
+            id: 'firstrun.intro.tourTitle0',
+            defaultMessage: 'Point at something',
+          }),
+          body: formatMessage({
+            id: 'firstrun.intro.tourBody0',
+            defaultMessage:
+              'Type @ to bring in an account, transaction or holding, then say what to do with it.',
+          }),
+        }
+      case 'lucius-skills':
+        return {
+          ...step,
+          title: formatMessage({ id: 'firstrun.intro.tourTitle1', defaultMessage: 'Run a skill' }),
+          body: formatMessage({
+            id: 'firstrun.intro.tourBody1',
+            defaultMessage: 'Type / for saved playbooks, like a monthly report.',
+          }),
+        }
+      case 'lucius-documents':
+        return {
+          ...step,
+          title: formatMessage({ id: 'firstrun.intro.tourTitle2', defaultMessage: 'Documents' }),
+          body: formatMessage({
+            id: 'firstrun.intro.tourBody2',
+            defaultMessage:
+              'Your files and saved reports in one place. Mark one Private and Lucius never reads it.',
+          }),
+        }
+      case 'lucius-screen':
+        return {
+          ...step,
+          title: formatMessage({
+            id: 'firstrun.intro.tourTitle3',
+            defaultMessage: 'Lucius sees this screen',
+          }),
+          body: formatMessage({
+            id: 'firstrun.intro.tourBody3',
+            defaultMessage:
+              'He knows what you are looking at and can act on it for you. Switch it off here any time.',
+          }),
+        }
+      case 'lucius-restore':
+        return {
+          ...step,
+          title: formatMessage({
+            id: 'firstrun.intro.tourTitle4',
+            defaultMessage: 'Undo anything Lucius changes',
+          }),
+          body: formatMessage({
+            id: 'firstrun.intro.tourBody4',
+            defaultMessage:
+              'Restore puts your data back as it was before this message. The restore can be undone too.',
+          }),
+        }
+      case 'lucius-attach':
+        return {
+          ...step,
+          title: formatMessage({ id: 'firstrun.intro.tourTitle5', defaultMessage: 'Send it here' }),
+          body: formatMessage({
+            id: 'firstrun.intro.tourBody5',
+            defaultMessage:
+              'Attach a statement, screenshot or photo, or drag the file in. Lucius reads it for you.',
+          }),
+        }
+      default:
+        return step.target.startsWith('[data-entity-id')
+          ? {
+              ...step,
+              title: formatMessage({
+                id: 'firstrun.intro.tourDragTitle',
+                defaultMessage: 'Hand Lucius any transaction',
+              }),
+              body: formatMessage({
+                id: 'firstrun.intro.tourDragBody',
+                defaultMessage:
+                  'Drag it onto Lucius. He can explain it, recategorize it, split it or fix it.',
+              }),
+            }
+          : step
+    }
+  }
   return (
     <PageTour
-      steps={shown}
+      steps={shown.map(localizedStep)}
       onClose={() => {
         tourRunning = false
         setShown(null)

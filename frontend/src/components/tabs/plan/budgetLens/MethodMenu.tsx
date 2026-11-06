@@ -5,12 +5,18 @@
 // 2026-09-25 — the Budget Onboarding (cards) design's MethodMenu; no more previewing a method
 // you haven't switched to).
 import { useEffect, useRef, useState } from 'react'
+import { useAppIntl } from '../../../../i18n/useAppIntl'
 import { Button, Skeleton } from '../../../ui'
 import { Check } from './MethodCard'
 import { METHODS, methodById } from './methodsData'
 import type { BudgetLensState } from './useBudgetLens'
 
 export function MethodMenu({ lens }: { lens: BudgetLensState }) {
+  const { formatMessage } = useAppIntl()
+  const methodName = (id: string, fallback: string) =>
+    id === 'zero_based'
+      ? formatMessage({ id: 'plan.zeroBased', defaultMessage: 'Zero-Based' })
+      : fallback
   const [open, setOpen] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
   useEffect(() => {
@@ -45,7 +51,7 @@ export function MethodMenu({ lens }: { lens: BudgetLensState }) {
         aria-expanded={open}
         onClick={() => setOpen((o) => !o)}
       >
-        {homeName}
+        {methodName(lens.homeId, homeName)}
         <svg
           width="12"
           height="12"
@@ -74,7 +80,7 @@ export function MethodMenu({ lens }: { lens: BudgetLensState }) {
                 if (m.id !== lens.homeId) lens.requestSwitch(m.id)
               }}
             >
-              {m.name}
+              {methodName(m.id, m.name)}
               {m.id === lens.homeId && <Check size={12} />}
             </button>
           ))}
@@ -88,7 +94,7 @@ export function MethodMenu({ lens }: { lens: BudgetLensState }) {
               lens.openCompare()
             }}
           >
-            Compare methods…
+            {formatMessage({ id: 'plan.compareMethods', defaultMessage: 'Compare methods…' })}
           </button>
         </div>
       )}

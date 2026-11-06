@@ -5,6 +5,7 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from typing import Any, Callable, Optional
 
+from backend.core.automation_template_source import template_source
 from backend.core.errors import ConflictError, NotFoundError, ValidationError
 from backend.core.ids import new_id
 from backend.db.automation_run_store import AutomationRunStore
@@ -13,7 +14,7 @@ from backend.db.automation_store import DELETING_STATUS, AutomationStore
 
 from .price_symbols import pin_price_instrument
 from .references import resolve_trigger_references
-from .schedules import compute_next_run, validate_trigger
+from .schedules import TriggerValidationError, compute_next_run, validate_trigger
 
 CleanupHandler = Callable[..., dict]
 _cleanup_handler: Optional[CleanupHandler] = None
@@ -57,6 +58,10 @@ def validated_trigger(raw: Any, *, now: datetime | None = None, previous: object
         raw = resolve_trigger_references(raw, previous=previous_trigger)
     try:
         return validate_trigger(raw, now=now)
+    except TriggerValidationError as exc:
+        raise ValidationError(
+            str(exc), message_id=exc.message_id, message_params=exc.params
+        ) from exc
     except ValueError as exc:
         raise ValidationError(str(exc)) from exc
 
@@ -72,19 +77,27 @@ def validate_automation(
     writes both lists together). Otherwise the stored list rides along untouched and unchecked: an
     edit made with the flag off never touches it, never trips over it, and so never loses it."""
     if not isinstance(value, dict):
-        raise ValidationError("automation must be an object")
+        raise ValidationError("automation must be an object", message_id="automation.error.object")
     clean = dict(value)
     name = str(clean.get("name") or "").strip()
     instructions = str(clean.get("instructions") or "").strip()
     if not name:
-        raise ValidationError("automation name is required")
+        raise ValidationError(
+            "automation name is required", message_id="automation.error.nameRequired"
+        )
     if not instructions:
-        raise ValidationError("automation instructions are required")
+        raise ValidationError(
+            "automation instructions are required",
+            message_id="automation.error.instructionsRequired",
+        )
     trigger = validated_trigger(clean.get("trigger"), now=now, previous=previous_trigger)
     execution = _validate_execution(clean.get("execution"))
     permission_mode = str(clean.get("permission_mode") or DEFAULT_PERMISSION_MODE).strip()
     if permission_mode not in {"manual", "auto", "skip"}:
-        raise ValidationError("automation permission_mode must be manual, auto, or skip")
+        raise ValidationError(
+            "automation permission_mode must be manual, auto, or skip",
+            message_id="automation.error.permissionMode",
+        )
     always_allowed = _validate_always_allowed(clean.get("always_allowed") or [])
     blocked = (
         _validate_blocked(clean.get("blocked") or [], always_allowed)
@@ -93,18 +106,25 @@ def validate_automation(
     )
     status = clean.get("status") or "active"
     if status not in {"active", "paused", "completed"}:
-        raise ValidationError("automation status must be active or paused")
+        raise ValidationError(
+            "automation status must be active or paused", message_id="automation.error.status"
+        )
     max_runs = clean.get("max_runs")
     if max_runs is not None and (
         isinstance(max_runs, bool) or not isinstance(max_runs, int) or max_runs < 1
     ):
-        raise ValidationError("automation max_runs must be a positive integer or null")
+        raise ValidationError(
+            "automation max_runs must be a positive integer or null",
+            message_id="automation.error.maxRuns",
+        )
     effort = str(clean.get("effort") or "medium").strip()
     if effort not in {"low", "medium", "high", "xhigh", "max", "ultra"}:
-        raise ValidationError("automation effort is invalid")
+        raise ValidationError("automation effort is invalid", message_id="automation.error.effort")
     provenance = clean.get("provenance") or {}
     if not isinstance(provenance, dict):
-        raise ValidationError("automation provenance must be an object")
+        raise ValidationError(
+            "automation provenance must be an object", message_id="automation.error.provenance"
+        )
     return {
         **clean,
         "name": name,
@@ -137,34 +157,49 @@ def _sets_blocked(value: object) -> bool:
 
 def _validate_always_allowed(value: object) -> list[dict]:
     if not isinstance(value, list):
-        raise ValidationError("automation always_allowed permissions must be a list")
+        raise ValidationError(
+            "automation always_allowed permissions must be a list",
+            message_id="automation.error.permissionsList",
+        )
     result: list[dict] = []
     for item in value:
         if not isinstance(item, dict):
-            raise ValidationError("automation always_allowed permission must be an object")
+            raise ValidationError(
+                "automation always_allowed permission must be an object",
+                message_id="automation.error.permissionObject",
+            )
         unknown = set(item) - {"src", "desc", "capability", "tools"}
         if unknown:
             raise ValidationError(
-                f"unknown automation permission fields: {', '.join(sorted(unknown))}"
+                f"unknown automation permission fields: {', '.join(sorted(unknown))}",
+                message_id="automation.error.permissionFields",
+                message_params={"fields": ", ".join(sorted(unknown))},
             )
         source = str(item.get("src") or "").strip()
         description = str(item.get("desc") or "").strip()
         if not source or not description:
             raise ValidationError(
-                "automation always_allowed permission requires source and description"
+                "automation always_allowed permission requires source and description",
+                message_id="automation.error.permissionSource",
             )
         permission = {"src": source, "desc": description}
         if "capability" in item:
             capability = item.get("capability")
             if not isinstance(capability, str) or not capability.strip():
-                raise ValidationError("automation permission capability must be a non-empty string")
+                raise ValidationError(
+                    "automation permission capability must be a non-empty string",
+                    message_id="automation.error.permissionCapability",
+                )
             permission["capability"] = capability.strip()
         if "tools" in item:
             tools = item.get("tools")
             if not isinstance(tools, list) or any(
                 not isinstance(tool, str) or not tool.strip() for tool in tools
             ):
-                raise ValidationError("automation permission tools must be a list of tool names")
+                raise ValidationError(
+                    "automation permission tools must be a list of tool names",
+                    message_id="automation.error.permissionTools",
+                )
             permission["tools"] = list(dict.fromkeys(tool.strip() for tool in tools))
         result.append(permission)
     return result
@@ -176,7 +211,10 @@ def _validate_blocked(value: object, always_allowed: list[dict]) -> list[str]:
     if not isinstance(value, list) or any(
         not isinstance(tool, str) or not tool.strip() for tool in value
     ):
-        raise ValidationError("automation blocked must be a list of tool names")
+        raise ValidationError(
+            "automation blocked must be a list of tool names",
+            message_id="automation.error.blockedTools",
+        )
     blocked = list(dict.fromkeys(tool.strip() for tool in value))
     allowed = {
         name
@@ -186,7 +224,9 @@ def _validate_blocked(value: object, always_allowed: list[dict]) -> list[str]:
     both = sorted(allowed.intersection(blocked))
     if both:
         raise ValidationError(
-            f"a tool cannot be both always allowed and blocked in one Automation: {', '.join(both)}"
+            f"a tool cannot be both always allowed and blocked in one Automation: {', '.join(both)}",
+            message_id="automation.error.conflictingTools",
+            message_params={"tools": ", ".join(both)},
         )
     return blocked
 
@@ -194,7 +234,10 @@ def _validate_blocked(value: object, always_allowed: list[dict]) -> list[str]:
 def _validate_execution(value: object) -> dict:
     execution = {"kind": "lucius"} if value is None else value
     if execution != {"kind": "lucius"}:
-        raise ValidationError("Automation execution kind must be Lucius")
+        raise ValidationError(
+            "Automation execution kind must be Lucius",
+            message_id="automation.error.executionLucius",
+        )
     return {"kind": "lucius"}
 
 
@@ -216,11 +259,19 @@ def apply_automation_change(change: dict) -> dict:
     automation_id = change.get("id")
     existing = store.find_persisted_by_id(automation_id) if automation_id else None
     if existing is None:
-        raise NotFoundError(f"automation {automation_id!r} not found")
+        raise NotFoundError(
+            f"automation {automation_id!r} not found",
+            message_id="automation.error.notFound",
+            message_params={"id": automation_id},
+        )
     if existing.get("status") == DELETING_STATUS:
         if op == "delete":
             return _resume_hard_delete(store, existing)
-        raise NotFoundError(f"automation {automation_id!r} not found")
+        raise NotFoundError(
+            f"automation {automation_id!r} not found",
+            message_id="automation.error.notFound",
+            message_params={"id": automation_id},
+        )
     if op == "pause":
         return store.update_by_id(
             automation_id,
@@ -238,7 +289,11 @@ def apply_automation_change(change: dict) -> dict:
         changes = dict(change.get("changes") or {})
         unknown = set(changes) - _EDITABLE_FIELDS
         if unknown:
-            raise ValidationError(f"unknown automation fields: {', '.join(sorted(unknown))}")
+            raise ValidationError(
+                f"unknown automation fields: {', '.join(sorted(unknown))}",
+                message_id="automation.error.unknownFields",
+                message_params={"fields": ", ".join(sorted(unknown))},
+            )
         _refuse_caller_completed(changes.get("status"), existing.get("status"))
         if changes.get("status") == "completed":
             changes.pop("status")  # an unchanged echo of the row, not a request
@@ -253,6 +308,12 @@ def apply_automation_change(change: dict) -> dict:
         if "trigger" in changes:
             merged["trigger"] = pin_price_instrument(merged["trigger"])
         patch = {key: merged[key] for key in _EDITABLE_FIELDS if key in changes}
+        if {"name", "description", "instructions"}.intersection(changes):
+            source = template_source(existing.get("template_source"))
+            for field in ("name", "description", "instructions"):
+                if field in changes and merged[field] != existing.get(field):
+                    source.pop(field, None)
+            patch["template_source"] = source
         if {"status", "trigger"}.intersection(changes):
             patch["next_run_at"] = (
                 compute_next_run(merged["trigger"], now, created_at=existing.get("created_at"))
@@ -274,13 +335,14 @@ def apply_automation_change(change: dict) -> dict:
         return store.update_by_id(automation_id, patch)
     if op == "delete":
         return _hard_delete(store, existing)
-    raise ValidationError("unknown Automation change")
+    raise ValidationError("unknown Automation change", message_id="automation.error.unknownChange")
 
 
 def _refuse_caller_completed(status: object, current: object = None) -> None:
     if status == "completed" and current != "completed":
         raise ValidationError(
-            "automation status 'completed' is set when a schedule runs out, never by a caller"
+            "automation status 'completed' is set when a schedule runs out, never by a caller",
+            message_id="automation.error.completedStatus",
         )
 
 
@@ -300,7 +362,8 @@ def _refuse_rearming_without_a_run(existing: dict, trigger: dict, next_run: str 
     """A finished schedule re-armed as-is would sit ``active`` and never run again."""
     if existing.get("status") == "completed" and trigger.get("kind") == "schedule" and not next_run:
         raise ValidationError(
-            "this automation has no future run — give it a new date or schedule to run it again"
+            "this automation has no future run — give it a new date or schedule to run it again",
+            message_id="automation.error.noFutureRun",
         )
 
 
@@ -322,15 +385,27 @@ def preview_automation_updates(updates: list[dict]) -> list[dict]:
             continue
         automation_id = item.get("id")
         if not automation_id:
-            raise NotFoundError("automation '' not found")
+            raise NotFoundError(
+                "automation '' not found",
+                message_id="automation.error.notFound",
+                message_params={"id": ""},
+            )
         existing = store.find_by_id(str(automation_id))
         if existing is None:
-            raise NotFoundError(f"automation {automation_id!r} not found")
+            raise NotFoundError(
+                f"automation {automation_id!r} not found",
+                message_id="automation.error.notFound",
+                message_params={"id": automation_id},
+            )
 
         changes_raw = {k: v for k, v in item.items() if k in _EDITABLE_FIELDS and k != "id"}
         unknown = set(item.keys()) - _EDITABLE_FIELDS - {"id"}
         if unknown:
-            raise ValidationError(f"unknown automation fields: {', '.join(sorted(unknown))}")
+            raise ValidationError(
+                f"unknown automation fields: {', '.join(sorted(unknown))}",
+                message_id="automation.error.unknownFields",
+                message_params={"fields": ", ".join(sorted(unknown))},
+            )
 
         merged = validate_automation(
             {**existing, **changes_raw},
@@ -372,20 +447,30 @@ def _hard_delete(store: AutomationStore, automation: dict) -> dict:
     claimed_run_id = runtime.get("running_run_id")
     if claimed_run_id and runs_store.find_by_id(str(claimed_run_id)) is None:
         raise ConflictError(
-            "automation is currently starting; wait for the run to be recorded before deleting it"
+            "automation is currently starting; wait for the run to be recorded before deleting it",
+            message_id="automation.error.startingDuringDelete",
         )
     runs = runs_store.for_automation(automation_id, limit=1_000_000, offset=0)
     session_ids = sorted({str(row["session_id"]) for row in runs if row.get("session_id")})
     if session_ids:
         if _cleanup_handler is None:
-            raise ConflictError("automation cleanup ownership could not be proved")
+            raise ConflictError(
+                "automation cleanup ownership could not be proved",
+                message_id="automation.error.cleanupOwnership",
+            )
         context = {"automation": dict(automation), "runs": [dict(row) for row in runs]}
         proof = _cleanup_handler(context, phase="prove")
         if not isinstance(proof, dict) or proof.get("ok") is not True:
-            raise ConflictError("automation cleanup ownership could not be proved")
+            raise ConflictError(
+                "automation cleanup ownership could not be proved",
+                message_id="automation.error.cleanupOwnership",
+            )
         owned = sorted({str(value) for value in proof.get("owned_session_ids") or []})
         if owned != session_ids:
-            raise ConflictError("automation cleanup ownership could not be proved")
+            raise ConflictError(
+                "automation cleanup ownership could not be proved",
+                message_id="automation.error.cleanupOwnership",
+            )
 
     deletion = {
         "version": 1,
@@ -407,7 +492,11 @@ def _hard_delete(store: AutomationStore, automation: dict) -> dict:
         },
     )
     if tombstone is None:
-        raise ConflictError(f"automation {automation_id!r} changed during delete")
+        raise ConflictError(
+            f"automation {automation_id!r} changed during delete",
+            message_id="automation.error.changedDuringDelete",
+            message_params={"id": automation_id},
+        )
     return _resume_hard_delete(store, tombstone)
 
 
@@ -415,10 +504,16 @@ def _resume_hard_delete(store: AutomationStore, automation: dict) -> dict:
     automation_id = str(automation.get("id") or "")
     deletion = automation.get("deletion")
     if not isinstance(deletion, dict) or deletion.get("version") != 1:
-        raise ConflictError("automation deletion manifest is invalid")
+        raise ConflictError(
+            "automation deletion manifest is invalid",
+            message_id="automation.error.deletionManifest",
+        )
     raw_runs = deletion.get("runs")
     if not isinstance(raw_runs, list) or any(not isinstance(row, dict) for row in raw_runs):
-        raise ConflictError("automation deletion manifest is invalid")
+        raise ConflictError(
+            "automation deletion manifest is invalid",
+            message_id="automation.error.deletionManifest",
+        )
     runs = [dict(row) for row in raw_runs]
     session_ids = sorted(
         {str(value) for value in deletion.get("owned_session_ids") or [] if str(value)}
@@ -427,25 +522,42 @@ def _resume_hard_delete(store: AutomationStore, automation: dict) -> dict:
         {str(row["session_id"]) for row in runs if row.get("session_id")}
     )
     if session_ids != manifested_session_ids:
-        raise ConflictError("automation deletion manifest is invalid")
+        raise ConflictError(
+            "automation deletion manifest is invalid",
+            message_id="automation.error.deletionManifest",
+        )
     context = {"automation": dict(automation), "runs": runs}
     if session_ids:
         if _cleanup_handler is None:
-            raise ConflictError("automation dependency cleanup failed")
+            raise ConflictError(
+                "automation dependency cleanup failed",
+                message_id="automation.error.dependencyCleanup",
+            )
         cleaned = _cleanup_handler(context, phase="delete")
         if not isinstance(cleaned, dict) or cleaned.get("ok") is not True:
-            raise ConflictError("automation dependency cleanup failed")
+            raise ConflictError(
+                "automation dependency cleanup failed",
+                message_id="automation.error.dependencyCleanup",
+            )
 
     runtime_store = AutomationRuntimeStore()
     runs_store = AutomationRunStore()
     runtime_store.delete_for_automation(automation_id)
     if runtime_store.get_for_automation(automation_id) is not None:
-        raise ConflictError("automation runtime cleanup failed")
+        raise ConflictError(
+            "automation runtime cleanup failed", message_id="automation.error.runtimeCleanup"
+        )
     runs_store.delete_for_automation(automation_id)
     if runs_store.for_automation(automation_id, limit=1, offset=0):
-        raise ConflictError("automation run cleanup failed")
+        raise ConflictError(
+            "automation run cleanup failed", message_id="automation.error.runCleanup"
+        )
     if not store.delete(automation_id):
-        raise ConflictError(f"automation {automation_id!r} changed during delete")
+        raise ConflictError(
+            f"automation {automation_id!r} changed during delete",
+            message_id="automation.error.changedDuringDelete",
+            message_params={"id": automation_id},
+        )
     return {"ok": True, "id": automation_id}
 
 
@@ -458,7 +570,9 @@ def create_system_automation(
     """Idempotently seed one Lucius Automation under a stable system identity."""
     key = str(system_key or "").strip()
     if not key:
-        raise ValidationError("system Automation key is required")
+        raise ValidationError(
+            "system Automation key is required", message_id="automation.error.systemKey"
+        )
     for row in AutomationStore().all_persisted():
         if (row.get("provenance") or {}).get("system_key") == key:
             if row.get("status") == DELETING_STATUS:

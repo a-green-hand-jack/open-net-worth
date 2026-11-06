@@ -75,12 +75,24 @@ class _Run:
     def update(self, **fields) -> None:
         import_runs.update(self.id, **fields)
 
-    def log(self, line: str) -> None:
-        self._log.append({"at": datetime.now(timezone.utc).isoformat(), "line": line})
+    def log(self, line: str, line_message: dict | None = None) -> None:
+        self._log.append(
+            {
+                "at": datetime.now(timezone.utc).isoformat(),
+                "line": line,
+                "line_message": line_message,
+            }
+        )
         self.update(log=self._log)
 
-    def progress(self, phase: str, done: int = 0, total: int = 0) -> None:
-        self.update(phase=phase, progress={"done": done, "total": total})
+    def progress(
+        self, phase: str, done: int = 0, total: int = 0, message_id: str | None = None
+    ) -> None:
+        self.update(
+            phase=phase,
+            progress={"done": done, "total": total},
+            phase_message={"message_id": message_id, "params": {}} if message_id else None,
+        )
 
 
 def status() -> dict:
@@ -174,6 +186,14 @@ def _outcome(kind: str, run_id: str) -> str:
         return ""
 
 
+def _outcome_message(kind: str, run_id: str) -> dict | None:
+    try:
+        return report.outcome_message(kind, import_runs.get(run_id))
+    except Exception:
+        logger.exception("YNAB migration run %s outcome message could not be summarized", run_id)
+        return None
+
+
 def _run(
     run_id: str,
     kind: str,
@@ -188,7 +208,13 @@ def _run(
         if sync:
             _turn_on_sync(run, plan_id, sync)
     except OpenNetWorthError as exc:
-        _settle(run_id, "failed", error=exc.message or str(exc), outcome="Failed")
+        _settle(
+            run_id,
+            "failed",
+            error=exc.message or str(exc),
+            outcome="Failed",
+            outcome_message={"message_id": "ynab.import.outcome.failed", "params": {}},
+        )
     except Exception as exc:
         logger.exception("YNAB migration run %s crashed", run_id)
         _settle(
@@ -196,9 +222,17 @@ def _run(
             "failed",
             error=f"Unexpected error ({type(exc).__name__}); see the server log.",
             outcome="Failed",
+            outcome_message={"message_id": "ynab.import.outcome.failed", "params": {}},
         )
     else:
-        _settle(run_id, "done", phase="done", outcome=_outcome(kind, run_id))
+        _settle(
+            run_id,
+            "done",
+            phase="done",
+            phase_message={"message_id": "ynab.import.phase.done", "params": {}},
+            outcome=_outcome(kind, run_id),
+            outcome_message=_outcome_message(kind, run_id),
+        )
 
 
 def _turn_on_sync(run: _Run, plan_id: str, direction: str) -> None:
@@ -209,10 +243,19 @@ def _turn_on_sync(run: _Run, plan_id: str, direction: str) -> None:
     try:
         runner.update_settings(enabled=True, interval=None, plan_id=plan_id, direction=direction)
     except OpenNetWorthError as exc:
-        run.log(f"The sync was not turned on: {exc.message or exc}. Turn it on from Data sync.")
+        run.log(
+            f"The sync was not turned on: {exc.message or exc}. Turn it on from Data sync.",
+            {
+                "message_id": "ynab.import.log.syncFailed",
+                "params": {"reason": str(exc.message or exc)},
+            },
+        )
         return
     label = {"both": "both ways", "from_ynab": "from YNAB", "to_ynab": "to YNAB"}
-    run.log(f"Sync turned on: {label.get(direction, direction)}.")
+    run.log(
+        f"Sync turned on: {label.get(direction, direction)}.",
+        {"message_id": "ynab.import.log.syncOn", "params": {"direction": direction}},
+    )
 
 
 def _read(
@@ -226,7 +269,7 @@ def _read(
     summary = next((p for p in source.list_plans(store) if p["id"] == plan_id), None)
     if summary is None:
         raise ValidationError("That YNAB plan is not visible to the saved token.")
-    run.progress("reading YNAB")
+    run.progress("reading YNAB", message_id="ynab.import.phase.reading")
     data = source.fetch_plan(store, plan_id, with_budget=True, progress=run.progress)
     _read_cache.clear()
     _read_cache[run.id] = (time.monotonic(), plan_id, summary, data)
@@ -242,7 +285,7 @@ def _load_plan(
         raise ValidationError(
             "That YNAB plan has no valid currency set; open it in YNAB once first."
         )
-    run.progress("mapping")
+    run.progress("mapping", message_id="ynab.import.phase.mapping")
     return mapping.build_plan(
         summary["name"],
         currency,
@@ -277,7 +320,7 @@ def _execute(run: _Run, kind: str, plan_id: str, confirm: bool, choice: dict) ->
         return
     if kind == "verify":
         env_ids = category_apply.lookup(plan, plan_id, book)
-        run.progress("verifying")
+        run.progress("verifying", message_id="ynab.import.phase.verifying")
         env_ids |= apply.card_envelopes(plan)
         run.update(
             verification=report.verification(verify.verify(store, plan_id, plan, env_ids, True))
@@ -308,49 +351,102 @@ def _import(
     money = guards.money_data()
     if apply.ledger_service.base_currency().upper() != plan["currency"] and money:
         apply.ensure_base_currency(plan["currency"], money)  # refuses, before anything is written
-    run.progress("backing up")
+    run.progress("backing up", message_id="ynab.import.phase.backup")
     backup = apply.take_backup()
     run.update(backup_name=backup)
-    run.log(f"Backup taken: {backup}. Restore it from Settings → Data → Backup & restore.")
+    run.log(
+        f"Backup taken: {backup}. Restore it from Settings → Data → Backup & restore.",
+        {"message_id": "ynab.import.log.backup", "params": {"backup": backup}},
+    )
 
     categories_service.ensure_builtins_seeded()  # split rows need the 'split' sentinel
+    original_currency = apply.ledger_service.base_currency().upper()
     note = apply.ensure_base_currency(plan["currency"], money)
     if note:
-        run.log(note)
-    run.progress("creating accounts")
+        run.log(
+            note,
+            {
+                "message_id": "ynab.import.log.baseCurrency",
+                "params": {"old": original_currency, "new": plan["currency"]},
+            },
+        )
+    run.progress("creating accounts", message_id="ynab.import.phase.accounts")
     rows, created, joined = apply.sync_accounts(plan, existing, chosen)
     counts = {"accounts": report.count(created=created, existing=len(rows) - created)}
     run.update(counts=counts)
     run.log(
         f"Accounts: {created} created, {joined} linked to accounts already here, "
-        f"{len(rows) - created - joined} already there."
+        f"{len(rows) - created - joined} already there.",
+        {
+            "message_id": "ynab.import.log.accounts",
+            "params": {
+                "created": str(created),
+                "joined": str(joined),
+                "existing": str(len(rows) - created - joined),
+            },
+        },
     )
     data_events.publish(["*"])
-    run.progress("matching transactions in linked accounts")
+    run.progress(
+        "matching transactions in linked accounts", message_id="ynab.import.phase.matching"
+    )
     _, scope = review.match_scope(plan, existing, chosen)
     acct_ids = {k: v["id"] for k, v in rows.items()}
     matches = links.match(plan, acct_ids, set(scope), same_as)
 
-    run.progress("creating categories and envelopes")
+    run.progress("creating categories and envelopes", message_id="ynab.import.phase.categories")
     env_ids, kept = _categories(run, plan, plan_id, picks["categories"], counts)
     cat_ids = {k: v["category"] for k, v in env_ids.items()}
 
-    tally, problems = apply.send_transactions(plan, acct_ids, cat_ids, run.progress, matches)
+    tally, problems = apply.send_transactions(
+        plan,
+        acct_ids,
+        cat_ids,
+        lambda phase, done, total: run.progress(
+            phase, done, total, "ynab.import.phase.transactions"
+        ),
+        matches,
+    )
     counts["transactions"] = report.transaction_counts(tally)
     run.update(counts=counts, problems=[report.problem(p) for p in problems[:100]])
-    run.log(report.transactions_line(tally))
+    run.log(
+        report.transactions_line(tally),
+        {
+            "message_id": "ynab.import.log.transactions",
+            "params": {
+                "created": str(tally["created"]),
+                "existing": str(tally["already_present"] + tally["matched"]),
+                "refused": str(tally["refused_duplicate"] + tally["previously_deleted"]),
+                "failed": str(tally["failed"]),
+            },
+        },
+    )
     if matches:
         run.log(
             f"Linked accounts: {tally['matched']} YNAB transaction(s) matched to ones already "
-            f"here; {tally['possible_match']} possible match(es) were added as new."
+            f"here; {tally['possible_match']} possible match(es) were added as new.",
+            {
+                "message_id": "ynab.import.log.linkedMatches",
+                "params": {
+                    "matched": str(tally["matched"]),
+                    "possible": str(tally["possible_match"]),
+                },
+            },
         )
-    run.progress("marking cleared")
-    run.log(f"Cleared set on {apply.mark_cleared(plan)} transaction(s).")
+    run.progress("marking cleared", message_id="ynab.import.phase.cleared")
+    cleared = apply.mark_cleared(plan)
+    run.log(
+        f"Cleared set on {cleared} transaction(s).",
+        {"message_id": "ynab.import.log.cleared", "params": {"count": str(cleared)}},
+    )
     archived = apply.archive_closed(plan, rows)
     if archived:
-        run.log(f"Archived {archived} closed account(s).")
+        run.log(
+            f"Archived {archived} closed account(s).",
+            {"message_id": "ynab.import.log.archived", "params": {"count": str(archived)}},
+        )
     budget_envs = _budget(run, plan, plan_id, state, env_ids, counts, kept)
-    run.progress("verifying")
+    run.progress("verifying", message_id="ynab.import.phase.verifying")
     verified = verify.verify(store, plan_id, plan, budget_envs, True)
     run.update(verification=report.verification(verified))
 
@@ -364,9 +460,24 @@ def _categories(run: _Run, plan: dict, plan_id: str, decisions: dict, counts: di
     total = len(plan["categories"])
     for item in ("categories", "envelopes"):
         counts[item] = report.count(created=made[item], existing=max(total - made[item], 0))
-    run.log(report.categories_line(made))
+    run.log(
+        report.categories_line(made),
+        {
+            "message_id": "ynab.import.log.categories",
+            "params": {
+                "categories": str(made["categories"]),
+                "envelopes": str(made["envelopes"]),
+                "groups": str(made["groups"]),
+            },
+        },
+    )
     for line in notes:
-        run.log(line)
+        run.log(
+            line,
+            {"message_id": "ynab.import.log.sharedEnvelope", "params": {"name": line.envelope_name}}
+            if isinstance(line, category_apply.SharedEnvelopeNote)
+            else None,
+        )
     return env_ids, frozenset(kept)
 
 
@@ -376,20 +487,42 @@ def _budget(
     """The budget half of an import; returns the envelopes verification compares."""
     if state == "fresh":
         budget_engines_service.set_home_engine("zero_based")  # YNAB is zero-based budgeting
-        run.log("Budget method set to zero-based, as in YNAB.")
+        run.log(
+            "Budget method set to zero-based, as in YNAB.",
+            {"message_id": "ynab.import.log.zeroBased", "params": {}},
+        )
         prune = guards.starter_prune_plan({c["label"].lower() for c in plan["categories"]}, kept)
         names = {c["group"].lower() for c in plan["categories"]}
         paired = {g["group"] for g in ynab_pairs.load(plan_id)[1].values()}
         left = [g for g in guards.starter_groups_left_empty(prune, names) if g["id"] not in paired]
         removed = apply.prune_starter(prune, left)
-        run.log(report.starter_line(removed))
+        run.log(
+            report.starter_line(removed),
+            {
+                "message_id": "ynab.import.log.starters",
+                "params": {
+                    "categories": str(removed["categories"]),
+                    "envelopes": str(removed["envelopes"]),
+                    "groups": str(removed["groups"]),
+                },
+            },
+        )
     budget_envs = {**env_ids, **apply.card_envelopes(plan)}
-    tally, problems = apply.apply_budget(plan, budget_envs, run.progress)
+    tally, problems = apply.apply_budget(
+        plan,
+        budget_envs,
+        lambda phase, done, total: run.progress(
+            phase, done, total, "ynab.import.phase.assignments"
+        ),
+    )
     counts["assigned"] = report.count(
         created=tally["created"], existing=tally["existing"], failed=tally["failed"]
     )
     run.update(counts=counts, warnings=[report.problem(p) for p in problems[:50]])
-    run.log(f"Budget: {tally['created']} monthly assignment(s) written.")
+    run.log(
+        f"Budget: {tally['created']} monthly assignment(s) written.",
+        {"message_id": "ynab.import.log.assignments", "params": {"count": str(tally["created"])}},
+    )
     # What boot does: retire the payment envelopes of cards this import archived, as YNAB
     # shows a closed card's payment category at zero.
     apply.planning.sync_card_payment_envelopes()

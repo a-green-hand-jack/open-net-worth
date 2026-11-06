@@ -1,3 +1,4 @@
+import { getNumberLocale } from '../../../utils/format'
 // FeedCards — card-density holdings feed. Verbatim port of prototype FeedCards({ groups }).
 // Each group renders as an intel-sec with mk-hold cards.
 
@@ -8,6 +9,8 @@ import { storyKey } from './storyKey'
 import { fBase, fUnitPrice, fPct, priceDigits } from '../../../utils/format'
 import { ASSET_CLASS_COLOR, paletteColor } from '../../../utils/constants'
 import { EntityRow } from '../../../lucius/EntityRow'
+import { defineMessages } from 'react-intl'
+import { useAppIntl } from '../../../i18n/useAppIntl'
 
 // Wrapper badges for certain asset sub-classes (mirrors prototype WRAP map)
 const WRAP: Record<string, string> = {
@@ -35,7 +38,7 @@ interface SortState {
 }
 
 // Card-mode column header → the sortRows() key it sorts by (mirrors the table-mode thead).
-const HEAD_COLS: { k: string; label: string }[] = [
+const HEAD_COLS = [
   { k: 'sym', label: 'Holding' },
   { k: 'value', label: 'Value' },
   { k: 'wt', label: 'Weight' },
@@ -44,10 +47,19 @@ const HEAD_COLS: { k: string; label: string }[] = [
   // per-share quote sitting beneath a "Today" header reads as a day figure.
   { k: 'price', label: 'Price' },
   { k: 'day', label: 'Today' },
-]
+] as const
+const columnLabels = defineMessages({
+  sym: { id: 'investments.columns.holding', defaultMessage: 'Holding' },
+  value: { id: 'investments.columns.value', defaultMessage: 'Value' },
+  wt: { id: 'investments.columns.weight', defaultMessage: 'Weight' },
+  pl: { id: 'investments.columns.pnl', defaultMessage: 'P&L' },
+  price: { id: 'investments.columns.price', defaultMessage: 'Price' },
+  day: { id: 'investments.columns.today', defaultMessage: 'Today' },
+})
 
 // Stable module-level component so it isn't remounted on every FeedCards render.
 function CardHead({ sort, onSort }: { sort?: SortState; onSort?: (key: string) => void }) {
+  const { formatMessage } = useAppIntl()
   return (
     <div className="mk-cardhead">
       {HEAD_COLS.map((c) =>
@@ -57,8 +69,14 @@ function CardHead({ sort, onSort }: { sort?: SortState; onSort?: (key: string) =
             className="mk-ch-sort"
             role="button"
             tabIndex={0}
-            title="Sort by this column"
-            aria-label={`Sort by ${c.label}`}
+            title={formatMessage({
+              id: 'investments.columns.sort',
+              defaultMessage: 'Sort by this column',
+            })}
+            aria-label={formatMessage(
+              { id: 'investments.columns.sortBy', defaultMessage: 'Sort by {column}' },
+              { column: formatMessage(columnLabels[c.k]) },
+            )}
             onClick={() => onSort(c.k)}
             onKeyDown={(e) => {
               if (e.key === 'Enter' || e.key === ' ') {
@@ -67,11 +85,11 @@ function CardHead({ sort, onSort }: { sort?: SortState; onSort?: (key: string) =
               }
             }}
           >
-            {c.label}{' '}
+            {formatMessage(columnLabels[c.k])}{' '}
             <span className="ar">{sort?.key === c.k ? (sort.dir > 0 ? '▲' : '▼') : ''}</span>
           </span>
         ) : (
-          <span key={c.k}>{c.label}</span>
+          <span key={c.k}>{formatMessage(columnLabels[c.k])}</span>
         ),
       )}
     </div>
@@ -102,6 +120,7 @@ export function FeedCards({
   storyIndex,
   onOpenStory,
 }: Props) {
+  const { formatMessage } = useAppIntl()
   return (
     <>
       {groups.map((g) => {
@@ -112,14 +131,26 @@ export function FeedCards({
           <section key={g.key} className="intel-sec">
             <div className="intel-sec-head">
               {g.color && <span className="intel-sec-dot" style={{ background: g.color }} />}
-              <span className="intel-sec-title">{g.label || 'All holdings'}</span>
+              <span className="intel-sec-title">
+                {g.label ||
+                  formatMessage({ id: 'investments.holdings.all', defaultMessage: 'All holdings' })}
+              </span>
               <span className="intel-sec-count">{g.rows.length}</span>
               <span className="mk-sec-sub mask">
-                {fBase(g.subtotal)} • {g.cur}% of book
+                {formatMessage(
+                  {
+                    id: 'investments.holdings.subtotal',
+                    defaultMessage: '{value} • {percent}% of book',
+                  },
+                  { value: fBase(g.subtotal), percent: g.cur },
+                )}
               </span>
               {off && (
                 <span className="mk-sec-sub">
-                  target {g.tgt}%{' '}
+                  {formatMessage(
+                    { id: 'investments.holdings.target', defaultMessage: 'target {percent}%' },
+                    { percent: g.tgt },
+                  )}{' '}
                   <span className="mk-sec-drift">
                     {(drift! > 0 ? '+' : '−') + Math.abs(drift!)}
                   </span>
@@ -164,7 +195,18 @@ export function FeedCards({
                           {r.coupon != null && (
                             <span className="mk-bond-meta">
                               {r.coupon}%{' '}
-                              {r.maturity ? '• mat ' + String(r.maturity).slice(0, 4) : '• fund'}
+                              {r.maturity
+                                ? formatMessage(
+                                    {
+                                      id: 'investments.holdings.maturity',
+                                      defaultMessage: '• mat {year}',
+                                    },
+                                    { year: String(r.maturity).slice(0, 4) },
+                                  )
+                                : formatMessage({
+                                    id: 'investments.holdings.fund',
+                                    defaultMessage: '• fund',
+                                  })}
                             </span>
                           )}
                         </div>
@@ -175,7 +217,7 @@ export function FeedCards({
                         <div className="mk-v mask">{fBase(r.value)}</div>
                       </div>
                       <div className="mk-col">
-                        <div className="mk-v">{r.wt.toFixed(1)}%</div>
+                        <div className="mk-v">{r.wt.toLocaleString(getNumberLocale(), { minimumFractionDigits: 1, maximumFractionDigits: 1 })}%</div>
                       </div>
                       <div className="mk-col">
                         <div className="mk-v mask" style={{ color: tone(r.pl) }}>
@@ -193,7 +235,16 @@ export function FeedCards({
                     </div>
                     <div
                       className="mk-market-move"
-                      aria-label={`Latest price ${fUnitPrice(r.price, r.ccy, priceDigits(r.cls))}, today ${fPct(r.day)}`}
+                      aria-label={formatMessage(
+                        {
+                          id: 'investments.holdings.priceToday',
+                          defaultMessage: 'Latest price {price}, today {change}',
+                        },
+                        {
+                          price: fUnitPrice(r.price, r.ccy, priceDigits(r.cls)),
+                          change: fPct(r.day),
+                        },
+                      )}
                     >
                       <div className="mk-market">
                         <span className="money">

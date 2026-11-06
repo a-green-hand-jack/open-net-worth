@@ -46,7 +46,11 @@ _FLAG_GATED_TASKS = {"approval": "permissions_v2"}
 
 def _ui_flag_gated_task_keys() -> set[str]:
     source = _PANEL.read_text(encoding="utf-8")
-    block = source[source.index("const TASK_GROUPS_V2") : source.index("const TASK_ROWS_V2")]
+    block = source[
+        source.index("const TASK_GROUPS_V2") : source.index(
+            "\n)", source.index("const TASK_GROUPS_V2")
+        )
+    ]
     return set(re.findall(r"\[\s*'(\w+)',\s*'", block))
 
 

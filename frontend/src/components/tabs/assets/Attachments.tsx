@@ -4,6 +4,7 @@
 // one (it asks first: the file itself is deleted too, and that can't be undone — RFC §3.9);
 // choose whether Lucius may read each.
 import { useId, useRef, useState, type ChangeEvent } from 'react'
+import { defineMessages } from 'react-intl'
 import { useIsMobile } from '../../../hooks/useIsMobile'
 import type { AssetDoc, OwnedAsset } from '../../../types/assets'
 import {
@@ -21,19 +22,55 @@ import {
 } from '../../ui'
 import { MoreVertical } from '../../../ui/icons'
 import * as api from './api'
-import { attachmentsHint } from './assetCategoryRules'
 import { monthYear } from './assetsData'
 import { AttachmentViewer, docFileUrl, isImageDoc } from './AttachmentViewer'
 import { AttachmentNoteDialog } from './AttachmentNoteDialog'
 import { useDocUpload, type DocUpload } from './docUpload'
 import { EditorFooter, SaveError, useEditorSave } from './editorKit'
 import { Icons } from './icons'
+import { useAppIntl } from '../../../i18n/useAppIntl'
 
 /** What the server can read — images, statements and spreadsheets (RFC §3.9). */
 const ACCEPT = 'image/*,.pdf,.csv,.xls,.xlsx,.ofx,.qfx,.qif'
 
 /** A file row's menu — the same vertical ⋮ as the file's row in Documents. */
 const KEBAB = <MoreVertical size={18} aria-hidden="true" />
+
+const documentHints = defineMessages({
+  property: {
+    id: 'assets.docs.hint.property',
+    defaultMessage:
+      'Keep its documents here — the purchase agreement, title deed, receipts and photos.',
+  },
+  vehicle: {
+    id: 'assets.docs.hint.vehicle',
+    defaultMessage:
+      'Keep its documents here — registration, insurance, service records and photos.',
+  },
+  watch: {
+    id: 'assets.docs.hint.watch',
+    defaultMessage:
+      'Keep its documents here — box and papers, certificates, the receipt and photos.',
+  },
+  art: {
+    id: 'assets.docs.hint.art',
+    defaultMessage:
+      'Keep its documents here — certificate of authenticity, invoice, provenance and photos.',
+  },
+  metal: {
+    id: 'assets.docs.hint.metal',
+    defaultMessage:
+      'Keep its documents here — purchase invoices, assay certificates and storage statements.',
+  },
+  policy: {
+    id: 'assets.docs.hint.policy',
+    defaultMessage: 'Keep its documents here — the policy contract and each annual statement.',
+  },
+  other: {
+    id: 'assets.docs.hint.other',
+    defaultMessage: 'Keep its documents here — contracts, receipts, warranties and photos.',
+  },
+})
 
 export interface AttachmentsProps {
   a: OwnedAsset
@@ -51,8 +88,17 @@ interface DocsTableProps {
   onRemove(doc: AssetDoc): void
 }
 
-function noteItem(doc: AssetDoc, onNote: (doc: AssetDoc) => void) {
-  return { label: doc.note ? 'Edit note' : 'Add a note', onSelect: () => onNote(doc) }
+function noteItem(
+  doc: AssetDoc,
+  onNote: (doc: AssetDoc) => void,
+  intl: ReturnType<typeof useAppIntl>,
+) {
+  return {
+    label: doc.note
+      ? intl.formatMessage({ id: 'assets.docs.editNote', defaultMessage: 'Edit note' })
+      : intl.formatMessage({ id: 'assets.docs.addNote', defaultMessage: 'Add a note' }),
+    onSelect: () => onNote(doc),
+  }
 }
 
 // An image shows itself; anything else, the file icon in a box of the same size, so every
@@ -65,17 +111,25 @@ function DocThumb({ doc }: { doc: AssetDoc }) {
 
 /** Each row opens its file; the switch and the ⋮ menu are their own controls. */
 function DocsTable({ a, onOpen, onToggle, onRename, onNote, onRemove }: DocsTableProps) {
+  const intl = useAppIntl()
+  const { formatMessage } = intl
   return (
     <div className="as-tbl-wrap">
       <div className="as-tbl-scroll">
         <table className="as-tbl" style={{ minWidth: 520 }}>
           <thead>
             <tr>
-              <th className="l">File</th>
-              <th>Added</th>
-              <th style={{ textAlign: 'right' }}>Lucius can read</th>
+              <th className="l">
+                {formatMessage({ id: 'assets.docs.file', defaultMessage: 'File' })}
+              </th>
+              <th>{formatMessage({ id: 'assets.docs.added', defaultMessage: 'Added' })}</th>
+              <th style={{ textAlign: 'right' }}>
+                {formatMessage({ id: 'assets.docs.readable', defaultMessage: 'Lucius can read' })}
+              </th>
               <th>
-                <span className="ui-visually-hidden">Actions</span>
+                <span className="ui-visually-hidden">
+                  {formatMessage({ id: 'assets.docs.actions', defaultMessage: 'Actions' })}
+                </span>
               </th>
             </tr>
           </thead>
@@ -101,7 +155,10 @@ function DocsTable({ a, onOpen, onToggle, onRename, onNote, onRemove }: DocsTabl
                 <td className="dim">{monthYear(d.added_on)}</td>
                 <td style={{ textAlign: 'right' }} onClick={(e) => e.stopPropagation()}>
                   <Switch
-                    aria-label={`Lucius can read ${d.name}`}
+                    aria-label={formatMessage(
+                      { id: 'assets.docs.readableName', defaultMessage: 'Lucius can read {name}' },
+                      { name: d.name },
+                    )}
                     checked={d.lucius_readable}
                     onChange={(e) => onToggle(d, e.target.checked)}
                   />
@@ -109,12 +166,28 @@ function DocsTable({ a, onOpen, onToggle, onRename, onNote, onRemove }: DocsTabl
                 <td className="as-doc-menu" onClick={(e) => e.stopPropagation()}>
                   <ActionMenu
                     className="as-doc-kebab"
-                    label={`More actions for ${d.name}`}
+                    label={formatMessage(
+                      { id: 'assets.docs.more', defaultMessage: 'More actions for {name}' },
+                      { name: d.name },
+                    )}
                     trigger={KEBAB}
                     items={[
-                      { label: 'Rename', onSelect: () => onRename(d) },
-                      noteItem(d, onNote),
-                      { label: 'Remove', tone: 'danger', onSelect: () => onRemove(d) },
+                      {
+                        label: formatMessage({
+                          id: 'assets.docs.rename',
+                          defaultMessage: 'Rename',
+                        }),
+                        onSelect: () => onRename(d),
+                      },
+                      noteItem(d, onNote, intl),
+                      {
+                        label: formatMessage({
+                          id: 'assets.docs.remove',
+                          defaultMessage: 'Remove',
+                        }),
+                        tone: 'danger',
+                        onSelect: () => onRemove(d),
+                      },
                     ]}
                   />
                 </td>
@@ -137,6 +210,8 @@ interface RenameFileDialogProps {
 /** Phone: each file is one row that opens it — its note, date and whether Lucius reads it under
  *  the name, and every other control in its ⋯ menu (a table would scroll them out of reach). */
 function DocsList({ a, onOpen, onToggle, onRename, onNote, onRemove }: DocsTableProps) {
+  const intl = useAppIntl()
+  const { formatMessage } = intl
   return (
     <div className="as-doc-list">
       {a.docs.map((d) => (
@@ -154,22 +229,45 @@ function DocsList({ a, onOpen, onToggle, onRename, onNote, onRemove }: DocsTable
               )}
               <Text size="xs" tone="faint">
                 {monthYear(d.added_on)} ·{' '}
-                {d.lucius_readable ? 'Lucius can read' : 'Lucius can’t read'}
+                {d.lucius_readable
+                  ? formatMessage({ id: 'assets.docs.readable', defaultMessage: 'Lucius can read' })
+                  : formatMessage({
+                      id: 'assets.docs.unreadable',
+                      defaultMessage: 'Lucius can’t read',
+                    })}
               </Text>
             </span>
           </button>
           <ActionMenu
             className="as-doc-kebab"
-            label={`More actions for ${d.name}`}
+            label={formatMessage(
+              { id: 'assets.docs.more', defaultMessage: 'More actions for {name}' },
+              { name: d.name },
+            )}
             trigger={KEBAB}
             items={[
-              { label: 'Rename', onSelect: () => onRename(d) },
-              noteItem(d, onNote),
               {
-                label: d.lucius_readable ? 'Don’t let Lucius read it' : 'Let Lucius read it',
+                label: formatMessage({ id: 'assets.docs.rename', defaultMessage: 'Rename' }),
+                onSelect: () => onRename(d),
+              },
+              noteItem(d, onNote, intl),
+              {
+                label: d.lucius_readable
+                  ? formatMessage({
+                      id: 'assets.docs.disallow',
+                      defaultMessage: 'Don’t let Lucius read it',
+                    })
+                  : formatMessage({
+                      id: 'assets.docs.allow',
+                      defaultMessage: 'Let Lucius read it',
+                    }),
                 onSelect: () => onToggle(d, !d.lucius_readable),
               },
-              { label: 'Remove', tone: 'danger', onSelect: () => onRemove(d) },
+              {
+                label: formatMessage({ id: 'assets.docs.remove', defaultMessage: 'Remove' }),
+                tone: 'danger',
+                onSelect: () => onRemove(d),
+              },
             ]}
           />
         </div>
@@ -180,13 +278,21 @@ function DocsList({ a, onOpen, onToggle, onRename, onNote, onRemove }: DocsTable
 
 /** "Rename file" — the name it goes by here and in Documents (the file itself is untouched). */
 function RenameFileDialog({ a, doc, onClose, onRenamed }: RenameFileDialogProps) {
+  const { formatMessage } = useAppIntl()
   const id = useId()
   const [name, setName] = useState(doc.name)
   const { saving, save, check, errorFor, edited, dialogError } = useEditorSave()
 
   async function onSave() {
     const clean = name.split(/\s+/).filter(Boolean).join(' ')
-    if (!check({ name: clean ? undefined : 'Enter a name.' })) return
+    if (
+      !check({
+        name: clean
+          ? undefined
+          : formatMessage({ id: 'assets.docs.enterName', defaultMessage: 'Enter a name.' }),
+      })
+    )
+      return
     if (clean === doc.name) return onClose()
     if (await save(() => api.updateDoc(a.id, doc.ref_id, { name: clean }))) onRenamed()
   }
@@ -196,13 +302,25 @@ function RenameFileDialog({ a, doc, onClose, onRenamed }: RenameFileDialogProps)
       className="as-modal"
       open
       onClose={onClose}
-      title="Rename file"
+      title={formatMessage({ id: 'assets.docs.renameFile', defaultMessage: 'Rename file' })}
       subtitle={a.name}
       size="sm"
-      footer={<EditorFooter saving={saving} label="Save" onCancel={onClose} onSave={onSave} />}
+      footer={
+        <EditorFooter
+          saving={saving}
+          label={formatMessage({ id: 'assets.docs.save', defaultMessage: 'Save' })}
+          onCancel={onClose}
+          onSave={onSave}
+        />
+      }
     >
       <Stack gap="--space-6">
-        <FormField label="Name" htmlFor={`${id}-name`} required error={errorFor('name')}>
+        <FormField
+          label={formatMessage({ id: 'assets.docs.name', defaultMessage: 'Name' })}
+          htmlFor={`${id}-name`}
+          required
+          error={errorFor('name')}
+        >
           <TextField
             id={`${id}-name`}
             autoFocus
@@ -237,6 +355,7 @@ interface RemoveFileConfirmProps {
 
 /** "Remove this file?" — it waits for the server and says why a refusal refused. */
 function RemoveFileConfirm({ a, doc, onClose, onRemoved }: RemoveFileConfirmProps) {
+  const { formatMessage } = useAppIntl()
   const { saving, save, dialogError } = useEditorSave()
   async function confirm() {
     if (await save(() => api.removeDoc(a.id, doc.ref_id))) onRemoved()
@@ -244,14 +363,25 @@ function RemoveFileConfirm({ a, doc, onClose, onRemoved }: RemoveFileConfirmProp
   return (
     <ConfirmDialog
       data={{
-        title: 'Remove this file?',
+        title: formatMessage({
+          id: 'assets.docs.removeTitle',
+          defaultMessage: 'Remove this file?',
+        }),
         body: (
           <>
-            {doc.name} will be removed from this asset.
+            {formatMessage(
+              {
+                id: 'assets.docs.removeBody',
+                defaultMessage: '{name} will be removed from this asset.',
+              },
+              { name: doc.name },
+            )}
             <SaveError message={dialogError([])} />
           </>
         ),
-        confirmLabel: saving ? 'Removing…' : 'Remove',
+        confirmLabel: saving
+          ? formatMessage({ id: 'assets.docs.removing', defaultMessage: 'Removing…' })
+          : formatMessage({ id: 'assets.docs.remove', defaultMessage: 'Remove' }),
         danger: true,
         confirmDisabled: saving,
       }}
@@ -262,6 +392,7 @@ function RemoveFileConfirm({ a, doc, onClose, onRemoved }: RemoveFileConfirmProp
 }
 
 export function Attachments({ a, upload: shared, onToast }: AttachmentsProps) {
+  const { formatMessage } = useAppIntl()
   const fileRef = useRef<HTMLInputElement>(null)
   const own = useDocUpload(a, onToast)
   const upload = shared ?? own
@@ -282,7 +413,14 @@ export function Attachments({ a, upload: shared, onToast }: AttachmentsProps) {
     try {
       await api.updateDoc(a.id, doc.ref_id, { lucius_readable: readable })
     } catch (e) {
-      onToast(e instanceof Error ? e.message : "That didn't save. Try again.")
+      onToast(
+        e instanceof Error
+          ? e.message
+          : formatMessage({
+              id: 'assets.docs.saveFailed',
+              defaultMessage: "That didn't save. Try again.",
+            }),
+      )
     }
   }
 
@@ -293,7 +431,9 @@ export function Attachments({ a, upload: shared, onToast }: AttachmentsProps) {
       disabled={upload.saving}
       onClick={() => fileRef.current?.click()}
     >
-      {upload.saving ? 'Adding…' : 'Add file'}
+      {upload.saving
+        ? formatMessage({ id: 'assets.docs.adding', defaultMessage: 'Adding…' })
+        : formatMessage({ id: 'assets.docs.addFile', defaultMessage: 'Add file' })}
     </Button>
   )
   const docControls: DocsTableProps = {
@@ -307,7 +447,7 @@ export function Attachments({ a, upload: shared, onToast }: AttachmentsProps) {
   // Only where a mouse can drag a file here — never on a phone.
   const dropHint = (
     <Text as="span" size="xs" tone="faint" className="as-drop-hint">
-      or drop files on this page
+      {formatMessage({ id: 'assets.docs.drop', defaultMessage: 'or drop files on this page' })}
     </Text>
   )
 
@@ -329,8 +469,13 @@ export function Attachments({ a, upload: shared, onToast }: AttachmentsProps) {
           <>
             <div className="as-tbl-wrap">
               <EmptyState
-                title="No documents yet"
-                body={attachmentsHint(a.category)}
+                title={formatMessage({
+                  id: 'assets.docs.empty',
+                  defaultMessage: 'No documents yet',
+                })}
+                body={formatMessage(
+                  documentHints[a.category as keyof typeof documentHints] ?? documentHints.other,
+                )}
                 action={
                   <Stack gap="--space-2" align="center">
                     {addFile}
@@ -351,7 +496,7 @@ export function Attachments({ a, upload: shared, onToast }: AttachmentsProps) {
           onClose={() => setRenaming(null)}
           onRenamed={() => {
             setRenaming(null)
-            onToast('File renamed.')
+            onToast(formatMessage({ id: 'assets.docs.renamed', defaultMessage: 'File renamed.' }))
           }}
         />
       )}
@@ -362,7 +507,11 @@ export function Attachments({ a, upload: shared, onToast }: AttachmentsProps) {
           onClose={() => setNoting(null)}
           onSaved={(removed) => {
             setNoting(null)
-            onToast(removed ? 'Note removed.' : 'Note saved.')
+            onToast(
+              removed
+                ? formatMessage({ id: 'assets.docs.noteRemoved', defaultMessage: 'Note removed.' })
+                : formatMessage({ id: 'assets.docs.noteSaved', defaultMessage: 'Note saved.' }),
+            )
           }}
         />
       )}
@@ -373,7 +522,7 @@ export function Attachments({ a, upload: shared, onToast }: AttachmentsProps) {
           onClose={() => setRemoving(null)}
           onRemoved={() => {
             setRemoving(null)
-            onToast('File removed.')
+            onToast(formatMessage({ id: 'assets.docs.removed', defaultMessage: 'File removed.' }))
           }}
         />
       )}

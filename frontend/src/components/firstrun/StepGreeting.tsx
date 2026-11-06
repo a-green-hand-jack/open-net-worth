@@ -8,6 +8,7 @@
 
 import { Button } from '../ui'
 import { FirstRunMark } from './Mark'
+import { useAppIntl } from '../../i18n/useAppIntl'
 
 export interface StepGreetingProps {
   onSetup: () => void
@@ -15,31 +16,55 @@ export interface StepGreetingProps {
   gatewayMode?: boolean
 }
 
-const NEXT_STEPS = [
-  {
-    // Leads with the DECISION. The folder is no longer a choice made here (it is the default
-    // or ONW_ROOT), so promising "where your data lives" set up an expectation the screen
-    // could not meet — it states the folder, it does not ask about it.
-    title: 'The currency you think in',
-    body: 'Plus where your files live on this machine.',
-  },
-  {
-    title: 'Bring your own model',
-    body: 'Claude Code, Codex, an API key, or Ollama running locally.',
-  },
-  {
-    title: 'A password, if you want one',
-    body: 'Only matters if you will open this from another device.',
-  },
-]
-
 export function StepGreeting({ onSetup, gatewayMode = false }: StepGreetingProps) {
+  const intl = useAppIntl()
+  const localizedSteps = [
+    {
+      title: intl.formatMessage({
+        id: 'greeting.currency',
+        defaultMessage: 'The currency you think in',
+      }),
+      body: intl.formatMessage({
+        id: 'greeting.files',
+        defaultMessage: 'Plus where your files live on this machine.',
+      }),
+    },
+    {
+      title: intl.formatMessage({ id: 'greeting.model', defaultMessage: 'Bring your own model' }),
+      body: intl.formatMessage({
+        id: 'greeting.modelBody',
+        defaultMessage: 'Claude Code, Codex, an API key, or Ollama running locally.',
+      }),
+    },
+    {
+      title: intl.formatMessage({
+        id: 'greeting.password',
+        defaultMessage: 'A password, if you want one',
+      }),
+      body: intl.formatMessage({
+        id: 'greeting.passwordBody',
+        defaultMessage: 'Only matters if you will open this from another device.',
+      }),
+    },
+  ]
   const nextSteps = gatewayMode
     ? [
-        { ...NEXT_STEPS[0]!, body: 'The one your totals are shown in.' },
-        { ...NEXT_STEPS[1]!, body: 'Claude Code, Codex, or an API key.' },
+        {
+          ...localizedSteps[0]!,
+          body: intl.formatMessage({
+            id: 'greeting.currencyGateway',
+            defaultMessage: 'The one your totals are shown in.',
+          }),
+        },
+        {
+          ...localizedSteps[1]!,
+          body: intl.formatMessage({
+            id: 'greeting.modelGateway',
+            defaultMessage: 'Claude Code, Codex, or an API key.',
+          }),
+        },
       ]
-    : NEXT_STEPS
+    : localizedSteps
   return (
     <div className="firstrun-greeting">
       <div className="firstrun-greeting__col firstrun-greeting__col--left">
@@ -48,23 +73,30 @@ export function StepGreeting({ onSetup, gatewayMode = false }: StepGreetingProps
             different question, so it reads as a fragment — and the mark above already
             names the app. Warmth belongs in the sentence below, not in a label. */}
         <h1 className="firstrun-headline" style={{ marginTop: 'var(--space-8)' }}>
-          An open-source agent harness for personal finance.
+          {intl.formatMessage({
+            id: 'greeting.headline',
+            defaultMessage: 'An open-source agent harness for personal finance.',
+          })}
         </h1>
         <p className="firstrun-lead" style={{ maxWidth: 428 }}>
-          Not a chatbot: it works your real ledger. Banks and brokerages that sync themselves,
-          automations that run while you sleep, skills you write — and every write permissioned,
-          audited and reversible.
+          {intl.formatMessage({
+            id: 'greeting.lead',
+            defaultMessage:
+              'Not a chatbot: it works your real ledger. Banks and brokerages that sync themselves, automations that run while you sleep, skills you write — and every write permissioned, audited and reversible.',
+          })}
         </p>
 
         <div className="firstrun-greeting__actions">
           <Button variant="primary" onClick={onSetup}>
-            Get started
+            {intl.formatMessage({ id: 'greeting.getStarted', defaultMessage: 'Get started' })}
           </Button>
         </div>
       </div>
 
       <div className="firstrun-greeting__col firstrun-greeting__col--right">
-        <div className="firstrun-eyebrow firstrun-eyebrow--muted">What happens next</div>
+        <div className="firstrun-eyebrow firstrun-eyebrow--muted">
+          {intl.formatMessage({ id: 'greeting.whatNext', defaultMessage: 'What happens next' })}
+        </div>
         <div className="firstrun-next">
           {nextSteps.map((s, i) => (
             <div className="firstrun-next__item" key={s.title}>
@@ -93,8 +125,14 @@ export function StepGreeting({ onSetup, gatewayMode = false }: StepGreetingProps
           </svg>
           <span>
             {gatewayMode
-              ? 'No telemetry. Your data stays on your own server.'
-              : 'No account, no upload, no telemetry. Your data stays yours.'}
+              ? intl.formatMessage({
+                  id: 'greeting.privateServer',
+                  defaultMessage: 'No telemetry. Your data stays on your own server.',
+                })
+              : intl.formatMessage({
+                  id: 'greeting.privateLocal',
+                  defaultMessage: 'No account, no upload, no telemetry. Your data stays yours.',
+                })}
           </span>
         </div>
       </div>

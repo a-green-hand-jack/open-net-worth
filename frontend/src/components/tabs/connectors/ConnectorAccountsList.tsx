@@ -1,3 +1,4 @@
+import { useAppIntl } from '../../../i18n/useAppIntl'
 // The per-provider "Accounts" list — self-fetches GET /api/connectors/{provider}/accounts (not
 // a shared read: it's per-provider, one caller) and reads the app's own account list through
 // the shared `useAccounts` hook (RFC frontend-server-state-consolidation — the accounts
@@ -70,6 +71,7 @@ export function ConnectorAccountsList({
   /** What to say while the provider isn't set up (default: add your credentials above). */
   notConfiguredText?: { title: string; body: string }
 }) {
+  const { formatMessage } = useAppIntl()
   const [data, setData] = useState<ConnectorAccountsResponse | null>(null)
   const [loadErr, setLoadErr] = useState(false)
   const [busyId, setBusyId] = useState<string | null>(null)
@@ -154,7 +156,7 @@ export function ConnectorAccountsList({
       load()
       void refreshAppAccounts()
     } catch {
-      setActionErr('Could not link that account — try again.')
+      setActionErr(formatMessage({ id: 'connectors.accounts.linkFailed', defaultMessage: "Could not link that account — try again." }))
     } finally {
       setBusyId(null)
     }
@@ -166,7 +168,7 @@ export function ConnectorAccountsList({
     if (!acct) {
       // The app account list hasn't loaded yet — refuse rather than PUT a guessed-empty
       // external_ids array, which would wipe out every OTHER link this account holds.
-      setActionErr('Still loading accounts — try again in a moment.')
+      setActionErr(formatMessage({ id: 'connectors.accounts.stillLoading', defaultMessage: "Still loading accounts — try again in a moment." }))
       return
     }
     setBusyId(row.provider_account_id)
@@ -182,7 +184,7 @@ export function ConnectorAccountsList({
       load()
       void refreshAppAccounts()
     } catch {
-      setActionErr('Could not unlink that account — try again.')
+      setActionErr(formatMessage({ id: 'connectors.accounts.unlinkFailed', defaultMessage: "Could not unlink that account — try again." }))
     } finally {
       setBusyId(null)
     }
@@ -213,7 +215,7 @@ export function ConnectorAccountsList({
         setNewNames((n) => ({ ...n, [acct.id]: acct.name }))
         showLinked(creatingFor.provider_account_id, acct.id)
       } catch {
-        setActionErr('Account created, but linking it failed — link it manually below.')
+        setActionErr(formatMessage({ id: 'connectors.accounts.createdLinkFailed', defaultMessage: "Account created, but linking it failed — link it manually below." }))
       }
     }
     setCreatingFor(null)
@@ -225,7 +227,7 @@ export function ConnectorAccountsList({
   function linkedName(accountId: string | null): string {
     if (!accountId) return ''
     return (
-      appAccounts.find((a) => a.id === accountId)?.name ?? newNames[accountId] ?? 'that account'
+      appAccounts.find((a) => a.id === accountId)?.name ?? newNames[accountId] ?? formatMessage({ id: 'connectors.accounts.thatAccount', defaultMessage: "that account" })
     )
   }
 
@@ -250,69 +252,68 @@ export function ConnectorAccountsList({
       <div className="conn-acct-head">
         {!embedded && (
           <Text size="sm" tone="ink" weight={600}>
-            Accounts
+            {formatMessage({ id: 'connectors.accounts.accounts', defaultMessage: 'Accounts' })}
           </Text>
         )}
         {live && data.accounts.length > 0 && (
           <Text size="xs" tone="faint">
-            {linkedCount} of {data.accounts.length} added
+            {formatMessage({ id: 'connectors.accounts.added', defaultMessage: '{linked} of {total} added' }, { linked: linkedCount, total: data.accounts.length })}
           </Text>
         )}
       </div>
       {live && data.accounts.length > 0 && linkedCount < data.accounts.length && (
         <Text size="xs" tone="muted">
-          Add each account you want to track, or link it to one you already have. Nothing is
-          imported until Lucius fetches transactions.
+          {formatMessage({ id: 'connectors.accounts.intro', defaultMessage: 'Add each account you want to track, or link it to one you already have. Nothing is imported until Lucius fetches transactions.' })}
         </Text>
       )}
-      {!data && !loadErr && <Loading label="Loading accounts…" />}
+      {!data && !loadErr && <Loading label={formatMessage({ id: 'connectors.accounts.loading', defaultMessage: 'Loading accounts…' })} />}
       {loadErr && (
-        <ErrorState message="Couldn't load accounts for this connector." onRetry={load} />
+        <ErrorState message={formatMessage({ id: 'connectors.accounts.loadFailed', defaultMessage: "Couldn't load accounts for this connector." })} onRetry={load} />
       )}
       {data && data.status === 'ok' && data.accounts.length === 0 && (
         <EmptyState
-          title="No accounts yet"
-          body="Link a bank or brokerage account above, then check back here."
+          title={formatMessage({ id: 'connectors.accounts.empty', defaultMessage: 'No accounts yet' })}
+          body={formatMessage({ id: 'connectors.accounts.emptyBody', defaultMessage: 'Link a bank or brokerage account above, then check back here.' })}
         />
       )}
       {data && data.status === 'not_configured' && (
         <EmptyState
-          title={notConfiguredText?.title ?? 'Not set up yet'}
+          title={notConfiguredText?.title ?? formatMessage({ id: 'connectors.accounts.notConfigured', defaultMessage: "Not set up yet" })}
           body={
             notConfiguredText?.body ??
-            `Add your ${providerLabel} credentials above to see its accounts here.`
+            formatMessage({ id: 'connectors.accounts.credentials', defaultMessage: 'Add your {provider} credentials above to see its accounts here.' }, { provider: providerLabel })
           }
         />
       )}
       {data && data.status === 'disabled' && (
         <EmptyState
-          title="Paused"
-          body={`${providerLabel} is paused. Resume it above to see its accounts.`}
+          title={formatMessage({ id: 'connectors.accounts.paused', defaultMessage: 'Paused' })}
+          body={formatMessage({ id: 'connectors.accounts.pausedBody', defaultMessage: '{provider} is paused. Resume it above to see its accounts.' }, { provider: providerLabel })}
         />
       )}
       {data && data.status === 'reconnect_needed' && (
         <ErrorState
-          message={`Your bank wants you to sign in again — use Reconnect above. Nothing syncs from it until then.`}
+          message={formatMessage({ id: 'connectors.accounts.reconnect', defaultMessage: 'Your bank wants you to sign in again — use Reconnect above. Nothing syncs from it until then.' })}
           onRetry={load}
         />
       )}
       {data && data.status === 'auth_error' && (
         <ErrorState
-          message={`${providerLabel} rejected the saved credentials. Check them above, then retry.`}
+          message={formatMessage({ id: 'connectors.accounts.authError', defaultMessage: '{provider} rejected the saved credentials. Check them above, then retry.' }, { provider: providerLabel })}
           onRetry={load}
         />
       )}
       {data && data.status === 'rate_limited' && (
         <ErrorState
-          message={`${providerLabel} is rate-limiting requests right now. Try again in a bit.`}
+          message={formatMessage({ id: 'connectors.accounts.rateLimit', defaultMessage: '{provider} is rate-limiting requests right now. Try again in a bit.' }, { provider: providerLabel })}
           onRetry={load}
         />
       )}
       {data && data.status === 'connect_error' && (
-        <ErrorState message={`Couldn't reach ${providerLabel}.`} onRetry={load} />
+        <ErrorState message={formatMessage({ id: 'connectors.accounts.unreachable', defaultMessage: "Couldn't reach {provider}." }, { provider: providerLabel })} onRetry={load} />
       )}
       {data && !KNOWN_NON_ERROR_STATUSES.has(data.status) && (
-        <ErrorState message={`Couldn't load accounts for ${providerLabel}.`} onRetry={load} />
+        <ErrorState message={formatMessage({ id: 'connectors.accounts.providerError', defaultMessage: "Couldn't load accounts for {provider}." }, { provider: providerLabel })} onRetry={load} />
       )}
       {/* Independent of `status`: the backend unions in every already-linked account (by
           `Account.external_ids`) even when the provider itself is unreachable/paused/never
@@ -322,10 +323,7 @@ export function ConnectorAccountsList({
           user already made. */}
       {data && data.status === 'not_configured' && linkedCount > 0 && (
         <Text size="xs" tone="muted">
-          Left over from before: {providerLabel} isn&apos;t connected, so nothing syncs into{' '}
-          {linkedCount === 1 ? 'this account' : 'these accounts'}. Unlink{' '}
-          {linkedCount === 1 ? 'it' : 'them'}, or link a bank above to use{' '}
-          {linkedCount === 1 ? 'it' : 'them'} again.
+          {formatMessage({ id: 'connectors.accounts.leftOver', defaultMessage: "Left over from before: {provider} isn't connected, so nothing syncs into {count, plural, one {this account} other {these accounts}}. Unlink {count, plural, one {it} other {them}}, or link a bank above to use {count, plural, one {it} other {them}} again." }, { provider: providerLabel, count: linkedCount })}
         </Text>
       )}
       {data && data.accounts.length > 0 && (

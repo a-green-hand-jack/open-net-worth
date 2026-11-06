@@ -12,6 +12,7 @@
 // the Net-worth widget group so there is exactly one Chart.js wrapper app-wide.
 
 import { useEffect, useRef } from 'react'
+import { useAppIntl } from '../../../i18n/useAppIntl'
 import {
   Chart,
   ArcElement,
@@ -191,6 +192,7 @@ export interface OvChartProps {
 const TOUCH_TOOLTIP_MS = 2500
 
 export function OvChart({ config, sig, minHeight }: OvChartProps) {
+  const { locale } = useAppIntl()
   const ref = useRef<HTMLCanvasElement>(null)
   const inst = useRef<Chart | null>(null)
   const wrap = useRef<HTMLDivElement>(null)
@@ -215,7 +217,7 @@ export function OvChart({ config, sig, minHeight }: OvChartProps) {
       inst.current = null
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [sig])
+  }, [sig, locale])
 
   useEffect(() => {
     const el = wrap.current

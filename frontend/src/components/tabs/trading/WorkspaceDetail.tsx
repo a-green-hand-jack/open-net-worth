@@ -1,3 +1,4 @@
+import { useTradingErrorText } from './useTradingErrorText'
 import { useCallback, useMemo, useState } from 'react'
 import { tradingApi, tradingRoot } from '../../../api/trading'
 import { useQueryCache } from '../../../state/queryCache'
@@ -21,7 +22,10 @@ import { TradingMarketPortfolio } from './TradingMarketPortfolio'
 import { TradingAgentWork } from './TradingAgentWork'
 import { TradingEvidenceInspector } from './TradingEvidenceInspector'
 import { WorkspaceForm } from './WorkspaceForm'
-import { errorText, readable, statusTone, tradingTime } from './presentation'
+import { statusTone, tradingTime } from './presentation'
+import { useAppIntl } from '../../../i18n/useAppIntl'
+import { useTradingLabel } from './useTradingLabel'
+import { useTradingNotices } from './useTradingNotices'
 
 export type TradingSection = 'overview' | 'activity' | 'orders' | 'holdings' | 'artifacts'
 export function WorkspaceDetail({
@@ -38,6 +42,10 @@ export function WorkspaceDetail({
   onBack: () => void
   onEdit?: () => void
 }) {
+  const { formatMessage } = useAppIntl()
+  const errorText = useTradingErrorText()
+  const label = useTradingLabel()
+  const notices = useTradingNotices()
   const overview = useTradingOverview(workspace.id)
   const current = overview.data?.current_run
   const selected = runId || current?.id || ''
@@ -89,26 +97,29 @@ export function WorkspaceDetail({
     <Stack gap="--space-6">
       <Cluster justify="between">
         <Button variant="ghost" onClick={onBack}>
-          All workspaces
+          {formatMessage({ id: 'trading.allWorkspaces', defaultMessage: 'All workspaces' })}
         </Button>
         <Cluster>
           {active && (
             <>
-              <Badge>{active.mode}</Badge>
-              <Badge tone={statusTone(active.state)}>{readable(active.state)}</Badge>
+              <Badge>{label(active.mode)}</Badge>
+              <Badge tone={statusTone(active.state)}>{label(active.state)}</Badge>
               {active.state === 'ready' && (
                 <Button variant="primary" disabled={busy} onClick={() => setPending('start')}>
-                  Start workspace
+                  {formatMessage({
+                    id: 'trading.startWorkspace',
+                    defaultMessage: 'Start workspace',
+                  })}
                 </Button>
               )}
               {active.state === 'running' && (
                 <Button disabled={busy} onClick={() => setPending('pause')}>
-                  Pause
+                  {formatMessage({ id: 'trading.pause', defaultMessage: 'Pause' })}
                 </Button>
               )}
               {active.state === 'paused' && (
                 <Button disabled={busy} onClick={() => setPending('resume')}>
-                  Resume
+                  {formatMessage({ id: 'trading.resume', defaultMessage: 'Resume' })}
                 </Button>
               )}
               {active.state === 'needs_reconciliation' && (
@@ -116,12 +127,15 @@ export function WorkspaceDetail({
                   disabled={busy}
                   onClick={() => void execute(() => tradingApi.action(active.id, 'reconcile'))}
                 >
-                  Reconcile account
+                  {formatMessage({
+                    id: 'trading.reconcileAccount',
+                    defaultMessage: 'Reconcile account',
+                  })}
                 </Button>
               )}
               {['ready', 'running', 'paused', 'needs_reconciliation'].includes(active.state) && (
                 <Button variant="danger" disabled={busy} onClick={() => setPending('stop')}>
-                  End workspace
+                  {formatMessage({ id: 'trading.endWorkspace', defaultMessage: 'End workspace' })}
                 </Button>
               )}
             </>
@@ -131,92 +145,190 @@ export function WorkspaceDetail({
       <Text as="h2" size="lg" weight={600}>
         {definition.name}
       </Text>
-      {overview.initialLoading && <Loading label="Loading delegated workspace…" />}
+      {overview.initialLoading && (
+        <Loading
+          label={formatMessage({
+            id: 'trading.loadingDelegated',
+            defaultMessage: 'Loading delegated workspace…',
+          })}
+        />
+      )}
       {!!overview.error && (
         <ErrorState
-          message={`Workspace updates interrupted. ${errorText(overview.error)}`}
+          message={formatMessage(
+            {
+              id: 'trading.workspaceUpdatesInterrupted',
+              defaultMessage: 'Workspace updates interrupted. {error}',
+            },
+            { error: errorText(overview.error) },
+          )}
           onRetry={() => void overview.refresh()}
         />
       )}
       {runId && current && runId !== current.id && (
         <Text tone="warn">
-          Viewing an earlier execution record. Current workspace authority may have changed since
-          this record.
+          {formatMessage({
+            id: 'trading.historicalAuthority',
+            defaultMessage:
+              'Viewing an earlier execution record. Current workspace authority may have changed since this record.',
+          })}
         </Text>
       )}
       <TradingMandate workspace={definition} overview={overview.data} />
       {error && <ErrorState message={error} />}
-      {selected && run.initialLoading && <Loading label="Loading workspace environment…" />}
+      {selected && run.initialLoading && (
+        <Loading
+          label={formatMessage({
+            id: 'trading.loadingEnvironment',
+            defaultMessage: 'Loading workspace environment…',
+          })}
+        />
+      )}
       {selected && !!run.error && (
         <ErrorState message={errorText(run.error)} onRetry={() => void run.refresh()} />
       )}
       {!overview.initialLoading && !overview.error && !selected && (
         <EmptyState
-          title="This workspace has not been activated"
-          body="Review its environment and allocation before delegating autonomous work."
-          action={<Button onClick={() => setCreate(true)}>Review delegation</Button>}
+          title={formatMessage({
+            id: 'trading.workspaceNotActivated',
+            defaultMessage: 'This workspace has not been activated',
+          })}
+          body={formatMessage({
+            id: 'trading.workspaceNotActivatedBody',
+            defaultMessage:
+              'Review its environment and allocation before delegating autonomous work.',
+          })}
+          action={
+            <Button onClick={() => setCreate(true)}>
+              {formatMessage({
+                id: 'trading.reviewDelegation',
+                defaultMessage: 'Review delegation',
+              })}
+            </Button>
+          }
         />
       )}
       {active && (
         <>
           <Panel
-            title="Current work"
+            title={formatMessage({ id: 'trading.currentWork', defaultMessage: 'Current work' })}
             actions={
               <Badge>
-                {readable(
-                  currentSelection ? (work?.state ?? active.agent_state) : active.agent_state,
-                )}
+                {label(currentSelection ? (work?.state ?? active.agent_state) : active.agent_state)}
               </Badge>
             }
           >
             <Stack gap="--space-3">
               <Text>
                 {currentSelection
-                  ? (work?.summary ?? 'No current task has been reported.')
-                  : 'Historical execution record. Its original work remains available below.'}
+                  ? (work?.summary ??
+                    formatMessage({
+                      id: 'trading.noCurrentTask',
+                      defaultMessage: 'No current task has been reported.',
+                    }))
+                  : formatMessage({
+                      id: 'trading.historicalWork',
+                      defaultMessage:
+                        'Historical execution record. Its original work remains available below.',
+                    })}
               </Text>
               {(work?.blocker || active.last_agent_error) && (
-                <Text tone="warn">{work?.blocker ?? active.last_agent_error}</Text>
+                <Text tone="warn">
+                  {
+                    notices(
+                      work?.blocker
+                        ? work.blocker_message
+                          ? [work.blocker_message]
+                          : undefined
+                        : active.last_agent_error_message
+                          ? [active.last_agent_error_message]
+                          : undefined,
+                      [work?.blocker ?? active.last_agent_error ?? ''],
+                    )[0]
+                  }
+                </Text>
               )}
               <Text size="sm" tone="muted">
-                {active.workspace_snapshot.agent_label} · Last activity{' '}
-                {tradingTime(work?.last_activity_at ?? active.last_agent_at)} · Next wake{' '}
-                {tradingTime(work?.next_wake_at ?? active.next_wake_at)} · Ends{' '}
-                {active.end_at ? tradingTime(active.end_at) : 'Until stopped'}
+                {formatMessage(
+                  {
+                    id: 'trading.workTimes',
+                    defaultMessage:
+                      '{agent} · Last activity {last} · Next wake {next} · Ends {end}',
+                  },
+                  {
+                    agent: active.workspace_snapshot.agent_label,
+                    last: tradingTime(work?.last_activity_at ?? active.last_agent_at),
+                    next: tradingTime(work?.next_wake_at ?? active.next_wake_at),
+                    end: active.end_at
+                      ? tradingTime(active.end_at)
+                      : formatMessage({
+                          id: 'trading.untilStopped',
+                          defaultMessage: 'Until stopped',
+                        }),
+                  },
+                )}
               </Text>
               {active.state === 'running' && (
                 <Text size="sm" tone="muted">
-                  The host continues managed work automatically. Waiting and blocked states remain
-                  visible; an external executor must maintain its own connection.
+                  {formatMessage({
+                    id: 'trading.hostContinues',
+                    defaultMessage:
+                      'The host continues managed work automatically. Waiting and blocked states remain visible; an external executor must maintain its own connection.',
+                  })}
                 </Text>
               )}
               {active.state === 'paused' && (
                 <Text size="sm" tone="muted">
-                  New agent decisions are paused. Pending order and cancellation status is shown
-                  separately; holdings remain.
+                  {formatMessage({
+                    id: 'trading.pausedExplanation',
+                    defaultMessage:
+                      'New agent decisions are paused. Pending order and cancellation status is shown separately; holdings remain.',
+                  })}
                 </Text>
               )}
               {['completed', 'stopped'].includes(active.state) && (
                 <Text size="sm" tone="muted">
-                  Mandate, work history, files and remaining holdings are retained.
+                  {formatMessage({
+                    id: 'trading.retainedWork',
+                    defaultMessage:
+                      'Mandate, work history, files and remaining holdings are retained.',
+                  })}
                 </Text>
               )}
             </Stack>
           </Panel>
           {!!performance.error && (
             <ErrorState
-              message={`Valuation updates interrupted. ${errorText(performance.error)}`}
+              message={formatMessage(
+                {
+                  id: 'trading.valuationUpdatesInterrupted',
+                  defaultMessage: 'Valuation updates interrupted. {error}',
+                },
+                { error: errorText(performance.error) },
+              )}
               onRetry={() => void performance.refresh()}
             />
           )}
           <div className="trading-layer-tabs">
             <PageTabs
-              ariaLabel="Workspace observation layers"
+              ariaLabel={formatMessage({
+                id: 'trading.observationLayers',
+                defaultMessage: 'Workspace observation layers',
+              })}
               value={layer}
               onChange={setLayer}
               tabs={[
-                { key: 'layer-market', label: 'Market & portfolio' },
-                { key: 'layer-work', label: 'Agent work' },
+                {
+                  key: 'layer-market',
+                  label: formatMessage({
+                    id: 'trading.marketPortfolio',
+                    defaultMessage: 'Market & portfolio',
+                  }),
+                },
+                {
+                  key: 'layer-work',
+                  label: formatMessage({ id: 'trading.agentWork', defaultMessage: 'Agent work' }),
+                },
               ]}
             />
           </div>
@@ -248,7 +360,11 @@ export function WorkspaceDetail({
           </div>
           {(accounts.error || orders.error || fills.error) && (
             <ErrorState
-              message="Some account or execution records could not be refreshed. Previously loaded values may be stale."
+              message={formatMessage({
+                id: 'trading.recordsStale',
+                defaultMessage:
+                  'Some account or execution records could not be refreshed. Previously loaded values may be stale.',
+              })}
               onRetry={() => {
                 void accounts.refresh()
                 void orders.refresh()
@@ -280,17 +396,58 @@ export function WorkspaceDetail({
         data={
           pending && active
             ? {
-                title: `${readable(pending === 'stop' ? 'end' : pending)} workspace`,
+                title:
+                  pending === 'stop'
+                    ? formatMessage({ id: 'trading.endWorkspace', defaultMessage: 'End workspace' })
+                    : pending === 'start'
+                      ? formatMessage({
+                          id: 'trading.startWorkspace',
+                          defaultMessage: 'Start workspace',
+                        })
+                      : pending === 'pause'
+                        ? formatMessage({
+                            id: 'trading.pauseWorkspace',
+                            defaultMessage: 'Pause workspace',
+                          })
+                        : formatMessage({
+                            id: 'trading.resumeWorkspace',
+                            defaultMessage: 'Resume workspace',
+                          }),
                 body:
                   pending === 'start'
-                    ? 'Start autonomous work under the reviewed environment, allocation and mandate?'
+                    ? formatMessage({
+                        id: 'trading.startConfirm',
+                        defaultMessage:
+                          'Start autonomous work under the reviewed environment, allocation and mandate?',
+                      })
                     : pending === 'resume'
-                      ? 'Resume work under the current mandate. The host will continue managed work automatically.'
-                      : 'Stop new agent work and request cancellation of open orders. Already submitted orders may still execute. Holdings remain in the account.',
+                      ? formatMessage({
+                          id: 'trading.resumeConfirm',
+                          defaultMessage:
+                            'Resume work under the current mandate. The host will continue managed work automatically.',
+                        })
+                      : formatMessage({
+                          id: 'trading.stopConfirm',
+                          defaultMessage:
+                            'Stop new agent work and request cancellation of open orders. Already submitted orders may still execute. Holdings remain in the account.',
+                        }),
                 confirmLabel:
                   pending === 'stop'
-                    ? 'End workspace'
-                    : `${pending.charAt(0).toUpperCase()}${pending.slice(1)} workspace`,
+                    ? formatMessage({ id: 'trading.endWorkspace', defaultMessage: 'End workspace' })
+                    : pending === 'start'
+                      ? formatMessage({
+                          id: 'trading.startWorkspace',
+                          defaultMessage: 'Start workspace',
+                        })
+                      : pending === 'pause'
+                        ? formatMessage({
+                            id: 'trading.pauseWorkspace',
+                            defaultMessage: 'Pause workspace',
+                          })
+                        : formatMessage({
+                            id: 'trading.resumeWorkspace',
+                            defaultMessage: 'Resume workspace',
+                          }),
                 danger: pending === 'stop',
                 confirmDisabled: busy,
               }

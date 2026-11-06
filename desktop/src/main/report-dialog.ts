@@ -3,6 +3,7 @@ import { join } from 'node:path';
 import { buildDraft, emailHref, reportText, sendReport, validateReport, type ReportEnvironment, type ReportTrigger } from './problem-report';
 import { COMMUNITY_URL, reportsEndpoint } from './report-config';
 import { reportPage } from './report-page';
+import { message as t } from './native-messages';
 
 interface ReportActions {
   // The main window when it is showing, so the dialog sits over it; null opens the dialog on its own.
@@ -24,7 +25,7 @@ export class ReportDialog {
     ipcMain.handle('desktop-report:send', async (event, value: unknown) => {
       this.authorize(event);
       const report = validateReport(value);
-      if (this.sending) throw new Error('Wait for the report to finish sending.');
+      if (this.sending) throw new Error(t('Wait for the report to finish sending.'));
       this.sending = true;
       try { return await sendReport(report, reportsEndpoint()); } finally { this.sending = false; }
     });
@@ -58,7 +59,7 @@ export class ReportDialog {
       const frame = parent
         ? { ...parent.getContentBounds(), parent, frame: false, transparent: true, hasShadow: false, resizable: false, movable: false, minimizable: false, maximizable: false, fullscreenable: false, skipTaskbar: true, backgroundColor: '#00000000' }
         : { width: 720, height: 780, minWidth: 560, minHeight: 560, backgroundColor: theme === 'dark' ? '#0e1014' : '#ffffff' };
-      const owned = new BrowserWindow({ ...frame, show: false, title: 'Report a problem — Open Net Worth', webPreferences: { preload: join(__dirname, '..', 'report-preload.js'), session: isolated, nodeIntegration: false, contextIsolation: true, sandbox: true, webSecurity: true, devTools: false } });
+      const owned = new BrowserWindow({ ...frame, show: false, title: `${t('Report a problem')} — Open Net Worth`, webPreferences: { preload: join(__dirname, '..', 'report-preload.js'), session: isolated, nodeIntegration: false, contextIsolation: true, sandbox: true, webSecurity: true, devTools: false } });
       this.window = owned;
       owned.webContents.on('will-navigate', event => event.preventDefault());
       owned.webContents.on('will-attach-webview', event => event.preventDefault());
@@ -88,6 +89,6 @@ export class ReportDialog {
   get isOpen(): boolean { return Boolean(this.window && !this.window.isDestroyed()); }
 
   private authorize(event: IpcMainInvokeEvent): void {
-    if (!this.window || event.sender !== this.window.webContents || event.senderFrame !== this.window.webContents.mainFrame || event.senderFrame.url !== this.url) throw new Error('Untrusted report caller.');
+    if (!this.window || event.sender !== this.window.webContents || event.senderFrame !== this.window.webContents.mainFrame || event.senderFrame.url !== this.url) throw new Error(t("Untrusted report caller."));
   }
 }

@@ -1,3 +1,5 @@
+import { localizedAction } from './localizedDisplay'
+import { useAppIntl } from '../../../i18n/useAppIntl'
 // One row on the activity rail: a call, or a run of identical adjacent calls.
 //
 // A real <button>, not a <span onClick> — the row it replaces was neither keyboard-reachable
@@ -31,6 +33,7 @@ function RowIcon({
   ownerId: string
   ownerName: string
 }) {
+  const intl = useAppIntl()
   if (look.logo) {
     return (
       <span className="msg-toolact__icon">
@@ -48,12 +51,12 @@ function RowIcon({
     return (
       <span
         className="msg-toolact__icon msg-toolact__icon--external"
-        title="Third-party MCP server"
+        title={intl.formatMessage({ id: 'chat.tool.external', defaultMessage: 'Third-party MCP server' })}
       >
         {/* The app's OWN generic MCP-server glyph — the one the "Custom MCP server" card
             uses — rather than a second mark meaning the same thing. */}
         <MCP_PLACEHOLDER />
-        <span className="sr-only">Third-party MCP server</span>
+        <span className="sr-only">{intl.formatMessage({ id: 'chat.tool.external', defaultMessage: 'Third-party MCP server' })}</span>
       </span>
     )
   }
@@ -95,6 +98,7 @@ function BusyDots() {
 /** One call's own expandable detail — used for a single-call row and for each member of an
  *  expanded multi-call cluster. */
 function CallDetail({ item, sessionId }: { item: ToolItem; sessionId?: string }) {
+  const intl = useAppIntl()
   const declinedIsNotFailure = useFlag('permissions_v2') === true
   const elided = item.resultElided !== undefined || item.inputElided !== undefined
   const [detail, setDetail] = useState<{
@@ -162,7 +166,7 @@ function CallDetail({ item, sessionId }: { item: ToolItem; sessionId?: string })
       input={input}
       result={result}
       loading={busy || waitingForFetch}
-      loadingLabel={busy ? 'Waiting for result…' : 'Loading full result…'}
+      loadingLabel={busy ? intl.formatMessage({ id: 'chat.tool.waiting', defaultMessage: 'Waiting for result…' }) : intl.formatMessage({ id: 'chat.tool.loading', defaultMessage: 'Loading full result…' })}
       failedToLoad={failedToLoad || unavailable}
       onRetry={canFetch ? load : undefined}
       resultFailed={failureOf({ ...item, result }, declinedIsNotFailure).failed}
@@ -174,10 +178,11 @@ function CallDetail({ item, sessionId }: { item: ToolItem; sessionId?: string })
  *  bubble says so and gives the judge's one-line reason. The reason is model-written from the
  *  call's arguments, so it is rendered as text only — never markdown, never a link. */
 function AutoApprovalHint({ approval }: { approval: AutoApproval }) {
-  const who = approval.model ? `Auto-approved by the judge (${approval.model})` : 'Auto-approved'
+  const intl = useAppIntl()
+  const who = approval.model ? intl.formatMessage({ id: 'chat.tool.autoBy', defaultMessage: 'Auto-approved by the judge ({model})' }, { model: approval.model }) : intl.formatMessage({ id: 'chat.tool.auto', defaultMessage: 'Auto-approved' })
   return (
     <InfoPopover
-      label="Why this ran without asking"
+      label={intl.formatMessage({ id: 'chat.tool.autoWhy', defaultMessage: 'Why this ran without asking' })}
       triggerClassName="msg-toolact__hint"
       text={
         <span className="msg-toolact__hint-text">
@@ -200,6 +205,7 @@ export function ToolRow({
   sessionId?: string
   look: OwnerLook
 }) {
+  const intl = useAppIntl()
   const [open, setOpen] = useState(false)
   // One call per row since 2026-08-23 — no nested member list to fall back to.
   const call = cluster.items[0]
@@ -225,7 +231,7 @@ export function ToolRow({
       />
       <span className="msg-toolact__label">
         {cluster.ownerName && <span className="msg-toolact__owner">{cluster.ownerName}</span>}
-        <span className="msg-toolact__text">{cluster.label}</span>
+        <span className="msg-toolact__text">{(call?.display && localizedAction(call.display, intl)) || cluster.label}</span>
         {cluster.detail && <span className="msg-toolact__detail-inline">{cluster.detail}</span>}
       </span>
       {cluster.busy && <BusyDots />}

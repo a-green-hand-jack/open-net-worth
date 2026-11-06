@@ -1,3 +1,6 @@
+import { equityError } from './equityErrors'
+import { getNumberLocale } from '../../../utils/format'
+import { useAppIntl } from '../../../i18n/useAppIntl'
 import { useEffect, useState } from 'react'
 import type { Grant, Tranche, FmvPrefill, VestApply, VestResult } from '../../../types/equity'
 import {
@@ -27,6 +30,7 @@ interface Props {
 type ModalPhase = 'form' | 'success' | 'error'
 
 export function MarkVestModal({ grant, tranche, onClose, onDone }: Props) {
+  const intl = useAppIntl()
   const [units, setUnits] = useState(String(tranche.units))
   const [fmvPerUnit, setFmvPerUnit] = useState('')
   const [fmvCurrency, setFmvCurrency] = useState(grant.currency || 'SGD')
@@ -108,23 +112,23 @@ export function MarkVestModal({ grant, tranche, onClose, onDone }: Props) {
       })
       if (!res.ok) {
         const detail = await res.json().catch(() => ({}))
-        throw new Error((detail as { detail?: string }).detail || `HTTP ${res.status}`)
+        throw new Error(equityError(intl, detail, (detail as { detail?: string }).detail || `HTTP ${res.status}`))
       }
       const r: VestResult = await res.json()
       setResult(r)
       setPhase('success')
     } catch (err) {
-      setSubmitError(err instanceof Error ? err.message : 'Vest failed. Please try again.')
+      setSubmitError(err instanceof Error ? err.message : intl.formatMessage({ id: 'equity.vest.failed', defaultMessage: "Vest failed. Please try again." }))
       setSubmitting(false)
     }
   }
 
-  const title = `Mark vested — ${grant.symbol} • ${fDate(tranche.vest_date, 'short', 'always')} tranche`
+  const title = intl.formatMessage({ id: 'equity.vest.title', defaultMessage: 'Mark vested — {symbol} • {date} tranche' }, { symbol: grant.symbol, date: fDate(tranche.vest_date, 'short', 'always') })
 
   const fmvCaption =
     fmvPrefill?.source === 'price_history' && fmvPrefill.as_of
-      ? `Pre-filled from price history on ${fDate(fmvPrefill.as_of, 'short', 'always')}. Edit to match your broker statement.`
-      : 'No price history found for this date. Enter the FMV from your broker statement.'
+      ? intl.formatMessage({ id: 'equity.vest.prefilled', defaultMessage: 'Pre-filled from price history on {date}. Edit to match your broker statement.' }, { date: fDate(fmvPrefill.as_of, 'short', 'always') })
+      : intl.formatMessage({ id: 'equity.vest.noPrice', defaultMessage: "No price history found for this date. Enter the FMV from your broker statement." })
 
   // ── Success body ──────────────────────────────────────────────────────────────
 
@@ -139,28 +143,26 @@ export function MarkVestModal({ grant, tranche, onClose, onDone }: Props) {
         dragToDismiss
         footer={
           <Button variant="primary" onClick={onDone}>
-            Done
+            {intl.formatMessage({ id: 'equity.done', defaultMessage: 'Done' })}
           </Button>
         }
       >
         <Stack gap="--space-5">
           <Text as="p" size="base" tone="faint">
-            Vest recorded
+            {intl.formatMessage({ id: 'equity.vest.recorded', defaultMessage: "Vest recorded" })}
           </Text>
           <Text as="p" size="base">
             {needsRelease
-              ? `${unitsNum.toLocaleString()} units are awaiting release — they count in your net worth but are not sellable yet. No cash moved: a vest delivers shares.`
-              : `Lot created at ${fmvCurrency} ${fmvNum.toFixed(2)} • ${unitsNum.toLocaleString()} units moved to liquid. No cash moved: a vest delivers shares.`}
+              ? intl.formatMessage({ id: 'equity.vest.awaiting', defaultMessage: '{units} units are awaiting release — they count in your net worth but are not sellable yet. No cash moved: a vest delivers shares.' }, { units: unitsNum.toLocaleString(getNumberLocale()) })
+              : intl.formatMessage({ id: 'equity.vest.lotCreated', defaultMessage: 'Lot created at {price} • {units} units moved to liquid. No cash moved: a vest delivers shares.' }, { price: fCurrency(fmvNum, fmvCurrency), units: unitsNum.toLocaleString(getNumberLocale()) })}
           </Text>
           {needsRelease && (
             <Text as="p" size="sm" tone="faint">
-              Mark them released when they land in the account — the lot is created then, still at
-              this vest date and price.
+              {intl.formatMessage({ id: 'equity.vest.confirmedRelease', defaultMessage: 'Mark them released when they land in the account — the lot is created then, still at this vest date and price.' })}
             </Text>
           )}
           <Text as="p" size="sm" tone="faint">
-            To undo, use the Undo button on the grant detail or restore from the checkpoint in
-            Lucius chat.
+            {intl.formatMessage({ id: 'equity.vest.undo', defaultMessage: 'To undo, use the Undo button on the grant detail or restore from the checkpoint in Lucius chat.' })}
           </Text>
         </Stack>
       </Modal>
@@ -172,10 +174,10 @@ export function MarkVestModal({ grant, tranche, onClose, onDone }: Props) {
   const footer = (
     <Cluster gap="--space-3" justify="between">
       <Button variant="secondary" onClick={onClose} disabled={submitting}>
-        Cancel
+        {intl.formatMessage({ id: 'equity.cancel', defaultMessage: 'Cancel' })}
       </Button>
       <Button variant="primary" onClick={handleConfirm} disabled={!canSubmit}>
-        {submitting ? 'Saving…' : 'Confirm vest'}
+        {submitting ? intl.formatMessage({ id: 'equity.saving', defaultMessage: 'Saving…' }) : intl.formatMessage({ id: 'equity.vest.confirm', defaultMessage: "Confirm vest" })}
       </Button>
     </Cluster>
   )
@@ -192,9 +194,9 @@ export function MarkVestModal({ grant, tranche, onClose, onDone }: Props) {
     >
       <Stack gap="--space-5">
         <FormField
-          label="Units"
+          label={intl.formatMessage({ id: 'equity.vest.units', defaultMessage: "Units" })}
           htmlFor="vest-units"
-          help={`Max available: ${tranche.units.toLocaleString()} unvested units`}
+          help={intl.formatMessage({ id: 'equity.vest.maxUnits', defaultMessage: 'Max available: {units} unvested units' }, { units: tranche.units.toLocaleString(getNumberLocale()) })}
         >
           <NumberField
             id="vest-units"
@@ -207,12 +209,12 @@ export function MarkVestModal({ grant, tranche, onClose, onDone }: Props) {
         </FormField>
 
         <FormField
-          label="FMV per unit"
+          label={intl.formatMessage({ id: 'equity.vest.fmv', defaultMessage: "FMV per unit" })}
           htmlFor="vest-fmv"
           help={fmvLoading ? undefined : fmvCaption}
         >
           {fmvLoading ? (
-            <Loading label="Loading price history…" />
+            <Loading label={intl.formatMessage({ id: 'equity.vest.loading', defaultMessage: "Loading price history…" })} />
           ) : (
             <NumberField
               id="vest-fmv"
@@ -225,9 +227,9 @@ export function MarkVestModal({ grant, tranche, onClose, onDone }: Props) {
         </FormField>
 
         <FormField
-          label="Price paid per unit"
+          label={intl.formatMessage({ id: 'equity.vest.pricePaid', defaultMessage: "Price paid per unit" })}
           htmlFor="vest-price-paid"
-          help="0 for RSUs — no cost. Set for ESPP or discounted purchase grants."
+          help={intl.formatMessage({ id: 'equity.vest.pricePaidHelp', defaultMessage: "0 for RSUs — no cost. Set for ESPP or discounted purchase grants." })}
         >
           <NumberField
             id="vest-price-paid"
@@ -238,7 +240,7 @@ export function MarkVestModal({ grant, tranche, onClose, onDone }: Props) {
           />
         </FormField>
 
-        <FormField label="Currency" htmlFor="vest-currency">
+        <FormField label={intl.formatMessage({ id: 'equity.vest.currency', defaultMessage: "Currency" })} htmlFor="vest-currency">
           <Select
             id="vest-currency"
             value={fmvCurrency}
@@ -254,7 +256,7 @@ export function MarkVestModal({ grant, tranche, onClose, onDone }: Props) {
           />
         </FormField>
 
-        <FormField label="Vest date" htmlFor="vest-date">
+        <FormField label={intl.formatMessage({ id: 'equity.vest.date', defaultMessage: "Vest date" })} htmlFor="vest-date">
           <TextField
             id="vest-date"
             type="date"
@@ -265,9 +267,9 @@ export function MarkVestModal({ grant, tranche, onClose, onDone }: Props) {
 
         {needsRelease && (
           <FormField
-            label="Expected release date"
+            label={intl.formatMessage({ id: 'equity.vest.expected', defaultMessage: "Expected release date" })}
             htmlFor="vest-expected-release"
-            help="Optional — when the shares are expected to land in the account. Leave blank if you don't know; it's only used to flag an overdue delivery."
+            help={intl.formatMessage({ id: 'equity.vest.expectedHelp', defaultMessage: "Optional — when the shares are expected to land in the account. Leave blank if you don't know; it's only used to flag an overdue delivery." })}
           >
             <TextField
               id="vest-expected-release"
@@ -282,41 +284,40 @@ export function MarkVestModal({ grant, tranche, onClose, onDone }: Props) {
         {!fmvLoading && fmvNum > 0 && unitsNum > 0 && (
           <div className="equity-vest-preview">
             <Text as="p" size="sm" weight={600} className="equity-vest-preview__heading">
-              Preview
+              {intl.formatMessage({ id: 'equity.vest.preview', defaultMessage: "Preview" })}
             </Text>
             <div className="equity-vest-preview__grid">
-              <span className="equity-vest-preview__label">Gross gain</span>
+              <span className="equity-vest-preview__label">{intl.formatMessage({ id: 'equity.vest.grossGain', defaultMessage: "Gross gain" })}</span>
               <span className="equity-vest-preview__value">
                 <Text as="span" size="md" weight={600}>
                   {fCurrency(grossGain, fmvCurrency)}
                 </Text>{' '}
                 <Text as="span" size="sm" tone="faint">
-                  {unitsNum.toLocaleString()} × ({fmvNum.toFixed(2)} − {pricePaidNum.toFixed(2)})
+                  {unitsNum.toLocaleString(getNumberLocale())} × ({fmvNum.toLocaleString(getNumberLocale(), { minimumFractionDigits: 2, maximumFractionDigits: 2 })} − {pricePaidNum.toLocaleString(getNumberLocale(), { minimumFractionDigits: 2, maximumFractionDigits: 2 })})
                 </Text>
               </span>
-              <span className="equity-vest-preview__label">Lot</span>
+              <span className="equity-vest-preview__label">{intl.formatMessage({ id: 'equity.vest.lot', defaultMessage: "Lot" })}</span>
               <span className="equity-vest-preview__value">
                 <Text as="span" size="sm">
-                  {unitsNum.toLocaleString()} units @ {fmvCurrency} {fmvNum.toFixed(2)} • acquired{' '}
-                  {fDate(vestDate, 'short', 'always')}
-                  {needsRelease && ' • created when released'}
+                  {intl.formatMessage({ id: 'equity.vest.lotDetails', defaultMessage: '{units} units @ {price} • acquired {date}' }, { units: unitsNum.toLocaleString(getNumberLocale()), price: fCurrency(fmvNum, fmvCurrency), date: fDate(vestDate, 'short', 'always') })}
+                  {needsRelease && intl.formatMessage({ id: 'equity.vest.createdOnRelease', defaultMessage: ' • created when released' })}
                 </Text>
               </span>
-              <span className="equity-vest-preview__label">Units</span>
+              <span className="equity-vest-preview__label">{intl.formatMessage({ id: 'equity.vest.units', defaultMessage: "Units" })}</span>
               <span className="equity-vest-preview__value">
                 <Text as="span" size="sm">
-                  {unitsNum.toLocaleString()}{' '}
-                  {needsRelease ? 'locked → awaiting release' : 'locked → liquid'}
+                  {unitsNum.toLocaleString(getNumberLocale())}{' '}
+                  {needsRelease ? intl.formatMessage({ id: 'equity.vest.lockedAwaiting', defaultMessage: 'locked → awaiting release' }) : intl.formatMessage({ id: 'equity.vest.lockedLiquid', defaultMessage: 'locked → liquid' })}
                 </Text>
               </span>
             </div>
             <div className="equity-vest-preview__badge-row">
               {isDeferred ? (
-                <Badge tone="warn">Tax deferred</Badge>
+                <Badge tone="warn">{intl.formatMessage({ id: 'equity.vest.deferred', defaultMessage: "Tax deferred" })}</Badge>
               ) : (
-                <Badge tone="neutral">Taxed at vest</Badge>
+                <Badge tone="neutral">{intl.formatMessage({ id: 'equity.vest.taxed', defaultMessage: "Taxed at vest" })}</Badge>
               )}
-              {needsRelease && <Badge tone="warn">Not sellable until released</Badge>}
+              {needsRelease && <Badge tone="warn">{intl.formatMessage({ id: 'equity.vest.notSellable', defaultMessage: "Not sellable until released" })}</Badge>}
             </div>
           </div>
         )}

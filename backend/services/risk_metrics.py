@@ -195,6 +195,76 @@ def max_drawdown(cumulative_path: list[float]) -> float | None:
     return mdd
 
 
+def risk_summary_parts(
+    vol: float | None,
+    beta: float | None,
+    sharpe_ratio: float | None,
+    mdd: float | None,
+    short_window: bool = False,
+) -> list[dict]:
+    """Generate the existing English summary and stable display IDs together."""
+    parts: list[dict] = []
+    if sharpe_ratio is not None:
+        if sharpe_ratio >= 2.0:
+            key, text = "performance.risk.excellent", "excellent return for the risk taken"
+        elif sharpe_ratio >= 1.0:
+            key, text = "performance.risk.solid", "solid return for the risk taken"
+        elif sharpe_ratio >= 0.0:
+            key, text = "performance.risk.modest", "modest return for the risk taken"
+        else:
+            key, text = "performance.risk.below", "return below the risk-free rate"
+        if short_window:
+            text += " (short window)"
+        parts.append(
+            {
+                "id": key,
+                "params": {"short_window": short_window},
+                "text": text,
+            }
+        )
+    if beta is not None:
+        pct = abs(round((beta - 1.0) * 100))
+        if beta > 1.05:
+            parts.append(
+                {
+                    "id": "performance.risk.more",
+                    "params": {"percent": pct},
+                    "text": f"swings ~{pct}% more than the market",
+                }
+            )
+        elif beta < 0.95:
+            parts.append(
+                {
+                    "id": "performance.risk.less",
+                    "params": {"percent": pct},
+                    "text": f"swings ~{pct}% less than the market",
+                }
+            )
+        else:
+            parts.append(
+                {"id": "performance.risk.tracks", "params": {}, "text": "tracks the market closely"}
+            )
+    if mdd is not None:
+        pct = round(abs(mdd) * 100)
+        parts.append(
+            {
+                "id": "performance.risk.drawdown",
+                "params": {"percent": pct},
+                "text": f"worst dip ~−{pct}%",
+            }
+        )
+    if not parts and vol is not None:
+        pct = round(vol * 100, 1)
+        parts.append(
+            {
+                "id": "performance.risk.volatility",
+                "params": {"percent": pct},
+                "text": f"annualized volatility ~{pct}%",
+            }
+        )
+    return parts
+
+
 def risk_summary(
     vol: float | None,
     beta: float | None,
@@ -202,46 +272,9 @@ def risk_summary(
     mdd: float | None,
     short_window: bool = False,
 ) -> str | None:
-    """Deterministic plain-English one-liner. The ONLY place risk phrasing lives.
-
-    Returns None when all metrics are None (nothing to say). The `short_window` flag tags
-    Sharpe as "(short window)" when the span < 360d (cumulative vs annualized basis mismatch).
-    """
-    if all(v is None for v in (vol, beta, sharpe_ratio, mdd)):
-        return None
-
-    parts: list[str] = []
-
-    if sharpe_ratio is not None:
-        if sharpe_ratio >= 2.0:
-            parts.append("excellent return for the risk taken")
-        elif sharpe_ratio >= 1.0:
-            parts.append("solid return for the risk taken")
-        elif sharpe_ratio >= 0.0:
-            parts.append("modest return for the risk taken")
-        else:
-            parts.append("return below the risk-free rate")
-        if short_window:
-            parts[-1] += " (short window)"
-
-    if beta is not None:
-        pct = abs(round((beta - 1.0) * 100))
-        if beta > 1.05:
-            parts.append(f"swings ~{pct}% more than the market")
-        elif beta < 0.95:
-            parts.append(f"swings ~{pct}% less than the market")
-        else:
-            parts.append("tracks the market closely")
-
-    if mdd is not None:
-        pct = round(abs(mdd) * 100)
-        parts.append(f"worst dip ~−{pct}%")
-
-    if not parts and vol is not None:
-        pct = round(vol * 100, 1)
-        parts.append(f"annualized volatility ~{pct}%")
-
-    return " • ".join(parts) if parts else None
+    """Deterministic English summary, retained for non-localized API consumers."""
+    parts = risk_summary_parts(vol, beta, sharpe_ratio, mdd, short_window)
+    return " • ".join(part["text"] for part in parts) if parts else None
 
 
 # ── Benchmark roster (server-authoritative) ────────────────────────────────────────
@@ -473,7 +506,8 @@ def portfolio_risk(
     mdd = max_drawdown(tr_path) if tr_path and len(tr_path) >= MIN_VALUE_POINTS else None
 
     # ── Summary ───────────────────────────────────────────────────────────────────
-    summary = risk_summary(vol, beta, sharpe_val, mdd, short_window=short_window)
+    summary_parts = risk_summary_parts(vol, beta, sharpe_val, mdd, short_window=short_window)
+    summary = " • ".join(part["text"] for part in summary_parts) if summary_parts else None
 
     # ── Benchmark block (the user's VISUAL pick) ──────────────────────────────────
     benchmark_block: dict = {"key": "", "symbol": "", "instrument_id": "", "resolved": False}
@@ -507,6 +541,7 @@ def portfolio_risk(
         "sharpe": round(sharpe_val, 6) if sharpe_val is not None else None,
         "max_drawdown": round(mdd, 6) if mdd is not None else None,
         "summary": summary,
+        "summary_messages": summary_parts,
         "benchmark": benchmark_block,
         "annualization_factor": ANNUALIZATION_FACTOR,
         "risk_free_rate": RISK_FREE_RATE,

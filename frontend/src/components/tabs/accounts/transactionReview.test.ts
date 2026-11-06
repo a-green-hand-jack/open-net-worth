@@ -151,8 +151,8 @@ describe('transaction review draft', () => {
       original_amount: null,
       original_currency: null,
     })
-    expect(validateReviewDraft(expense, { ...draft, toAccountId: 'sgd' }, accounts)).toMatch(
-      /different accounts/i,
+    expect(validateReviewDraft(expense, { ...draft, toAccountId: 'sgd' }, accounts)).toBe(
+      'distinct',
     )
   })
 
@@ -164,7 +164,7 @@ describe('transaction review draft', () => {
       originalAmount: '   ',
       originalCurrency: '   ',
     }
-    expect(validateReviewDraft(expense, draft, [accounts[0], archived])).toMatch(/active account/i)
+    expect(validateReviewDraft(expense, draft, [accounts[0], archived])).toBe('account')
     const update = reviewDraftToUpdate(expense, { ...draft, accountId: 'sgd' }, accounts)
     expect(update.original_amount).toBeNull()
     expect(update.original_currency).toBeNull()
@@ -178,17 +178,17 @@ describe('transaction review draft', () => {
       originalAmount: '100',
       originalCurrency: '',
     }
-    expect(validateReviewDraft(expense, draft, accounts)).toMatch(/buy or sell/i)
-    expect(
-      validateReviewDraft(expense, { ...draft, investmentDirection: 'buy' }, accounts),
-    ).toMatch(/amount and currency/i)
+    expect(validateReviewDraft(expense, draft, accounts)).toBe('direction')
+    expect(validateReviewDraft(expense, { ...draft, investmentDirection: 'buy' }, accounts)).toBe(
+      'originalBoth',
+    )
     expect(
       validateReviewDraft(
         expense,
         { ...draft, investmentDirection: 'buy', originalCurrency: 'ZZZ' },
         accounts,
       ),
-    ).toMatch(/supported original currency/i)
+    ).toBe('originalCurrency')
   })
 })
 

@@ -1,3 +1,4 @@
+import { useAppIntl } from './i18n/useAppIntl'
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import './index.layers.css' // @layer declaration — must be first (RFC Phase C-1)
@@ -23,6 +24,7 @@ import { onwDataSource, readEmbeddedDescriptors } from './lucius/onwDataSource'
 import { refreshFromAdapter, seedEntityRegistry } from './lucius/entityRegistry'
 import { stampPwaDisplayMode } from './utils/pwa'
 import { watchStatusBarTint } from './utils/statusBarTint'
+import { LocaleProvider } from './i18n/LocaleProvider'
 
 // CSS must know whether browser chrome exists before the mobile shell renders. The iOS
 // navigator.standalone fallback is more reliable than the display-mode query by itself.
@@ -57,27 +59,41 @@ const showGallery = galleryParam !== null
 // it renders before the sign-in gate, with the app's theme and design system but none of the app.
 const showPhoneSetup = window.location.pathname === '/phone-setup'
 
+function RootContent() {
+  const intl = useAppIntl()
+  return showGallery ? (
+    galleryParam === 'cards' ? (
+      <LazyApprovalCardGallery />
+    ) : (
+      <Gallery />
+    )
+  ) : showPhoneSetup ? (
+    <ThemeProvider>
+      <ErrorBoundary
+        label={intl.formatMessage({
+          id: 'errorBoundary.phoneSetup',
+          defaultMessage: 'phone setup',
+        })}
+      >
+        <LazyPhoneSetupPage />
+      </ErrorBoundary>
+    </ThemeProvider>
+  ) : (
+    <ThemeProvider>
+      <ErrorBoundary
+        label={intl.formatMessage({ id: 'errorBoundary.app', defaultMessage: 'the app' })}
+      >
+        <App />
+      </ErrorBoundary>
+      <ReportProblemHost />
+    </ThemeProvider>
+  )
+}
+
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    {showGallery ? (
-      galleryParam === 'cards' ? (
-        <LazyApprovalCardGallery />
-      ) : (
-        <Gallery />
-      )
-    ) : showPhoneSetup ? (
-      <ThemeProvider>
-        <ErrorBoundary label="phone setup">
-          <LazyPhoneSetupPage />
-        </ErrorBoundary>
-      </ThemeProvider>
-    ) : (
-      <ThemeProvider>
-        <ErrorBoundary label="the app">
-          <App />
-        </ErrorBoundary>
-        <ReportProblemHost />
-      </ThemeProvider>
-    )}
+    <LocaleProvider>
+      <RootContent />
+    </LocaleProvider>
   </StrictMode>,
 )

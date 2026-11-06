@@ -7,6 +7,8 @@
  */
 
 import { useState } from 'react'
+import { useAppIntl } from '../../../i18n/useAppIntl'
+import { accountTypeMessages } from './useAccountTypeLabel'
 import type { PointerEventHandler } from 'react'
 import { fBaseCompact, getBaseCurrency } from '../../../utils/format'
 import { EntityRow } from '../../../lucius/EntityRow'
@@ -14,7 +16,7 @@ import type { Account, AccountGroup } from './types'
 import { accountValue, fBase, fCur } from './data'
 import { TYPE_ORDER, typeLabel } from './categories'
 import { ChevronRight, Link2 } from '../../../ui/icons'
-import { countNeedsReconciling, needReconcilingLabel, needsReconciling } from './reconcileDue'
+import { countNeedsReconciling, needsReconciling } from './reconcileDue'
 
 // ── Local icon helpers (SVG, pixel-centered) ─────────────────────────────────
 
@@ -95,6 +97,7 @@ interface AccountRowProps {
 }
 
 function AccountRow({ a, sel, onSelect }: AccountRowProps) {
+  const { formatMessage } = useAppIntl()
   const isSec = a.role === 'securities'
   const neg = a.balance < 0
   const base = getBaseCurrency()
@@ -137,13 +140,39 @@ function AccountRow({ a, sel, onSelect }: AccountRowProps) {
             {linked && (
               <span
                 className={linkLive ? 'acct-row-linked' : 'acct-row-linked acct-row-linked--off'}
-                title={linkLive ? `Linked to ${linked}` : `Linked to ${linked} — not syncing`}
+                title={
+                  linkLive
+                    ? formatMessage(
+                        { id: 'accounts.linkedTo', defaultMessage: 'Linked to {name}' },
+                        { name: linked },
+                      )
+                    : formatMessage(
+                        {
+                          id: 'accounts.linkedNotSyncing',
+                          defaultMessage: 'Linked to {name} — not syncing',
+                        },
+                        { name: linked },
+                      )
+                }
               >
-                <Link2 size={11} aria-label={`Linked to ${linked}`} />
+                <Link2
+                  size={11}
+                  aria-label={formatMessage(
+                    { id: 'accounts.linkedTo', defaultMessage: 'Linked to {name}' },
+                    { name: linked },
+                  )}
+                />
               </span>
             )}
             {a.lastFour && due && ' · '}
-            {due && <span className="acct-due">Needs reconciling</span>}
+            {due && (
+              <span className="acct-due">
+                {formatMessage({
+                  id: 'accounts.needsReconciling',
+                  defaultMessage: 'Needs reconciling',
+                })}
+              </span>
+            )}
           </span>
         )}
       </span>
@@ -159,7 +188,9 @@ function AccountRow({ a, sel, onSelect }: AccountRowProps) {
           </span>
         )}
         {/* "value", not "holdings": the figure is positions PLUS settlement cash. */}
-        <span className="acct-row-cur">{isSec ? 'value' : a.currency}</span>
+        <span className="acct-row-cur">
+          {isSec ? formatMessage({ id: 'accounts.value', defaultMessage: 'value' }) : a.currency}
+        </span>
       </span>
     </EntityRow>
   )
@@ -182,6 +213,7 @@ export function Sidebar({
   onAdd,
   onManagePayees,
 }: SidebarProps) {
+  const { formatMessage } = useAppIntl()
   const [openVenues, setOpenVenues] = useState<Record<string, boolean>>({})
 
   // `assets` is deliberately DEFINED from `netWorth` (assets − debts = net worth, rearranged),
@@ -223,14 +255,25 @@ export function Sidebar({
             <div
               className="acct-side-resize"
               onPointerDown={onPointerDown}
-              title="Drag to resize"
+              title={formatMessage({
+                id: 'accounts.dragToResize',
+                defaultMessage: 'Drag to resize',
+              })}
             />
           )}
           <button
             className="acct-side-collapse"
             onClick={onToggleCollapse}
-            title={peek ? 'Keep accounts open' : 'Collapse panel'}
-            aria-label={peek ? 'Keep accounts open' : 'Collapse panel'}
+            title={
+              peek
+                ? formatMessage({ id: 'accounts.keepOpen', defaultMessage: 'Keep accounts open' })
+                : formatMessage({ id: 'accounts.collapsePanel', defaultMessage: 'Collapse panel' })
+            }
+            aria-label={
+              peek
+                ? formatMessage({ id: 'accounts.keepOpen', defaultMessage: 'Keep accounts open' })
+                : formatMessage({ id: 'accounts.collapsePanel', defaultMessage: 'Collapse panel' })
+            }
           >
             <IconChevrons dir={peek ? 'right' : 'left'} />
           </button>
@@ -242,7 +285,7 @@ export function Sidebar({
         as="div"
         type="net_worth"
         id=""
-        label="Net worth"
+        label={formatMessage({ id: 'accounts.netWorth', defaultMessage: 'Net worth' })}
         search="net worth assets liabilities"
         item={{ netWorth, assets, liab }}
         toFields={(it) => ({
@@ -252,7 +295,9 @@ export function Sidebar({
         })}
         className="acct-side-nw"
       >
-        <div className="acct-side-nw-k">Net worth</div>
+        <div className="acct-side-nw-k">
+          {formatMessage({ id: 'accounts.netWorth', defaultMessage: 'Net worth' })}
+        </div>
         <div className={'acct-side-nw-v mask l' + (netWorth < 0 ? ' neg' : '')}>
           {fBase(netWorth, { cents: true })}
         </div>
@@ -263,11 +308,13 @@ export function Sidebar({
         <div className="acct-side-nw-legend">
           <span>
             <i style={{ background: 'var(--good)' }} />
-            Assets <b className="mask">{fBaseCompact(assets)}</b>
+            {formatMessage({ id: 'accounts.assets', defaultMessage: 'Assets' })}{' '}
+            <b className="mask">{fBaseCompact(assets)}</b>
           </span>
           <span>
             <i style={{ background: 'var(--bad)' }} />
-            Debts <b className="mask">{fBaseCompact(liab)}</b>
+            {formatMessage({ id: 'accounts.debts', defaultMessage: 'Debts' })}{' '}
+            <b className="mask">{fBaseCompact(liab)}</b>
           </span>
         </div>
       </EntityRow>
@@ -278,17 +325,36 @@ export function Sidebar({
         <div
           className={'acct-all' + (selectedId === null ? ' sel' : '')}
           onClick={() => onSelect(null)}
-          title="The accounts below added together, debts included. Net worth also counts what you own on the Assets page, so the two differ."
+          title={formatMessage({
+            id: 'accounts.allAccountsHelp',
+            defaultMessage:
+              'The accounts below added together, debts included. Net worth also counts what you own on the Assets page, so the two differ.',
+          })}
         >
           <span className="acct-all-name">
             <span className="acct-all-id">
-              All accounts
+              {formatMessage({ id: 'accounts.allAccounts', defaultMessage: 'All accounts' })}
               <span className="acct-all-sub">
-                {accountsCount} {accountsCount === 1 ? 'account' : 'accounts'}
+                {formatMessage(
+                  {
+                    id: 'accounts.accountCount',
+                    defaultMessage: '{count, plural, one {# account} other {# accounts}}',
+                  },
+                  { count: accountsCount },
+                )}
               </span>
               {/* Its own line: beside the count it ellipsized in a default-width sidebar. */}
               {dueCount > 0 && (
-                <span className="acct-all-sub acct-due">{needReconcilingLabel(dueCount)}</span>
+                <span className="acct-all-sub acct-due">
+                  {formatMessage(
+                    {
+                      id: 'accounts.needsReconcilingCount',
+                      defaultMessage:
+                        '{count, plural, one {# needs reconciling} other {# need reconciling}}',
+                    },
+                    { count: dueCount },
+                  )}
+                </span>
               )}
             </span>
           </span>
@@ -322,7 +388,7 @@ export function Sidebar({
           return (
             <div className="acct-grp" key={g}>
               <div className="acct-grp-h">
-                <span>{groups.find((gr) => gr.key === g)?.label ?? g}</span>
+                <span>{formatMessage(accountTypeMessages[g])}</span>
                 <span className={'t mask' + (total < 0 ? ' neg' : '')}>{fBaseCompact(total)}</span>
               </div>
 
@@ -347,7 +413,14 @@ export function Sidebar({
                         </span>
                         {venueDue > 0 && (
                           <span className="acct-row-sub acct-due">
-                            {needReconcilingLabel(venueDue)}
+                            {formatMessage(
+                              {
+                                id: 'accounts.needsReconcilingCount',
+                                defaultMessage:
+                                  '{count, plural, one {# needs reconciling} other {# need reconciling}}',
+                              },
+                              { count: venueDue },
+                            )}
                           </span>
                         )}
                       </span>
@@ -379,13 +452,17 @@ export function Sidebar({
           )
         })}
 
-        {accounts.length === 0 && <div className="acct-side-empty">No accounts yet</div>}
+        {accounts.length === 0 && (
+          <div className="acct-side-empty">
+            {formatMessage({ id: 'accounts.noAccounts', defaultMessage: 'No accounts yet' })}
+          </div>
+        )}
 
         <button className="acct-add" onClick={onAdd}>
-          <IconPlus /> Add account
+          <IconPlus /> {formatMessage({ id: 'accounts.addAccount', defaultMessage: 'Add account' })}
         </button>
         <button className="acct-managepayees" onClick={onManagePayees}>
-          Manage payees
+          {formatMessage({ id: 'accounts.managePayees', defaultMessage: 'Manage payees' })}
         </button>
       </div>
     </aside>

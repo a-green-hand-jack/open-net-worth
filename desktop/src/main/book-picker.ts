@@ -1,3 +1,4 @@
+import { message as t } from './native-messages';
 import { mkdir, rmdir } from 'node:fs/promises';
 import { join } from 'node:path';
 import type { BookFolder } from './book-folder';
@@ -20,11 +21,11 @@ async function bookFolderAt(selected: string): Promise<{ folder: BookFolder; cre
     try { return { folder: await inspectBookFolder(nested), created, nested: true }; }
     catch (error) { if (!(error instanceof FolderNotEmptyError)) throw error; }
   }
-  throw new Error('Choose an empty folder for your book.');
+  throw new Error(t("Choose an empty folder for your book."));
 }
 
 export async function chooseBookFolder(dialogs: PickerDialogs, open: (folder: BookFolder) => Promise<boolean>, qaRoot: string | undefined): Promise<{ cancelled: boolean; opened: boolean }> {
-  if (qaRoot) throw new Error('Book switching is disabled while an explicit QA book folder is enforced.');
+  if (qaRoot) throw new Error(t("Book switching is disabled while an explicit QA book folder is enforced."));
   const selected = await dialogs.choose();
   if (!selected) return { cancelled: true, opened: false };
   const { folder, created, nested } = await bookFolderAt(selected);

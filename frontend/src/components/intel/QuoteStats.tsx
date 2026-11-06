@@ -1,4 +1,6 @@
-import { useEffect, useState } from 'react'
+import { getNumberLocale } from '../../utils/format'
+import { useEffect, useState, useSyncExternalStore } from 'react'
+import { getFormatRevision, subscribeDisplayFormats } from '../../utils/format'
 import { Skeleton } from '../ui/Skeleton'
 import { authFetch } from '../../api/client'
 import { quoteStatsCache, type LoadedQuoteStats, type QuoteStatsKind } from './quoteStatsCache'
@@ -8,15 +10,15 @@ import { fDate, getCurrencySymbol } from '../../utils/format'
 const DASH = '—'
 
 function fNum(n: number): string {
-  return n.toLocaleString(undefined, { maximumFractionDigits: 2 })
+  return n.toLocaleString(getNumberLocale(), { maximumFractionDigits: 2 })
 }
 
 function fCompact(n: number): string {
   const a = Math.abs(n)
-  if (a >= 1e12) return `${(n / 1e12).toFixed(2)}T`
-  if (a >= 1e9) return `${(n / 1e9).toFixed(2)}B`
-  if (a >= 1e6) return `${(n / 1e6).toFixed(2)}M`
-  if (a >= 1e3) return `${(n / 1e3).toFixed(2)}K`
+  if (a >= 1e12) return `${(n / 1e12).toLocaleString(getNumberLocale(), { minimumFractionDigits: 2, maximumFractionDigits: 2, useGrouping: false })}T`
+  if (a >= 1e9) return `${(n / 1e9).toLocaleString(getNumberLocale(), { minimumFractionDigits: 2, maximumFractionDigits: 2, useGrouping: false })}B`
+  if (a >= 1e6) return `${(n / 1e6).toLocaleString(getNumberLocale(), { minimumFractionDigits: 2, maximumFractionDigits: 2, useGrouping: false })}M`
+  if (a >= 1e3) return `${(n / 1e3).toLocaleString(getNumberLocale(), { minimumFractionDigits: 2, maximumFractionDigits: 2, useGrouping: false })}K`
   return fNum(n)
 }
 
@@ -58,6 +60,7 @@ const CRYPTO_LABELS = [
 // Real per-quote stats shown below the chart, like Perplexity's quote bar — Yahoo shape
 // for equities, CoinGecko shape for crypto (kind-discriminated by the backend).
 export function QuoteStats({ instrumentId, currency, kind: kindHint = 'equity' }: Props) {
+  useSyncExternalStore(subscribeDisplayFormats, getFormatRevision, getFormatRevision)
   // The section is on the page from the FIRST paint — a skeleton grid with the real labels
   // until the stats land (owner-reproduced 2026-09-21: "the stats grid below the chart is not
   // shown initially, only after the data is loaded" — it popped in late and everything under
@@ -125,7 +128,7 @@ export function QuoteStats({ instrumentId, currency, kind: kindHint = 'equity' }
   const divYield =
     stats.dividend_yield == null
       ? DASH
-      : `${(stats.dividend_yield < 1 ? stats.dividend_yield * 100 : stats.dividend_yield).toFixed(2)}%`
+      : `${(stats.dividend_yield < 1 ? stats.dividend_yield * 100 : stats.dividend_yield).toLocaleString(getNumberLocale(), { minimumFractionDigits: 2, maximumFractionDigits: 2, useGrouping: false })}%`
 
   const rows: [string, string][] =
     kind === 'crypto'
@@ -135,7 +138,7 @@ export function QuoteStats({ instrumentId, currency, kind: kindHint = 'equity' }
           ['Volume (24h)', moneyCompact(stats.volume_24h)],
           [
             'Vol/Market Cap (24h)',
-            stats.vol_to_mcap != null ? `${(stats.vol_to_mcap * 100).toFixed(2)}%` : DASH,
+            stats.vol_to_mcap != null ? `${(stats.vol_to_mcap * 100).toLocaleString(getNumberLocale(), { minimumFractionDigits: 2, maximumFractionDigits: 2, useGrouping: false })}%` : DASH,
           ],
           ['24h Range', range(stats.day_low, stats.day_high)],
           ['All-time High', money(stats.ath)],

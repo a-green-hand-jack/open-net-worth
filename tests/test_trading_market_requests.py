@@ -11,7 +11,11 @@ from backend.core.trading_runtime import bind_trading_context
 from backend.db.trading_store import TradingStore, trading_transaction
 from backend.services import trading
 from backend.services.trading import delegation, price_feed
-from backend.services.trading.market_requests import request_market_data
+from backend.services.trading.market_requests import (
+    record_environment_failure,
+    record_environment_success,
+    request_market_data,
+)
 
 ACME = {"symbol": "ACME", "venue": "simulation", "asset_class": "stock", "currency": "USD"}
 
@@ -172,6 +176,26 @@ def test_environment_failure_is_visible_and_success_clears_only_that_blocker(mon
     )
 
 
+def test_environment_error_keeps_structured_message_until_success():
+    result = workspace({"instruments": [ACME]})
+    run_id = result["run"]["id"]
+    record_environment_failure(
+        run_id,
+        ConflictError("Observation is stale", message_id="trading.error.observation_stale"),
+    )
+    stored = TradingStore("runs").required(run_id)
+    assert stored["environment_error"] == "Observation is stale"
+    assert stored["environment_error_message"]["id"] == "trading.error.observation_stale"
+    assert (
+        delegation.workspace_overview(result["workspace"]["id"])["current_work"]["blocker_message"]
+        == stored["environment_error_message"]
+    )
+    record_environment_success(run_id)
+    stored = TradingStore("runs").required(run_id)
+    assert stored["environment_error"] is None
+    assert stored["environment_error_message"] is None
+
+
 def test_boot_ownership_reclaims_unexpired_orphan_lease_and_preserves_billing_gate():
     result = workspace()
     run_id = result["run"]["id"]
@@ -182,9 +206,11 @@ def test_boot_ownership_reclaims_unexpired_orphan_lease_and_preserves_billing_ga
     recovered = trading.get_run(run_id)
     assert recovered["agent_lease_id"] is None
     assert recovered["usage_state"] == "unknown"
+    assert recovered["last_agent_error_message"]["id"] == "trading.notice.billing_unknown"
     overview = delegation.workspace_overview(result["workspace"]["id"])
     assert overview["current_work"]["state"] == "blocked"
     assert "billing" in overview["current_work"]["blocker"]
+    assert overview["current_work"]["blocker_message"]["id"] == "trading.notice.billing_unknown"
     with pytest.raises(ConflictError, match="billing reconciliation"):
         trading.claim_agent_cycle(run_id, paid=True)
 

@@ -39,6 +39,7 @@ def _category_id(ctx: Context, onw_category: str | None) -> str | None:
             recorder.note(
                 label,
                 f"Transactions in {label} go to YNAB uncategorized, as {label} isn't in YNAB.",
+                {"message_id": "ynab.sync.note.uncategorized", "params": {"name": label}},
             )
         return None
     raise NotYet(f"The category {label} isn't in YNAB yet.")

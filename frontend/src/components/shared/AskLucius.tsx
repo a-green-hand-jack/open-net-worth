@@ -12,6 +12,7 @@
 // reachable in tab order, activated on Enter/Space. stopPropagation so a click inside a clickable
 // row (drill-down, select) doesn't also toggle the row.
 
+import { useAppIntl } from '../../i18n/useAppIntl'
 import type { MentionType } from '../../types/mentions'
 import { useLuciusMention } from '../../state/chatComposer'
 import { chipMetaFromDom } from '../../lucius/chipMeta'
@@ -33,8 +34,12 @@ export function LuciusAskButton({
   className,
   glyph = '✦',
 }: LuciusAskButtonProps) {
+  const { formatMessage } = useAppIntl()
   const mention = useLuciusMention()
-  const aria = `Ask Lucius about ${label}`
+  const aria = formatMessage(
+    { id: 'shared.askLucius.about', defaultMessage: 'Ask Lucius about {label}' },
+    { label },
+  )
   return (
     <button
       type="button"

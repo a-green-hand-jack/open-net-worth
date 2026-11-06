@@ -1,3 +1,4 @@
+import { useTradingErrorText } from './useTradingErrorText'
 import { useState } from 'react'
 import { tradingApi, tradingRoot } from '../../../api/trading'
 import { useQueryCache } from '../../../state/queryCache'
@@ -15,7 +16,9 @@ import { TradingHoldings } from './TradingHoldings'
 import { TradingOrders } from './TradingOrders'
 import { TradingPerformance } from './TradingPerformance'
 import { TradingStatement } from './TradingStatement'
-import { errorText, tradingMoney, tradingPercent } from './presentation'
+import { tradingMoney, tradingPercent } from './presentation'
+import { useAppIntl } from '../../../i18n/useAppIntl'
+import { useTradingLabel } from './useTradingLabel'
 
 export function TradingMarketPortfolio({
   run,
@@ -38,56 +41,115 @@ export function TradingMarketPortfolio({
   onCancel: (order: TradingOrder) => Promise<void>
   onSelect: (selection: EvidenceSelection) => void
 }) {
+  const { formatMessage } = useAppIntl()
+  const errorText = useTradingErrorText()
+  const label = useTradingLabel()
   const [tab, setTab] = useState('market-chart')
   const series = useQueryCache(`${tradingRoot}/runs/${run.id}/market-series?limit=500`, () =>
     tradingApi.marketSeries(run.id),
   )
   return (
-    <Panel title="Market & portfolio" className="trading-observation-panel">
+    <Panel
+      title={formatMessage({ id: 'trading.marketPortfolio', defaultMessage: 'Market & portfolio' })}
+      className="trading-observation-panel"
+    >
       <Stack gap="--space-4">
         <Text size="sm" tone="muted">
-          {run.mode} · Environment time {run.current_time} · Dataset {run.data_version}
+          {formatMessage(
+            {
+              id: 'trading.marketContext',
+              defaultMessage: '{mode} · Environment time {time} · Dataset {dataset}',
+            },
+            { mode: label(run.mode), time: run.current_time, dataset: run.data_version },
+          )}
         </Text>
         {performance && (
           <SummaryBar
             cards={[
               {
-                label: 'Equity',
+                label: formatMessage({ id: 'trading.equity', defaultMessage: 'Equity' }),
                 value: tradingMoney(performance.equity, performance.base_currency),
-                caption: performance.valuation_complete ? '' : 'Valuation incomplete',
+                caption: performance.valuation_complete
+                  ? ''
+                  : formatMessage({
+                      id: 'trading.valuationIncomplete',
+                      defaultMessage: 'Valuation incomplete',
+                    }),
               },
-              { label: 'Return', value: tradingPercent(performance.return_pct) },
               {
-                label: 'Available cash',
+                label: formatMessage({ id: 'trading.return', defaultMessage: 'Return' }),
+                value: tradingPercent(performance.return_pct),
+              },
+              {
+                label: formatMessage({
+                  id: 'trading.availableCash',
+                  defaultMessage: 'Available cash',
+                }),
                 value: tradingMoney(performance.available_cash, performance.base_currency),
               },
-              { label: 'Drawdown', value: tradingPercent(performance.max_drawdown_pct) },
+              {
+                label: formatMessage({ id: 'trading.drawdown', defaultMessage: 'Drawdown' }),
+                value: tradingPercent(performance.max_drawdown_pct),
+              },
             ]}
           />
         )}
         {performance && (
           <Text size="sm">
-            Realized {tradingMoney(performance.realized_pnl, performance.base_currency)} ·
-            Unrealized {tradingMoney(performance.unrealized_pnl, performance.base_currency)} · Fees{' '}
-            {tradingMoney(performance.fees, performance.base_currency)}
+            {formatMessage(
+              {
+                id: 'trading.pnlSummary',
+                defaultMessage: 'Realized {realized} · Unrealized {unrealized} · Fees {fees}',
+              },
+              {
+                realized: tradingMoney(performance.realized_pnl, performance.base_currency),
+                unrealized: tradingMoney(performance.unrealized_pnl, performance.base_currency),
+                fees: tradingMoney(performance.fees, performance.base_currency),
+              },
+            )}
           </Text>
         )}
         <PageTabs
-          ariaLabel="Market and portfolio sections"
+          ariaLabel={formatMessage({
+            id: 'trading.marketPortfolioSections',
+            defaultMessage: 'Market and portfolio sections',
+          })}
           value={tab}
           onChange={setTab}
           tabs={[
-            { key: 'market-chart', label: 'Chart' },
-            { key: 'market-positions', label: 'Positions' },
-            { key: 'market-orders', label: 'Orders' },
-            { key: 'market-statement', label: 'Statement' },
-            { key: 'market-performance', label: 'Equity' },
+            {
+              key: 'market-chart',
+              label: formatMessage({ id: 'trading.chart', defaultMessage: 'Chart' }),
+            },
+            {
+              key: 'market-positions',
+              label: formatMessage({ id: 'trading.positions', defaultMessage: 'Positions' }),
+            },
+            {
+              key: 'market-orders',
+              label: formatMessage({ id: 'trading.orders', defaultMessage: 'Orders' }),
+            },
+            {
+              key: 'market-statement',
+              label: formatMessage({ id: 'trading.statement', defaultMessage: 'Statement' }),
+            },
+            {
+              key: 'market-performance',
+              label: formatMessage({ id: 'trading.equity', defaultMessage: 'Equity' }),
+            },
           ]}
         />
         <div role="tabpanel" aria-labelledby={`ui-page-tab-${tab}`}>
           {tab === 'market-chart' && (
             <Stack gap="--space-4">
-              {series.initialLoading && <Loading label="Loading recorded market data…" />}
+              {series.initialLoading && (
+                <Loading
+                  label={formatMessage({
+                    id: 'trading.loadingMarketData',
+                    defaultMessage: 'Loading recorded market data…',
+                  })}
+                />
+              )}
               {!!series.error && (
                 <ErrorState
                   message={errorText(series.error)}
@@ -120,7 +182,12 @@ export function TradingMarketPortfolio({
             (performance ? (
               <TradingPerformance performance={performance} />
             ) : (
-              <Text tone="muted">Performance is unavailable.</Text>
+              <Text tone="muted">
+                {formatMessage({
+                  id: 'trading.performanceUnavailable',
+                  defaultMessage: 'Performance is unavailable.',
+                })}
+              </Text>
             ))}
         </div>
       </Stack>

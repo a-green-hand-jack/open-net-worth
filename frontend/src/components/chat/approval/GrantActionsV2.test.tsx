@@ -6,6 +6,8 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { GrantActionsV2 } from './GrantActionsV2'
+import { IntlProvider } from 'react-intl'
+import messages from '../zh-CN.messages.json'
 
 afterEach(() => {
   cleanup()
@@ -42,6 +44,13 @@ function rowChildren(container: HTMLElement) {
 }
 
 describe('permission card buttons', () => {
+  it('shows the scope of a standing permission in Chinese', () => {
+    rowWidth(360)
+    render(<IntlProvider locale="zh-CN" messages={messages}><GrantActionsV2 busy={null} disabled={false} onOnce={vi.fn()} onAlways={vi.fn()} onDeny={vi.fn()} /></IntlProvider>)
+    expect(screen.getByText('允许一次')).toBeTruthy()
+    expect(screen.getByText('始终允许').getAttribute('title')).toContain('所有调用和任何金额')
+    expect(screen.getByText('拒绝')).toBeTruthy()
+  })
   it('on a wide card: Deny first on the left, both allow scopes grouped on the right', () => {
     rowWidth(360)
     const { container, labels, onAlways, onDeny } = mount()

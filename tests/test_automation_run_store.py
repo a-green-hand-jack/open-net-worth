@@ -339,3 +339,27 @@ def test_count_for_automation_matches_a_materialised_count(db_isolated):
     assert store.count_for_automation("auto-a") == by_hand_a == 5
     assert store.count_for_automation("auto-b") == by_hand_b == 3
     assert store.count_for_automation("auto-missing") == 0
+
+
+def test_replacing_run_text_clears_old_source_metadata(run_store):
+    run = run_store.start({"automation_id": "automation_a"})
+    marker = {"id": "automations.run.interrupted", "params": {}}
+    updated = run_store.patch(
+        run["id"], {"running"}, {"summary": "Interrupted", "summary_message": marker}
+    )
+    assert updated["summary_message"] == marker
+    updated = run_store.patch(run["id"], {"running"}, {"summary": "User-written summary"})
+    assert updated["summary"] == "User-written summary"
+    assert updated["summary_message"] is None
+
+
+def test_automation_run_message_contract_matches_emitters():
+    import json
+    import re
+    from pathlib import Path
+
+    root = Path(__file__).resolve().parents[1]
+    contract = json.loads((root / "backend/core/automation_run_message_contract.json").read_text())
+    source = (root / "backend/services/automations/runs.py").read_text()
+    assert set(contract) == set(re.findall(r'"(automations\.run\.[a-zA-Z]+)"', source))
+    assert all(params == [] for params in contract.values())

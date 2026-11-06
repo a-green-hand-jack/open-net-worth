@@ -1,4 +1,6 @@
+import { useTradingErrorText } from './useTradingErrorText'
 import { useLayoutEffect, useRef, useState, type FormEvent } from 'react'
+import { useAppIntl } from '../../../i18n/useAppIntl'
 import { tradingApi } from '../../../api/trading'
 import type {
   Allocation,
@@ -22,12 +24,11 @@ import {
   ErrorState,
   Text,
 } from '../../ui'
-import { errorText } from './presentation'
 
 const localInput = (date: Date) =>
   new Date(date.getTime() - date.getTimezoneOffset() * 60000).toISOString().slice(0, 16)
-const allocation = (): Allocation => ({
-  name: 'Trading account',
+const allocation = (name: string): Allocation => ({
+  name,
   currency: 'USD',
   capital: '1000',
   venue: 'simulation',
@@ -42,10 +43,16 @@ export function RunForm({
   onClose: () => void
   onSaved: (run: TradingRun) => void
 }) {
+  const { formatMessage } = useAppIntl()
+  const errorText = useTradingErrorText()
   const [mode, setMode] = useState<TradingMode>('paper')
   const [start, setStart] = useState(localInput(new Date()))
   const [end, setEnd] = useState(localInput(new Date(Date.now() + 30 * 86400000)))
-  const [accounts, setAccounts] = useState<Allocation[]>([allocation()])
+  const [accounts, setAccounts] = useState<Allocation[]>(() => [
+    allocation(
+      formatMessage({ id: 'trading.defaultAccountName', defaultMessage: 'Trading account' }),
+    ),
+  ])
   const [base, setBase] = useState('USD')
   const [rates, setRates] = useState('{"USD":"1"}')
   const [observations, setObservations] = useState('[]')
@@ -114,7 +121,13 @@ export function RunForm({
     setBusy(true)
     try {
       const parsed = JSON.parse(observations)
-      if (!Array.isArray(parsed)) throw new Error('Observations must be a JSON array.')
+      if (!Array.isArray(parsed))
+        throw new Error(
+          formatMessage({
+            id: 'trading.observationsMustBeArray',
+            defaultMessage: 'Observations must be a JSON array.',
+          }),
+        )
       onSaved(
         await tradingApi.createRun(workspace.id, {
           mode,
@@ -136,40 +149,65 @@ export function RunForm({
     }
   }
   return (
-    <Modal open onClose={onClose} title={`New run · ${workspace.name}`} size="lg">
+    <Modal
+      open
+      onClose={onClose}
+      title={formatMessage(
+        { id: 'trading.newRun', defaultMessage: 'New run · {name}' },
+        { name: workspace.name },
+      )}
+      size="lg"
+    >
       <form ref={formRef} tabIndex={-1} onSubmit={save}>
         <Stack gap="--space-4">
           <Text tone="muted">
-            The environment and account bindings are fixed for this run. Review the mandate before
-            starting.
+            {formatMessage({
+              id: 'trading.runBindingsFixed',
+              defaultMessage:
+                'The environment and account bindings are fixed for this run. Review the mandate before starting.',
+            })}
           </Text>
-          <FormField label="Environment">
+          <FormField
+            label={formatMessage({ id: 'trading.environment', defaultMessage: 'Environment' })}
+          >
             <Select
-              aria-label="Environment"
+              aria-label={formatMessage({
+                id: 'trading.environment',
+                defaultMessage: 'Environment',
+              })}
               value={mode}
               onChange={(e) => {
                 setMode(e.target.value as TradingMode)
                 setAuthorized(false)
               }}
               options={[
-                { value: 'backtest', label: 'Backtest' },
-                { value: 'paper', label: 'Paper' },
-                { value: 'live', label: 'Live' },
+                {
+                  value: 'backtest',
+                  label: formatMessage({ id: 'trading.backtest', defaultMessage: 'Backtest' }),
+                },
+                {
+                  value: 'paper',
+                  label: formatMessage({ id: 'trading.paper', defaultMessage: 'Paper' }),
+                },
+                {
+                  value: 'live',
+                  label: formatMessage({ id: 'trading.live', defaultMessage: 'Live' }),
+                },
               ]}
             />
           </FormField>
-          <FormField label="Start">
+          <FormField label={formatMessage({ id: 'trading.start', defaultMessage: 'Start' })}>
             <TextField
-              aria-label="Start"
+              aria-label={formatMessage({ id: 'trading.start', defaultMessage: 'Start' })}
               type="datetime-local"
               required
               value={start}
               onChange={(e) => setStart(e.target.value)}
             />
           </FormField>
-          <FormField label="End">
+          <FormField label={formatMessage({ id: 'trading.end', defaultMessage: 'End' })}>
             <TextField
-              aria-label="End"
+              aria-label={formatMessage({ id: 'trading.end', defaultMessage: 'End' })}
               type="datetime-local"
               required
               value={end}
@@ -179,39 +217,66 @@ export function RunForm({
           {accounts.map((account, index) => (
             <Panel
               key={index}
-              title={`Account ${index + 1}`}
+              title={formatMessage(
+                { id: 'trading.accountNumber', defaultMessage: 'Account {number}' },
+                { number: index + 1 },
+              )}
               actions={
                 accounts.length > 1 && (
                   <Button
                     variant="ghost"
                     onClick={() => setAccounts((items) => items.filter((_, i) => i !== index))}
                   >
-                    Remove account {index + 1}
+                    {formatMessage(
+                      { id: 'trading.removeAccount', defaultMessage: 'Remove account {number}' },
+                      { number: index + 1 },
+                    )}
                   </Button>
                 )
               }
             >
               <Stack gap="--space-4">
-                <FormField label="Account label">
+                <FormField
+                  label={formatMessage({
+                    id: 'trading.accountLabel',
+                    defaultMessage: 'Account label',
+                  })}
+                >
                   <TextField
-                    aria-label="Account label"
+                    aria-label={formatMessage({
+                      id: 'trading.accountLabel',
+                      defaultMessage: 'Account label',
+                    })}
                     required
                     value={account.name}
                     onChange={(e) => update(index, { name: e.target.value })}
                   />
                 </FormField>
-                <FormField label="Currency">
+                <FormField
+                  label={formatMessage({ id: 'trading.currency', defaultMessage: 'Currency' })}
+                >
                   <TextField
-                    aria-label="Currency"
+                    aria-label={formatMessage({
+                      id: 'trading.currency',
+                      defaultMessage: 'Currency',
+                    })}
                     required
                     pattern="[A-Z]{3,8}"
                     value={account.currency}
                     onChange={(e) => update(index, { currency: e.target.value.toUpperCase() })}
                   />
                 </FormField>
-                <FormField label="Allocated capital">
+                <FormField
+                  label={formatMessage({
+                    id: 'trading.allocatedCapital',
+                    defaultMessage: 'Allocated capital',
+                  })}
+                >
                   <NumberField
-                    aria-label="Allocated capital"
+                    aria-label={formatMessage({
+                      id: 'trading.allocatedCapital',
+                      defaultMessage: 'Allocated capital',
+                    })}
                     required
                     min={0.01}
                     step="any"
@@ -219,9 +284,9 @@ export function RunForm({
                     onChange={(e) => update(index, { capital: e.target.value })}
                   />
                 </FormField>
-                <FormField label="Venue">
+                <FormField label={formatMessage({ id: 'trading.venue', defaultMessage: 'Venue' })}>
                   <TextField
-                    aria-label="Venue"
+                    aria-label={formatMessage({ id: 'trading.venue', defaultMessage: 'Venue' })}
                     required
                     value={account.venue}
                     onChange={(e) => update(index, { venue: e.target.value })}
@@ -229,25 +294,49 @@ export function RunForm({
                 </FormField>
                 {mode === 'live' && (
                   <>
-                    <FormField label="Broker connector ID">
+                    <FormField
+                      label={formatMessage({
+                        id: 'trading.brokerConnectorId',
+                        defaultMessage: 'Broker connector ID',
+                      })}
+                    >
                       <TextField
-                        aria-label="Broker connector ID"
+                        aria-label={formatMessage({
+                          id: 'trading.brokerConnectorId',
+                          defaultMessage: 'Broker connector ID',
+                        })}
                         required
                         value={account.connector_id ?? ''}
                         onChange={(e) => update(index, { connector_id: e.target.value })}
                       />
                     </FormField>
-                    <FormField label="Dedicated broker account ID">
+                    <FormField
+                      label={formatMessage({
+                        id: 'trading.dedicatedBrokerAccountId',
+                        defaultMessage: 'Dedicated broker account ID',
+                      })}
+                    >
                       <TextField
-                        aria-label="Dedicated broker account ID"
+                        aria-label={formatMessage({
+                          id: 'trading.dedicatedBrokerAccountId',
+                          defaultMessage: 'Dedicated broker account ID',
+                        })}
                         required
                         value={account.broker_account_id ?? ''}
                         onChange={(e) => update(index, { broker_account_id: e.target.value })}
                       />
                     </FormField>
-                    <FormField label="Book account ID">
+                    <FormField
+                      label={formatMessage({
+                        id: 'trading.bookAccountId',
+                        defaultMessage: 'Book account ID',
+                      })}
+                    >
                       <TextField
-                        aria-label="Book account ID"
+                        aria-label={formatMessage({
+                          id: 'trading.bookAccountId',
+                          defaultMessage: 'Book account ID',
+                        })}
                         value={account.book_account_id ?? ''}
                         onChange={(e) => update(index, { book_account_id: e.target.value })}
                       />
@@ -259,14 +348,32 @@ export function RunForm({
           ))}
           <Button
             variant="secondary"
-            onClick={() => setAccounts((items) => [...items, allocation()])}
+            onClick={() =>
+              setAccounts((items) => [
+                ...items,
+                allocation(
+                  formatMessage({
+                    id: 'trading.defaultAccountName',
+                    defaultMessage: 'Trading account',
+                  }),
+                ),
+              ])
+            }
             disabled={accounts.length >= 20}
           >
-            Add account
+            {formatMessage({ id: 'trading.addAccount', defaultMessage: 'Add account' })}
           </Button>
-          <FormField label="Reporting currency">
+          <FormField
+            label={formatMessage({
+              id: 'trading.reportingCurrency',
+              defaultMessage: 'Reporting currency',
+            })}
+          >
             <TextField
-              aria-label="Reporting currency"
+              aria-label={formatMessage({
+                id: 'trading.reportingCurrency',
+                defaultMessage: 'Reporting currency',
+              })}
               required
               pattern="[A-Z]{3,8}"
               value={base}
@@ -274,11 +381,15 @@ export function RunForm({
             />
           </FormField>
           <FormField
-            label="FX rates"
-            info="JSON currency-to-base rates. The reporting currency must have rate 1."
+            label={formatMessage({ id: 'trading.fxRates', defaultMessage: 'FX rates' })}
+            info={formatMessage({
+              id: 'trading.fxRatesInfo',
+              defaultMessage:
+                'JSON currency-to-base rates. The reporting currency must have rate 1.',
+            })}
           >
             <TextArea
-              aria-label="FX rates"
+              aria-label={formatMessage({ id: 'trading.fxRates', defaultMessage: 'FX rates' })}
               mono
               required
               value={rates}
@@ -288,19 +399,37 @@ export function RunForm({
           {mode !== 'live' && (
             <>
               <Cluster justify="between">
-                <Text weight={600}>Market observations</Text>
+                <Text weight={600}>
+                  {formatMessage({
+                    id: 'trading.marketObservations',
+                    defaultMessage: 'Market observations',
+                  })}
+                </Text>
                 <Button variant="secondary" onClick={sample}>
-                  Load synthetic example
+                  {formatMessage({
+                    id: 'trading.loadSynthetic',
+                    defaultMessage: 'Load synthetic example',
+                  })}
                 </Button>
               </Cluster>
               <Text tone="muted" size="sm">
-                Supply timestamped observations with instrument, price and optional available_at /
-                volume. Historical observations become visible only at their availability time. The
-                example is fabricated data, not a market backtest.
+                {formatMessage({
+                  id: 'trading.observationsHelp',
+                  defaultMessage:
+                    'Supply timestamped observations with instrument, price and optional available_at / volume. Historical observations become visible only at their availability time. The example is fabricated data, not a market backtest.',
+                })}
               </Text>
-              <FormField label="Observation dataset (JSON)">
+              <FormField
+                label={formatMessage({
+                  id: 'trading.observationDataset',
+                  defaultMessage: 'Observation dataset (JSON)',
+                })}
+              >
                 <TextArea
-                  aria-label="Observation dataset (JSON)"
+                  aria-label={formatMessage({
+                    id: 'trading.observationDataset',
+                    defaultMessage: 'Observation dataset (JSON)',
+                  })}
                   mono
                   rows={7}
                   required
@@ -310,17 +439,33 @@ export function RunForm({
               </FormField>
             </>
           )}
-          <FormField label="Dataset version">
+          <FormField
+            label={formatMessage({
+              id: 'trading.datasetVersion',
+              defaultMessage: 'Dataset version',
+            })}
+          >
             <TextField
-              aria-label="Dataset version"
+              aria-label={formatMessage({
+                id: 'trading.datasetVersion',
+                defaultMessage: 'Dataset version',
+              })}
               required
               value={version}
               onChange={(e) => setVersion(e.target.value)}
             />
           </FormField>
-          <FormField label="Agent / strategy version">
+          <FormField
+            label={formatMessage({
+              id: 'trading.agentStrategyVersion',
+              defaultMessage: 'Agent / strategy version',
+            })}
+          >
             <TextField
-              aria-label="Agent / strategy version"
+              aria-label={formatMessage({
+                id: 'trading.agentStrategyVersion',
+                defaultMessage: 'Agent / strategy version',
+              })}
               required
               value={agentVersion}
               onChange={(e) => setAgentVersion(e.target.value)}
@@ -329,19 +474,28 @@ export function RunForm({
           {mode === 'live' && (
             <>
               <Text tone="muted">
-                Use a dedicated funded account or a fully mediated account. Broker capabilities and
-                reconciliation must pass before the run can start. Set up connections in Connectors.
+                {formatMessage({
+                  id: 'trading.liveAccountHelp',
+                  defaultMessage:
+                    'Use a dedicated funded account or a fully mediated account. Broker capabilities and reconciliation must pass before the run can start. Set up connections in Connectors.',
+                })}
               </Text>
               <Checkbox
                 checked={authorized}
                 onChange={(e) => setAuthorized(e.target.checked)}
-                label="I authorize this run to trade the specified accounts within its mandate."
+                label={formatMessage({
+                  id: 'trading.authorizeRun',
+                  defaultMessage:
+                    'I authorize this run to trade the specified accounts within its mandate.',
+                })}
               />
             </>
           )}
           {error && <ErrorState message={error} />}
           <Button type="submit" disabled={busy || (mode === 'live' && !authorized)}>
-            {busy ? 'Creating…' : 'Create run'}
+            {busy
+              ? formatMessage({ id: 'trading.creating', defaultMessage: 'Creating…' })
+              : formatMessage({ id: 'trading.createRun', defaultMessage: 'Create run' })}
           </Button>
         </Stack>
       </form>

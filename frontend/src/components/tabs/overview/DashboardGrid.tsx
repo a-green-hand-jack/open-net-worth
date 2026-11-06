@@ -13,6 +13,9 @@
 // reduces to the mobile move-up/move-down buttons on GridCard.
 
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { useAppIntl } from '../../../i18n/useAppIntl'
+import { displaySectionTitle } from './defaultNames'
+import { localizeWidgetTitle } from './widgetTitles'
 import type { ComputedRow } from '../../../types/portfolio'
 import { findDefinition } from './definitions'
 import {
@@ -193,6 +196,7 @@ export function DashboardGrid({
   onShareWithLucius,
   onOpenRegister,
 }: DashboardGridProps) {
+  const intl = useAppIntl()
   const containerRef = useRef<HTMLDivElement>(null)
   const [drag, setDrag] = useState<DragState | null>(null)
   const [preview, setPreview] = useState<GridItem[] | null>(null)
@@ -601,7 +605,8 @@ export function DashboardGrid({
       {fullscreenItem &&
         !isSection(fullscreenItem) &&
         (() => {
-          const def = findDefinition(fullscreenItem.defId)
+          const rawDef = findDefinition(fullscreenItem.defId)
+          const def = rawDef && localizeWidgetTitle(intl, rawDef)
           const Content = WIDGET_COMPONENTS[fullscreenItem.defId]
           if (!def || !Content) return null
           return (
@@ -652,6 +657,7 @@ export function DashboardGrid({
           if (isSection(displayItem)) {
             const count = countBySection.get(displayItem.instanceId) ?? 0
             const renaming = renamingSectionId === displayItem.instanceId
+            const sectionTitle = displaySectionTitle(intl, displayItem)
             return (
               <GridCard
                 key={displayItem.instanceId}
@@ -693,7 +699,17 @@ export function DashboardGrid({
                         collapsed: !displayItem.collapsed,
                       })
                     }}
-                    aria-label={displayItem.collapsed ? 'Expand section' : 'Collapse section'}
+                    aria-label={
+                      displayItem.collapsed
+                        ? intl.formatMessage({
+                            id: 'overview.section.expand',
+                            defaultMessage: 'Expand section',
+                          })
+                        : intl.formatMessage({
+                            id: 'overview.section.collapse',
+                            defaultMessage: 'Collapse section',
+                          })
+                    }
                   >
                     {chevronIcon}
                   </button>
@@ -701,13 +717,18 @@ export function DashboardGrid({
                     <input
                       className="ov-section-rename"
                       autoFocus
-                      defaultValue={displayItem.title}
+                      defaultValue={sectionTitle}
                       onClick={(e) => e.stopPropagation()}
                       onPointerDown={(e) => e.stopPropagation()}
                       onBlur={(e) => {
-                        layout.patchItem(displayItem.instanceId, {
-                          title: e.target.value.trim() || 'Section',
-                        })
+                        const title = e.target.value.trim()
+                        if (title !== sectionTitle)
+                          layout.patchItem(
+                            displayItem.instanceId,
+                            title
+                              ? { title, titleSource: undefined }
+                              : { title: 'Section', titleSource: 'default_section' },
+                          )
                         setRenamingSectionId(null)
                       }}
                       onKeyDown={(e) => {
@@ -718,7 +739,10 @@ export function DashboardGrid({
                   ) : (
                     <span
                       className="ov-section-title"
-                      title="Double-click to rename"
+                      title={intl.formatMessage({
+                        id: 'overview.section.renameHelp',
+                        defaultMessage: 'Double-click to rename',
+                      })}
                       onClick={(e) => e.stopPropagation()}
                       onPointerDown={(e) => e.stopPropagation()}
                       onDoubleClick={(e) => {
@@ -726,47 +750,109 @@ export function DashboardGrid({
                         setRenamingSectionId(displayItem.instanceId)
                       }}
                     >
-                      {displayItem.title}
+                      {sectionTitle}
                     </span>
                   )}
                   <span className="ov-section-rule" />
                   <span className="ov-section-meta">
-                    {count} widget{count === 1 ? '' : 's'}
-                    {displayItem.collapsed ? ' hidden' : ''}
+                    {intl.formatMessage(
+                      {
+                        id: 'overview.section.count',
+                        defaultMessage: '{count, plural, one {# widget} other {# widgets}}',
+                      },
+                      { count },
+                    )}
+                    {displayItem.collapsed
+                      ? intl.formatMessage({
+                          id: 'overview.section.hidden',
+                          defaultMessage: ' hidden',
+                        })
+                      : ''}
                   </span>
                 </div>
               </GridCard>
             )
           }
-          const def = findDefinition(displayItem.defId)
+          const rawDef = findDefinition(displayItem.defId)
+          const def = rawDef && localizeWidgetTitle(intl, rawDef)
           const Content = WIDGET_COMPONENTS[displayItem.defId]
-          const label = displayItem.title || def?.title || def?.label || 'Widget'
+          const label =
+            displayItem.title ||
+            def?.title ||
+            def?.label ||
+            intl.formatMessage({ id: 'overview.widget.fallback', defaultMessage: 'Widget' })
           // The widget header's ⋯ (view mode only — Customize has its own in-card toolbar).
           // WidgetShell lists the editor first, then Full screen / Collapse, then these.
           const primaryMenuItems: KebabItem[] = [
-            { label: 'Edit…', onClick: () => openFullscreen(displayItem.instanceId, 'edit') },
+            {
+              label: intl.formatMessage({ id: 'overview.editEllipsis', defaultMessage: 'Edit…' }),
+              onClick: () => openFullscreen(displayItem.instanceId, 'edit'),
+            },
           ]
           const sourceTab = def?.source && def.source.tab !== 'dashboard' ? def.source : null
+          const sourceName =
+            sourceTab?.tab === 'accounts'
+              ? intl.formatMessage({ id: 'overview.source.accounts', defaultMessage: 'Accounts' })
+              : sourceTab?.tab === 'commitments'
+                ? intl.formatMessage({
+                    id: 'overview.source.commitments',
+                    defaultMessage: 'Commitments',
+                  })
+                : sourceTab?.tab === 'investments'
+                  ? intl.formatMessage({
+                      id: 'overview.source.investments',
+                      defaultMessage: 'Investments',
+                    })
+                  : sourceTab?.tab === 'plan'
+                    ? displayItem.defId === 'plan-fire' || displayItem.defId === 'plan-runway'
+                      ? intl.formatMessage({
+                          id: 'overview.source.outlook',
+                          defaultMessage: 'Outlook',
+                        })
+                      : intl.formatMessage({ id: 'overview.source.plan', defaultMessage: 'Plan' })
+                    : sourceTab?.label
           const menuItems: KebabItem[] = [
-            { label: 'Display…', onClick: () => setDisplayFor(displayItem.instanceId) },
             {
-              label: displayItem.alert ? 'Edit alert…' : 'Set alert…',
+              label: intl.formatMessage({
+                id: 'overview.displayEllipsis',
+                defaultMessage: 'Display…',
+              }),
+              onClick: () => setDisplayFor(displayItem.instanceId),
+            },
+            {
+              label: displayItem.alert
+                ? intl.formatMessage({ id: 'overview.alert.edit', defaultMessage: 'Edit alert…' })
+                : intl.formatMessage({ id: 'overview.alert.set', defaultMessage: 'Set alert…' }),
               onClick: () => setAlertFor(displayItem.instanceId),
             },
             ...(onShareWithLucius
-              ? [{ label: 'Share with Lucius', onClick: () => onShareWithLucius(label) }]
+              ? [
+                  {
+                    label: intl.formatMessage({
+                      id: 'overview.shareLucius',
+                      defaultMessage: 'Share with Lucius',
+                    }),
+                    onClick: () => onShareWithLucius(label),
+                  },
+                ]
               : []),
-            { label: 'Duplicate', onClick: () => layout.duplicateItem(displayItem.instanceId) },
+            {
+              label: intl.formatMessage({ id: 'overview.duplicate', defaultMessage: 'Duplicate' }),
+              onClick: () => layout.duplicateItem(displayItem.instanceId),
+            },
             ...(sourceTab
               ? [
                   {
-                    label: `Open in ${sourceTab.label}`,
+                    label: intl.formatMessage(
+                      { id: 'overview.openIn', defaultMessage: 'Open in {name}' },
+                      { name: sourceName },
+                    ),
                     onClick: () => onNavigate?.(sourceTab.tab),
                   },
                 ]
               : []),
             {
-              label: 'Remove',
+              label: intl.formatMessage({ id: 'overview.remove', defaultMessage: 'Remove' }),
               danger: true,
               onClick: () => layout.removeItem(displayItem.instanceId),
             },
@@ -810,7 +896,10 @@ export function DashboardGrid({
               onRemove={editing ? () => layout.removeItem(displayItem.instanceId) : undefined}
               onDragPointerDown={(e) => beginDrag(displayItem, e)}
               onResizePointerDown={(e, dirX, dirY) => beginResize(displayItem, e, dirX, dirY)}
-              resizeReadout={`${pos.w} / 12 cols`}
+              resizeReadout={intl.formatMessage(
+                { id: 'overview.grid.widthReadout', defaultMessage: '{width} / 12 cols' },
+                { width: pos.w },
+              )}
               onMoveUp={
                 editing && idx > 0 ? () => moveInOrder(displayItem.instanceId, -1) : undefined
               }
@@ -844,8 +933,14 @@ export function DashboardGrid({
                     fallback={
                       <WidgetShell base={label}>
                         <WidgetPlaceholder
-                          title="This widget hit an error."
-                          detail="Remove it, or try again from Customize mode."
+                          title={intl.formatMessage({
+                            id: 'overview.widget.error',
+                            defaultMessage: 'This widget hit an error.',
+                          })}
+                          detail={intl.formatMessage({
+                            id: 'overview.widget.errorHelp',
+                            defaultMessage: 'Remove it, or try again from Customize mode.',
+                          })}
                         />
                       </WidgetShell>
                     }
@@ -863,10 +958,24 @@ export function DashboardGrid({
                   </ErrorBoundary>
                 </GridItemContext.Provider>
               ) : (
-                <WidgetShell base={displayItem.title || 'Unknown widget'}>
+                <WidgetShell
+                  base={
+                    displayItem.title ||
+                    intl.formatMessage({
+                      id: 'overview.widget.unknown',
+                      defaultMessage: 'Unknown widget',
+                    })
+                  }
+                >
                   <WidgetPlaceholder
-                    title="This widget type is no longer available"
-                    detail="Remove it from Customize mode."
+                    title={intl.formatMessage({
+                      id: 'overview.widget.unavailable',
+                      defaultMessage: 'This widget type is no longer available',
+                    })}
+                    detail={intl.formatMessage({
+                      id: 'overview.widget.removeHelp',
+                      defaultMessage: 'Remove it from Customize mode.',
+                    })}
                   />
                 </WidgetShell>
               )}

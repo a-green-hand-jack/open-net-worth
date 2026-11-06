@@ -371,6 +371,8 @@ def test_fix4_a_deleted_automation_saves_nothing_and_says_so(client):
 
     assert response.status_code == 409
     assert "no longer exists" in response.json()["detail"]
+    assert response.json()["message_id"] == "permissions.error.automationMissing"
+    assert response.json()["message_params"] == {}
     assert _stored() == {}
 
 

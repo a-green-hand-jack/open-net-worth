@@ -46,6 +46,7 @@ export interface Skill {
   id: string
   name: string
   description: string
+  starter_source?: { id: string; name_sha256?: string; description_sha256?: string }
   license?: string // optional SKILL.md frontmatter license (e.g. "Complete terms in LICENSE.txt")
   compatibility?: string // standard SKILL.md field — env requirements (≤500 chars)
   metadata?: Record<string, string> // standard SKILL.md field — arbitrary string→string map
@@ -61,6 +62,7 @@ export interface Skill {
   // Present when a direct filesystem edit leaves SKILL.md or agents/openai.yaml invalid.
   // Invalid skills stay visible for repair but are fail-closed for every invocation path.
   validation_errors?: string[]
+  validation_messages?: { text: string; message_id?: string; params?: Record<string, string> }[]
 }
 
 // GET /api/skills/{id}/bundle — a skill's FULL virtual file tree (synthesized for EVERY skill).
@@ -92,4 +94,5 @@ export interface StarterSkill {
   id: string
   name: string
   description: string
+  starter_source?: { id: string; name_sha256?: string; description_sha256?: string }
 }

@@ -3,8 +3,20 @@ import { useId } from 'react'
 import { fNum, getCurrencySymbol } from '../../../utils/format'
 import { FormField, MoneyField, Stack, Text, TextField } from '../../ui'
 import { TEXT_CAPS } from './api'
-import { namePlaceholder, valueHelp, valueLabel } from './assetCategoryRules'
+import { defineMessages } from 'react-intl'
+import { useAppIntl } from '../../../i18n/useAppIntl'
 import type { NameValueErrors } from './assetForms'
+
+const placeholders = defineMessages({
+  property: { id: 'assets.nameExample.property', defaultMessage: 'e.g. 88 Marina Rise' },
+  vehicle: { id: 'assets.nameExample.vehicle', defaultMessage: 'e.g. 2022 Volvo XC60' },
+  watch: { id: 'assets.nameExample.watch', defaultMessage: 'e.g. Rolex Submariner' },
+  art: { id: 'assets.nameExample.art', defaultMessage: 'e.g. Tan Swie Hian painting' },
+  metal: { id: 'assets.nameExample.metal', defaultMessage: 'e.g. Gold bars' },
+  policy: { id: 'assets.nameExample.policy', defaultMessage: 'e.g. Great Eastern Endowment Plan' },
+  other: { id: 'assets.nameExample.other', defaultMessage: 'e.g. Vintage camera collection' },
+  fallback: { id: 'assets.nameExample.fallback', defaultMessage: 'Enter a recognizable name' },
+})
 
 export interface NameValueStepProps {
   category: string
@@ -32,6 +44,10 @@ export function NameValueStep({
   onValue,
   onUnreadable,
 }: NameValueStepProps) {
+  const intl = useAppIntl()
+  const example = Object.hasOwn(placeholders, category)
+    ? placeholders[category as keyof typeof placeholders]
+    : placeholders.fallback
   const id = useId()
   return (
     <Stack gap="--space-6">
@@ -41,22 +57,45 @@ export function NameValueStep({
           {hint}
         </Text>
       )}
-      <FormField label="Name" htmlFor={`${id}-name`} required error={errors.name}>
+      <FormField
+        label={intl.formatMessage({ id: 'common.name', defaultMessage: 'Name' })}
+        htmlFor={`${id}-name`}
+        required
+        error={errors.name}
+      >
         <TextField
           id={`${id}-name`}
           autoFocus
           invalid={!!errors.name}
           value={name}
           maxLength={TEXT_CAPS.name}
-          placeholder={namePlaceholder(category)}
+          placeholder={intl.formatMessage(example)}
           onChange={(e) => onName(e.target.value)}
         />
       </FormField>
       <FormField
-        label={valueLabel(category)}
+        label={
+          category === 'policy'
+            ? intl.formatMessage({
+                id: 'assets.value.cashToday',
+                defaultMessage: 'Cash value today',
+              })
+            : intl.formatMessage({ id: 'assets.value.worthToday', defaultMessage: 'Worth today' })
+        }
         htmlFor={`${id}-value`}
         required
-        help={valueHelp(category)}
+        help={
+          category === 'policy'
+            ? intl.formatMessage({
+                id: 'assets.value.cashHelp',
+                defaultMessage:
+                  'The surrender value on your latest statement — not the sum assured.',
+              })
+            : intl.formatMessage({
+                id: 'assets.value.estimate',
+                defaultMessage: 'Your best estimate is fine',
+              })
+        }
         error={errors.value}
       >
         <MoneyField

@@ -1,3 +1,4 @@
+import { useAppIntl } from '../../../i18n/useAppIntl'
 // ScreenContextBar.tsx — "<recipient> can see this screen" row + toggle + Peek.
 //
 // Ports prototype app.jsx ScreenContextBar (lines 551-631).
@@ -51,6 +52,7 @@ export function ScreenContextBar({
   composing,
   active = true,
 }: ScreenContextBarProps) {
+  const intl = useAppIntl()
   const { enabled, setEnabled, pinnedHandleIds, togglePin } = useScreenSnapshot()
   const [peek, setPeek] = useState(false)
   const [tick, setTick] = useState(0)
@@ -214,10 +216,10 @@ export function ScreenContextBar({
   }, [compact, showPeek])
 
   const tooltip =
-    'Screen awareness — ' +
+    intl.formatMessage({ id: 'chat.screen.awareness', defaultMessage: 'Screen awareness' }) + ' — ' +
     snap.title +
     (inView ? ' • ' + inView[1] : '') +
-    (handles.length ? ' • ' + handles.length + ' sources' : '')
+    (handles.length ? ' • ' + intl.formatMessage({ id: 'chat.screen.sources', defaultMessage: '{count} sources' }, { count: handles.length }) : '')
 
   const onPeekTriggerKeyDown = (e: ReactKeyboardEvent<HTMLButtonElement>) => {
     if (e.key !== 'Tab' || e.shiftKey || !showPeek) return
@@ -256,7 +258,7 @@ export function ScreenContextBar({
                 on/off state deserves a control that LOOKS like one. */}
             <span className="lx-aw-toggle">
               <span className="lx-aw-dot">◉</span>
-              <span className="lx-aw-label">Screen awareness</span>
+              <span className="lx-aw-label">{intl.formatMessage({ id: 'chat.screen.awareness', defaultMessage: 'Screen awareness' })}</span>
               <span className="lx-aw-sub">• {snap.title}</span>
             </span>
             {!collapsed && (
@@ -265,14 +267,14 @@ export function ScreenContextBar({
                 className={'lx-aw-peek' + (peek ? ' open' : '')}
                 aria-expanded={peek}
                 aria-controls={peekId}
-                aria-label="Preview what's shared with Lucius"
-                title="Preview exactly what's shared this turn"
+                aria-label={intl.formatMessage({ id: "chat.screen.previewLabel", defaultMessage: "Preview what's shared with Lucius" })}
+                title={intl.formatMessage({ id: "chat.screen.previewTitle", defaultMessage: "Preview exactly what's shared this turn" })}
                 onMouseDown={(e) => e.preventDefault()}
                 onClick={() => setPeek((p) => !p)}
                 onKeyDown={onPeekTriggerKeyDown}
               >
                 {peek ? <EyeOff size={12} /> : <Eye size={12} />}
-                {peek ? 'Hide' : 'Peek'}
+                {peek ? intl.formatMessage({ id: 'chat.screen.hide', defaultMessage: 'Hide' }) : intl.formatMessage({ id: 'chat.screen.peek', defaultMessage: 'Peek' })}
               </button>
             )}
             <button
@@ -282,10 +284,10 @@ export function ScreenContextBar({
               aria-checked={enabled}
               aria-label={
                 enabled
-                  ? 'Screen awareness on — click to stop sharing this screen'
-                  : 'Screen awareness off — click to share this screen'
+                  ? intl.formatMessage({ id: 'chat.screen.on', defaultMessage: 'Screen awareness on — click to stop sharing this screen' })
+                  : intl.formatMessage({ id: 'chat.screen.off', defaultMessage: 'Screen awareness off — click to share this screen' })
               }
-              title={enabled ? 'Using this screen as context' : 'Not using this screen as context'}
+              title={enabled ? intl.formatMessage({ id: 'chat.screen.using', defaultMessage: 'Using this screen as context' }) : intl.formatMessage({ id: 'chat.screen.notUsing', defaultMessage: 'Not using this screen as context' })}
               onMouseDown={(e) => e.preventDefault()}
               onClick={() => setEnabled(!enabled)}
             >
@@ -297,11 +299,11 @@ export function ScreenContextBar({
         <div className="lx-scope-row">
           <span className="lx-scope-ic">◉</span>
           <span className="lx-scope-txt">
-            <b>Screen awareness</b>
+            <b>{intl.formatMessage({ id: 'chat.screen.awareness', defaultMessage: 'Screen awareness' })}</b>
             <span className="lx-scope-sub">
               {snap.title}
               {inView ? ' • ' + inView[1] : ''}
-              {handles.length ? ' • ' + handles.length + ' sources' : ''}
+              {handles.length ? ' • ' + intl.formatMessage({ id: 'chat.screen.sources', defaultMessage: '{count} sources' }, { count: handles.length }) : ''}
             </span>
           </span>
           {!collapsed && (
@@ -310,8 +312,8 @@ export function ScreenContextBar({
               className={'lx-scope-peek' + (peek ? ' open' : '')}
               aria-expanded={peek}
               aria-controls={peekId}
-              aria-label="Preview what's shared with Lucius"
-              title="Preview exactly what's shared this turn"
+              aria-label={intl.formatMessage({ id: "chat.screen.previewLabel", defaultMessage: "Preview what's shared with Lucius" })}
+              title={intl.formatMessage({ id: "chat.screen.previewTitle", defaultMessage: "Preview exactly what's shared this turn" })}
               onMouseDown={(e) => e.preventDefault()}
               onClick={() => setPeek((p) => !p)}
               onKeyDown={onPeekTriggerKeyDown}
@@ -337,7 +339,7 @@ export function ScreenContextBar({
                 <path d="M2 2l20 20" />
                 <path d="M6.7 6.7C4 8.5 2 12 2 12s3.5 7 10 7c2 0 3.7-.5 5.3-1.3M9.9 5.2A10.6 10.6 0 0 1 12 5c6.5 0 10 7 10 7a18 18 0 0 1-2.4 3.2M9.9 9.9a3 3 0 0 0 4.2 4.2" />
               </svg>
-              {peek ? 'Hide' : 'Peek'}
+              {peek ? intl.formatMessage({ id: 'chat.screen.hide', defaultMessage: 'Hide' }) : intl.formatMessage({ id: 'chat.screen.peek', defaultMessage: 'Peek' })}
             </button>
           )}
           <button
@@ -347,7 +349,7 @@ export function ScreenContextBar({
             aria-checked={enabled}
             onMouseDown={(e) => e.preventDefault()}
             onClick={() => setEnabled(!enabled)}
-            title={enabled ? 'Using this screen as context' : 'Not using this screen as context'}
+            title={enabled ? intl.formatMessage({ id: 'chat.screen.using', defaultMessage: 'Using this screen as context' }) : intl.formatMessage({ id: 'chat.screen.notUsing', defaultMessage: 'Not using this screen as context' })}
           >
             <span className="lx-switch-knob" />
           </button>
@@ -356,7 +358,7 @@ export function ScreenContextBar({
 
       {pinnedHandles.length > 0 && (
         <div className="lx-scope-attached">
-          <span className="lx-scope-attached-l">Pinned</span>
+          <span className="lx-scope-attached-l">{intl.formatMessage({ id: 'chat.screen.pinned', defaultMessage: 'Pinned' })}</span>
           {pinnedHandles.map((h) => (
             <span key={h.id} className="lx-handle-chip">
               <span className="ic" dangerouslySetInnerHTML={{ __html: hSvg(h.type) }} />
@@ -364,7 +366,7 @@ export function ScreenContextBar({
               <button
                 onMouseDown={(e) => e.preventDefault()}
                 onClick={() => togglePin(h.id)}
-                aria-label="Unpin"
+                aria-label={intl.formatMessage({ id: "chat.screen.unpin", defaultMessage: "Unpin" })}
               >
                 <svg
                   viewBox="0 0 24 24"
@@ -403,7 +405,7 @@ export function ScreenContextBar({
             }
           >
             <div className="lx-scope-peek-h" id={peekHeadingId}>
-              Visible now — passed to Lucius
+              {intl.formatMessage({ id: 'chat.screen.visible', defaultMessage: 'Visible now — passed to Lucius' })}
             </div>
             {snap.facts.map(([k, v], i) => (
               <div className="lx-scope-fact" key={i}>
@@ -412,17 +414,16 @@ export function ScreenContextBar({
               </div>
             ))}
             <div className="lx-scope-raw">
-              + the full visible text — labels, % deltas and figures that aren't @-mentionable.
+              {intl.formatMessage({ id: 'chat.screen.fullText', defaultMessage: "+ the full visible text — labels, % deltas and figures that aren't @-mentionable." })}
             </div>
 
             {handles.length > 0 && (
               <>
                 <div className="lx-scope-peek-h" style={{ marginTop: 9 }}>
-                  Also on this screen — fetched only if needed
+                  {intl.formatMessage({ id: 'chat.screen.onDemandTitle', defaultMessage: 'Also on this screen — fetched only if needed' })}
                 </div>
                 <div className="lx-scope-raw" style={{ marginTop: 0, marginBottom: 4 }}>
-                  Lucius knows these exist but hasn't read them. Pin to keep across the chat,
-                  @-mention for one message, or leave it to fetch on demand.
+                  {intl.formatMessage({ id: 'chat.screen.onDemandHelp', defaultMessage: "Lucius knows these exist but hasn't read them. Pin to keep across the chat, @-mention for one message, or leave it to fetch on demand." })}
                 </div>
                 <div className="lx-handle-list">
                   {handles.map((h) => {
@@ -443,18 +444,18 @@ export function ScreenContextBar({
                         <span className="lx-handle-main">
                           <span className="lx-handle-l">
                             {h.label}
-                            {h.type === 'view' && <span className="lx-handle-badge">not open</span>}
+                            {h.type === 'view' && <span className="lx-handle-badge">{intl.formatMessage({ id: 'chat.screen.notOpen', defaultMessage: 'not open' })}</span>}
                           </span>
                           <span className="lx-handle-d">{h.descriptor}</span>
                         </span>
                         <span className="lx-handle-act">
                           {pinned ? (
                             <>
-                              <Check size={12} aria-hidden="true" /> pinned
+                              <Check size={12} aria-hidden="true" /> {intl.formatMessage({ id: 'chat.screen.pinnedLower', defaultMessage: 'pinned' })}
                             </>
                           ) : (
                             <>
-                              <Plus size={12} aria-hidden="true" /> pin
+                              <Plus size={12} aria-hidden="true" /> {intl.formatMessage({ id: 'chat.screen.pin', defaultMessage: 'pin' })}
                             </>
                           )}
                         </span>

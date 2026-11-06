@@ -49,7 +49,30 @@ class Pairs(Base):
             return v
 
         return [
-            {"label": LABELS[f], "onw": show(f, o[f], "onw"), "ynab": show(f, y[f], "ynab")}
+            {
+                "label": LABELS[f],
+                "field_id": f,
+                "onw": show(f, o[f], "onw"),
+                "ynab": show(f, y[f], "ynab"),
+                **(
+                    {
+                        "onw_message": {
+                            "message_id": "ynab.sync.value.hidden"
+                            if o[f]
+                            else "ynab.sync.value.shown",
+                            "params": {},
+                        },
+                        "ynab_message": {
+                            "message_id": "ynab.sync.value.hidden"
+                            if y[f]
+                            else "ynab.sync.value.shown",
+                            "params": {},
+                        },
+                    }
+                    if f == "hidden"
+                    else {}
+                ),
+            }
             for f in FIELDS
             if f in acts
         ]
@@ -115,12 +138,28 @@ class Pairs(Base):
             for f in fields:
                 if f == "name":
                     o["name"] = self.pull_name(cat, y["name"])
-                    self.count("pulled", f"Renamed {old} to {o['name']} here, as in YNAB.")
+                    self.count(
+                        "pulled",
+                        f"Renamed {old} to {o['name']} here, as in YNAB.",
+                        {
+                            "message_id": "ynab.sync.change.renamedHere",
+                            "params": {"old": old, "new": o["name"]},
+                        },
+                    )
                 elif f == "hidden":
                     make.set_hidden([cat["id"]], y["hidden"])
                     o["hidden"] = y["hidden"]
                     verb = "Hid" if y["hidden"] else "Showed"
-                    self.count("pulled", f"{verb} {o['name']} here, as in YNAB.")
+                    self.count(
+                        "pulled",
+                        f"{verb} {o['name']} here, as in YNAB.",
+                        {
+                            "message_id": "ynab.sync.change.hiddenHere"
+                            if y["hidden"]
+                            else "ynab.sync.change.shownHere",
+                            "params": {"name": o["name"]},
+                        },
+                    )
                 else:
                     o["group"] = self.pull_group(cat, y, o)
                 p["ynab"][f], p["onw"][f] = y[f], o[f]
@@ -154,7 +193,12 @@ class Pairs(Base):
             )
             self.book.refresh()
             self.count(
-                "pulled", f"Moved {solo['name']} to {self.ogroup_name(gid)} here, as in YNAB."
+                "pulled",
+                f"Moved {solo['name']} to {self.ogroup_name(gid)} here, as in YNAB.",
+                {
+                    "message_id": "ynab.sync.change.movedHere",
+                    "params": {"name": solo["name"], "group": str(self.ogroup_name(gid))},
+                },
             )
         return gid
 
@@ -219,7 +263,14 @@ class Pairs(Base):
     def say_pushed(self, y: dict, o: dict, fields: list[str], body: dict) -> None:
         name = o["name"]
         if "name" in body:
-            self.count("sent", f"Renamed {y['name']} to {name} in YNAB.")
+            self.count(
+                "sent",
+                f"Renamed {y['name']} to {name} in YNAB.",
+                {
+                    "message_id": "ynab.sync.change.renamedYnab",
+                    "params": {"old": y["name"], "new": name},
+                },
+            )
         if "category_group_id" in body:
             where = HIDDEN_HERE if o["hidden"] else self.ygroup_name(body["category_group_id"])
             if o["hidden"]:

@@ -1,3 +1,4 @@
+import { useAppIntl } from '../../../i18n/useAppIntl'
 // Autocomplete.tsx — inline grouped @ / / picker.
 //
 // Ports prototype app.jsx Autocomplete (lines 343-457) using real data hooks.
@@ -97,6 +98,7 @@ export const Autocomplete = forwardRef<AutocompleteHandle, AutocompleteProps>(fu
   },
   ref,
 ) {
+  const intl = useAppIntl()
   const [hi, setHi] = useState(0)
   const kbdNav = useRef(false)
   const scrollRef = useRef<HTMLDivElement>(null)
@@ -240,14 +242,14 @@ export const Autocomplete = forwardRef<AutocompleteHandle, AutocompleteProps>(fu
         .filter((r) => r.onScreen && !alreadyChosen(r) && matchQ(r) && show('screen', r))
         .sort((a, b) => Number(a.type === 'transaction') - Number(b.type === 'transaction'))
       if (onScreen.length) {
-        rows.push({ kind: 'head', label: 'On this screen', key: 'screen', eye: true })
+        rows.push({ kind: 'head', label: intl.formatMessage({ id: 'chat.autocomplete.onScreen', defaultMessage: 'On this screen' }), key: 'screen', eye: true })
         onScreen.forEach((r) => push(r))
       }
 
       // Deeper sources (screen handles)
       const srcRows = handleRows.filter((r) => !alreadyChosen(r) && show('sources', r))
       if (srcRows.length) {
-        rows.push({ kind: 'head', label: 'Deeper sources', key: 'sources', src: true })
+        rows.push({ kind: 'head', label: intl.formatMessage({ id: 'chat.autocomplete.sources', defaultMessage: 'Deeper sources' }), key: 'sources', src: true })
         srcRows.forEach((r) => push(r))
       }
 
@@ -256,7 +258,7 @@ export const Autocomplete = forwardRef<AutocompleteHandle, AutocompleteProps>(fu
         (r) => r.surface === 'agent' && !alreadyChosen(r) && matchQ(r) && show('agents', r),
       )
       if (agents.length) {
-        rows.push({ kind: 'head', label: 'Talk to', key: 'agents', spark: true })
+        rows.push({ kind: 'head', label: intl.formatMessage({ id: 'chat.autocomplete.talkTo', defaultMessage: 'Talk to' }), key: 'agents', spark: true })
         agents.forEach((r) => push(r, true))
       }
 
@@ -314,7 +316,7 @@ export const Autocomplete = forwardRef<AutocompleteHandle, AutocompleteProps>(fu
     }
 
     return { groupRows: rows, items }
-  }, [mode, nq, query, backendItems, handleRows, chosenIds, remoteItems, scope, scopeType])
+  }, [mode, nq, query, backendItems, handleRows, chosenIds, remoteItems, scope, scopeType, intl])
 
   // Section tabs — one per group present for this query (owner request 2026-08-11), keyed so
   // a type's local and "everywhere" groups share one tab. A tab FILTERS the list to its
@@ -406,7 +408,7 @@ export const Autocomplete = forwardRef<AutocompleteHandle, AutocompleteProps>(fu
     else if (b > sc.scrollTop + sc.clientHeight) sc.scrollTop = b - sc.clientHeight + 4
   }, [hi])
 
-  const modeHint = mode === '@' ? 'Mention accounts, transactions, holdings, …' : 'Run a skill'
+  const modeHint = mode === '@' ? intl.formatMessage({ id: 'chat.autocomplete.mentionHint', defaultMessage: 'Mention accounts, transactions, holdings, …' }) : intl.formatMessage({ id: 'chat.autocomplete.skillHint', defaultMessage: 'Run a skill' })
 
   const popup = (
     <div
@@ -428,8 +430,8 @@ export const Autocomplete = forwardRef<AutocompleteHandle, AutocompleteProps>(fu
       ref={popRef}
     >
       {mode === '@' && tabs.length > 1 && (
-        <div className="ac-tabs" role="tablist" aria-label="Result sections">
-          {[{ key: null, label: 'All' }, ...tabs].map((s) => (
+        <div className="ac-tabs" role="tablist" aria-label={intl.formatMessage({ id: 'chat.autocomplete.sections', defaultMessage: 'Result sections' })}>
+          {[{ key: null, label: intl.formatMessage({ id: 'chat.autocomplete.all', defaultMessage: 'All' }) }, ...tabs].map((s) => (
             <button
               key={s.key ?? 'all'}
               type="button"
@@ -516,15 +518,15 @@ export const Autocomplete = forwardRef<AutocompleteHandle, AutocompleteProps>(fu
                     e.stopPropagation()
                     onContext(row)
                   }}
-                  title="Attach as context instead of routing"
+                  title={intl.formatMessage({ id: 'chat.autocomplete.attachContext', defaultMessage: 'Attach as context instead of routing' })}
                 >
-                  <Plus size={11} aria-hidden="true" /> as context
+                  <Plus size={11} aria-hidden="true" /> {intl.formatMessage({ id: 'scan2.asContext', defaultMessage: 'as context' })}
                 </button>
               )}
               {mode === '@' && row.type !== 'agent' && row.type !== 'source' && (
                 <span className="ac-item-tt">
                   {visibleIds.has(row.id) && (
-                    <span className="ac-onscreen" title="Visible on screen">
+                    <span className="ac-onscreen" title={intl.formatMessage({ id: 'chat.autocomplete.visible', defaultMessage: 'Visible on screen' })}>
                       ◉
                     </span>
                   )}
@@ -554,20 +556,20 @@ export const Autocomplete = forwardRef<AutocompleteHandle, AutocompleteProps>(fu
         {mode === '@' && loading && (
           <div className={'ac-searching' + (items.length === 0 ? ' ac-searching--empty' : '')}>
             <span className="ac-spin" />
-            Searching everywhere…
+            {intl.formatMessage({ id: 'chat.autocomplete.searching', defaultMessage: 'Searching everywhere…' })}
           </div>
         )}
         {/* Error + retry — shown when backend fetch failed. */}
         {mode === '@' && query && error && !loading && (
           <div className={'ac-error' + (items.length === 0 ? ' ac-error--empty' : '')}>
             <span className="x">⚠</span>
-            Couldn't reach search.
+            {intl.formatMessage({ id: 'chat.autocomplete.searchFailed', defaultMessage: "Couldn't reach search." })}
             <button
               className="ac-retry"
               onMouseDown={(e) => e.preventDefault()}
               onClick={() => retry()}
             >
-              Retry
+              {intl.formatMessage({ id: 'chat.tool.retry', defaultMessage: 'Retry' })}
             </button>
           </div>
         )}
@@ -576,7 +578,7 @@ export const Autocomplete = forwardRef<AutocompleteHandle, AutocompleteProps>(fu
               .ac-searching/.ac-error above it needs no conditional variant — always centered. */}
         {items.length === 0 && !loading && !error && (
           <div className="ac-empty">
-            {query ? <>No matches for "{query}".</> : 'Start typing to search.'}
+            {query ? intl.formatMessage({ id: 'chat.autocomplete.noMatches', defaultMessage: 'No matches for "{query}".' }, { query }) : intl.formatMessage({ id: 'chat.autocomplete.start', defaultMessage: 'Start typing to search.' })}
           </div>
         )}
       </div>
@@ -584,7 +586,7 @@ export const Autocomplete = forwardRef<AutocompleteHandle, AutocompleteProps>(fu
         <span className="ac-foot-hint">{modeHint}</span>
         <span className="ac-foot-keys">
           <span>
-            <span className="mx-kbd">↑↓</span>navigate
+            <span className="mx-kbd">↑↓</span>{intl.formatMessage({ id: 'chat.autocomplete.navigate', defaultMessage: 'navigate' })}
           </span>
           {mode === '@' && tabs.length > 1 && (
             // The section-switch shortcut has NO other affordance — it's a modifier
@@ -593,14 +595,14 @@ export const Autocomplete = forwardRef<AutocompleteHandle, AutocompleteProps>(fu
             // hardcoded ⌘ convention already used for ⌘K / ⌘/ elsewhere in this app
             // (RouterShell.tsx) — not platform-branched to "Ctrl" on Windows/Linux.
             <span>
-              <span className="mx-kbd">⌘←→</span>sections
+              <span className="mx-kbd">⌘←→</span>{intl.formatMessage({ id: 'chat.autocomplete.sectionKeys', defaultMessage: 'sections' })}
             </span>
           )}
           <span>
-            <span className="mx-kbd">↵</span>select
+            <span className="mx-kbd">↵</span>{intl.formatMessage({ id: 'chat.autocomplete.select', defaultMessage: 'select' })}
           </span>
           <span>
-            <span className="mx-kbd">esc</span>dismiss
+            <span className="mx-kbd">esc</span>{intl.formatMessage({ id: 'chat.autocomplete.dismiss', defaultMessage: 'dismiss' })}
           </span>
         </span>
       </div>

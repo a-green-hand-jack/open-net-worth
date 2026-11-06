@@ -1,3 +1,4 @@
+import { useAppIntl } from '../../i18n/useAppIntl'
 import { useEffect, useRef, useState, type CSSProperties, type InputHTMLAttributes } from 'react'
 import { amountDraft, currencyMarks, parseAmount, thousandsReading } from './amountText'
 
@@ -33,6 +34,7 @@ export type MoneyFieldProps = RequiredMoneyFieldProps | OptionalMoneyFieldProps
 
 /** An always-visible money input. Formatting is display-only; focused editing uses raw digits. */
 export function MoneyField(props: MoneyFieldProps) {
+  const intl = useAppIntl()
   const {
     value,
     formattedValue,
@@ -181,7 +183,7 @@ export function MoneyField(props: MoneyFieldProps) {
       {/* Only its own parse failure. A caller's `invalid` marks the field; the caller says why. */}
       {shownInvalid && (
         <span className="ui-money-field__error" role="alert">
-          {meant ? `Did you mean ${meant}?` : 'Enter an amount of 0 or more.'}
+          {meant ? intl.formatMessage({ id: 'miss.money.didYouMean', defaultMessage: 'Did you mean {amount}?' }, { amount: meant }) : intl.formatMessage({ id: 'miss.money.nonnegative', defaultMessage: 'Enter an amount of 0 or more.' })}
         </span>
       )}
     </div>

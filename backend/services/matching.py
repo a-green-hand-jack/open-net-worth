@@ -243,6 +243,7 @@ class Candidate:
     # after it (this field, added before ``reasons``, moved ``["exact id"]`` into it and blanked
     # the candidate's reasons — caught only by a characterization pin).
     raw_score: float | None = None
+    reason_messages: list[dict] = field(default_factory=list)
 
     @property
     def id(self) -> str | None:
@@ -838,6 +839,8 @@ def _classify(
             score = raw = _score(amt_in, amt_ca, d_in, d_ca, similar=True)
             known_route = known_routes is None or frozenset((da, cr)) in known_routes
             reason = "opposite-direction legs across two accounts, same base amount & near date"
+            route_unconfirmed = not known_route
+            fee_bearing = False
             if not known_route:
                 score = min(score, SCORE_STRONG - 0.05)
                 reason += " (unconfirmed route — review)"
@@ -847,6 +850,7 @@ def _classify(
                 # F19b: same-currency pair with fee drift (between 1% and 3%) — capped review-only.
                 score = min(score, SCORE_STRONG - 0.05)
                 reason += " (fee-bearing transfer — review)"
+                fee_bearing = True
             # #2 (owner decision 2026-07-16): a deliberately-categorized single-leg row is a
             # deliberate classification of external money; a mis-booked internal leg is
             # typically raw/uncategorized — re-kinding a categorized row into a transfer must
@@ -862,6 +866,18 @@ def _classify(
                 raw_score=raw if raw != score else None,
                 become_transfer=True,
                 reasons=[reason],
+                reason_messages=[
+                    {
+                        "id": "matching.transfer_pair",
+                        "params": {
+                            "route": "yes" if route_unconfirmed else "no",
+                            "fee": "yes" if fee_bearing else "no",
+                            "categorized": "yes"
+                            if incoming.get("category") or candidate.get("category")
+                            else "no",
+                        },
+                    }
+                ],
                 fidelity=fidelity,
             )
 
@@ -924,6 +940,7 @@ def _classify(
             klass=MatchClass.NEAR_DUPLICATE,
             score=score,
             reasons=["same transfer route, same amount, near date"],
+            reason_messages=[{"id": "matching.same_transfer", "params": {}}],
             fidelity=fidelity,
         )
 
@@ -979,6 +996,7 @@ def _classify(
                 klass=MatchClass.NEAR_DUPLICATE,
                 score=score,
                 reasons=["same amount, similar description, near date, different source"],
+                reason_messages=[{"id": "matching.similar_description", "params": {}}],
                 fidelity=fidelity,
             )
         return _classify_wordless_gap(
@@ -1080,6 +1098,7 @@ def _classify_transfer_echo(
         raw_score=raw if raw != score else None,
         become_transfer=False,
         reasons=[reason],
+        reason_messages=[{"id": "matching.transfer_echo", "params": {"side": side}}],
         fidelity=_amount_fidelity(float(single_native), float(echoed_native), None),
         echo_side=side,
     )
@@ -1123,6 +1142,7 @@ def _classify_shared_reference(
         klass=MatchClass.NEAR_DUPLICATE,
         score=score,
         reasons=[f"shared reference {token}"],
+        reason_messages=[{"id": "matching.shared_reference", "params": {"token": token}}],
         fidelity=fidelity,
     )
 
@@ -1171,6 +1191,14 @@ def _classify_wordless_gap(
         klass=MatchClass.NEAR_DUPLICATE,
         score=min(_score(sc_in, sc_ca, d_in, d_ca, similar=True), SCORE_STRONG - 0.05),
         reasons=[reason],
+        reason_messages=[
+            {
+                "id": "matching.foreign_wordless"
+                if orig_pair is not None and foreign
+                else "matching.wordless",
+                "params": {"days": gap_days},
+            }
+        ],
         fidelity=fidelity,
     )
 
@@ -1236,6 +1264,16 @@ def _classify_settled_drift(
         reasons=[
             f"same account, settled {off_pct:.1f}% off, {when} — wording overlaps "
             f"({', '.join(sorted(shared))})"
+        ],
+        reason_messages=[
+            {
+                "id": "matching.settled_drift",
+                "params": {
+                    "percent": f"{off_pct:.1f}",
+                    "days": gap_days,
+                    "words": ", ".join(sorted(shared)),
+                },
+            }
         ],
         fidelity=fidelity,
         weak=True,
@@ -1582,6 +1620,12 @@ def _batch_l0(rows: list[dict]) -> dict[int, Candidate]:
                     MatchClass.EXACT,
                     1.0,
                     [f"exact external ref already in the ledger ({pair[0]}:{pair[1]})"],
+                    reason_messages=[
+                        {
+                            "id": "matching.ref_in_ledger",
+                            "params": {"source": str(pair[0]), "reference": str(pair[1])},
+                        }
+                    ],
                 )
                 break
             prior = claimed.get(pair)
@@ -1592,6 +1636,16 @@ def _batch_l0(rows: list[dict]) -> dict[int, Candidate]:
                     1.0,
                     [
                         f"exact external ref repeated by row {prior} of this batch ({pair[0]}:{pair[1]})"
+                    ],
+                    reason_messages=[
+                        {
+                            "id": "matching.ref_in_batch",
+                            "params": {
+                                "row": prior,
+                                "source": str(pair[0]),
+                                "reference": str(pair[1]),
+                            },
+                        }
                     ],
                 )
                 break
@@ -2069,6 +2123,7 @@ def _promote_books_close(
             continue
         rm.promoted = True
         cand.reasons.append("unique pairing in a complete statement window (books-close)")
+        cand.reason_messages.append({"id": "matching.books_close", "params": {}})
 
 
 def _band(cand: Candidate | None, promoted: bool) -> str:

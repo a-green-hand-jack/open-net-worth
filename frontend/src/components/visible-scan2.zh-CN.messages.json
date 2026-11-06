@@ -1,0 +1,15 @@
+{
+  "visible2.zeroCash": "$0 现金",
+  "visible2.cashFloor": "现金底线 {amount}",
+  "visible2.today": "今天",
+  "visible2.shortBy": "缺少 {amount}，日期为 {date}",
+  "visible2.save": "保存",
+  "visible2.deleteConfirm": "删除“{name}”？同步的预算目标也会被移除。",
+  "visible2.cancelConfirm": "取消“{name}”？历史记录会保留；跟踪和资金安排将停止。",
+  "visible2.keep": "保留",
+  "visible2.percentOf": "{percent}，共 {amount}",
+  "visible2.transactionShort": "交易",
+  "visible2.setAsideHint": "预留资金仅覆盖其储蓄份额，其余由一次性提取支付，因此不会透支。",
+  "visible2.skillExample": "例如 monthly-close",
+  "visible2.tradingPrompt": "请帮我创建一个持久的自主交易工作区。请与我讨论交易授权、资金、期限、执行器、环境和限制。使用 preview_trading_workspace 验证未保存的草稿，然后打开 trading.review_draft 供我审核。未经我审核，不要创建或授权实盘交易。"
+}

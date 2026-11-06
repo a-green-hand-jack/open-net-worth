@@ -37,17 +37,24 @@ async def request_market_data(run_id, data):
         run = TradingStore("runs").required(run_id, conn=conn)
         assert_running(run)
         if run["mode"] == "backtest":
-            raise ConflictError("Historical environments cannot request current market data")
+            raise ConflictError(
+                "Historical environments cannot request current market data",
+                message_id="trading.error.historical_live_request",
+            )
         mandate = run["workspace_snapshot"]["mandate"]
         if mandate.get("market_data_source", "supplied") != "yahoo":
             raise ConflictError(
-                "The reviewed data source is supplied; current Yahoo requests are not authorized"
+                "The reviewed data source is supplied; current Yahoo requests are not authorized",
+                message_id="trading.error.market_source_not_authorized",
             )
         _validate_requested(run, clean["instruments"])
         subscriptions = {instrument_key(row): row for row in run.get("subscribed_instruments", [])}
         subscriptions.update({instrument_key(row): row for row in clean["instruments"]})
         if len(subscriptions) > 100:
-            raise ValidationError("A workspace can subscribe to at most 100 instruments")
+            raise ValidationError(
+                "A workspace can subscribe to at most 100 instruments",
+                message_id="trading.error.subscription_limit",
+            )
         run = TradingStore("runs").update_by_id(
             run_id, {"subscribed_instruments": list(subscriptions.values())}, conn=conn
         )
@@ -60,7 +67,9 @@ async def request_market_data(run_id, data):
     try:
         refresh = await asyncio.to_thread(refresh_run_market_data, run_id)
         if refresh.get("status") == "unavailable":
-            raise ConflictError(refresh["message"])
+            raise ConflictError(
+                refresh["message"], message_id="trading.error.feed_no_usable_quotes"
+            )
     except Exception as exc:
         record_environment_failure(run_id, exc)
         raise
@@ -79,28 +88,51 @@ def _validate_requested(run, instruments):
     scopes = {(account["venue"], account["currency"]) for account in run["accounts"]}
     for row in instruments:
         if row["asset_class"] not in mandate["allowed_asset_classes"]:
-            raise ConflictError("Requested asset class is outside the mandate")
+            raise ConflictError(
+                "Requested asset class is outside the mandate",
+                message_id="trading.error.request_asset_class",
+            )
         if allowlist and instrument_key(row) not in allowlist:
-            raise ConflictError("Requested instrument is outside the explicit mandate universe")
+            raise ConflictError(
+                "Requested instrument is outside the explicit mandate universe",
+                message_id="trading.error.request_instrument",
+            )
         if (row["venue"], row["currency"]) not in scopes:
-            raise ConflictError("Requested venue and currency must match an allocated account")
+            raise ConflictError(
+                "Requested venue and currency must match an allocated account",
+                message_id="trading.error.request_account_mismatch",
+            )
         if row["currency"] != "USD":
-            raise ConflictError("The current Yahoo feed supports USD-quoted instruments only")
+            raise ConflictError(
+                "The current Yahoo feed supports USD-quoted instruments only",
+                message_id="trading.error.yahoo_currency",
+            )
         if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9.^=/_-]{0,31}", row["symbol"]):
-            raise ValidationError("Unsupported current market symbol format")
+            raise ValidationError(
+                "Unsupported current market symbol format",
+                message_id="trading.error.market_symbol_format",
+            )
 
 
 def record_environment_failure(run_id, exc):
     from backend.core.errors import OpenNetWorthError
+    from backend.services.trading.common import error_notice
     from backend.services.trading.work_records import redact_work_text
 
     message = (
         redact_work_text(exc.message) if isinstance(exc, OpenNetWorthError) else type(exc).__name__
     )
+    localized = error_notice(exc, message) if isinstance(exc, OpenNetWorthError) else None
     with trading_transaction() as conn:
         run = TradingStore("runs").required(run_id, conn=conn)
         TradingStore("runs").update_by_id(
-            run_id, {"environment_error": message, "environment_checked_at": now()}, conn=conn
+            run_id,
+            {
+                "environment_error": message,
+                "environment_error_message": localized,
+                "environment_checked_at": now(),
+            },
+            conn=conn,
         )
         event(
             conn,
@@ -109,6 +141,7 @@ def record_environment_failure(run_id, exc):
             {
                 "error_type": type(exc).__name__,
                 "message": message,
+                "message_localized": localized,
                 "new_orders": "require_available_market_data",
             },
         )
@@ -119,6 +152,12 @@ def record_environment_success(run_id):
         run = TradingStore("runs").required(run_id, conn=conn)
         if run.get("environment_error"):
             TradingStore("runs").update_by_id(
-                run_id, {"environment_error": None, "environment_checked_at": now()}, conn=conn
+                run_id,
+                {
+                    "environment_error": None,
+                    "environment_error_message": None,
+                    "environment_checked_at": now(),
+                },
+                conn=conn,
             )
             event(conn, run, "environment_updates_restored")

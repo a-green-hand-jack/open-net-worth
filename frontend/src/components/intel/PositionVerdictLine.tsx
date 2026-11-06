@@ -1,3 +1,4 @@
+import { getNumberLocale } from '../../utils/format'
 import type { PositionVerdict, VerdictAction } from '../../types/assetDetail'
 import { useChatComposerOptional } from '../../state/chatComposer'
 import { fPrice, getCurrencySymbol } from '../../utils/format'
@@ -22,7 +23,7 @@ interface Suggestion {
   prompt: string
 }
 
-const units = (q: number) => q.toLocaleString(undefined, { maximumFractionDigits: 8 })
+const units = (q: number) => q.toLocaleString(getNumberLocale(), { maximumFractionDigits: 8 })
 
 /** One button per action Lucius proposed — its label, and the request it puts in the chat. */
 function suggestionFor(a: VerdictAction, money: (v: number) => string): Suggestion {

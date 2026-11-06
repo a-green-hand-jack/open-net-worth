@@ -1,6 +1,9 @@
+import { intelTimeAgo } from './relativeTime'
+import { useAppIntl } from '../../i18n/useAppIntl'
+import { queueLabel } from './labels'
 import type { ReactNode } from 'react'
 import { Archive, Check } from '../../ui/icons'
-import { fDateTime, timeAgo } from '../../utils/format'
+import { fDateTime } from '../../utils/format'
 import { QUEUE_META, QUEUE_ORDER, type QueueStatus } from './signalQueue'
 import type { StoryArc } from './storyMeta'
 
@@ -24,6 +27,7 @@ export function FeedTools({
   /** Shown before the two tools (a sort menu, the last-scan note). */
   children?: ReactNode
 }) {
+  const intl = useAppIntl()
   return (
     <div className="intel-feed-tools">
       {children}
@@ -32,10 +36,10 @@ export function FeedTools({
           type="button"
           className="intel-feed-tool"
           onClick={() => onMarkAllRead(unread.map((s) => s.id))}
-          title="Mark every story here read"
+          title={intl.formatMessage({ id: 'intel.markAllHelp', defaultMessage: 'Mark every story here read' })}
         >
           <Check size={13} />
-          Mark all read
+          {intl.formatMessage({ id: 'intel.markAll', defaultMessage: 'Mark all read' })}
           <span className="intel-feed-tool-count intel-feed-tool-count--accent">
             {unread.length}
           </span>
@@ -46,10 +50,10 @@ export function FeedTools({
         className={`intel-feed-tool intel-feed-tool--archive${showArchive ? ' intel-feed-tool--active' : ''}`}
         onClick={onToggleArchive}
         disabled={!archiveCount && !showArchive}
-        title="Dismissed and auto-resolved stories"
+        title={intl.formatMessage({ id: 'intel.archivedHelp', defaultMessage: 'Dismissed and auto-resolved stories' })}
       >
         <Archive size={13} />
-        {showArchive ? backLabel : 'View archived'}
+        {showArchive ? backLabel === 'Back' ? intl.formatMessage({ id: 'intel.back', defaultMessage: 'Back' }) : backLabel : intl.formatMessage({ id: 'intel.viewArchived', defaultMessage: 'View archived' })}
         <span className="intel-feed-tool-count">{archiveCount}</span>
       </button>
     </div>
@@ -57,16 +61,17 @@ export function FeedTools({
 }
 
 function ScanNote({ at }: { at: string | null }) {
+  const intl = useAppIntl()
   return (
     <span
       className="intel-desk-scan"
       title={
         at
-          ? `Last news scan: ${fDateTime(at)}`
-          : 'No news scan has run yet — press Scan, or wait for the schedule.'
+          ? intl.formatMessage({ id: 'intel.lastScan', defaultMessage: 'Last news scan: {date}' }, { date: fDateTime(at) })
+          : intl.formatMessage({ id: 'intel.noScanHelp', defaultMessage: 'No news scan has run yet — press Scan, or wait for the schedule.' })
       }
     >
-      {at ? `News scanned ${timeAgo(at)}` : 'News not scanned yet'}
+      {at ? intl.formatMessage({ id: 'intel.scannedAgo', defaultMessage: 'News scanned {time}' }, { time: intelTimeAgo(at, intl) }) : intl.formatMessage({ id: 'intel.notScanned', defaultMessage: 'News not scanned yet' })}
     </span>
   )
 }
@@ -93,6 +98,7 @@ export function DeskStatusBar({
   newsScannedAt?: string | null
   toolbar?: ReactNode
 }) {
+  const intl = useAppIntl()
   return (
     <div className="intel-desk-bar">
       <div className="intel-desk-status">
@@ -103,20 +109,20 @@ export function DeskStatusBar({
               type="button"
               className="intel-desk-status-btn"
               onClick={() => onFocusStory(counts[k][0]!.id)}
-              title={`Jump to the first "${QUEUE_META[k].label}" story`}
+              title={intl.formatMessage({ id: 'intel.jumpStatus', defaultMessage: 'Jump to the first \"{status}\" story' }, { status: queueLabel(k, intl, QUEUE_META[k].label) })}
             >
               <span
                 className="intel-desk-line-dot"
                 style={{ background: QUEUE_META[k].color }}
                 aria-hidden
               />
-              {counts[k].length} {QUEUE_META[k].label.toLowerCase()}
+              {counts[k].length} {queueLabel(k, intl, QUEUE_META[k].label).toLowerCase()}
             </button>
           ) : null,
         )}
         {counts.action_needed.length === 0 && (
           <span className="intel-desk-calm">
-            <Check size={12} aria-hidden /> Nothing needs a decision
+            <Check size={12} aria-hidden /> {intl.formatMessage({ id: 'intel.nothingNeedsDecision', defaultMessage: 'Nothing needs a decision' })}
           </span>
         )}
       </div>

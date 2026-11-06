@@ -3,6 +3,7 @@ import { docIdFromPathname, docIdToPath } from './docId'
 import { resolveTheme, subscribeTheme } from '../../theme'
 import { EmptyState } from '../ui/States'
 import { TabSkeleton } from '../ui/TabSkeleton'
+import { useAppIntl } from '../../i18n/useAppIntl'
 
 /** Where the app serves its own copy of the docs (backend/main.py mounts it here). */
 const DOCS_BASE = '/docs'
@@ -90,6 +91,7 @@ export interface HelpDocsFrameProps {
  * frame to sync the theme and read back its location. Nothing is postMessage'd.
  */
 export function HelpDocsFrame({ pathname, hash, onNavigate, onOpenApp }: HelpDocsFrameProps) {
+  const intl = useAppIntl()
   const frameRef = useRef<HTMLIFrameElement>(null)
   // Never point the frame at /docs on faith. If the embedded docs build is absent the mount
   // does not exist, and an iframe renders whatever the server DOES return — which, before
@@ -273,7 +275,7 @@ export function HelpDocsFrame({ pathname, hash, onNavigate, onOpenApp }: HelpDoc
   if (state === 'checking') {
     return (
       <div className="help-docs-state">
-        <TabSkeleton variant="help" label="Opening Help…" header={false} />
+        <TabSkeleton variant="help" label={intl.formatMessage({ id: 'scan2.openingHelp', defaultMessage: 'Opening Help…' })} header={false} />
       </div>
     )
   }
@@ -282,8 +284,15 @@ export function HelpDocsFrame({ pathname, hash, onNavigate, onOpenApp }: HelpDoc
     return (
       <div className="help-docs-state">
         <EmptyState
-          title="Help can't be reached"
-          body="This instance has no local copy of the documentation, and docs.opennetworth.ai isn't reachable either. Run `make docs-site-embed` (or `make build`) to bundle it, and it will work offline from then on."
+          title={intl.formatMessage({
+            id: 'helpDocs.unreachable',
+            defaultMessage: "Help can't be reached",
+          })}
+          body={intl.formatMessage({
+            id: 'helpDocs.missing',
+            defaultMessage:
+              "This instance has no local copy of the documentation, and docs.opennetworth.ai isn't reachable either. Run `make docs-site-embed` (or `make build`) to bundle it, and it will work offline from then on.",
+          })}
         />
       </div>
     )
@@ -293,7 +302,10 @@ export function HelpDocsFrame({ pathname, hash, onNavigate, onOpenApp }: HelpDoc
     <iframe
       ref={frameRef}
       className="help-docs-frame"
-      title="Open Net Worth documentation"
+      title={intl.formatMessage({
+        id: 'helpDocs.documentation',
+        defaultMessage: 'Open Net Worth documentation',
+      })}
       // No `src` attribute and no `onLoad`: the effects above own both, so React never
       // re-renders a src that would reload the frame and discard its own history.
     />

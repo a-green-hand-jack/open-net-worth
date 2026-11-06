@@ -207,3 +207,19 @@ def test_activity_is_empty_when_nothing_is_active_or_scheduled(stores):
     result = automation_activity()
 
     assert result == {"active": [], "scheduled": [], "failed": []}
+
+
+def test_failed_activity_retains_structured_error_source(stores):
+    automations, runs = stores
+    automation = automations.create({"name": "Synthetic"})
+    run = runs.start({"automation_id": automation["id"], "started_at": JUST_NOW})
+    source = {"id": "automations.run.restartInterrupted", "params": {}}
+    runs.transition(
+        run["id"],
+        {"running"},
+        "failed",
+        {"finished_at": JUST_NOW, "error": "original", "error_message": source},
+    )
+    failed = next(item for item in automation_activity()["failed"] if item["run_id"] == run["id"])
+    assert failed["error"] == "original"
+    assert failed["error_message"] == source

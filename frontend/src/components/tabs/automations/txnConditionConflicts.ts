@@ -1,3 +1,4 @@
+import { getNumberLocale } from '../../../utils/format'
 // Conditions that can never all hold: the trigger would sit there and never fire. The editor
 // warns under the condition that closes the trap, and the trigger can't be saved until it's fixed.
 import { conditionIsComplete, conditionValues, type TxnCondition } from './txnConditions'
@@ -9,6 +10,10 @@ export interface ConditionConflict {
   /** The condition the warning sits under — the last one involved. */
   index: number
   message: string
+  reason: 'one_value' | 'excluded' | 'amount'
+  field?: 'payee' | 'kind' | 'account'
+  floor?: number
+  ceiling?: number
 }
 
 /** "investment" is either a buy or a sale — the ledger gives an investment one cash leg. */
@@ -49,6 +54,8 @@ function oneValueConflict(
     if (!allowed.size) {
       return {
         index: row.index,
+        reason: 'one_value',
+        field,
         message: `A transaction has one ${field}, so these can’t both be true — pick both in one condition instead.`,
       }
     }
@@ -58,6 +65,8 @@ function oneValueConflict(
   if (not.length && [...allowed].every((v) => excluded.has(v))) {
     return {
       index: Math.max(...[...is, ...not].map((r) => r.index)),
+      reason: 'excluded',
+      field,
       message: `“Is” and “is not” rule out every ${field} here, so this can never match.`,
     }
   }
@@ -78,6 +87,8 @@ function accountConflict(rows: Indexed[]): ConditionConflict | null {
   if (!trapped) return null
   return {
     index: Math.max(trapped.index, ...not.map((r) => r.index)),
+    reason: 'excluded',
+    field: 'account',
     message: '“Is” and “is not” rule out every account here, so this can never match.',
   }
 }
@@ -94,6 +105,9 @@ function amountConflict(rows: Indexed[]): ConditionConflict | null {
   if (floor < ceiling) return null
   return {
     index: Math.max(...amounts.map((r) => r.index)),
-    message: `An amount can’t be over ${floor.toLocaleString()} and under ${ceiling.toLocaleString()} at once, so this can never match.`,
+    reason: 'amount',
+    floor,
+    ceiling,
+    message: `An amount can’t be over ${floor.toLocaleString(getNumberLocale())} and under ${ceiling.toLocaleString(getNumberLocale())} at once, so this can never match.`,
   }
 }

@@ -1,3 +1,5 @@
+import { useAppIntl } from '../../../i18n/useAppIntl'
+import type { IntlShape } from 'react-intl'
 import { useEffect, useRef } from 'react'
 import type { AutomationRun, AutomationRunStatus } from '../../../api/automations'
 import { ChevronRight, Hand } from 'lucide-react'
@@ -8,7 +10,7 @@ export function AutomationHistory({
   runs,
   selectedRunId,
   onSelectRun,
-  emptyMessage = 'Hasn’t run yet. Hit Run now to start it.',
+  emptyMessage,
 }: {
   runs: AutomationRun[]
   selectedRunId: string | null
@@ -17,6 +19,8 @@ export function AutomationHistory({
 }) {
   // Keep the open run visible inside the scroller — following a deep link, or stepping
   // through runs with the keyboard, otherwise lands on a row nowhere near the viewport.
+  const intl = useAppIntl()
+  const { formatMessage } = intl
   const selectedRow = useRef<HTMLButtonElement>(null)
   useEffect(() => {
     // Optional-called: jsdom has no scrollIntoView, and this is a nicety — never let a
@@ -25,7 +29,15 @@ export function AutomationHistory({
   }, [selectedRunId])
 
   if (runs.length === 0) {
-    return <div className="a3-history-empty">{emptyMessage}</div>
+    return (
+      <div className="a3-history-empty">
+        {emptyMessage ??
+          formatMessage({
+            id: 'automations.history.empty',
+            defaultMessage: 'Hasn’t run yet. Hit Run now to start it.',
+          })}
+      </div>
+    )
   }
   // Nothing open → the list IS the page, so it runs full length. Open a run and it becomes
   // a scroller about five rows tall, so the card below stays on screen — but it still holds
@@ -35,7 +47,10 @@ export function AutomationHistory({
     <div
       className={`a3-hist${selectedRunId ? ' is-windowed' : ''}`}
       role="list"
-      aria-label="Automation run history"
+      aria-label={formatMessage({
+        id: 'automations.history.label',
+        defaultMessage: 'Automation run history',
+      })}
     >
       {runs.map((run) => (
         <button
@@ -51,13 +66,27 @@ export function AutomationHistory({
             aria-hidden="true"
           />
           <span className="when">{fDateTime(run.started_at, 'short', 'always')}</span>
-          <span className="note">{statusLabel(run.status)}</span>
+          <span className="note">{statusLabel(run.status, intl)}</span>
           {run.status === 'waiting' && (
-            <span className="a3-hand" title="Waiting on you">
+            <span
+              className="a3-hand"
+              title={formatMessage({
+                id: 'automations.history.waiting',
+                defaultMessage: 'Waiting on you',
+              })}
+            >
               <Hand size={13} aria-hidden="true" />
             </span>
           )}
-          {run.status === 'running' && <span className="a3-live" title="Running now" />}
+          {run.status === 'running' && (
+            <span
+              className="a3-live"
+              title={formatMessage({
+                id: 'automations.history.runningNow',
+                defaultMessage: 'Running now',
+              })}
+            />
+          )}
           <span className="cost">
             {run.status === 'running' || run.cost_usd == null ? '' : money(run.cost_usd)}
           </span>
@@ -68,13 +97,20 @@ export function AutomationHistory({
   )
 }
 
-export function statusLabel(status: AutomationRunStatus) {
-  // "Stopped", not "Cancelled": it names what the user did, not something that happened to the run.
-  return {
-    completed: 'Completed',
-    running: 'Running',
-    waiting: 'Needs you',
-    failed: 'Failed',
-    cancelled: 'Stopped',
-  }[status]
+export function statusLabel(status: AutomationRunStatus, intl: IntlShape) {
+  switch (status) {
+    case 'completed':
+      return intl.formatMessage({
+        id: 'automations.history.completed',
+        defaultMessage: 'Completed',
+      })
+    case 'running':
+      return intl.formatMessage({ id: 'automations.history.running', defaultMessage: 'Running' })
+    case 'waiting':
+      return intl.formatMessage({ id: 'automations.history.needsYou', defaultMessage: 'Needs you' })
+    case 'failed':
+      return intl.formatMessage({ id: 'automations.history.failed', defaultMessage: 'Failed' })
+    case 'cancelled':
+      return intl.formatMessage({ id: 'automations.history.stopped', defaultMessage: 'Stopped' })
+  }
 }

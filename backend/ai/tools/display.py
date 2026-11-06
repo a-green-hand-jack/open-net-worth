@@ -482,8 +482,7 @@ def _mcp_title(server_id: str, tool: str) -> Optional[str]:
 def describe_tool_call(name: str, tool_input: Any = None) -> dict[str, Any]:
     """The display block for one tool call: what the row says, and what it groups with.
 
-    Shape (every field a plain string — this crosses SSE, a stored transcript and a React
-    prop, so it stays JSON-trivial):
+    Shape (JSON-trivial, shared by SSE and transcript reads):
 
         label      the human sentence, capped and sanitized
         verb       closed-set class, keys the icon and the grouping
@@ -491,6 +490,8 @@ def describe_tool_call(name: str, tool_input: Any = None) -> dict[str, Any]:
         owner_id   ``plaid`` / ``web_search:tavily`` / ``mcp:<server>`` / ``core``
         owner_name display name for the breadcrumb, sanitized ("" when it adds nothing)
         detail     one input value worth showing, or ""
+        localization optional first-party tool identity and bounded detail; absent for MCP
+                     and unknown tools so their source text remains authoritative
 
     Never raises. A label is decoration on a call that already happened; failing to compute
     one must never be able to take the call — or the turn — down with it.
@@ -548,8 +549,9 @@ def _describe(name: str, tool_input: Any) -> dict[str, Any]:
         tokens = [t for t in canonical.split("_") if t]
         verb_class, label, noun = _derive(canonical, tokens, owner_id, _mutates_of(canonical))
 
+    localization = _localization(canonical, tool_input, detail, verb_class)
     label, detail = _with_detail(label, detail, verb_class)
-    return {
+    result = {
         "label": sanitize_untrusted(label, LABEL_CAP),
         "verb": verb_class,
         "noun": noun,
@@ -557,6 +559,32 @@ def _describe(name: str, tool_input: Any) -> dict[str, Any]:
         "owner_name": _owner_name(owner_id),
         "detail": detail,
     }
+    if localization is not None:
+        result["localization"] = localization
+    return result
+
+
+def _localization(name: str, tool_input: Any, detail: str, verb: str) -> Optional[dict[str, str]]:
+    """Identify first-party display semantics without treating external text as a message."""
+    from backend.ai.tools.registry import registered_tool_names
+
+    if name not in registered_tool_names() and name not in {
+        "connector_status",
+        "apply_budget_verb",
+    }:
+        return None
+    mode = verb if detail and verb in {"search", "browse"} else "separate" if detail else "none"
+    result = {"tool": name, "detail": detail, "detail_mode": mode}
+    if name in _BUDGET_OPERATION_TOOLS:
+        args = tool_input if isinstance(tool_input, dict) else {}
+        operation = str(args.get("operation") or args.get("verb_id") or "")
+        if operation not in _BUDGET_OPERATION_LABELS:
+            return None
+        result["operation"] = operation
+        engine = str(args.get("engine_id") or "")
+        if engine in _BUDGET_METHOD_NAMES:
+            result["engine"] = engine
+    return result
 
 
 def _with_detail(label: str, detail: str, verb_class: str) -> tuple[str, str]:

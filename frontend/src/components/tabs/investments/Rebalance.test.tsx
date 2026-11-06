@@ -3,10 +3,24 @@ import { describe, it, expect, afterEach } from 'vitest'
 import { render, cleanup, screen } from '@testing-library/react'
 import { Rebalance } from './Rebalance'
 import { fBase } from '../../../utils/format'
+import { IntlProvider } from 'react-intl'
+import zh from '../../../i18n/zh-CN.json'
 
 afterEach(cleanup)
 
 describe('Rebalance — MATH-38 trade sizing uses the server figure, never rounded percents', () => {
+  it('localizes the suggestion without changing its server-sized trade', () => {
+    render(
+      <IntlProvider locale="zh-CN" messages={zh}>
+        <Rebalance
+          thresholdPp={3}
+          alloc={[{ cls: 'equity', cur: 33, tgt: 29, driftPp: 3.2, tradeBase: -32_000 }]}
+        />
+      </IntlProvider>,
+    )
+    expect(screen.getByText('减持')).toBeTruthy()
+    expect(screen.getByText(fBase(32_000), { exact: false })).toBeTruthy()
+  })
   it('sizes the trade from the server trade_base/drift_pp, not from the rounded cur/tgt display percents', () => {
     // Book 1,000,000, current 32.6%, target 29.4% → the true trade is -32,000 (the server's own
     // `trade_base`). Sizing off the rounded 33%/29% display percents instead gives -40,000 —

@@ -11,6 +11,7 @@ import { parseMoneyInput } from '../../planData'
 import { Check } from '../MethodCard'
 import { fmt } from './propMath'
 import type { PropEnvelope } from './propApi'
+import { useAppIntl } from '../../../../../i18n/useAppIntl'
 
 const SWATCH = [
   '#3b86dd',
@@ -80,6 +81,7 @@ export function EnvelopeEditor({
   onDelete: () => void
   onClose: () => void
 }) {
+  const { formatMessage } = useAppIntl()
   const [d, setD] = useState<EnvelopeDraft>(() => ({
     label: env.label,
     color: env.color,
@@ -102,35 +104,72 @@ export function EnvelopeEditor({
     .sort((a, b) => Number(!!a.owner) - Number(!!b.owner))
     .map(({ c, owner }) => ({
       id: c.id,
-      label: catLabel(c.id) + (owner ? ' — moves from ' + owner.label : ''),
+      label: owner
+        ? formatMessage(
+            {
+              id: 'plan.envelopeEditor.movesFrom',
+              defaultMessage: '{category} — moves from {owner}',
+            },
+            { category: catLabel(c.id), owner: owner.label },
+          )
+        : catLabel(c.id),
       color: catColor(c.id),
       kind: 'expense' as const,
-      group: owner ? 'In another envelope' : 'Not in an envelope',
+      group: owner
+        ? formatMessage({
+            id: 'plan.envelopeEditor.inAnother',
+            defaultMessage: 'In another envelope',
+          })
+        : formatMessage({ id: 'plan.outside.noEnvelope', defaultMessage: 'Not in an envelope' }),
     }))
   const label = (k: string) => (k.startsWith('__new:') ? k.slice(6) : catLabel(k))
   return (
-    <Modal open onClose={onClose} title="Edit envelope">
+    <Modal
+      open
+      onClose={onClose}
+      title={formatMessage({ id: 'plan.envelopeEditor.title', defaultMessage: 'Edit envelope' })}
+    >
       <div className="pt-ed">
         {/* The cap first, set apart: it is the one thing here that belongs to 50/30/20 — the
             rest describes the envelope itself, shared with Zero-Based (owner, 2026-09-25). */}
         <div className="pt-ed-f pt-ed-capsec">
           <div className="pt-ed-caphead">
-            <span>Monthly cap</span>
+            <span>
+              {formatMessage({ id: 'plan.envelopeEditor.cap', defaultMessage: 'Monthly cap' })}
+            </span>
             <small className="pt-ed-hint">
-              {cap.locked ? 'Past months can’t be changed' : `From ${cap.from} onward`}
+              {cap.locked
+                ? formatMessage({
+                    id: 'plan.envelopeEditor.locked',
+                    defaultMessage: 'Past months can’t be changed',
+                  })
+                : formatMessage(
+                    { id: 'plan.envelopeEditor.from', defaultMessage: 'From {month} onward' },
+                    { month: cap.from },
+                  )}
             </small>
           </div>
           {cap.locked ? (
-            <div className="pt-ed-ro">{d.cap ? fmt(d.cap) : 'No cap'}</div>
+            <div className="pt-ed-ro">
+              {d.cap
+                ? fmt(d.cap)
+                : formatMessage({ id: 'plan.envelopeEditor.noCap', defaultMessage: 'No cap' })}
+            </div>
           ) : (
             <>
               <span className="pt-ed-in pt-ed-cap">
                 <b>{getCurrencySymbol()}</b>
                 <input
                   value={capText}
-                  placeholder="No cap"
+                  placeholder={formatMessage({
+                    id: 'plan.envelopeEditor.noCap',
+                    defaultMessage: 'No cap',
+                  })}
                   inputMode="decimal"
-                  aria-label="Monthly cap"
+                  aria-label={formatMessage({
+                    id: 'plan.envelopeEditor.cap',
+                    defaultMessage: 'Monthly cap',
+                  })}
                   onChange={(e) => setCapText(e.target.value.replace(/[^0-9.]/g, ''))}
                 />
               </span>
@@ -142,8 +181,14 @@ export function EnvelopeEditor({
                       className="pt-ed-capchip"
                       onClick={() => setCapText(String(Math.round(cap.last)))}
                     >
-                      Last month <b>{fmt(cap.last)}</b>
-                      <span className="pt-ed-capuse">Use</span>
+                      {formatMessage({
+                        id: 'plan.envelopeEditor.lastMonth',
+                        defaultMessage: 'Last month',
+                      })}{' '}
+                      <b>{fmt(cap.last)}</b>
+                      <span className="pt-ed-capuse">
+                        {formatMessage({ id: 'plan.envelopeEditor.use', defaultMessage: 'Use' })}
+                      </span>
                     </button>
                   )}
                   {cap.avg > 0 && (
@@ -152,8 +197,14 @@ export function EnvelopeEditor({
                       className="pt-ed-capchip"
                       onClick={() => setCapText(String(Math.round(cap.avg)))}
                     >
-                      3-month average <b>{fmt(cap.avg)}</b>
-                      <span className="pt-ed-capuse">Use</span>
+                      {formatMessage({
+                        id: 'plan.envelopeEditor.average',
+                        defaultMessage: '3-month average',
+                      })}{' '}
+                      <b>{fmt(cap.avg)}</b>
+                      <span className="pt-ed-capuse">
+                        {formatMessage({ id: 'plan.envelopeEditor.use', defaultMessage: 'Use' })}
+                      </span>
                     </button>
                   )}
                 </div>
@@ -168,23 +219,34 @@ export function EnvelopeEditor({
             type="button"
             role="checkbox"
             aria-checked={d.counted}
-            aria-label="Count in the split"
+            aria-label={formatMessage({
+              id: 'plan.envelopeEditor.count',
+              defaultMessage: 'Count in the split',
+            })}
             className={'bo-check' + (d.counted ? ' on' : '')}
             onClick={() => setD({ ...d, counted: !d.counted })}
           >
             {d.counted && <Check size={11} />}
           </button>
           <span>
-            <b>Count in the split</b>
+            <b>
+              {formatMessage({
+                id: 'plan.envelopeEditor.count',
+                defaultMessage: 'Count in the split',
+              })}
+            </b>
             <small className="pt-ed-hint">
-              Untick for money you&apos;re paid back for, or a one-off paid from savings — its
-              spending then won&apos;t count against your income or savings.
+              {formatMessage({
+                id: 'plan.envelopeEditor.countHint',
+                defaultMessage:
+                  'Untick for money you’re paid back for, or a one-off paid from savings — its spending then won’t count against your income or savings.',
+              })}
             </small>
           </span>
         </div>
         <div className="pt-ed-pair">
           <label className="pt-ed-f">
-            <span>Name</span>
+            <span>{formatMessage({ id: 'plan.envelopeEditor.name', defaultMessage: 'Name' })}</span>
             <input
               className="pt-ed-in"
               value={d.label}
@@ -194,17 +256,29 @@ export function EnvelopeEditor({
           {/* Picked from the book's groups, never typed (owner, 2026-09-26: "must be shown as a
               drop down") — the one way to move an envelope on a phone; a desktop also drags. */}
           <label className="pt-ed-f">
-            <span>Group</span>
+            <span>
+              {formatMessage({ id: 'plan.envelopeEditor.group', defaultMessage: 'Group' })}
+            </span>
             <span className="pt-ed-selwrap">
               <select
                 className="pt-ed-in"
-                aria-label="Group"
+                aria-label={formatMessage({
+                  id: 'plan.envelopeEditor.group',
+                  defaultMessage: 'Group',
+                })}
                 value={groupLocked ? env.group || d.group : d.group}
                 disabled={groupLocked}
                 aria-describedby={groupLocked ? 'pt-ed-grouplock' : undefined}
                 onChange={(e) => setD({ ...d, group: e.target.value })}
               >
-                {!d.group && <option value="">Pick a group</option>}
+                {!d.group && (
+                  <option value="">
+                    {formatMessage({
+                      id: 'plan.envelopeEditor.pickGroup',
+                      defaultMessage: 'Pick a group',
+                    })}
+                  </option>
+                )}
                 {(!env.group || groups.includes(env.group) ? groups : [env.group, ...groups]).map(
                   (g) => (
                     <option key={g} value={g}>
@@ -217,19 +291,27 @@ export function EnvelopeEditor({
             </span>
             {groupLocked && (
               <small id="pt-ed-grouplock" className="pt-ed-hint">
-                An envelope with several categories stays in its group
+                {formatMessage({
+                  id: 'plan.envelopeEditor.groupLocked',
+                  defaultMessage: 'An envelope with several categories stays in its group',
+                })}
               </small>
             )}
           </label>
         </div>
         <div className="pt-ed-f">
-          <span>Colour</span>
+          <span>
+            {formatMessage({ id: 'plan.envelopeEditor.colour', defaultMessage: 'Colour' })}
+          </span>
           <div className="pt-sw">
             {[...SWATCH, ...(SWATCH.includes(d.color) ? [] : [d.color])].map((c) => (
               <button
                 key={c}
                 type="button"
-                aria-label={'Colour ' + c}
+                aria-label={formatMessage(
+                  { id: 'plan.envelopeEditor.colourValue', defaultMessage: 'Colour {colour}' },
+                  { colour: c },
+                )}
                 aria-pressed={d.color === c}
                 className={d.color === c ? 'on' : ''}
                 style={{ background: c }}
@@ -238,11 +320,20 @@ export function EnvelopeEditor({
                 {d.color === c && <Check size={12} />}
               </button>
             ))}
-            <label className="pt-sw-custom" title="Custom colour">
+            <label
+              className="pt-sw-custom"
+              title={formatMessage({
+                id: 'plan.envelopeEditor.customColour',
+                defaultMessage: 'Custom colour',
+              })}
+            >
               <input
                 type="color"
                 value={d.color}
-                aria-label="Custom colour"
+                aria-label={formatMessage({
+                  id: 'plan.envelopeEditor.customColour',
+                  defaultMessage: 'Custom colour',
+                })}
                 onChange={(e) => setD({ ...d, color: e.target.value })}
               />
               <svg
@@ -261,7 +352,9 @@ export function EnvelopeEditor({
           </div>
         </div>
         <div className="pt-ed-f">
-          <span>Categories</span>
+          <span>
+            {formatMessage({ id: 'plan.envelopeEditor.categories', defaultMessage: 'Categories' })}
+          </span>
           <div className="pt-ed-cats">
             {d.cats.map((k) => (
               <span
@@ -275,7 +368,10 @@ export function EnvelopeEditor({
                 {label(k)}
                 <button
                   type="button"
-                  aria-label={'Remove ' + label(k)}
+                  aria-label={formatMessage(
+                    { id: 'plan.envelopeEditor.remove', defaultMessage: 'Remove {category}' },
+                    { category: label(k) },
+                  )}
                   onClick={() => setD({ ...d, cats: d.cats.filter((x) => x !== k) })}
                 >
                   <XIc />
@@ -284,7 +380,10 @@ export function EnvelopeEditor({
             ))}
             {!d.cats.length && (
               <span className="pt-ed-none">
-                No categories — spending won&apos;t land here until you add one.
+                {formatMessage({
+                  id: 'plan.envelopeEditor.noCategories',
+                  defaultMessage: 'No categories — spending won’t land here until you add one.',
+                })}
               </span>
             )}
           </div>
@@ -294,7 +393,10 @@ export function EnvelopeEditor({
             <AddCategoryField
               value=""
               options={options}
-              placeholder="Add a category…"
+              placeholder={formatMessage({
+                id: 'plan.envelopeEditor.addCategory',
+                defaultMessage: 'Add a category…',
+              })}
               advance={() => {}}
               createNeedsName
               onChange={(k) => k && setD({ ...d, cats: [...d.cats, k] })}
@@ -313,7 +415,10 @@ export function EnvelopeEditor({
             disabled={busy || envs.length < 2}
             onClick={onMerge}
           >
-            Merge into another envelope…
+            {formatMessage({
+              id: 'plan.envelopeEditor.merge',
+              defaultMessage: 'Merge into another envelope…',
+            })}
           </Button>
         </div>
         {error && (
@@ -323,11 +428,14 @@ export function EnvelopeEditor({
         )}
         <div className="pt-ed-foot">
           <button type="button" className="pt-ed-dellink" onClick={onDelete}>
-            Delete envelope…
+            {formatMessage({
+              id: 'plan.envelopeEditor.delete',
+              defaultMessage: 'Delete envelope…',
+            })}
           </button>
           <span className="bo-spacer" />
           <Button variant="secondary" size="sm" onClick={onClose}>
-            Cancel
+            {formatMessage({ id: 'plan.envelopeEditor.cancel', defaultMessage: 'Cancel' })}
           </Button>
           <Button
             variant="primary"
@@ -339,7 +447,12 @@ export function EnvelopeEditor({
               onSave(cap.locked ? next : { ...next, cap: parseMoneyInput(capText) })
             }}
           >
-            {d.group.trim() ? 'Save' : 'Pick a group'}
+            {d.group.trim()
+              ? formatMessage({ id: 'plan.envelopeEditor.save', defaultMessage: 'Save' })
+              : formatMessage({
+                  id: 'plan.envelopeEditor.pickGroup',
+                  defaultMessage: 'Pick a group',
+                })}
           </Button>
         </div>
       </div>

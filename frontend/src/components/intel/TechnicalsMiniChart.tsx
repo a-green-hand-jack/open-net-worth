@@ -1,3 +1,4 @@
+import { useAppIntl } from '../../i18n/useAppIntl'
 import { useEffect, useRef, useState } from 'react'
 import {
   createChart,
@@ -44,6 +45,7 @@ type LegendItem = {
 
 /** Multi-pane Technicals chart: Price+SMAs (+ optional Bollinger), MACD, RSI. */
 export function TechnicalsMiniChart({ points, overlays, timeframe }: Props) {
+  const intl = useAppIntl()
   const hostRef = useRef<HTMLDivElement>(null)
   const chartRef = useRef<IChartApi | null>(null)
   const [showBollinger, setShowBollinger] = useState(false)
@@ -265,7 +267,7 @@ export function TechnicalsMiniChart({ points, overlays, timeframe }: Props) {
 
   return (
     <div className="asd-tech-chart-wrap">
-      <div className="asd-tech-legend" aria-label="Chart series">
+      <div className="asd-tech-legend" aria-label={intl.formatMessage({ id: "intel.field.5a3a5677", defaultMessage: "Chart series" })}>
         {legend.map((item) =>
           item.toggle ? (
             <button

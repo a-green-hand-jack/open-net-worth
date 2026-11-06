@@ -89,7 +89,9 @@ def version_dir(skill_id: str, version: str) -> Path:
     accepted and ignored (any non-empty string is valid). Empty version raises
     ValidationError for parity with the old API."""
     if not version:
-        raise ValidationError("bundle version must not be empty")
+        raise ValidationError(
+            "bundle version must not be empty", message_id="skills.validation.bundleVersion"
+        )
     with skill_store_lock(exclusive=False):
         try:
             with pinned_skill_folder(skill_id) as pinned:
@@ -114,7 +116,11 @@ def _resolve_in_tree(folder: Path, rel: str) -> Path:
     base = Path(os.path.realpath(folder))
     candidate = Path(os.path.realpath(folder / rel))
     if candidate != base and base not in candidate.parents:
-        raise ValidationError(f"bundle entry '{rel}' resolves outside the skill folder")
+        raise ValidationError(
+            f"bundle entry '{rel}' resolves outside the skill folder",
+            message_id="skills.validation.bundlePath",
+            message_params={"path": rel},
+        )
     return candidate
 
 
@@ -166,55 +172,117 @@ def verify_bundle_sha(skill_id: str, version: str, expected_sha: str) -> bool:
 
 def validate_manifest(manifest: dict, folder: Path) -> list[str]:
     """Return problems with a manifest dict. Empty = valid. Same logic as before."""
+    from backend.core.skill_problem import SkillProblem
+
     problems: list[str] = []
     scripts = manifest.get("scripts")
     if scripts is None:
         scripts = []
     if not isinstance(scripts, list):
-        return ["manifest 'scripts' must be a list"]
+        return [
+            SkillProblem("manifest 'scripts' must be a list", "skills.validation.manifestScripts")
+        ]
     seen_ids: set[str] = set()
     for i, script in enumerate(scripts):
         label = f"script #{i + 1}"
         if not isinstance(script, dict):
-            problems.append(f"{label} is not an object")
+            problems.append(
+                SkillProblem(
+                    f"{label} is not an object", "skills.validation.scriptObject", script=str(i + 1)
+                )
+            )
             continue
         sid = script.get("id")
         if not (isinstance(sid, str) and sid):
-            problems.append(f"{label} is missing an 'id'")
+            problems.append(
+                SkillProblem(
+                    f"{label} is missing an 'id'", "skills.validation.scriptId", script=str(i + 1)
+                )
+            )
         elif sid in seen_ids:
-            problems.append(f"duplicate script id '{sid}'")
+            problems.append(
+                SkillProblem(
+                    f"duplicate script id '{sid}'",
+                    "skills.validation.scriptDuplicate",
+                    script=str(sid),
+                )
+            )
         else:
             seen_ids.add(sid)
         if sid:
             label = f"script '{sid}'"
+        script_ref = str(sid) if sid else str(i + 1)
         interp = script.get("interpreter")
         if interp not in SUPPORTED_INTERPRETERS:
             problems.append(
-                f"{label} has unsupported interpreter '{interp}' "
-                f"(supported: {', '.join(sorted(SUPPORTED_INTERPRETERS))})"
+                SkillProblem(
+                    f"{label} has unsupported interpreter '{interp}' "
+                    f"(supported: {', '.join(sorted(SUPPORTED_INTERPRETERS))})",
+                    "skills.validation.scriptInterpreter",
+                    script=script_ref,
+                    interpreter=str(interp),
+                    choices=", ".join(sorted(SUPPORTED_INTERPRETERS)),
+                )
             )
         entry = script.get("entry")
         if not (isinstance(entry, str) and entry):
-            problems.append(f"{label} is missing an 'entry'")
+            problems.append(
+                SkillProblem(
+                    f"{label} is missing an 'entry'",
+                    "skills.validation.scriptEntry",
+                    script=script_ref,
+                )
+            )
         else:
             try:
                 resolved = _resolve_in_tree(folder, entry)
             except ValidationError as e:
-                problems.append(f"{label}: {e}")
+                problems.append(
+                    SkillProblem(
+                        f"{label}: {e}",
+                        "skills.validation.scriptPath",
+                        script=script_ref,
+                        reason=str(e),
+                    )
+                )
             else:
                 if not resolved.is_file():
-                    problems.append(f"{label} entry '{entry}' does not exist in the skill folder")
+                    problems.append(
+                        SkillProblem(
+                            f"{label} entry '{entry}' does not exist in the skill folder",
+                            "skills.validation.scriptMissing",
+                            script=script_ref,
+                            path=entry,
+                        )
+                    )
         if script.get("network"):
             problems.append(
-                f"{label} requests network access — network is OFF in this version "
-                "(a later, separately-gated slice; never granted here)"
+                SkillProblem(
+                    f"{label} requests network access — network is OFF in this version "
+                    "(a later, separately-gated slice; never granted here)",
+                    "skills.validation.scriptNetwork",
+                    script=script_ref,
+                )
             )
         timeout = script.get("timeout_s")
         if timeout is not None:
             if not isinstance(timeout, (int, float)) or timeout <= 0:
-                problems.append(f"{label} 'timeout_s' must be a positive number")
+                problems.append(
+                    SkillProblem(
+                        f"{label} 'timeout_s' must be a positive number",
+                        "skills.validation.scriptTimeout",
+                        script=script_ref,
+                    )
+                )
             elif timeout > MAX_TIMEOUT_S:
-                problems.append(f"{label} 'timeout_s' exceeds the {MAX_TIMEOUT_S}s ceiling")
+                problems.append(
+                    SkillProblem(
+                        f"{label} 'timeout_s' exceeds the {MAX_TIMEOUT_S}s ceiling",
+                        "skills.validation.scriptTimeoutMax",
+                        script=script_ref,
+                        maximum=str(MAX_TIMEOUT_S),
+                    )
+                )
     return problems
 
 
@@ -304,14 +372,24 @@ def _write_bundle_unlocked(
                 # Additional jail: script must land inside scripts/ subdirectory specifically.
                 scripts_base = Path(os.path.realpath(scripts_staging))
                 if scripts_base not in tgt.parents and tgt != scripts_base:
-                    raise ValidationError(f"script path '{rel}' escapes the scripts/ directory")
+                    raise ValidationError(
+                        f"script path '{rel}' escapes the scripts/ directory",
+                        message_id="skills.validation.scriptEscape",
+                        message_params={"path": rel},
+                    )
                 tgt.parent.mkdir(parents=True, exist_ok=True)
                 atomic_write_text(tgt, content)
             # Validate interpreter / network / entry presence using the derived manifest.
             derived = _derive_manifest_from_folder(staging)
             problems = validate_manifest(derived, staging)
             if problems:
-                raise ValidationError("invalid bundle manifest: " + "; ".join(problems))
+                from backend.core.skill_problem import problem_messages
+
+                raise ValidationError(
+                    "invalid bundle manifest: " + "; ".join(problems),
+                    message_id="skills.validation.manifestInvalid",
+                    message_items=problem_messages(problems),
+                )
             # Write scripts to the real folder
             for rel, content in scripts.items():
                 write_pinned_skill_text(folder, f"scripts/{rel}", content)
@@ -436,7 +514,10 @@ def read_bundle_file(folder: Path, rel: str) -> str | None:
                 return None
         try:
             if folder.is_symlink():
-                raise ValidationError("bundle folder must not be a symlink")
+                raise ValidationError(
+                    "bundle folder must not be a symlink",
+                    message_id="skills.validation.bundleSymlink",
+                )
             target = _resolve_in_tree(folder, rel)
         except ValidationError:
             return None

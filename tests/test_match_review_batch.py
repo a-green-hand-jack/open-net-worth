@@ -329,6 +329,8 @@ def test_promotable_shaped_pair_stays_review_capped_post_commit(isolate):
     assert review["score"] < matching.SCORE_STRONG, "must stay review-capped, never promoted"
     assert review["score"] == pytest.approx(matching.SCORE_STRONG - 0.05)
     reasons_text = " ".join(review["reasons"]).lower()
+    assert len(review["reason_messages"]) == len(review["reasons"])
+    assert review["reason_messages"][0]["id"].startswith("matching.")
     assert "books-close" not in reasons_text, (
         "post-commit review must never carry a promotion reason"
     )

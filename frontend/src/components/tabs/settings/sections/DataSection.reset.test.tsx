@@ -10,6 +10,8 @@ import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import * as client from '../../../../api/client'
 import { clearQueryCache } from '../../../../state/queryCache'
 import { DataSection } from './DataSection'
+import { IntlProvider } from 'react-intl'
+import messages from '../remaining.zh-CN.messages.json'
 
 beforeEach(() => {
   clearQueryCache()
@@ -37,5 +39,19 @@ describe('DataSection reset dialog', () => {
     const dialog = await screen.findByText(/Everything is deleted/)
     expect(dialog.textContent).toMatch(/Your password and sign-in settings are kept\./)
     expect(dialog.textContent).not.toMatch(/and settings\./)
+  })
+  it('keeps RESET as the required confirmation in Chinese', async () => {
+    render(
+      <IntlProvider locale="zh-CN" messages={messages}>
+        <DataSection toast={vi.fn()} />
+      </IntlProvider>,
+    )
+    fireEvent.click(await screen.findByRole('button', { name: '重置实例…' }))
+    const action = screen.getByRole('button', { name: '我已了解，重置' }) as HTMLButtonElement
+    expect(action.disabled).toBe(true)
+    fireEvent.change(screen.getByLabelText('输入 RESET 以确认'), { target: { value: '重置' } })
+    expect(action.disabled).toBe(true)
+    fireEvent.change(screen.getByLabelText('输入 RESET 以确认'), { target: { value: 'RESET' } })
+    expect(action.disabled).toBe(false)
   })
 })

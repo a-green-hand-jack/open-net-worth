@@ -12,6 +12,7 @@
 // screen and the modal is never auto-opened over someone who was only peeking.
 import type { ReactNode } from 'react'
 import { Button, Modal } from '../../../../ui'
+import { useAppIntl } from '../../../../../i18n/useAppIntl'
 
 // Owner ask, 2026-09-15 (commit 32d98bf8f): hidden for every budget type for now — temporary,
 // KEEP IT PARKED, not deleted, may come back. A bare `const HIDDEN = true` closed over inside
@@ -37,15 +38,21 @@ export function SetupPrompt({
   busy?: boolean
   onSetUp: () => void
 }) {
+  const { formatMessage } = useAppIntl()
   if (HIDDEN) return null
   return (
     <div className="bgl-setupprompt">
       <div className="bgl-setupprompt__text">
-        <h3 className="bgl-setupprompt__title">{name} isn&apos;t set up yet</h3>
+        <h3 className="bgl-setupprompt__title">
+          {formatMessage(
+            { id: 'plan.setupPrompt.unconfigured', defaultMessage: '{name} isn’t set up yet' },
+            { name },
+          )}
+        </h3>
         <p className="bgl-setupprompt__sub">{description}</p>
       </div>
       <Button variant="primary" size="dense" loading={busy} onClick={onSetUp}>
-        Set up {name}
+        {formatMessage({ id: 'plan.zeroSetup.title', defaultMessage: 'Set up {name}' }, { name })}
       </Button>
     </div>
   )

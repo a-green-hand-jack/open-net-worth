@@ -22,7 +22,9 @@ describe('sidebar footer feedback item', () => {
     const footer = shell.slice(shell.indexOf('className="sidebar-util"'))
     expect(footer).toMatch(/onClick=\{\(\) => openReportProblem\(\)\}/)
     expect(footer).toContain('<Bug size={16} strokeWidth={1.6} aria-hidden="true" />')
-    expect(footer).toContain('<span className="sidebar-label">Send feedback</span>')
-    expect(footer).toMatch(/'Send feedback',\n\s*\)\}/)
+    expect(footer).toMatch(
+      /className="sidebar-label">\s*\{intl\.formatMessage\(\{ id: 'shell\.feedback'/,
+    )
+    expect(footer.match(/id: 'shell\.feedback'/g)?.length).toBeGreaterThanOrEqual(3)
   })
 })

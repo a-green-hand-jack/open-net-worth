@@ -70,13 +70,16 @@ def _other_label(group: str) -> str:
 UNCATEGORIZED_SPENDING = "Uncategorized spending"
 
 
-def _by_group(rows: list[dict], fallback: str) -> list[tuple[str, str, int, list[dict]]]:
+def _by_group(
+    rows: list[dict], fallback: str
+) -> list[tuple[str, str, int, list[dict], dict | None]]:
     groups: dict[str, dict] = {}
     for r in rows:
         g = groups.setdefault(
             r.get("group_id") or "",
             {
                 "name": (r.get("group") or "").strip() or fallback,
+                "fallback": not bool((r.get("group") or "").strip()),
                 "index": r.get("group_index", 0),
                 "rows": [],
             },
@@ -96,6 +99,13 @@ def _by_group(rows: list[dict], fallback: str) -> list[tuple[str, str, int, list
             else g["name"],
             g["index"],
             g["rows"],
+            {"id": "moneyFlow.label.uncategorizedSpending", "params": {}}
+            if all(not r.get("key") for r in g["rows"])
+            else {"id": "moneyFlow.label.notInBudget", "params": {}}
+            if gid == UNBUDGETED_GROUP_ID
+            else {"id": "moneyFlow.label.spending", "params": {}}
+            if g["fallback"]
+            else None,
         )
         for gid, g in groups.items()
     ]
@@ -133,10 +143,34 @@ def _income_flat(g: _Graph, rows: list[dict], floor: float, cap: int) -> None:
     kept, rest = _fold(rows, cap, floor)
     for r in kept:
         g.link(
-            g.node(f"inc:{r['key']}", r["label"], 0, "income", r["amount"]), "total", r["amount"]
+            g.node(
+                f"inc:{r['key']}",
+                r["label"],
+                0,
+                "income",
+                r["amount"],
+                **(
+                    {"label_message": {"id": "moneyFlow.label.uncategorizedIncome", "params": {}}}
+                    if not r.get("key")
+                    else {}
+                ),
+            ),
+            "total",
+            r["amount"],
         )
     if rest > _EPSILON:
-        g.link(g.node("inc-other", "Other income", 0, "income", rest), "total", rest)
+        g.link(
+            g.node(
+                "inc-other",
+                "Other income",
+                0,
+                "income",
+                rest,
+                label_message={"id": "moneyFlow.label.otherIncome", "params": {}},
+            ),
+            "total",
+            rest,
+        )
 
 
 def _spend(g: _Graph, rows: list[dict], floor: float, compact: bool) -> None:
@@ -145,10 +179,16 @@ def _spend(g: _Graph, rows: list[dict], floor: float, compact: bool) -> None:
     slots = {grp[0]: slot for slot, grp in enumerate(sorted(groups, key=lambda grp: grp[2]))}
     shown = groups[:COMPACT_MAX_GROUPS] if compact else groups
     col = 2
-    for gid, name, _index, grows in shown:
+    for gid, name, _index, grows, label_message in shown:
         group_total = sum(r["amount"] for r in grows)
         group_node = g.node(
-            f"sg:{gid}", name, col, "spend_group", group_total, color_slot=slots[gid]
+            f"sg:{gid}",
+            name,
+            col,
+            "spend_group",
+            group_total,
+            color_slot=slots[gid],
+            **({"label_message": label_message} if label_message else {}),
         )
         g.link("total", group_node, group_total)
         if compact:
@@ -167,6 +207,11 @@ def _spend(g: _Graph, rows: list[dict], floor: float, compact: bool) -> None:
                 # Drill-down targets: the row's ledger categories, or Uncategorized (no category).
                 category_ids=r.get("category_ids") or [],
                 uncategorized=r.get("key") is None,
+                **(
+                    {"label_message": {"id": "moneyFlow.label.uncategorizedSpending", "params": {}}}
+                    if not r.get("key")
+                    else {}
+                ),
                 group_pct=_share(r["amount"], group_total),
             )
             g.link(group_node, node, r["amount"])
@@ -179,12 +224,32 @@ def _spend(g: _Graph, rows: list[dict], floor: float, compact: bool) -> None:
                 rest,
                 color_slot=slots[gid],
                 group_pct=_share(rest, group_total),
+                label_message={"id": "moneyFlow.label.other", "params": {}}
+                if name.lower().startswith("other")
+                else {
+                    "id": "moneyFlow.label.otherGroup",
+                    "params": {
+                        "group": name,
+                        **({"group_message": label_message} if label_message else {}),
+                    },
+                },
             )
             g.link(group_node, node, rest)
     hidden = groups[len(shown) :]
     if hidden:
         rest = sum(r["amount"] for grp in hidden for r in grp[3])
-        g.link("total", g.node("sg-other", "Other spending", col, "spend_group", rest), rest)
+        g.link(
+            "total",
+            g.node(
+                "sg-other",
+                "Other spending",
+                col,
+                "spend_group",
+                rest,
+                label_message={"id": "moneyFlow.label.otherSpending", "params": {}},
+            ),
+            rest,
+        )
 
 
 def build_graph(summary: dict, *, compact: bool = False) -> dict:
@@ -199,15 +264,47 @@ def build_graph(summary: dict, *, compact: bool = False) -> dict:
     g = _Graph(flow_total)
     floor = flow_total * FOLD_SHARE
 
-    g.node("total", "Spent" if shortfall > _EPSILON else "Income", 1, "total", flow_total)
+    g.node(
+        "total",
+        "Spent" if shortfall > _EPSILON else "Income",
+        1,
+        "total",
+        flow_total,
+        label_message={
+            "id": "moneyFlow.label.spent" if shortfall > _EPSILON else "moneyFlow.label.income",
+            "params": {},
+        },
+    )
     # Income is never folded by size: a book has a handful of sources and each is worth naming
     # (owner: S$15 of dividends read as an anonymous "Other income"). Only the count is capped.
     _income_flat(g, income_rows, 0.0, COMPACT_MAX_INCOME if compact else MAX_CATEGORIES_PER_GROUP)
     if shortfall > _EPSILON:
-        g.link(g.node("shortfall", "From savings", 0, "shortfall", shortfall), "total", shortfall)
+        g.link(
+            g.node(
+                "shortfall",
+                "From savings",
+                0,
+                "shortfall",
+                shortfall,
+                label_message={"id": "moneyFlow.label.fromSavings", "params": {}},
+            ),
+            "total",
+            shortfall,
+        )
     _spend(g, spend_rows, floor, compact)
     if saved > _EPSILON:
-        g.link("total", g.node("saved", "Saved", 2, "saved", saved), saved)
+        g.link(
+            "total",
+            g.node(
+                "saved",
+                "Saved",
+                2,
+                "saved",
+                saved,
+                label_message={"id": "moneyFlow.label.saved", "params": {}},
+            ),
+            saved,
+        )
 
     return {
         "income_total": income,

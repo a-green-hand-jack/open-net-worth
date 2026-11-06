@@ -4,6 +4,7 @@
 // replaced the category-mapping review). A 50/30/20 that was never set up shows one card whose
 // button opens it; a configured one is the live table (PropTable.tsx). Nothing is fetched while
 // unconfigured (C1).
+import { useAppIntl } from '../../../../../i18n/useAppIntl'
 import { Button } from '../../../../ui'
 import type { RawTxn } from '../../budgetActivity'
 import type { RegisterFilter } from '../../budget'
@@ -32,20 +33,26 @@ export function ProportionalPane({
   /** Bumped by Manage categories — a rename, merge or delete there re-reads the month. */
   categoriesVersion?: number
 }) {
+  const { formatMessage } = useAppIntl()
   if (!descriptor.configured) {
     return (
       <div className="bgl-setup">
         <div className="bgl-setup__head">
-          <h2 className="bgl-setup__title">Set up 50/30/20</h2>
+          <h2 className="bgl-setup__title">
+            {formatMessage({ id: 'plan.setupProportional', defaultMessage: 'Set up 50/30/20' })}
+          </h2>
           <p className="bgl-setup__sub">
-            Your monthly net income, then a share of it for each of your groups — what's left is
-            savings.
+            {formatMessage({
+              id: 'plan.proportionalSetupHelp',
+              defaultMessage:
+                "Your monthly net income, then a share of it for each of your groups — what's left is savings.",
+            })}
           </p>
         </div>
         <MethodExplainer engineId="proportional" />
         <div>
           <Button variant="primary" size="sm" onClick={onSetup}>
-            Set up 50/30/20
+            {formatMessage({ id: 'plan.setupProportional', defaultMessage: 'Set up 50/30/20' })}
           </Button>
         </div>
       </div>

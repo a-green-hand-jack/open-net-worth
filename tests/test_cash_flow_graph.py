@@ -385,3 +385,20 @@ def test_spend_outside_the_budget_is_named_category_by_category():
     labels = _spend_labels(summary)
     assert {"Taxi", "Gifts", "Stamps"} <= labels.keys()
     assert not any(label.startswith("Other") for label in labels)
+
+
+def test_generated_labels_have_provenance_user_names_are_not_reclassified():
+    summary = _summary(
+        [_inc("named-income", "Saved", 1000)],
+        [_row("named-category", "Uncategorized spending", 100, "named-group", "Spending")],
+    )
+    graph = cash_flow_graph.build_graph(summary)
+    nodes = {n["id"]: n for n in graph["nodes"]}
+    assert nodes["inc:named-income"]["label"] == "Saved"
+    assert "label_message" not in nodes["inc:named-income"]
+    assert nodes["sp:named-category"]["label"] == "Uncategorized spending"
+    assert "label_message" not in nodes["sp:named-category"]
+    assert nodes["sg:named-group"]["label"] == "Spending"
+    assert "label_message" not in nodes["sg:named-group"]
+    assert nodes["saved"]["label_message"]["id"] == "moneyFlow.label.saved"
+    _assert_balanced(graph)

@@ -280,13 +280,26 @@ def rows_to_results(result: ParseResult, account_id: str | None, prefix: str) ->
     results: list[RowResult] = []
     for i, row in enumerate(result.rows, start=1):
         if row.skip:
-            results.append(RowResult(line=i, skip_reason=row.skip_reason or "unreadable row"))
+            results.append(
+                RowResult(
+                    line=i,
+                    skip_reason=row.skip_reason or "unreadable row",
+                    skip_message=row.skip_message
+                    if row.skip_reason
+                    else {"id": "statement.skip.unreadable", "params": {}},
+                )
+            )
             continue
         if row.confidence < MIN_CONFIDENCE:
             reason = "low confidence"
             if row.notes:
                 reason += f" ({row.notes[0]})"
-            results.append(RowResult(line=i, skip_reason=reason))
+            message = (
+                {"id": "statement.skip.low_confidence_note", "params": {"note": row.notes[0]}}
+                if row.notes
+                else {"id": "statement.skip.low_confidence", "params": {}}
+            )
+            results.append(RowResult(line=i, skip_reason=reason, skip_message=message))
             continue
         results.append(
             RowResult(

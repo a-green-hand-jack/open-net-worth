@@ -37,7 +37,11 @@ class TradingStore(BookPayloadTableStore):
     def required(self, item_id: str, *, conn=None):
         row = self.find_by_id(item_id, conn=conn)
         if row is None:
-            raise NotFoundError("Trading record not found", record_id=item_id)
+            raise NotFoundError(
+                "Trading record not found",
+                record_id=item_id,
+                message_id="trading.error.record_not_found",
+            )
         return row
 
     def count_scope(self, scope_id: str, *, conn):

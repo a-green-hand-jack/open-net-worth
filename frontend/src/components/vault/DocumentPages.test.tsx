@@ -1,3 +1,5 @@
+import { IntlProvider } from 'react-intl'
+import messages from './zh-CN.messages.json'
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
@@ -44,6 +46,12 @@ describe('DocumentPages', () => {
     expect(authFetch.mock.calls.at(-1)?.[0]).toBe('/api/vault/items/file-att_1/pages/2')
     fireEvent.click(screen.getByRole('button', { name: 'Previous page' }))
     expect(await screen.findByRole('img', { name: 'Policy, page 1 of 3' })).toBeTruthy()
+  })
+
+  it('localizes a structured PDF error from the page endpoint', async () => {
+    authFetch.mockImplementation(async () => new Response(JSON.stringify({ detail: 'raw PDF error', message_id: 'vault.error.pdfProtected', message_params: {} }), { status: 422 }))
+    render(<IntlProvider locale="zh-CN" messages={messages}><DocumentPages itemId="file-test" title="User title" /></IntlProvider>)
+    expect(await screen.findByText(/此 PDF 已受密码保护/)).toBeTruthy()
   })
 
   it('a one-page document has no pager', async () => {

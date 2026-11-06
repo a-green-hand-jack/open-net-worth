@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi, afterEach } from 'vitest'
-import { render, screen, cleanup, waitFor } from '@testing-library/react'
-import { fDate } from '../../utils/format'
+import { act, render, screen, cleanup, waitFor } from '@testing-library/react'
+import { fDate, setDisplayFormats, setInterfaceLocale } from '../../utils/format'
 import { QuoteStats } from './QuoteStats'
 import { _clearQuoteStatsCache } from './quoteStatsCache'
 
@@ -21,6 +21,18 @@ function respond(body: unknown) {
 }
 
 describe('QuoteStats', () => {
+  it('refreshes the loaded date and amounts when display preferences change', async () => {
+    setInterfaceLocale('en')
+    setDisplayFormats({})
+    respond({ currency: 'USD', kind: 'crypto', stats: { genesis_date: '2009-01-03', market_cap: 1234567 } })
+    render(<QuoteStats instrumentId="i-btc" currency="USD" />)
+    await waitFor(() => expect(screen.getByText('Jan 3, 2009')).toBeDefined())
+    act(() => { setInterfaceLocale('zh-CN'); setDisplayFormats({ date_format: 'dmy', number_format: 'dot' }) })
+    expect(screen.getByText('3日1月2009年')).toBeDefined()
+    expect(screen.getByText('$1,23M')).toBeDefined()
+    act(() => { setDisplayFormats({}); setInterfaceLocale(undefined) })
+  })
+
   it('renders the equity row set for kind=equity (pre-CHART3 behavior)', async () => {
     respond({
       currency: 'USD',

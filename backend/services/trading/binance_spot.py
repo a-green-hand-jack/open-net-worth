@@ -33,27 +33,43 @@ class BinanceSpotAdapter:
         if self.config.get("isolated_account") is not True or self.config.get(
             "account_scope"
         ) not in {"dedicated_account", "subaccount"}:
-            raise ConflictError("Binance requires an exclusively allocated whole Spot wallet")
+            raise ConflictError(
+                "Binance requires an exclusively allocated whole Spot wallet",
+                message_id="trading.error.binance_whole_wallet",
+            )
         if account["venue"] != self.venue or account["currency"] != self.config["quote_currency"]:
             raise ConflictError(
-                "Binance environment, venue or quote currency differs from allocation"
+                "Binance environment, venue or quote currency differs from allocation",
+                message_id="trading.error.binance_environment_mismatch",
             )
         if self.environment == "testnet" and account.get("book_account_id"):
-            raise ConflictError("Binance Spot Testnet executions cannot enter the real book")
+            raise ConflictError(
+                "Binance Spot Testnet executions cannot enter the real book",
+                message_id="trading.error.binance_testnet_book",
+            )
         info = object_row(await self.call("GET", "/api/v3/account", {}))
         if (
             info.get("accountType") != "SPOT"
             or info.get("canTrade") is not True
             or set(info.get("permissions", [])) != {"SPOT"}
         ):
-            raise ConflictError("Binance requires an active unleveraged Spot-only account")
+            raise ConflictError(
+                "Binance requires an active unleveraged Spot-only account",
+                message_id="trading.error.binance_account_requirements",
+            )
         uid = str(info.get("uid") or "")
         if not uid or (
             self.config.get("broker_account_id") and uid != self.config["broker_account_id"]
         ):
-            raise ConflictError("Binance account identity differs from the configured wallet")
+            raise ConflictError(
+                "Binance account identity differs from the configured wallet",
+                message_id="trading.error.binance_wallet_identity",
+            )
         if account.get("broker_account_id") and uid != account["broker_account_id"]:
-            raise ConflictError("Binance account identity differs from the authorized allocation")
+            raise ConflictError(
+                "Binance account identity differs from the authorized allocation",
+                message_id="trading.error.binance_allocation_identity",
+            )
         if self.environment == "live":
             await self._permissions()
         balances, cash, free = {}, Decimal(0), Decimal(0)
@@ -61,7 +77,10 @@ class BinanceSpotAdapter:
             asset = str(row.get("asset") or "")
             available, locked = number(row.get("free")), number(row.get("locked"))
             if not asset or asset in balances:
-                raise ConflictError("Binance balance has an invalid or repeated asset identity")
+                raise ConflictError(
+                    "Binance balance has an invalid or repeated asset identity",
+                    message_id="trading.error.binance_balance_identity",
+                )
             balances[asset] = available + locked
             if asset == account["currency"]:
                 cash, free = available + locked, available
@@ -109,14 +128,18 @@ class BinanceSpotAdapter:
             or any(permission.get(key) is not False for key in prohibited)
         ):
             raise ConflictError(
-                "Binance API key must allow Spot reads/trades and disable withdrawals, transfers and leverage"
+                "Binance API key must allow Spot reads/trades and disable withdrawals, transfers and leverage",
+                message_id="trading.error.binance_key_permissions",
             )
 
     async def _instrument(self, base, quote):
         data = object_row(await self.call("GET", "/api/v3/exchangeInfo", {"symbol": base + quote}))
         symbols = rows(data.get("symbols"))
         if len(symbols) != 1:
-            raise ConflictError("Binance did not establish a unique Spot instrument")
+            raise ConflictError(
+                "Binance did not establish a unique Spot instrument",
+                message_id="trading.error.binance_instrument_not_unique",
+            )
         row = symbols[0]
         if (
             row.get("symbol") != base + quote
@@ -126,7 +149,8 @@ class BinanceSpotAdapter:
             or row.get("status") != "TRADING"
         ):
             raise ConflictError(
-                "Binance instrument is not active Spot trading in the allocation currency"
+                "Binance instrument is not active Spot trading in the allocation currency",
+                message_id="trading.error.binance_instrument_inactive",
             )
         return {
             "symbol": base + "/" + quote,
@@ -139,12 +163,21 @@ class BinanceSpotAdapter:
         instrument = order["instrument"]
         parts = instrument["symbol"].split("/")
         if len(parts) != 2 or instrument["asset_class"] != "crypto":
-            raise ConflictError("Binance requires an explicit BASE/QUOTE crypto instrument")
+            raise ConflictError(
+                "Binance requires an explicit BASE/QUOTE crypto instrument",
+                message_id="trading.error.binance_pair_required",
+            )
         expected = await self._instrument(*parts)
         if instrument != expected or instrument["currency"] != account["currency"]:
-            raise ConflictError("Binance instrument differs from the authorized allocation")
+            raise ConflictError(
+                "Binance instrument differs from the authorized allocation",
+                message_id="trading.error.binance_instrument_mismatch",
+            )
         if order["time_in_force"] != "gtc":
-            raise ConflictError("Binance Spot execution supports GTC only")
+            raise ConflictError(
+                "Binance Spot execution supports GTC only",
+                message_id="trading.error.binance_gtc_only",
+            )
         return "".join(parts)
 
     async def submit(self, account, order):
@@ -167,7 +200,10 @@ class BinanceSpotAdapter:
         await self.inspect_account(account)
         symbol = await self._order_symbol(account, order)
         if not order.get("broker_order_id"):
-            raise ConflictError("Reconcile Binance order identity before cancellation")
+            raise ConflictError(
+                "Reconcile Binance order identity before cancellation",
+                message_id="trading.error.binance_cancel_identity",
+            )
         args = {
             "symbol": symbol,
             "orderId": order["broker_order_id"],
@@ -211,21 +247,33 @@ class BinanceSpotAdapter:
             or raw.get("type") != order["order_type"].upper()
             or (order.get("broker_order_id") and str(raw["orderId"]) != order["broker_order_id"])
         ):
-            raise ConflictError("Binance order receipt differs from the immutable submitted intent")
+            raise ConflictError(
+                "Binance order receipt differs from the immutable submitted intent",
+                message_id="trading.error.binance_receipt_mismatch",
+            )
         if order["order_type"] == "limit" and number(raw.get("price")) != number(
             order["limit_price"]
         ):
-            raise ConflictError("Binance limit price differs from the submitted intent")
+            raise ConflictError(
+                "Binance limit price differs from the submitted intent",
+                message_id="trading.error.binance_limit_mismatch",
+            )
         status = _STATES.get(raw.get("status"))
         if status is None:
-            raise ConflictError("Binance order status requires manual reconciliation")
+            raise ConflictError(
+                "Binance order status requires manual reconciliation",
+                message_id="trading.error.binance_status_reconciliation",
+            )
         fills = (
             await self._fills(order, str(raw["orderId"])) if number(raw.get("executedQty")) else []
         )
         if sum((number(fill["quantity"]) for fill in fills), Decimal(0)) != number(
             raw.get("executedQty")
         ):
-            raise ConflictError("Binance execution history is incomplete; reconciliation required")
+            raise ConflictError(
+                "Binance execution history is incomplete; reconciliation required",
+                message_id="trading.error.binance_history_incomplete",
+            )
         return {"broker_order_id": str(raw["orderId"]), "status": status, "fills": fills}
 
     async def _fills(self, order, broker_id):
@@ -238,11 +286,15 @@ class BinanceSpotAdapter:
             trades = rows(await self.call("GET", "/api/v3/myTrades", args))
             for row in trades:
                 if str(row.get("orderId")) != broker_id or row.get("symbol") != symbol:
-                    raise ConflictError("Binance returned a trade outside the requested order")
+                    raise ConflictError(
+                        "Binance returned a trade outside the requested order",
+                        message_id="trading.error.binance_trade_outside_order",
+                    )
                 trade_id = row.get("id")
                 if not isinstance(trade_id, int) or isinstance(trade_id, bool) or trade_id in seen:
                     raise ConflictError(
-                        "Binance returned an invalid or repeated execution identity"
+                        "Binance returned an invalid or repeated execution identity",
+                        message_id="trading.error.binance_trade_identity",
                     )
                 seen.add(trade_id)
                 fills.append(self._fill(order, broker_id, row))
@@ -252,7 +304,10 @@ class BinanceSpotAdapter:
             if cursor is not None and next_cursor <= cursor:
                 break
             cursor = next_cursor
-        raise ConflictError("Binance execution history exceeds the bounded reconciliation window")
+        raise ConflictError(
+            "Binance execution history exceeds the bounded reconciliation window",
+            message_id="trading.error.binance_history_limit",
+        )
 
     @staticmethod
     def _fill(order, broker_id, row):
@@ -264,13 +319,22 @@ class BinanceSpotAdapter:
         )
         fee_asset = row.get("commissionAsset")
         if fee_asset not in {base, quote}:
-            raise ConflictError("Binance third-asset commission requires explicit reconciliation")
+            raise ConflictError(
+                "Binance third-asset commission requires explicit reconciliation",
+                message_id="trading.error.binance_third_asset_fee",
+            )
         if row.get("isBuyer") is not (order["side"] == "buy") or not price or not quantity:
-            raise ConflictError("Binance trade side, price or quantity differs from the order")
+            raise ConflictError(
+                "Binance trade side, price or quantity differs from the order",
+                message_id="trading.error.binance_trade_mismatch",
+            )
         try:
             timestamp = datetime.fromtimestamp(int(row["time"]) / 1000, timezone.utc).isoformat()
         except (KeyError, ValueError, TypeError, OverflowError) as exc:
-            raise ConflictError("Binance execution timestamp is invalid") from exc
+            raise ConflictError(
+                "Binance execution timestamp is invalid",
+                message_id="trading.error.binance_timestamp_invalid",
+            ) from exc
         return {
             "execution_id": f"{row['symbol']}:{row['id']}",
             "broker_order_id": broker_id,

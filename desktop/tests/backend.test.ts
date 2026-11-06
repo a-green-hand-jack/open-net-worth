@@ -6,6 +6,7 @@ import { join } from 'node:path';
 import { BackendSupervisor } from '../src/main/backend';
 import { EventEmitter } from 'node:events';
 import { PassThrough } from 'node:stream';
+import { DatabaseAheadError } from '../src/main/runtime';
 
 test('creating and stopping a server-mode supervisor never initializes the local runtime', async () => {
   let initialized = 0;
@@ -27,6 +28,19 @@ test('a lock failure buffered after process exit survives until stdout closes', 
   child.emit('close', 1, null);
   await assert.rejects(ready, /port 8097/);
   assert.equal(backend.startupFailure?.port, 8097);
+});
+
+test('a database-ahead startup response is retained as a structured recovery reason', async () => {
+  const backend = new BackendSupervisor({ python: '/unused/python3', cwd: process.cwd(), version: '0.1.0' }, '/book', true, () => {});
+  Reflect.set(backend, 'instanceId', 'owned');
+  const child = Object.assign(new EventEmitter(), { stdout: new PassThrough() });
+  const ready = Reflect.apply(Reflect.get(backend, 'awaitReady'), backend, [child]);
+  child.emit('exit', 1, null);
+  child.stdout.write(`${JSON.stringify({ type: 'startup_error', protocol: 1, instance_id: 'owned', version: '0.1.0', code: 'database_ahead', port: null })}\n`);
+  child.stdout.end();
+  child.emit('close', 1, null);
+  await assert.rejects(ready, DatabaseAheadError);
+  assert.ok(backend.startupFailure instanceof DatabaseAheadError);
 });
 
 test('stopping a closed child clears late readiness before another book is selected', async () => {

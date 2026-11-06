@@ -35,6 +35,25 @@ def isolated_stores(db_isolated):
 # ── Service: union, shape, ordering ─────────────────────────────────────────────
 
 
+def test_presentation_metadata_survives_store_and_inbox_without_rewriting_text(isolated_stores):
+    from backend.db.notification_log_store import NotificationLogStore
+    from backend.services import inbox
+
+    metadata = {"id": "inbox.server.agentWrote", "params": {"agent": "synthetic"}}
+    row = NotificationLogStore().append(
+        {
+            "title": "synthetic wrote to your ledger",
+            "title_message": metadata,
+            "summary": "model content",
+        }
+    )
+    item = inbox._normalize_signal(row)
+    assert item["title"] == "synthetic wrote to your ledger"
+    assert item["title_message"] == metadata
+    assert item["summary"] == "model content"
+    assert "summary_message" not in item
+
+
 def test_plain_notification_has_no_source_tab():
     """A plain notify push (type='notification') has no source surface, so ref.tab is
     "" — the Inbox renders it without a dead-end 'Open in Intel' button. Intel-sourced

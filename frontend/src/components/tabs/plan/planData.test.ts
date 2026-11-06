@@ -6,6 +6,11 @@ import { fBaseCompact, setBaseCurrency, setDisplayFormats } from '../../../utils
 // "₫24946.08M" beside a chart axis saying "₫47.09B". From a million up they are the axis's own
 // formatter, in every number format, so the two can never disagree again.
 describe('fCoarse / fCF — big amounts read exactly like the chart axis', () => {
+  it('uses the configured decimal separator for compact cash-flow values', () => {
+    setDisplayFormats({ number_format: 'dot' })
+    expect(PD.fCF(12_345)).toContain('12,35K')
+  })
+
   afterEach(() => {
     setBaseCurrency('SGD')
     setDisplayFormats({})

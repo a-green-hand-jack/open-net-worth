@@ -1,3 +1,4 @@
+import { fLocalizedMonth } from '../../../utils/format'
 // plan/useFreshStart.tsx — the "Start fresh from <month>…" kebab action, whole: the stored
 // config, the confirm dialog, the ONE write, and its one-shot Undo.
 //
@@ -11,13 +12,13 @@
 // "Resume earlier history" (offered when the floor already IS this month) stays the small
 // floor-only PUT — it restores no assignments, and its own copy says so.
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
+import { useAppIntl } from '../../../i18n/useAppIntl'
 import { invalidateQueryCache, useQueryCache } from '../../../state/queryCache'
 import { FreshStartDialog } from './FreshStartDialog'
 import {
   BUDGET_CONFIG_URL,
+  FreshStartRequestError,
   fetchBudgetConfig,
-  freshStartMenuLabel,
-  freshStartToastLabel,
   postFreshStart,
   postFreshStartUndo,
   putRolloverStart,
@@ -60,6 +61,8 @@ export function useFreshStart(
    *  its config read on every Plan mount. Cached data (and a pending undo) still render. */
   enabled = true,
 ): FreshStartAction {
+  const { formatMessage, locale } = useAppIntl()
+  const monthLabel = fLocalizedMonth(month, locale)
   const configQuery = useQueryCache(BUDGET_CONFIG_URL, fetchBudgetConfig, { enabled })
   const rolloverStart = configQuery.data?.rollover_start ?? null
   const [open, setOpen] = useState(false)
@@ -92,7 +95,16 @@ export function useFreshStart(
       try {
         armed = await perform()
       } catch (err: unknown) {
-        toast(err instanceof Error ? err.message : failure)
+        toast(
+          err instanceof FreshStartRequestError
+            ? formatMessage(
+                { id: 'plan.model.requestFailed', defaultMessage: 'Request failed ({status})' },
+                { status: err.status },
+              )
+            : err instanceof Error
+              ? err.message
+              : failure,
+        )
         return
       } finally {
         inFlightRef.current = false
@@ -102,12 +114,12 @@ export function useFreshStart(
       if (timerRef.current) clearTimeout(timerRef.current)
       setUndo(armed)
       if (!armed) {
-        toast('Undone')
+        toast(formatMessage({ id: 'plan.undone', defaultMessage: 'Undone' }))
         return
       }
       timerRef.current = setTimeout(() => setUndo(null), UNDO_MS)
     },
-    [refreshConfig, toast],
+    [refreshConfig, toast, formatMessage],
   )
 
   const confirm = useCallback(() => {
@@ -116,23 +128,38 @@ export function useFreshStart(
       // "Resume earlier history" — the floor only. Its Undo puts the floor back; the
       // assignments this month's fresh start cleared are long gone by then, as the copy says.
       const previousFloor = rolloverStart
-      void write(async () => {
-        await putRolloverStart(null)
-        return {
-          label: freshStartToastLabel(month, null),
-          run: async () => void (await putRolloverStart(previousFloor)),
-        }
-      }, 'Could not resume earlier history')
+      void write(
+        async () => {
+          await putRolloverStart(null)
+          return {
+            label: formatMessage({
+              id: 'plan.carryHistory',
+              defaultMessage: 'Carrying earlier history again',
+            }),
+            run: async () => void (await putRolloverStart(previousFloor)),
+          }
+        },
+        formatMessage({
+          id: 'plan.resumeFailed',
+          defaultMessage: 'Could not resume earlier history',
+        }),
+      )
       return
     }
-    void write(async () => {
-      const { token } = await postFreshStart(month)
-      return {
-        label: freshStartToastLabel(month, month),
-        run: () => postFreshStartUndo(token),
-      }
-    }, 'Could not start fresh')
-  }, [month, rolloverStart, write])
+    void write(
+      async () => {
+        const { token } = await postFreshStart(month)
+        return {
+          label: formatMessage(
+            { id: 'plan.budgetFreshFrom', defaultMessage: 'Budget starts fresh from {month}' },
+            { month: monthLabel },
+          ),
+          run: () => postFreshStartUndo(token),
+        }
+      },
+      formatMessage({ id: 'plan.freshFailed', defaultMessage: 'Could not start fresh' }),
+    )
+  }, [month, monthLabel, rolloverStart, write, formatMessage])
 
   const node = (
     <>
@@ -150,18 +177,34 @@ export function useFreshStart(
           <button
             onClick={() => {
               const run = undo.run
-              void write(async () => {
-                await run()
-                return null
-              }, 'Could not undo')
+              void write(
+                async () => {
+                  await run()
+                  return null
+                },
+                formatMessage({ id: 'plan.undoFailed', defaultMessage: 'Could not undo' }),
+              )
             }}
           >
-            Undo
+            {formatMessage({ id: 'plan.undo', defaultMessage: 'Undo' })}
           </button>
         </div>
       )}
     </>
   )
 
-  return { label: freshStartMenuLabel(month, rolloverStart), open: () => setOpen(true), node }
+  return {
+    label:
+      rolloverStart === month
+        ? formatMessage(
+            { id: 'plan.startedFreshFrom', defaultMessage: 'Started fresh from {month}' },
+            { month: monthLabel },
+          )
+        : formatMessage(
+            { id: 'plan.startFreshFrom', defaultMessage: 'Start fresh from {month}…' },
+            { month: monthLabel },
+          ),
+    open: () => setOpen(true),
+    node,
+  }
 }

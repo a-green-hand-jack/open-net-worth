@@ -1,3 +1,4 @@
+import { useAppIntl } from '../../i18n/useAppIntl'
 import { useId, useMemo, useState } from 'react'
 import type { ReactNode } from 'react'
 import { Skeleton } from '../ui'
@@ -79,6 +80,7 @@ function statusCounts(feed: StoryArc[]): Record<QueueStatus, StoryArc[]> {
 }
 
 export function TickerDesk(props: Props) {
+  const intl = useAppIntl()
   const { feed, archive, showArchive, loading, unpriced, noun } = props
   const [showQuiet, setShowQuiet] = useState(false)
   const [period, setPeriod] = usePulsePeriod()
@@ -128,7 +130,7 @@ export function TickerDesk(props: Props) {
           {archive.length ? (
             <StoryCards stories={[...archive].sort(byUrgency)} h={props} />
           ) : (
-            <div className="intel-feed-empty">No archived stories here.</div>
+            <div className="intel-feed-empty">{intl.formatMessage({ id: 'intel.noArchived', defaultMessage: 'No archived stories here.' })}</div>
           )}
         </div>
       ) : (
@@ -136,7 +138,7 @@ export function TickerDesk(props: Props) {
           {portfolio.length > 0 && (
             <section className="intel-desk-group" aria-labelledby={portfolioHeadId}>
               <div className="intel-desk-group-head" id={portfolioHeadId}>
-                Across your portfolio
+                {intl.formatMessage({ id: 'intel.acrossPortfolio', defaultMessage: 'Across your portfolio' })}
               </div>
               <StoryLine
                 stories={portfolio}
@@ -172,8 +174,8 @@ export function TickerDesk(props: Props) {
                   onClick={() => setShowQuiet((v) => !v)}
                 >
                   {showQuiet
-                    ? `Hide quiet ${noun.many}`
-                    : `${quiet.length} quiet ${quiet.length === 1 ? noun.one : noun.many} — no flags or stories`}
+                    ? intl.formatMessage({ id: 'intel.hideQuiet', defaultMessage: 'Hide quiet {noun}' }, { noun: noun.one === 'holding' ? intl.formatMessage({ id: 'intel.holdingsNoun', defaultMessage: 'holdings' }) : noun.one === 'ticker' ? intl.formatMessage({ id: 'intel.tickersNoun', defaultMessage: 'tickers' }) : noun.many })
+                    : intl.formatMessage({ id: 'intel.quietCount', defaultMessage: '{kind, select, holding {{count} quiet {count, plural, one {holding} other {holdings}} — no flags or stories} ticker {{count} quiet {count, plural, one {ticker} other {tickers}} — no flags or stories} other {{count} quiet {noun} — no flags or stories}}' }, { kind: noun.one, count: quiet.length, noun: quiet.length === 1 ? noun.one : noun.many })}
                 </button>
               )}
               {showQuiet && quiet.map((g) => nameRow(g, false, () => undefined))}
@@ -183,7 +185,7 @@ export function TickerDesk(props: Props) {
           {!loading && groups.length === 0 && portfolio.length === 0 && props.empty}
           {!loading && unpriced > 0 && (
             <div className="intel-pulse-foot">
-              {unpriced} {unpriced === 1 ? noun.one : noun.many} without a live price.
+              {intl.formatMessage({ id: 'intel.noLivePrice', defaultMessage: '{kind, select, holding {{count} {count, plural, one {holding} other {holdings}} without a live price.} ticker {{count} {count, plural, one {ticker} other {tickers}} without a live price.} other {{count} {noun} without a live price.}}' }, { kind: noun.one, count: unpriced, noun: unpriced === 1 ? noun.one : noun.many })}
             </div>
           )}
         </>

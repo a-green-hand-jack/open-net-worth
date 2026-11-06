@@ -1,3 +1,5 @@
+import { formatConnectorBody } from './connectorServerMessages'
+import { useAppIntl } from '../../../i18n/useAppIntl'
 // Plaid's bank-link flow (Hosted Link, no frontend Link-SDK). `start()` asks the server for a
 // Hosted Link URL and opens it in the browser. Hosted Link ends on Plaid's own "you can close
 // this window" page and never shows a public token, so this then polls
@@ -32,6 +34,8 @@ export interface PlaidLink {
 }
 
 export function usePlaidLink(onLinked: () => void): PlaidLink {
+  const intl = useAppIntl()
+  const { formatMessage } = intl
   const [starting, setStarting] = useState(false)
   const [waiting, setWaiting] = useState(false)
   const [checking, setChecking] = useState(false)
@@ -59,7 +63,16 @@ export function usePlaidLink(onLinked: () => void): PlaidLink {
       })
       if (!r.ok) {
         const d = await r.json().catch(() => ({}))
-        setError(d.detail || 'Could not start the bank link.')
+        setError(
+          formatConnectorBody(
+            intl,
+            d,
+            formatMessage({
+              id: 'connectors.gocardless.linkError',
+              defaultMessage: 'Could not start the bank link.',
+            }),
+          ),
+        )
         return
       }
       const data = (await r.json()) as { link: string }
@@ -76,43 +89,78 @@ export function usePlaidLink(onLinked: () => void): PlaidLink {
     }
   }
 
-  const check = useCallback(async (manual: boolean) => {
-    if (manual) setChecking(true)
-    try {
-      const r = await authFetch('/api/plaid/link/complete', { method: 'POST' })
-      if (r.status === 404 || r.status === 405) {
-        // The server predates this page (it was updated while the app ran) — this link can't
-        // finish, and polling again won't change that.
-        setError('Open Net Worth was updated while this page was open. Reload, then link again.')
-        setWaiting(false)
-        return
+  const check = useCallback(
+    async (manual: boolean) => {
+      if (manual) setChecking(true)
+      try {
+        const r = await authFetch('/api/plaid/link/complete', { method: 'POST' })
+        if (r.status === 404 || r.status === 405) {
+          // The server predates this page (it was updated while the app ran) — this link can't
+          // finish, and polling again won't change that.
+          setError(
+            formatMessage({
+              id: 'connectors.plaid.updatedPage',
+              defaultMessage:
+                'Open Net Worth was updated while this page was open. Reload, then link again.',
+            }),
+          )
+          setWaiting(false)
+          return
+        }
+        if (!r.ok) {
+          const d = await r.json().catch(() => ({}))
+          setError(
+            formatConnectorBody(
+              intl,
+              d,
+              formatMessage({
+                id: 'connectors.enableBanking.completeFailed',
+                defaultMessage: 'Could not complete the bank link.',
+              }),
+            ),
+          )
+          // Only "no link in progress" is final; anything else may clear on the next check.
+          if (r.status === 422) setWaiting(false)
+          return
+        }
+        setError(null)
+        const d = (await r.json()) as { status: string; mode?: string; institution_name?: string }
+        if (d.status === 'linked') {
+          setWaiting(false)
+          setJustLinked(true)
+          setRenewed(
+            d.mode === 'update'
+              ? d.institution_name ||
+                  formatMessage({ id: 'connectors.plaid.theBank', defaultMessage: 'The bank' })
+              : null,
+          )
+          setLinkCount((k) => k + 1)
+          onLinkedRef.current()
+          // Every open screen re-reads — the connector's own "Not connected" badge included.
+          emitDataChanged(['config'])
+        } else if (manual) {
+          setError(
+            formatMessage({
+              id: 'connectors.plaid.pending',
+              defaultMessage:
+                'Plaid has not finished yet — complete the sign-in in the Plaid tab first.',
+            }),
+          )
+        }
+      } catch {
+        if (manual)
+          setError(
+            formatMessage({
+              id: 'connectors.mcp.unreachable',
+              defaultMessage: 'Could not reach the server.',
+            }),
+          )
+      } finally {
+        if (manual) setChecking(false)
       }
-      if (!r.ok) {
-        const d = await r.json().catch(() => ({}))
-        setError(d.detail || 'Could not complete the bank link.')
-        // Only "no link in progress" is final; anything else may clear on the next check.
-        if (r.status === 422) setWaiting(false)
-        return
-      }
-      setError(null)
-      const d = (await r.json()) as { status: string; mode?: string; institution_name?: string }
-      if (d.status === 'linked') {
-        setWaiting(false)
-        setJustLinked(true)
-        setRenewed(d.mode === 'update' ? d.institution_name || 'The bank' : null)
-        setLinkCount((k) => k + 1)
-        onLinkedRef.current()
-        // Every open screen re-reads — the connector's own "Not connected" badge included.
-        emitDataChanged(['config'])
-      } else if (manual) {
-        setError('Plaid has not finished yet — complete the sign-in in the Plaid tab first.')
-      }
-    } catch {
-      if (manual) setError('Could not reach the server.')
-    } finally {
-      if (manual) setChecking(false)
-    }
-  }, [])
+    },
+    [formatMessage, intl],
+  )
 
   useEffect(() => {
     if (!waiting) return

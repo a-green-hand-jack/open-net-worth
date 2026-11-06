@@ -1,3 +1,4 @@
+import { fFixed } from '../../../../utils/format'
 // Overview v2 — Cash-flow + Planning widget group: spending pulse, cash flow,
 // calendar, goals, crossover point, FIRE projection, cash-flow runway. Ported
 // from the handoff's `overview_v2b/widgets2.jsx` (Spending/Cashflow/Goals/
@@ -19,6 +20,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { ComponentType, ReactNode, RefObject, SyntheticEvent } from 'react'
 import { createPortal } from 'react-dom'
+import { useAppIntl } from '../../../../i18n/useAppIntl'
 import { fBase, fBaseCompact, fDate, fMonth } from '../../../../utils/format'
 import { Badge, Money, Skeleton, Text } from '../../../ui'
 import type { WidgetContentProps } from '../types'
@@ -29,7 +31,6 @@ import { WidgetPlaceholder } from '../WidgetPlaceholder'
 import { OvChart, TICK, GRID, amountsHidden, areaFill, kTick, resolveColor } from '../charts'
 import { useFire } from '../../../../hooks/useFire'
 import { usePlanningSummary, useCashflowProjections } from '../../../../hooks/serverState'
-import { cardCaveat } from '../../../../utils/cardCaveat'
 import type { PlanningSummary } from '../../../../types/aggregates'
 
 // ── shared: small icons + a footer "All X →" link ───────────────────────────
@@ -95,11 +96,21 @@ function FooterLink({
 // ADR 2026-07-31-overview-aggregates-are-server-computed.
 
 const Spending: ComponentType<WidgetContentProps> = ({ instance, def, onNavigate }) => {
+  const { formatMessage } = useAppIntl()
   const budget = usePlanningSummary()
   const data = budget.data ?? null
   const loading = budget.initialLoading
   const error = !!budget.error && data == null
-  const footer = <FooterLink label="All envelopes" tab={def.source?.tab} onNavigate={onNavigate} />
+  const footer = (
+    <FooterLink
+      label={formatMessage({
+        id: 'overview.spending.allEnvelopes',
+        defaultMessage: 'All envelopes',
+      })}
+      tab={def.source?.tab}
+      onNavigate={onNavigate}
+    />
+  )
 
   if (loading) {
     return (
@@ -111,7 +122,12 @@ const Spending: ComponentType<WidgetContentProps> = ({ instance, def, onNavigate
   if (error || !data) {
     return (
       <WidgetShell title={instance.title} base={def.title}>
-        <WidgetPlaceholder detail="Couldn't load this month's budget — try reloading." />
+        <WidgetPlaceholder
+          detail={formatMessage({
+            id: 'overview.spending.error',
+            defaultMessage: "Couldn't load this month's budget — try reloading.",
+          })}
+        />
       </WidgetShell>
     )
   }
@@ -126,8 +142,18 @@ const Spending: ComponentType<WidgetContentProps> = ({ instance, def, onNavigate
   // "369% of budget" when the only budgets were savings envelopes.
   const budgetLine =
     budgetedTotal > 0
-      ? `${fBase(budgetedSpent)} of ${fBase(budgetedTotal)} budgeted (${pctOfBudget}%)`
-      : 'No budgets set'
+      ? formatMessage(
+          {
+            id: 'overview.spending.budgetLine',
+            defaultMessage: '{spent} of {total} budgeted ({percent}%)',
+          },
+          {
+            spent: <Money as="span">{fBase(budgetedSpent)}</Money>,
+            total: <Money as="span">{fBase(budgetedTotal)}</Money>,
+            percent: <span className="money">{pctOfBudget}</span>,
+          },
+        )
+      : formatMessage({ id: 'overview.spending.noBudgets', defaultMessage: 'No budgets set' })
 
   const cap = rowCap(instance, def) ?? undefined
   const visible = cap ? rows.slice(0, cap) : rows
@@ -139,10 +165,19 @@ const Spending: ComponentType<WidgetContentProps> = ({ instance, def, onNavigate
       base={def.title}
       meta={
         <>
-          <Money as="span">{fBase(totalSpent)}</Money> spent
+          {formatMessage(
+            { id: 'overview.spending.spent', defaultMessage: '{amount} spent' },
+            { amount: <Money as="span">{fBase(totalSpent)}</Money> },
+          )}
         </>
       }
-      subtitle={`Month to date • ${budgetLine} • ${pace}% through the month`}
+      subtitle={formatMessage(
+        {
+          id: 'overview.spending.subtitle',
+          defaultMessage: 'Month to date • {budget} • {pace}% through the month',
+        },
+        { budget: budgetLine, pace },
+      )}
       footer={footer}
     >
       {visible.length ? (
@@ -165,19 +200,42 @@ const Spending: ComponentType<WidgetContentProps> = ({ instance, def, onNavigate
                 </span>
                 <span className="ov-env-amt">
                   <Money as="span">{fBase(r.spent)}</Money>{' '}
-                  <span>{budgeted ? `/ ${fBase(r.assigned)}` : '· no budget'}</span>
+                  <span>
+                    {budgeted ? (
+                      <>
+                        / <Money as="span">{fBase(r.assigned)}</Money>
+                      </>
+                    ) : (
+                      formatMessage({
+                        id: 'overview.spending.noBudget',
+                        defaultMessage: '· no budget',
+                      })
+                    )}
+                  </span>
                 </span>
               </div>
             )
           })}
           {extra > 0 && (
             <div className="ov-more">
-              +{extra} more envelope{extra === 1 ? '' : 's'}
+              {formatMessage(
+                {
+                  id: 'overview.spending.more',
+                  defaultMessage:
+                    '+{count, plural, one {# more envelope} other {# more envelopes}}',
+                },
+                { count: extra },
+              )}
             </div>
           )}
         </>
       ) : (
-        <WidgetPlaceholder detail="No budget activity yet this month." />
+        <WidgetPlaceholder
+          detail={formatMessage({
+            id: 'overview.spending.empty',
+            defaultMessage: 'No budget activity yet this month.',
+          })}
+        />
       )}
     </WidgetShell>
   )
@@ -188,6 +246,7 @@ const Spending: ComponentType<WidgetContentProps> = ({ instance, def, onNavigate
 // recomputed into the current base currency (transfers/adjustments excluded).
 
 const Cashflow: ComponentType<WidgetContentProps> = ({ instance, def }) => {
+  const { formatMessage } = useAppIntl()
   const budget = usePlanningSummary()
   const data = budget.data?.cashflow ?? null
   const loading = budget.initialLoading
@@ -203,7 +262,12 @@ const Cashflow: ComponentType<WidgetContentProps> = ({ instance, def }) => {
   if (error || !data) {
     return (
       <WidgetShell title={instance.title} base={def.title}>
-        <WidgetPlaceholder detail="Couldn't load this month's cash flow." />
+        <WidgetPlaceholder
+          detail={formatMessage({
+            id: 'overview.cashflow.error',
+            defaultMessage: "Couldn't load this month's cash flow.",
+          })}
+        />
       </WidgetShell>
     )
   }
@@ -229,17 +293,28 @@ const Cashflow: ComponentType<WidgetContentProps> = ({ instance, def }) => {
             {shown.net >= 0 ? '+' : '−'}
             <Money as="span">{fBaseCompact(Math.abs(shown.net))}</Money>
           </Text>{' '}
-          net
+          {formatMessage({ id: 'overview.cashflow.netLower', defaultMessage: 'net' })}
         </>
       }
     >
       {fellBack && (
         <Text as="p" size="xs" tone="muted" className="ov-rep-note">
-          {`${fMonth(fellBack.month, 'long')}. Nothing yet in ${fMonth(budget.data!.month, 'long')}.`}
+          {formatMessage(
+            {
+              id: 'overview.cashflow.fallback',
+              defaultMessage: '{previous}. Nothing yet in {current}.',
+            },
+            {
+              previous: fMonth(fellBack.month, 'long'),
+              current: fMonth(budget.data!.month, 'long'),
+            },
+          )}
         </Text>
       )}
       <div className="ov-cf-row ov-responsive-metric-row">
-        <span className="ov-cf-lbl">In</span>
+        <span className="ov-cf-lbl">
+          {formatMessage({ id: 'overview.cashflow.in', defaultMessage: 'In' })}
+        </span>
         <span className="ov-cf-bar ov-responsive-metric-bar">
           <span
             className="ov-cf-fill"
@@ -251,10 +326,19 @@ const Cashflow: ComponentType<WidgetContentProps> = ({ instance, def }) => {
         </span>
       </div>
       <div className="ov-cf-sub ov-responsive-metric-detail">
-        {inCount} income transaction{inCount === 1 ? '' : 's'}
+        {formatMessage(
+          {
+            id: 'overview.cashflow.inCount',
+            defaultMessage:
+              '{count, plural, one {# income transaction} other {# income transactions}}',
+          },
+          { count: inCount },
+        )}
       </div>
       <div className="ov-cf-row ov-responsive-metric-row">
-        <span className="ov-cf-lbl">Out</span>
+        <span className="ov-cf-lbl">
+          {formatMessage({ id: 'overview.cashflow.out', defaultMessage: 'Out' })}
+        </span>
         <span className="ov-cf-bar ov-responsive-metric-bar">
           <span
             className="ov-cf-fill"
@@ -266,7 +350,14 @@ const Cashflow: ComponentType<WidgetContentProps> = ({ instance, def }) => {
         </span>
       </div>
       <div className="ov-cf-sub ov-responsive-metric-detail">
-        {outCount} expense transaction{outCount === 1 ? '' : 's'}
+        {formatMessage(
+          {
+            id: 'overview.cashflow.outCount',
+            defaultMessage:
+              '{count, plural, one {# expense transaction} other {# expense transactions}}',
+          },
+          { count: outCount },
+        )}
       </div>
     </WidgetShell>
   )
@@ -294,8 +385,6 @@ interface CalendarModel {
   totalIn: number
   totalOut: number
 }
-
-const DOW = ['S', 'M', 'T', 'W', 'T', 'F', 'S']
 
 function ymOffset(offset: number): string {
   const first = new Date()
@@ -359,6 +448,7 @@ function CalendarPopover({
   onPointerStay?: () => void
   onPointerLeave?: () => void
 }) {
+  const { formatMessage, locale } = useAppIntl()
   const net = hover.d.net
   const hasActivity = hover.d.inAmt > 0 || hover.d.outAmt > 0
   // A body portal at fixed viewport coordinates: the widget body clips to its own scroll box
@@ -373,12 +463,12 @@ function CalendarPopover({
       onMouseLeave={onPointerLeave}
     >
       <div className="ov-cal-pop-d">
-        {hover.d.date.toLocaleDateString(undefined, { weekday: 'short' })}, {fDate(hover.d.date)}
+        {hover.d.date.toLocaleDateString(locale, { weekday: 'short' })}, {fDate(hover.d.date)}
       </div>
       {hover.d.inAmt > 0 && (
         <div className="ov-cal-pop-row">
           <span className="ov-cal-pop-dot ov-cal-pop-dot--in" />
-          Money in
+          {formatMessage({ id: 'overview.calendar.moneyIn', defaultMessage: 'Money in' })}
           <b>
             +<Money as="span">{fBase(hover.d.inAmt)}</Money>
           </b>
@@ -387,7 +477,7 @@ function CalendarPopover({
       {hover.d.outAmt > 0 && (
         <div className="ov-cal-pop-row">
           <span className="ov-cal-pop-dot ov-cal-pop-dot--out" />
-          Money out
+          {formatMessage({ id: 'overview.calendar.moneyOut', defaultMessage: 'Money out' })}
           <b>
             −<Money as="span">{fBase(hover.d.outAmt)}</Money>
           </b>
@@ -395,7 +485,7 @@ function CalendarPopover({
       )}
       {hasActivity ? (
         <div className="ov-cal-pop-net">
-          Net
+          {formatMessage({ id: 'overview.calendar.net', defaultMessage: 'Net' })}
           <b>
             {net >= 0 ? '+' : '−'}
             <Money as="span">{fBase(Math.abs(net))}</Money>
@@ -404,13 +494,19 @@ function CalendarPopover({
       ) : (
         pinned && (
           <Text as="p" size="sm" tone="faint">
-            No transactions.
+            {formatMessage({
+              id: 'overview.calendar.noTransactions',
+              defaultMessage: 'No transactions.',
+            })}
           </Text>
         )
       )}
       {onOpenRegister && (
         <button type="button" className="ov-panel-link" onClick={onOpenRegister}>
-          Open in register
+          {formatMessage({
+            id: 'overview.calendar.openRegister',
+            defaultMessage: 'Open in register',
+          })}
         </button>
       )}
     </div>,
@@ -419,6 +515,12 @@ function CalendarPopover({
 }
 
 const Calendar: ComponentType<WidgetContentProps> = ({ instance, def, onOpenRegister }) => {
+  const { formatMessage, locale } = useAppIntl()
+  const weekdays = Array.from({ length: 7 }, (_, i) =>
+    new Intl.DateTimeFormat(locale, { weekday: 'narrow', timeZone: 'UTC' }).format(
+      new Date(Date.UTC(2024, 0, 7 + i)),
+    ),
+  )
   const [offset, setOffset] = useState(0)
   const [hover, setHover] = useState<CalendarHover | null>(null)
   // Tap/click-pinned popover — separate from `hover` so a tap survives the day button losing
@@ -512,7 +614,10 @@ const Calendar: ComponentType<WidgetContentProps> = ({ instance, def, onOpenRegi
       <button
         type="button"
         className="ov-cal-nav"
-        aria-label="Previous month"
+        aria-label={formatMessage({
+          id: 'overview.calendar.previous',
+          defaultMessage: 'Previous month',
+        })}
         onClick={() => {
           setHover(null)
           setPinned(null)
@@ -524,7 +629,10 @@ const Calendar: ComponentType<WidgetContentProps> = ({ instance, def, onOpenRegi
       <button
         type="button"
         className="ov-cal-month"
-        title="Back to this month"
+        title={formatMessage({
+          id: 'overview.calendar.back',
+          defaultMessage: 'Back to this month',
+        })}
         onClick={() => {
           setHover(null)
           setPinned(null)
@@ -537,7 +645,7 @@ const Calendar: ComponentType<WidgetContentProps> = ({ instance, def, onOpenRegi
       <button
         type="button"
         className="ov-cal-nav"
-        aria-label="Next month"
+        aria-label={formatMessage({ id: 'overview.calendar.next', defaultMessage: 'Next month' })}
         onClick={() => {
           setHover(null)
           setPinned(null)
@@ -566,11 +674,16 @@ const Calendar: ComponentType<WidgetContentProps> = ({ instance, def, onOpenRegi
       {loading ? (
         <Skeleton height={180} />
       ) : error ? (
-        <WidgetPlaceholder detail="Couldn't load this month's transactions." />
+        <WidgetPlaceholder
+          detail={formatMessage({
+            id: 'overview.calendar.error',
+            defaultMessage: "Couldn't load this month's transactions.",
+          })}
+        />
       ) : (
         <div className="ov-cal-wrap" ref={wrapRef} onMouseLeave={scheduleLeave}>
           <div className="ov-cal">
-            {DOW.map((d, i) => (
+            {weekdays.map((d, i) => (
               <span key={`h${i}`} className="ov-cal-dow">
                 {d}
               </span>
@@ -644,13 +757,20 @@ const Calendar: ComponentType<WidgetContentProps> = ({ instance, def, onOpenRegi
 // `by_date` envelope target (needs_whole_amount picks contributions vs balance).
 
 const Goals: ComponentType<WidgetContentProps> = ({ instance, def, onNavigate }) => {
+  const { formatMessage } = useAppIntl()
   // Progress per dated target — including the `needs_whole_amount` flavor rule that picks
   // contributions-to-date vs balance, and the completion percentage — is server-computed.
   const budget = usePlanningSummary()
   const data = budget.data ?? null
   const loading = budget.initialLoading
   const error = !!budget.error && data == null
-  const footer = <FooterLink label="All goals" tab={def.source?.tab} onNavigate={onNavigate} />
+  const footer = (
+    <FooterLink
+      label={formatMessage({ id: 'overview.goals.all', defaultMessage: 'All goals' })}
+      tab={def.source?.tab}
+      onNavigate={onNavigate}
+    />
+  )
 
   if (loading) {
     return (
@@ -662,7 +782,12 @@ const Goals: ComponentType<WidgetContentProps> = ({ instance, def, onNavigate })
   if (error || !data) {
     return (
       <WidgetShell title={instance.title} base={def.title}>
-        <WidgetPlaceholder detail="Couldn't load your Plan goals — try reloading." />
+        <WidgetPlaceholder
+          detail={formatMessage({
+            id: 'overview.goals.error',
+            defaultMessage: "Couldn't load your Plan goals — try reloading.",
+          })}
+        />
       </WidgetShell>
     )
   }
@@ -684,10 +809,20 @@ const Goals: ComponentType<WidgetContentProps> = ({ instance, def, onNavigate })
                   <span className="ov-goal-nm">
                     {g.label}{' '}
                     {g.risk && (
-                      <Badge tone="warn">{g.status === 'past_due' ? 'past due' : 'behind'}</Badge>
+                      <Badge tone="warn">
+                        {g.status === 'past_due'
+                          ? formatMessage({
+                              id: 'overview.goals.pastDue',
+                              defaultMessage: 'past due',
+                            })
+                          : formatMessage({
+                              id: 'overview.goals.behind',
+                              defaultMessage: 'behind',
+                            })}
+                      </Badge>
                     )}
                   </span>
-                  <span className="ov-goal-pct">{pct}%</span>
+                  <span className="ov-goal-pct money">{pct}%</span>
                 </div>
                 <div className="ov-env-bar ov-goal-bar">
                   <span
@@ -696,21 +831,42 @@ const Goals: ComponentType<WidgetContentProps> = ({ instance, def, onNavigate })
                   />
                 </div>
                 <div className="ov-goal-sub">
-                  <Money as="span">{fBase(g.have)}</Money> of{' '}
-                  <Money as="span">{fBase(g.target)}</Money>
-                  {g.by ? ` • by ${fMonth(g.by, 'short', 'always')}` : ''}
+                  {formatMessage(
+                    { id: 'overview.goals.progress', defaultMessage: '{have} of {target}' },
+                    {
+                      have: <Money as="span">{fBase(g.have)}</Money>,
+                      target: <Money as="span">{fBase(g.target)}</Money>,
+                    },
+                  )}
+                  {g.by
+                    ? formatMessage(
+                        { id: 'overview.goals.by', defaultMessage: ' • by {date}' },
+                        { date: fMonth(g.by, 'short', 'always') },
+                      )
+                    : ''}
                 </div>
               </div>
             )
           })}
           {extra > 0 && (
             <div className="ov-more">
-              +{extra} more goal{extra === 1 ? '' : 's'}
+              {formatMessage(
+                {
+                  id: 'overview.goals.more',
+                  defaultMessage: '+{count, plural, one {# more goal} other {# more goals}}',
+                },
+                { count: extra },
+              )}
             </div>
           )}
         </>
       ) : (
-        <WidgetPlaceholder detail={<>No savings goals yet — add one in Plan.</>} />
+        <WidgetPlaceholder
+          detail={formatMessage({
+            id: 'overview.goals.empty',
+            defaultMessage: 'No savings goals yet — add one in Plan.',
+          })}
+        />
       )}
     </WidgetShell>
   )
@@ -725,6 +881,7 @@ const Goals: ComponentType<WidgetContentProps> = ({ instance, def, onNavigate })
 // annual expenses, which is the same "crossover" this widget projects.
 
 const Crossover: ComponentType<WidgetContentProps> = ({ instance, def, onNavigate }) => {
+  const { formatMessage } = useAppIntl()
   // FIRE seeds from the ONE net worth — see OverviewDataContext and ADR
   // 2026-07-31-single-source-net-worth. The passive-vs-spending figures (the monthly passive
   // income, the coverage percentage and the shortfall) are the SERVER's: the widget used to
@@ -733,7 +890,13 @@ const Crossover: ComponentType<WidgetContentProps> = ({ instance, def, onNavigat
   const fire = useFire(netWorth ?? 0)
   const projections = useCashflowProjections()
   const crossover = projections.data?.crossover
-  const footer = <FooterLink label="Open Plan" tab={def.source?.tab} onNavigate={onNavigate} />
+  const footer = (
+    <FooterLink
+      label={formatMessage({ id: 'overview.openPlan', defaultMessage: 'Open Plan' })}
+      tab={def.source?.tab}
+      onNavigate={onNavigate}
+    />
+  )
 
   if ((portfolioLoading && netWorth == null) || fire.loading || projections.initialLoading) {
     return (
@@ -745,7 +908,12 @@ const Crossover: ComponentType<WidgetContentProps> = ({ instance, def, onNavigat
   if (projections.error || !crossover?.known) {
     return (
       <WidgetShell title={instance.title} base={def.title}>
-        <WidgetPlaceholder detail="Needs at least one month of spending history to project a crossover." />
+        <WidgetPlaceholder
+          detail={formatMessage({
+            id: 'overview.crossover.empty',
+            defaultMessage: 'Needs at least one month of spending history to project a crossover.',
+          })}
+        />
       </WidgetShell>
     )
   }
@@ -756,7 +924,8 @@ const Crossover: ComponentType<WidgetContentProps> = ({ instance, def, onNavigat
   const toGo = crossover.to_go_monthly
   let yearLabel = '—'
   if (fire.data) {
-    if (fire.data.progress_pct >= 100) yearLabel = 'Now'
+    if (fire.data.progress_pct >= 100)
+      yearLabel = formatMessage({ id: 'overview.now', defaultMessage: 'Now' })
     else if (fire.data.years_to_fire != null)
       yearLabel = String(new Date().getFullYear() + Math.round(fire.data.years_to_fire))
   }
@@ -766,32 +935,55 @@ const Crossover: ComponentType<WidgetContentProps> = ({ instance, def, onNavigat
       <div className="ov-cross">
         <div className="ov-cross-hd">
           <span className="ov-cross-yr">{yearLabel}</span>
-          <span className="ov-cross-note">projected</span>
+          <span className="ov-cross-note">
+            {formatMessage({ id: 'overview.projected', defaultMessage: 'projected' })}
+          </span>
         </div>
         <div className="ov-env-bar ov-goal-bar">
           <span className="ov-env-fill" style={{ width: `${pct}%`, background: 'var(--good)' }} />
         </div>
         <div className="ov-cross-stats">
           <div className="ov-cross-stat">
-            <span className="ov-cross-lbl">Passive income now</span>
+            <span className="ov-cross-lbl">
+              {formatMessage({
+                id: 'overview.crossover.passive',
+                defaultMessage: 'Passive income now',
+              })}
+            </span>
             <b className="ov-cross-val">
-              <Money as="span">{fBaseCompact(passiveMonthly)}</Money>/mo
+              {formatMessage(
+                { id: 'overview.perMonth', defaultMessage: '{amount}/mo' },
+                { amount: <Money as="span">{fBaseCompact(passiveMonthly)}</Money> },
+              )}
             </b>
           </div>
           <div className="ov-cross-stat">
-            <span className="ov-cross-lbl">Baseline spending</span>
+            <span className="ov-cross-lbl">
+              {formatMessage({
+                id: 'overview.crossover.spending',
+                defaultMessage: 'Baseline spending',
+              })}
+            </span>
             <b className="ov-cross-val">
-              <Money as="span">{fBaseCompact(expensesMonthly)}</Money>/mo
+              {formatMessage(
+                { id: 'overview.perMonth', defaultMessage: '{amount}/mo' },
+                { amount: <Money as="span">{fBaseCompact(expensesMonthly)}</Money> },
+              )}
             </b>
           </div>
           <div className="ov-cross-stat">
-            <span className="ov-cross-lbl">Covered</span>
+            <span className="ov-cross-lbl">
+              {formatMessage({ id: 'overview.crossover.covered', defaultMessage: 'Covered' })}
+            </span>
             <b className="ov-cross-val">{pct}%</b>
           </div>
         </div>
         {toGo > 0 && (
           <div className="ov-cross-cap">
-            <Money as="span">{fBaseCompact(toGo)}</Money>/mo to go
+            {formatMessage(
+              { id: 'overview.crossover.toGo', defaultMessage: '{amount}/mo to go' },
+              { amount: <Money as="span">{fBaseCompact(toGo)}</Money> },
+            )}
           </div>
         )}
       </div>
@@ -824,6 +1016,7 @@ function InsHeadStat({
 }
 
 const PlanFire: ComponentType<WidgetContentProps> = ({ instance, def }) => {
+  const { formatMessage } = useAppIntl()
   // FIRE seeds from the ONE net worth (GET /api/net-worth), not a client-side portfolio sum —
   // see OverviewDataContext and ADR 2026-07-31-single-source-net-worth.
   const { netWorth, loading: portfolioLoading } = useAnalytics()
@@ -843,8 +1036,15 @@ const PlanFire: ComponentType<WidgetContentProps> = ({ instance, def }) => {
         <WidgetPlaceholder
           detail={
             total <= 0
-              ? 'Net worth is still loading.'
-              : 'Set your monthly retirement spending in Plan to see a projection.'
+              ? formatMessage({
+                  id: 'overview.fire.loadingWorth',
+                  defaultMessage: 'Net worth is still loading.',
+                })
+              : formatMessage({
+                  id: 'overview.fire.empty',
+                  defaultMessage:
+                    'Set your monthly retirement spending in Plan to see a projection.',
+                })
           }
         />
       </WidgetShell>
@@ -865,7 +1065,7 @@ const PlanFire: ComponentType<WidgetContentProps> = ({ instance, def }) => {
       labels: data.trajectory.map((p) => String(p.age ?? p.year)),
       datasets: [
         {
-          label: 'Net worth',
+          label: formatMessage({ id: 'overview.netWorth.title', defaultMessage: 'Net worth' }),
           data: data.trajectory.map((p) => p.nw),
           borderColor: ACC,
           backgroundColor: areaFill(ACC),
@@ -875,7 +1075,7 @@ const PlanFire: ComponentType<WidgetContentProps> = ({ instance, def }) => {
           fill: true,
         },
         {
-          label: 'FIRE number',
+          label: formatMessage({ id: 'overview.fire.number', defaultMessage: 'FIRE number' }),
           data: data.trajectory.map((p) => p.target),
           borderColor: WARN,
           borderWidth: 1.2,
@@ -895,7 +1095,9 @@ const PlanFire: ComponentType<WidgetContentProps> = ({ instance, def }) => {
           callbacks: {
             title: (items: Array<{ dataIndex: number }>) => {
               const age = data.trajectory[items[0]?.dataIndex ?? 0]?.age
-              return age != null ? `Age ${age}` : ''
+              return age != null
+                ? formatMessage({ id: 'overview.fire.age', defaultMessage: 'Age {age}' }, { age })
+                : ''
             },
             label: (ctx: { dataset: { label?: string }; raw: unknown }) =>
               `${ctx.dataset.label}: ${amountsHidden() ? '***' : fBaseCompact(Number(ctx.raw))}`,
@@ -920,11 +1122,21 @@ const PlanFire: ComponentType<WidgetContentProps> = ({ instance, def }) => {
       <div className="ov-ins-headrow">
         <InsHeadStat
           value={<Money as="span">{fBaseCompact(data.fire_number)}</Money>}
-          label="FIRE number"
+          label={formatMessage({ id: 'overview.fire.number', defaultMessage: 'FIRE number' })}
         />
         <InsHeadStat
-          value={data.years_to_fire != null ? `${data.years_to_fire.toFixed(1)} yrs` : '50+ yrs'}
-          label="to independence"
+          value={
+            data.years_to_fire != null
+              ? formatMessage(
+                  { id: 'overview.fire.years', defaultMessage: '{years} yrs' },
+                  { years: fFixed(data.years_to_fire, 1) },
+                )
+              : formatMessage({ id: 'overview.fire.over50', defaultMessage: '50+ yrs' })
+          }
+          label={formatMessage({
+            id: 'overview.fire.toIndependence',
+            defaultMessage: 'to independence',
+          })}
           color="var(--good)"
         />
       </div>
@@ -936,7 +1148,10 @@ const PlanFire: ComponentType<WidgetContentProps> = ({ instance, def }) => {
         />
       ) : (
         <Text as="p" size="sm" tone="faint">
-          Add your date of birth in Profile to see ages
+          {formatMessage({
+            id: 'overview.fire.birthDate',
+            defaultMessage: 'Add your date of birth in Profile to see ages',
+          })}
         </Text>
       )}
     </WidgetShell>
@@ -944,6 +1159,7 @@ const PlanFire: ComponentType<WidgetContentProps> = ({ instance, def }) => {
 }
 
 const PlanRunway: ComponentType<WidgetContentProps> = ({ instance, def }) => {
+  const { formatMessage } = useAppIntl()
   // The depletion curve is projected server-side, point by point — the widget used to build
   // `cash - burn * i` itself, which is money math on a chart's worth of points.
   const projections = useCashflowProjections()
@@ -959,7 +1175,12 @@ const PlanRunway: ComponentType<WidgetContentProps> = ({ instance, def }) => {
   if (projections.error || !data?.known) {
     return (
       <WidgetShell title={instance.title} base={def.title}>
-        <WidgetPlaceholder detail="Needs at least one recorded expense to estimate a burn rate." />
+        <WidgetPlaceholder
+          detail={formatMessage({
+            id: 'overview.runway.empty',
+            defaultMessage: 'Needs at least one recorded expense to estimate a burn rate.',
+          })}
+        />
       </WidgetShell>
     )
   }
@@ -967,16 +1188,29 @@ const PlanRunway: ComponentType<WidgetContentProps> = ({ instance, def }) => {
   const cash = data.cash
   const burn = data.burn
   const runway = data.runway_months
-  const caveat = cardCaveat(data.cards_missing_spending)
+  const caveat = data.cards_missing_spending?.length
+    ? formatMessage(
+        {
+          id: 'overview.runway.cardCaveat',
+          defaultMessage: 'Card spending not included yet ({cards})',
+        },
+        { cards: data.cards_missing_spending.join(', ') },
+      )
+    : null
   const points = data.trajectory
   const ACC = resolveColor('var(--accent)')
   const cfg = {
     type: 'line' as const,
     data: {
-      labels: points.map((_, i) => `+${i}mo`),
+      labels: points.map((_, i) =>
+        formatMessage(
+          { id: 'overview.runway.chartMonth', defaultMessage: '+{count}mo' },
+          { count: i },
+        ),
+      ),
       datasets: [
         {
-          label: 'Cash',
+          label: formatMessage({ id: 'overview.runway.cash', defaultMessage: 'Cash' }),
           data: points,
           borderColor: ACC,
           backgroundColor: areaFill(ACC),
@@ -994,9 +1228,16 @@ const PlanRunway: ComponentType<WidgetContentProps> = ({ instance, def }) => {
         legend: { display: false },
         tooltip: {
           callbacks: {
-            title: (items: Array<{ dataIndex: number }>) => `+${items[0]?.dataIndex ?? 0} mo`,
+            title: (items: Array<{ dataIndex: number }>) =>
+              formatMessage(
+                { id: 'overview.runway.tooltipMonth', defaultMessage: '+{count} mo' },
+                { count: items[0]?.dataIndex ?? 0 },
+              ),
             label: (ctx: { raw: unknown }) =>
-              `Cash: ${amountsHidden() ? '***' : fBaseCompact(Number(ctx.raw))}`,
+              formatMessage(
+                { id: 'overview.runway.cashValue', defaultMessage: 'Cash: {amount}' },
+                { amount: amountsHidden() ? '***' : fBaseCompact(Number(ctx.raw)) },
+              ),
           },
         },
       },
@@ -1013,15 +1254,38 @@ const PlanRunway: ComponentType<WidgetContentProps> = ({ instance, def }) => {
       base={def.title}
       fill
       bodyClass="ov-ins-body"
-      meta={runway != null ? `${runway.toFixed(1)} mo` : '∞'}
+      meta={
+        runway != null
+          ? formatMessage(
+              { id: 'overview.runway.months', defaultMessage: '{count} mo' },
+              { count: fFixed(runway, 1) },
+            )
+          : '∞'
+      }
     >
       <div className="ov-ins-headrow">
-        <InsHeadStat value={<Money as="span">{fBaseCompact(cash)}</Money>} label="cash on hand" />
         <InsHeadStat
-          value={runway != null ? `${runway.toFixed(1)} mo` : 'No burn'}
+          value={<Money as="span">{fBaseCompact(cash)}</Money>}
+          label={formatMessage({
+            id: 'overview.runway.cashOnHand',
+            defaultMessage: 'cash on hand',
+          })}
+        />
+        <InsHeadStat
+          value={
+            runway != null
+              ? formatMessage(
+                  { id: 'overview.runway.months', defaultMessage: '{count} mo' },
+                  { count: fFixed(runway, 1) },
+                )
+              : formatMessage({ id: 'overview.runway.noBurn', defaultMessage: 'No burn' })
+          }
           label={
             <>
-              runway at <Money as="span">{fBaseCompact(burn)}</Money>/mo burn
+              {formatMessage(
+                { id: 'overview.runway.burn', defaultMessage: 'runway at {amount}/mo burn' },
+                { amount: <Money as="span">{fBaseCompact(burn)}</Money> },
+              )}
             </>
           }
           color="var(--good)"

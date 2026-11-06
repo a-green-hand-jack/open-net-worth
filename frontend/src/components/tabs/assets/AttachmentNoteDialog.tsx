@@ -7,6 +7,7 @@ import type { AssetDoc, OwnedAsset } from '../../../types/assets'
 import { Button, FormField, Modal, Stack, TextArea } from '../../ui'
 import * as api from './api'
 import { EditorFooter, SaveError, useEditorSave } from './editorKit'
+import { useAppIntl } from '../../../i18n/useAppIntl'
 
 interface AttachmentNoteDialogProps {
   a: OwnedAsset
@@ -16,6 +17,7 @@ interface AttachmentNoteDialogProps {
 }
 
 export function AttachmentNoteDialog({ a, doc, onClose, onSaved }: AttachmentNoteDialogProps) {
+  const { formatMessage } = useAppIntl()
   const id = useId()
   const [note, setNote] = useState(doc.note ?? '')
   const { saving, save, errorFor, edited, dialogError } = useEditorSave()
@@ -32,7 +34,11 @@ export function AttachmentNoteDialog({ a, doc, onClose, onSaved }: AttachmentNot
       className="as-modal"
       open
       onClose={onClose}
-      title={doc.note ? 'Edit note' : 'Add a note'}
+      title={
+        doc.note
+          ? formatMessage({ id: 'assets.docs.editNote', defaultMessage: 'Edit note' })
+          : formatMessage({ id: 'assets.docs.addNote', defaultMessage: 'Add a note' })
+      }
       subtitle={doc.name}
       size="sm"
       footer={
@@ -46,12 +52,12 @@ export function AttachmentNoteDialog({ a, doc, onClose, onSaved }: AttachmentNot
                 disabled={saving}
                 onClick={() => void write(null)}
               >
-                Remove note
+                {formatMessage({ id: 'assets.docs.removeNote', defaultMessage: 'Remove note' })}
               </Button>
             ) : null
           }
           saving={saving}
-          label="Save"
+          label={formatMessage({ id: 'assets.docs.save', defaultMessage: 'Save' })}
           onCancel={onClose}
           onSave={onSave}
         />
@@ -59,13 +65,20 @@ export function AttachmentNoteDialog({ a, doc, onClose, onSaved }: AttachmentNot
     >
       <Stack gap="--space-6">
         <FormField
-          label="Note"
+          label={formatMessage({ id: 'assets.docs.note', defaultMessage: 'Note' })}
           htmlFor={`${id}-note`}
           error={errorFor('doc_note')}
           help={
             doc.lucius_readable
-              ? 'Lucius reads your note when you ask about this file.'
-              : 'Lucius can still read this note. The switch keeps only the file itself from Lucius.'
+              ? formatMessage({
+                  id: 'assets.docs.noteReadable',
+                  defaultMessage: 'Lucius reads your note when you ask about this file.',
+                })
+              : formatMessage({
+                  id: 'assets.docs.noteStillReadable',
+                  defaultMessage:
+                    'Lucius can still read this note. The switch keeps only the file itself from Lucius.',
+                })
           }
         >
           <TextArea
@@ -75,7 +88,10 @@ export function AttachmentNoteDialog({ a, doc, onClose, onSaved }: AttachmentNot
             rows={5}
             value={note}
             maxLength={api.TEXT_CAPS.docNote}
-            placeholder="e.g. Signed copy. The original is in the safe."
+            placeholder={formatMessage({
+              id: 'assets.docs.notePlaceholder',
+              defaultMessage: 'e.g. Signed copy. The original is in the safe.',
+            })}
             invalid={!!errorFor('doc_note')}
             onChange={(e) => {
               setNote(e.target.value)

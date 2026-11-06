@@ -1,4 +1,7 @@
+import { getNumberLocale } from '../../utils/format'
 import { Fragment, useEffect, useState } from 'react'
+import type { IntlShape } from 'react-intl'
+import { useAppIntl } from '../../i18n/useAppIntl'
 import type {
   Lot,
   RealizedPnl,
@@ -60,6 +63,8 @@ export function LotsPanel({
   writeTargets = [],
   onChanged,
 }: Props) {
+  const intl = useAppIntl()
+  const { formatMessage } = intl
   const [fetchedLots, setFetchedLots] = useState<Lot[] | null>(null)
   const [lotsError, setLotsError] = useState(false)
   const [fetchedRealized, setFetchedRealized] = useState<RealizedEvent[] | null>(() =>
@@ -163,9 +168,18 @@ export function LotsPanel({
   const lotsTitle =
     lots && openLots
       ? closedCount
-        ? `Acquisition lots (${openLots.length} open · ${closedCount} closed)`
-        : `Acquisition lots (${lots.length})`
-      : 'Acquisition lots'
+        ? formatMessage(
+            {
+              id: 'shared.lots.titleSplit',
+              defaultMessage: 'Acquisition lots ({open} open · {closed} closed)',
+            },
+            { open: openLots.length, closed: closedCount },
+          )
+        : formatMessage(
+            { id: 'shared.lots.titleCount', defaultMessage: 'Acquisition lots ({count})' },
+            { count: lots.length },
+          )
+      : formatMessage({ id: 'shared.lots.title', defaultMessage: 'Acquisition lots' })
   const realizedCount = realized ? realized.length : null
   const dividendsCount = dividends ? dividends.length : null
 
@@ -207,7 +221,7 @@ export function LotsPanel({
             iconLeft={<Plus size={13} aria-hidden="true" />}
             onClick={startAddLot}
           >
-            Add lot
+            {formatMessage({ id: 'shared.lots.add', defaultMessage: 'Add lot' })}
           </Button>
         }
       >
@@ -226,7 +240,14 @@ export function LotsPanel({
       </Panel>
 
       <Panel
-        title={realizedCount != null ? `Realized history (${realizedCount})` : 'Realized history'}
+        title={
+          realizedCount != null
+            ? formatMessage(
+                { id: 'shared.lots.realizedCount', defaultMessage: 'Realized history ({count})' },
+                { count: realizedCount },
+              )
+            : formatMessage({ id: 'shared.lots.realizedTitle', defaultMessage: 'Realized history' })
+        }
         actions={
           <Button
             variant="ghost"
@@ -234,7 +255,7 @@ export function LotsPanel({
             iconLeft={<Plus size={13} aria-hidden="true" />}
             onClick={startRecordSale}
           >
-            Record sale
+            {formatMessage({ id: 'shared.lots.recordSale', defaultMessage: 'Record sale' })}
           </Button>
         }
       >
@@ -248,7 +269,16 @@ export function LotsPanel({
         />
       </Panel>
 
-      <Panel title={dividendsCount != null ? `Dividends (${dividendsCount})` : 'Dividends'}>
+      <Panel
+        title={
+          dividendsCount != null
+            ? formatMessage(
+                { id: 'shared.lots.dividendCount', defaultMessage: 'Dividends ({count})' },
+                { count: dividendsCount },
+              )
+            : formatMessage({ id: 'shared.lots.dividendsTitle', defaultMessage: 'Dividends' })
+        }
+      >
         <DividendsSection
           events={dividends}
           error={dividendsError}
@@ -344,14 +374,27 @@ function LotsSection({
   onEditLot: (lot: Lot) => void
   onAddLot: () => void
 }) {
-  if (error) return <div className="lots-empty">Could not load lots for this holding.</div>
+  const intl = useAppIntl()
+  const { formatMessage } = intl
+  if (error)
+    return (
+      <div className="lots-empty">
+        {formatMessage({
+          id: 'shared.lots.loadError',
+          defaultMessage: 'Could not load lots for this holding.',
+        })}
+      </div>
+    )
   if (lots === null) return <Loading />
   if (!lots.length || !openLots) {
     return (
       <div className="lots-empty">
-        No lots recorded for this holding yet.{' '}
+        {formatMessage({
+          id: 'shared.lots.noLots',
+          defaultMessage: 'No lots recorded for this holding yet.',
+        })}
         <Button variant="secondary" size="sm" onClick={onAddLot}>
-          Add lot
+          {formatMessage({ id: 'shared.lots.add', defaultMessage: 'Add lot' })}
         </Button>
       </div>
     )
@@ -387,15 +430,27 @@ function LotsSection({
         >
           <thead>
             <tr>
-              <th>Acquired</th>
-              <th>Original</th>
-              <th>Remaining</th>
-              <th>Unit cost{costCcy ? ` (${costCcy})` : ''}</th>
-              <th>Fees</th>
-              <th>Kind</th>
-              <th>Term</th>
-              <th>Unrealized ({base})</th>
-              {showAccount && <th>Account</th>}
+              <th>{formatMessage({ id: 'shared.lots.acquired', defaultMessage: 'Acquired' })}</th>
+              <th>{formatMessage({ id: 'shared.lots.original', defaultMessage: 'Original' })}</th>
+              <th>{formatMessage({ id: 'shared.lots.remaining', defaultMessage: 'Remaining' })}</th>
+              <th>
+                {formatMessage(
+                  { id: 'shared.lots.costHeader', defaultMessage: 'Unit cost{currency}' },
+                  { currency: costCcy ? ` (${costCcy})` : '' },
+                )}
+              </th>
+              <th>{formatMessage({ id: 'shared.lots.fees', defaultMessage: 'Fees' })}</th>
+              <th>{formatMessage({ id: 'shared.lots.kind', defaultMessage: 'Kind' })}</th>
+              <th>{formatMessage({ id: 'shared.lots.term', defaultMessage: 'Term' })}</th>
+              <th>
+                {formatMessage(
+                  { id: 'shared.lots.unrealizedHeader', defaultMessage: 'Unrealized ({currency})' },
+                  { currency: base },
+                )}
+              </th>
+              {showAccount && (
+                <th>{formatMessage({ id: 'shared.lots.account', defaultMessage: 'Account' })}</th>
+              )}
             </tr>
           </thead>
           <tbody>
@@ -411,36 +466,52 @@ function LotsSection({
                   type="lot"
                   id={l.id}
                   label={symbol}
-                  sublabel={`${kindLabel(l.kind)} • ${l.remaining_qty} left • ${fDate(l.acquired_at, 'short', 'always')}`}
+                  sublabel={formatMessage(
+                    {
+                      id: 'shared.lots.lotSublabel',
+                      defaultMessage: '{kind} • {remaining} left • {date}',
+                    },
+                    {
+                      kind: kindLabel(l.kind, intl),
+                      remaining: l.remaining_qty,
+                      date: fDate(l.acquired_at, 'short', 'always'),
+                    },
+                  )}
                   item={l}
                   toFields={(it) => ({ symbol, kind: it.kind, acquired_at: it.acquired_at })}
                   className={`lots-row--clickable${closed ? ' lots-row--closed' : ''}`}
                   onClick={() => onEditLot(l)}
                 >
                   <td>{l.acquired_at ? fDate(l.acquired_at, 'short', 'always') : '—'}</td>
-                  <td>{l.original_qty.toLocaleString(undefined)}</td>
+                  <td>{l.original_qty.toLocaleString(getNumberLocale())}</td>
                   <td>
-                    {l.remaining_qty.toLocaleString(undefined)}
-                    {closed && <span className="lots-closed-badge">Sold</span>}
+                    {l.remaining_qty.toLocaleString(getNumberLocale())}
+                    {closed && (
+                      <span className="lots-closed-badge">
+                        {formatMessage({ id: 'shared.lots.sold', defaultMessage: 'Sold' })}
+                      </span>
+                    )}
                   </td>
                   <td>
                     {eff == null ? (
-                      <span className="lots-unknown">Unknown</span>
+                      <span className="lots-unknown">
+                        {formatMessage({ id: 'shared.lots.unknown', defaultMessage: 'Unknown' })}
+                      </span>
                     ) : (
                       fUnitCostNative(eff, l.cost_currency || costCcy)
                     )}
                   </td>
                   <td>{l.fees ? fAmountNative(l.fees, l.cost_currency || costCcy) : '—'}</td>
-                  <td>{kindLabel(l.kind)}</td>
+                  <td>{kindLabel(l.kind, intl)}</td>
                   <td>
                     {closed ? (
                       '—'
                     ) : (
                       <span
                         className={`term-badge term-${l.term_to_date}`}
-                        title={termTitle(l.term_to_date)}
+                        title={termTitle(l.term_to_date, intl)}
                       >
-                        {l.term_to_date}
+                        {termLabel(l.term_to_date, intl)}
                       </span>
                     )}
                   </td>
@@ -455,8 +526,11 @@ function LotsSection({
         </table>
       </div>
       <div className="lots-note">
-        Unrealized gain = current market value − cost-known basis, in the base currency (recomputed
-        from the native leg).
+        {formatMessage({
+          id: 'shared.lots.unrealizedNote',
+          defaultMessage:
+            'Unrealized gain = current market value − cost-known basis, in the base currency (recomputed from the native leg).',
+        })}
       </div>
     </>
   )
@@ -479,6 +553,8 @@ function RealizedSection({
   showAccount: boolean
   onEditSale: (event: RealizedEvent) => void
 }) {
+  const intl = useAppIntl()
+  const { formatMessage } = intl
   const [expanded, setExpanded] = useState<Set<string>>(() => new Set())
   function toggle(id: string) {
     setExpanded((prev) => {
@@ -489,10 +565,24 @@ function RealizedSection({
     })
   }
   if (error)
-    return <div className="lots-empty">Could not load realized history for this holding.</div>
+    return (
+      <div className="lots-empty">
+        {formatMessage({
+          id: 'shared.lots.realizedError',
+          defaultMessage: 'Could not load realized history for this holding.',
+        })}
+      </div>
+    )
   if (events === null) return <Loading />
   if (!events.length)
-    return <div className="lots-empty">No disposals recorded for this holding yet.</div>
+    return (
+      <div className="lots-empty">
+        {formatMessage({
+          id: 'shared.lots.noDisposals',
+          defaultMessage: 'No disposals recorded for this holding yet.',
+        })}
+      </div>
+    )
 
   const base = baseCurrency || getBaseCurrency()
   const columns = showAccount ? 8 : 7
@@ -508,14 +598,23 @@ function RealizedSection({
         >
           <thead>
             <tr>
-              <th>Disposed</th>
-              <th>Qty</th>
-              <th>Buy price</th>
-              <th>Sell price</th>
-              <th>Method</th>
-              <th>Term</th>
-              <th>Realized ({base})</th>
-              {showAccount && <th>Account</th>}
+              <th>{formatMessage({ id: 'shared.lots.disposed', defaultMessage: 'Disposed' })}</th>
+              <th>{formatMessage({ id: 'shared.lots.quantity', defaultMessage: 'Qty' })}</th>
+              <th>{formatMessage({ id: 'shared.lots.buyPrice', defaultMessage: 'Buy price' })}</th>
+              <th>
+                {formatMessage({ id: 'shared.lots.sellPrice', defaultMessage: 'Sell price' })}
+              </th>
+              <th>{formatMessage({ id: 'shared.lots.method', defaultMessage: 'Method' })}</th>
+              <th>{formatMessage({ id: 'shared.lots.term', defaultMessage: 'Term' })}</th>
+              <th>
+                {formatMessage(
+                  { id: 'shared.lots.realizedHeader', defaultMessage: 'Realized ({currency})' },
+                  { currency: base },
+                )}
+              </th>
+              {showAccount && (
+                <th>{formatMessage({ id: 'shared.lots.account', defaultMessage: 'Account' })}</th>
+              )}
             </tr>
           </thead>
           <tbody>
@@ -532,7 +631,13 @@ function RealizedSection({
                     type="disposal"
                     id={ev.id}
                     label={symbol}
-                    sublabel={`${ev.quantity} units • ${fDate(ev.disposed_at, 'short', 'always')}`}
+                    sublabel={formatMessage(
+                      {
+                        id: 'shared.lots.saleSublabel',
+                        defaultMessage: '{quantity} units • {date}',
+                      },
+                      { quantity: ev.quantity, date: fDate(ev.disposed_at, 'short', 'always') },
+                    )}
                     item={ev}
                     toFields={(it) => ({ symbol, method: it.method, disposed_at: it.disposed_at })}
                     className="lots-row--clickable"
@@ -545,7 +650,15 @@ function RealizedSection({
                           className="lots-expand-btn"
                           aria-expanded={isOpen}
                           aria-label={
-                            isOpen ? 'Hide the lots this sale used' : 'Show the lots this sale used'
+                            isOpen
+                              ? formatMessage({
+                                  id: 'shared.lots.hideUsed',
+                                  defaultMessage: 'Hide the lots this sale used',
+                                })
+                              : formatMessage({
+                                  id: 'shared.lots.showUsed',
+                                  defaultMessage: 'Show the lots this sale used',
+                                })
                           }
                           onClick={(e) => {
                             e.stopPropagation()
@@ -561,17 +674,21 @@ function RealizedSection({
                       )}
                       {fDate(ev.disposed_at, 'short', 'always')}
                     </td>
-                    <td>{ev.quantity.toLocaleString(undefined)}</td>
+                    <td>{ev.quantity.toLocaleString(getNumberLocale())}</td>
                     <td className="muted">
                       {buy.price == null
                         ? '—'
                         : fUnitCostNative(buy.price, buy.currency ?? ev.proceeds_currency)}
                     </td>
                     <td>{fUnitCostNative(ev.proceeds_per_unit, ev.proceeds_currency)}</td>
-                    <td>{ev.method === 'specific_id' ? 'Specific' : 'FIFO'}</td>
                     <td>
-                      <span className={`term-badge term-${term}`} title={termTitle(term)}>
-                        {term}
+                      {ev.method === 'specific_id'
+                        ? formatMessage({ id: 'shared.lots.specific', defaultMessage: 'Specific' })
+                        : 'FIFO'}
+                    </td>
+                    <td>
+                      <span className={`term-badge term-${term}`} title={termTitle(term, intl)}>
+                        {termLabel(term, intl)}
                       </span>
                     </td>
                     <td className={gain == null ? 'muted' : plClass(gain)}>
@@ -597,7 +714,14 @@ function RealizedSection({
        Realized column (colspan math against a seven/eight column header was the same brittle
        shape that was visibly misaligned there). */}
       <div className="lots-total-line">
-        Total realized{hasUnknown ? ' (known)' : ''}:{' '}
+        {formatMessage(
+          { id: 'shared.lots.realizedTotal', defaultMessage: 'Total realized{known}:' },
+          {
+            known: hasUnknown
+              ? formatMessage({ id: 'shared.lots.known', defaultMessage: ' (known)' })
+              : '',
+          },
+        )}{' '}
         <span className={plClass(total)}>{(total >= 0 ? '+' : '') + fBase(total)}</span>
       </div>
     </>
@@ -619,11 +743,27 @@ function DividendsSection({
   /** Multi-account holding — add an Account column so the cross-account mix stays legible. */
   showAccount: boolean
 }) {
+  const intl = useAppIntl()
+  const { formatMessage } = intl
   if (error)
-    return <div className="lots-empty">Could not load dividend history for this holding.</div>
+    return (
+      <div className="lots-empty">
+        {formatMessage({
+          id: 'shared.lots.dividendError',
+          defaultMessage: 'Could not load dividend history for this holding.',
+        })}
+      </div>
+    )
   if (events === null) return <Loading />
   if (!events.length)
-    return <div className="lots-empty">No dividends recorded for this holding yet.</div>
+    return (
+      <div className="lots-empty">
+        {formatMessage({
+          id: 'shared.lots.noDividends',
+          defaultMessage: 'No dividends recorded for this holding yet.',
+        })}
+      </div>
+    )
 
   const base = baseCurrency || getBaseCurrency()
   const total = events.reduce((s, e) => s + (e.base_amount ?? 0), 0)
@@ -637,13 +777,20 @@ function DividendsSection({
         >
           <thead>
             <tr>
-              <th>Paid</th>
-              <th>Kind</th>
-              <th>Gross</th>
-              <th>Tax withheld</th>
-              <th>Net ({base})</th>
-              <th>Method</th>
-              {showAccount && <th>Account</th>}
+              <th>{formatMessage({ id: 'shared.lots.paid', defaultMessage: 'Paid' })}</th>
+              <th>{formatMessage({ id: 'shared.lots.kind', defaultMessage: 'Kind' })}</th>
+              <th>{formatMessage({ id: 'shared.lots.gross', defaultMessage: 'Gross' })}</th>
+              <th>{formatMessage({ id: 'shared.lots.tax', defaultMessage: 'Tax withheld' })}</th>
+              <th>
+                {formatMessage(
+                  { id: 'shared.lots.netHeader', defaultMessage: 'Net ({currency})' },
+                  { currency: base },
+                )}
+              </th>
+              <th>{formatMessage({ id: 'shared.lots.method', defaultMessage: 'Method' })}</th>
+              {showAccount && (
+                <th>{formatMessage({ id: 'shared.lots.account', defaultMessage: 'Account' })}</th>
+              )}
             </tr>
           </thead>
           <tbody>
@@ -655,20 +802,35 @@ function DividendsSection({
                 type="income"
                 id={ev.id}
                 label={symbol}
-                sublabel={`${incomeKindLabel(ev.income_kind)} • ${fDate(ev.paid_at, 'short', 'always')}`}
+                sublabel={`${incomeKindLabel(ev.income_kind, intl)} • ${fDate(ev.paid_at, 'short', 'always')}`}
                 item={ev}
                 toFields={(it) => ({ symbol, income_kind: it.income_kind, paid_at: it.paid_at })}
               >
                 <td>{ev.paid_at ? fDate(ev.paid_at, 'short', 'always') : '—'}</td>
-                <td>{incomeKindLabel(ev.income_kind)}</td>
+                <td>{incomeKindLabel(ev.income_kind, intl)}</td>
                 <td>{fAmountNative(ev.gross_amount, ev.currency)}</td>
                 <td>{ev.tax_withheld ? fAmountNative(ev.tax_withheld, ev.currency) : '—'}</td>
                 <td className={ev.base_amount === null ? 'muted' : undefined}>
                   {ev.base_amount === null
-                    ? `${fAmountNative(ev.native_net_amount ?? ev.gross_amount - ev.tax_withheld, ev.currency)} (FX unavailable)`
+                    ? formatMessage(
+                        {
+                          id: 'shared.lots.fxUnavailable',
+                          defaultMessage: '{amount} (FX unavailable)',
+                        },
+                        {
+                          amount: fAmountNative(
+                            ev.native_net_amount ?? ev.gross_amount - ev.tax_withheld,
+                            ev.currency,
+                          ),
+                        },
+                      )
                     : fBase(ev.base_amount)}
                 </td>
-                <td>{ev.is_drp ? 'DRP' : 'Cash'}</td>
+                <td>
+                  {ev.is_drp
+                    ? 'DRP'
+                    : formatMessage({ id: 'shared.lots.cash', defaultMessage: 'Cash' })}
+                </td>
                 {showAccount && <td>{ev.account_name || '—'}</td>}
               </EntityRow>
             ))}
@@ -679,38 +841,47 @@ function DividendsSection({
        any column position (a colspan/grid match against six+ header widths is brittle and was
        visibly misaligned in practice). */}
       <div className="lots-total-line">
-        Total received{hasUnknown ? ' (known)' : ''}:{' '}
+        {formatMessage(
+          { id: 'shared.lots.receivedTotal', defaultMessage: 'Total received{known}:' },
+          {
+            known: hasUnknown
+              ? formatMessage({ id: 'shared.lots.known', defaultMessage: ' (known)' })
+              : '',
+          },
+        )}{' '}
         <span className={plClass(total)}>{fBase(total)}</span>
       </div>
     </>
   )
 }
 
-function incomeKindLabel(kind: string): string {
+function incomeKindLabel(kind: string, intl: IntlShape): string {
+  const { formatMessage } = intl
   switch (kind) {
     case 'dividend':
-      return 'Dividend'
+      return formatMessage({ id: 'shared.lots.incomeKindLabel0', defaultMessage: 'Dividend' })
     case 'interest':
-      return 'Interest'
+      return formatMessage({ id: 'shared.lots.incomeKindLabel1', defaultMessage: 'Interest' })
     case 'distribution':
-      return 'Distribution'
+      return formatMessage({ id: 'shared.lots.incomeKindLabel2', defaultMessage: 'Distribution' })
     default:
       return kind
   }
 }
 
-function kindLabel(kind: string): string {
+function kindLabel(kind: string, intl: IntlShape): string {
+  const { formatMessage } = intl
   switch (kind) {
     case 'buy':
-      return 'Buy'
+      return formatMessage({ id: 'shared.lots.kindLabel0', defaultMessage: 'Buy' })
     case 'drp':
-      return 'Dividend reinvest'
+      return formatMessage({ id: 'shared.lots.kindLabel1', defaultMessage: 'Dividend reinvest' })
     case 'transfer_in':
-      return 'Transfer in'
+      return formatMessage({ id: 'shared.lots.kindLabel2', defaultMessage: 'Transfer in' })
     case 'grant':
-      return 'Grant'
+      return formatMessage({ id: 'shared.lots.kindLabel3', defaultMessage: 'Grant' })
     case 'opening':
-      return 'Opening'
+      return formatMessage({ id: 'shared.lots.kindLabel4', defaultMessage: 'Opening' })
     default:
       return kind.replace(/_/g, ' ')
   }
@@ -727,16 +898,47 @@ function avgBuyPrice(ev: RealizedEvent): { price: number | null; currency: strin
   return { price: totalQty > 0 ? weighted / totalQty : null, currency: first.cost_currency }
 }
 
-function termTitle(term: string): string {
+function termLabel(term: string, intl: IntlShape): string {
+  const { formatMessage } = intl
   switch (term) {
     case 'short':
-      return 'Short-term: held < 1 year. Usually taxed at ordinary income rates.'
+      return formatMessage({ id: 'shared.lots.termShort', defaultMessage: 'short' })
     case 'long':
-      return 'Long-term: held > 1 year. Usually taxed at preferential capital gains rates.'
+      return formatMessage({ id: 'shared.lots.termLong', defaultMessage: 'long' })
     case 'mixed':
-      return 'The lots this sale used have different holding periods — expand the row to see each.'
+      return formatMessage({ id: 'shared.lots.termMixed', defaultMessage: 'mixed' })
+    case 'unknown':
+      return formatMessage({ id: 'shared.lots.termUnknown', defaultMessage: 'unknown' })
     default:
-      return 'Holding period unknown — no acquisition date recorded.'
+      return term
+  }
+}
+
+function termTitle(term: string, intl: IntlShape): string {
+  const { formatMessage } = intl
+  switch (term) {
+    case 'short':
+      return formatMessage({
+        id: 'shared.lots.termTitle0',
+        defaultMessage: 'Short-term: held < 1 year. Usually taxed at ordinary income rates.',
+      })
+    case 'long':
+      return formatMessage({
+        id: 'shared.lots.termTitle1',
+        defaultMessage:
+          'Long-term: held > 1 year. Usually taxed at preferential capital gains rates.',
+      })
+    case 'mixed':
+      return formatMessage({
+        id: 'shared.lots.termTitle2',
+        defaultMessage:
+          'The lots this sale used have different holding periods — expand the row to see each.',
+      })
+    default:
+      return formatMessage({
+        id: 'shared.lots.termTitle3',
+        defaultMessage: 'Holding period unknown — no acquisition date recorded.',
+      })
   }
 }
 
@@ -751,32 +953,47 @@ function eventTerm(ev: RealizedEvent): 'long' | 'short' | 'unknown' | 'mixed' {
 
 /** The lots one sale consumed, oldest first — what the row's weighted "Buy price" averages. */
 function ConsumptionTable({ event }: { event: RealizedEvent }) {
+  const intl = useAppIntl()
+  const { formatMessage } = intl
   return (
     <table className="lots-consumption-table">
       <thead>
         <tr>
-          <th>Lot acquired</th>
-          <th>Qty</th>
-          <th>Unit cost</th>
-          <th>Term</th>
-          <th>Gain ({event.proceeds_currency})</th>
+          <th>
+            {formatMessage({ id: 'shared.lots.lotAcquired', defaultMessage: 'Lot acquired' })}
+          </th>
+          <th>{formatMessage({ id: 'shared.lots.quantity', defaultMessage: 'Qty' })}</th>
+          <th>{formatMessage({ id: 'shared.lots.unitCost', defaultMessage: 'Unit cost' })}</th>
+          <th>{formatMessage({ id: 'shared.lots.term', defaultMessage: 'Term' })}</th>
+          <th>
+            {formatMessage(
+              { id: 'shared.lots.gainHeader', defaultMessage: 'Gain ({currency})' },
+              { currency: event.proceeds_currency },
+            )}
+          </th>
         </tr>
       </thead>
       <tbody>
         {event.consumptions.map((c, i) => (
           <tr key={`${c.lot_id}-${i}`}>
-            <td>{c.acquired_at ? fDate(c.acquired_at, 'short', 'always') : 'Date unknown'}</td>
-            <td>{c.qty.toLocaleString(undefined)}</td>
+            <td>
+              {c.acquired_at
+                ? fDate(c.acquired_at, 'short', 'always')
+                : formatMessage({ id: 'shared.lots.dateUnknown', defaultMessage: 'Date unknown' })}
+            </td>
+            <td>{c.qty.toLocaleString(getNumberLocale())}</td>
             <td>
               {c.unit_cost == null ? (
-                <span className="lots-unknown">Unknown</span>
+                <span className="lots-unknown">
+                  {formatMessage({ id: 'shared.lots.unknown', defaultMessage: 'Unknown' })}
+                </span>
               ) : (
                 fUnitCostNative(c.unit_cost, c.cost_currency || event.proceeds_currency)
               )}
             </td>
             <td>
-              <span className={`term-badge term-${c.term}`} title={termTitle(c.term)}>
-                {c.term}
+              <span className={`term-badge term-${c.term}`} title={termTitle(c.term, intl)}>
+                {termLabel(c.term, intl)}
               </span>
             </td>
             <td className={c.realized_gain == null ? 'muted' : plClass(c.realized_gain)}>

@@ -1,3 +1,4 @@
+import { message as t } from './native-messages';
 import { mkdir, readFile, rename, writeFile } from 'node:fs/promises';
 import { dirname } from 'node:path';
 import { desktopEvent } from './desktop-events';
@@ -99,10 +100,10 @@ export class Preferences {
 export type SettingsPatch = Partial<Pick<DesktopSettings, 'background' | 'launchAtLogin' | 'notifications' | 'keepAwake'>>;
 
 export function settingsPatch(value: unknown): SettingsPatch {
-  if (!value || typeof value !== 'object' || Array.isArray(value)) throw new Error('Invalid desktop settings.');
+  if (!value || typeof value !== 'object' || Array.isArray(value)) throw new Error(t("Invalid desktop settings."));
   const patch: Record<string, boolean> = {};
   for (const [name, enabled] of Object.entries(value)) {
-    if (!['background', 'launchAtLogin', 'notifications', 'keepAwake'].includes(name) || typeof enabled !== 'boolean') throw new Error('Invalid desktop settings.');
+    if (!['background', 'launchAtLogin', 'notifications', 'keepAwake'].includes(name) || typeof enabled !== 'boolean') throw new Error(t("Invalid desktop settings."));
     patch[name] = enabled;
   }
   return patch;

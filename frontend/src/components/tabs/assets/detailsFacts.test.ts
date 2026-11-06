@@ -64,6 +64,15 @@ describe('joinFacts', () => {
     const { guided, other } = splitFacts('property', facts)
     expect(splitFacts('property', joinFacts(guided, other))).toEqual({ guided, other })
   })
+
+  it('preserves the original spelling and untouched whitespace of historical facts', () => {
+    const facts: [string, string][] = [
+      ['  tEnUrE  ', ' Freehold '],
+      [' Custom ', ' Value '],
+    ]
+    const { guided, other } = splitFacts('property', facts)
+    expect(joinFacts(guided, other, other)).toEqual(facts)
+  })
 })
 
 describe('labelList', () => {

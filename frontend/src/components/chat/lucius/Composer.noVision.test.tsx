@@ -128,3 +128,12 @@ describe('no-vision notice', () => {
     expect(notice()).toBeNull()
   })
 })
+
+it('warns in Chinese when the attachment cannot be seen', async () => {
+  const { IntlProvider } = await import('react-intl')
+  const messages = (await import('../zh-CN.messages.json')).default
+  render(<IntlProvider locale="zh-CN" messages={messages}><LuciusComposer onSend={vi.fn()} visibleIds={new Set<string>()} screenAwarenessDisabled noVisionModel="text-model" imageReader="" /></IntlProvider>)
+  attach('receipt.jpg', 'image/jpeg')
+  expect(notice()?.textContent).toContain('Lucius 将无法看到此附件')
+  expect(notice()?.textContent).toContain('text-model')
+})

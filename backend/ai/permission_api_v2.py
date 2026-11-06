@@ -16,6 +16,7 @@ provider's tool — so they are not listed.
 
 from __future__ import annotations
 
+import hashlib
 import logging
 from typing import List, Optional
 
@@ -50,6 +51,7 @@ class ToolPermissionRow(BaseModel):
     default_level: str = ""
     # The tool's own first sentence, for the picker and for search. Empty for an MCP tool.
     description: str = ""
+    description_source: Optional[dict[str, str]] = None
     updated_at: str = ""
     # False when the stored tool name no longer resolves in the registry. Always True for an
     # MCP-owned tool, which the registry cannot speak for.
@@ -142,7 +144,10 @@ class PermissionApiV2:
             if runs.is_automation_session(session_id):
                 # The card outlived its Automation (or its run). Falling through would turn
                 # "allow for this Automation" into "allow everywhere" without anyone choosing it.
-                raise ConflictError("This Automation no longer exists, so nothing was changed.")
+                raise ConflictError(
+                    "This Automation no longer exists, so nothing was changed.",
+                    message_id="permissions.error.automationMissing",
+                )
 
         permissions_service.set_tool_permission(owner, tool, level)
         self._mirror_search(owner, tool, level)
@@ -251,6 +256,7 @@ class PermissionApiV2:
         listed: set[tuple[str, str]] = set()
         for owner, tool, _asks in permission_catalog():
             row = stored.get((owner, tool)) or {}
+            description = _first_sentence(tool_description(tool) or "")
             level = row.get("level")
             if level not in permissions_service.LEVELS:
                 level = permissions_service.unrowed_level(tool, yolo=yolo, auto_run=auto_run)
@@ -262,7 +268,13 @@ class PermissionApiV2:
                     # stricter of its own row and the ``core`` copy of the generic name.
                     level=permissions_service.most_restrictive(level, copies.get(tool)) or level,
                     default_level=permissions_service.seed_level(tool),
-                    description=_first_sentence(tool_description(tool) or ""),
+                    description=description,
+                    description_source={
+                        "tool": tool,
+                        "sha256": hashlib.sha256(description.encode("utf-8")).hexdigest(),
+                    }
+                    if description
+                    else None,
                     updated_at=str(row.get("updated_at") or ""),
                 )
             )

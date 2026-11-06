@@ -24,10 +24,11 @@ from __future__ import annotations
 import asyncio
 from typing import Optional
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter
 from pydantic import BaseModel
 
-from backend.core.errors import OpenNetWorthError, to_http_status
+from backend.api.connector_error_responses import connector_domain_error
+from backend.core.errors import OpenNetWorthError
 from backend.db.enable_banking_config_store import EnableBankingConfigStore
 from backend.services.aggregation import enable_banking as enable_banking_service
 
@@ -69,7 +70,7 @@ async def enable_banking_institutions(country: str):
             )
         }
     except OpenNetWorthError as exc:
-        raise HTTPException(to_http_status(exc), exc.message or str(exc)) from exc
+        return connector_domain_error(exc)
 
 
 @router.put("/api/enable-banking/config")
@@ -102,7 +103,7 @@ async def enable_banking_link(body: EnableBankingLinkRequest):
             body.redirect or "",
         )
     except OpenNetWorthError as exc:
-        raise HTTPException(to_http_status(exc), exc.message or str(exc)) from exc
+        return connector_domain_error(exc)
     return result
 
 
@@ -114,6 +115,6 @@ async def enable_banking_complete(body: EnableBankingCompleteRequest):
     try:
         await asyncio.to_thread(enable_banking_service.create_session, body.code)
     except OpenNetWorthError as exc:
-        raise HTTPException(to_http_status(exc), exc.message or str(exc)) from exc
+        return connector_domain_error(exc)
     # Don't leak the session id / raw accounts to the client — return the public status.
     return EnableBankingConfigStore().public()

@@ -1,3 +1,7 @@
+import { getNumberLocale } from '../../utils/format'
+import type { IntlShape } from 'react-intl'
+import { FormattedMessage } from './FormattedMessage'
+import { useAppIntl } from '../../i18n/useAppIntl'
 import { useState } from 'react'
 import { Panel, Skeleton, Stack, Text } from '../ui'
 import { entityRefProps } from '../../utils/mentionable'
@@ -65,58 +69,59 @@ function hostname(url: string): string {
 }
 
 /** Crypto Key Facts from real CoinGecko data (market cap / supply / ATH / launch). */
-function cryptoRows(asset: AssetInfo, cf: CryptoFacts): Row[] {
+function cryptoRows(asset: AssetInfo, cf: CryptoFacts, intl: IntlShape): Row[] {
   const sym = asset.symbol || ''
   const link = cf.homepage ? safeHref(cf.homepage) : null
   return [
-    { label: 'Symbol', value: displayTicker(asset) || asset.name },
-    cf.category && { label: 'Category', value: cf.category },
-    cf.network && { label: 'Network', value: prettyNetwork(cf.network) },
-    cf.market_cap != null && { label: 'Market cap', value: `$${fCompact(cf.market_cap)}` },
-    cf.market_cap_rank != null && { label: 'Rank', value: `#${cf.market_cap_rank}` },
+    { label: intl.formatMessage({ id: 'intel.fact.eb6433cf', defaultMessage: 'Symbol' }), value: displayTicker(asset) || asset.name },
+    cf.category && { label: intl.formatMessage({ id: 'intel.fact.ff3a7b97', defaultMessage: 'Category' }), value: cf.category },
+    cf.network && { label: intl.formatMessage({ id: 'intel.fact.af39be20', defaultMessage: 'Network' }), value: prettyNetwork(cf.network) },
+    cf.market_cap != null && { label: intl.formatMessage({ id: 'intel.fact.3639d608', defaultMessage: 'Market cap' }), value: `$${fCompact(cf.market_cap)}` },
+    cf.market_cap_rank != null && { label: intl.formatMessage({ id: 'intel.fact.284b47db', defaultMessage: 'Rank' }), value: `#${cf.market_cap_rank}` },
     cf.circulating_supply != null && {
-      label: 'Circulating',
+      label: intl.formatMessage({ id: 'intel.fact.6729b655', defaultMessage: 'Circulating' }),
       value: `${fCompact(cf.circulating_supply)}${sym ? ` ${sym}` : ''}`,
     },
     cf.max_supply != null && {
-      label: 'Max supply',
+      label: intl.formatMessage({ id: 'intel.fact.1005f717', defaultMessage: 'Max supply' }),
       value: `${fCompact(cf.max_supply)}${sym ? ` ${sym}` : ''}`,
     },
     cf.ath != null && {
-      label: 'All-time high',
+      label: intl.formatMessage({ id: 'intel.fact.63692d72', defaultMessage: 'All-time high' }),
       value: `$${fPrice(cf.ath)}${cf.ath_date ? ` (${fMonth(cf.ath_date, 'short', 'always')})` : ''}`,
     },
-    cf.genesis_date && { label: 'Launch', value: fMonth(cf.genesis_date, 'short', 'always') },
-    link && { label: 'Website', value: hostname(cf.homepage as string), href: link },
+    cf.genesis_date && { label: intl.formatMessage({ id: 'intel.fact.7e1b52c3', defaultMessage: 'Launch' }), value: fMonth(cf.genesis_date, 'short', 'always') },
+    link && { label: intl.formatMessage({ id: 'intel.fact.88d2647b', defaultMessage: 'Website' }), value: hostname(cf.homepage as string), href: link },
   ].filter(Boolean) as Row[]
 }
 
 /** Equity Key Facts from the (AI-synthesized) brief. */
-function equityRows(asset: AssetInfo, facts: AssetFacts): Row[] {
+function equityRows(asset: AssetInfo, facts: AssetFacts, intl: IntlShape): Row[] {
   const countryCode = facts.country || asset.country
   return [
-    { label: 'Symbol', value: displayTicker(asset) || asset.name },
-    facts.sector && { label: 'Sector', value: facts.sector },
-    facts.industry && { label: 'Industry', value: facts.industry },
+    { label: intl.formatMessage({ id: 'intel.fact.eb6433cf', defaultMessage: 'Symbol' }), value: displayTicker(asset) || asset.name },
+    facts.sector && { label: intl.formatMessage({ id: 'intel.fact.4c0fdcde', defaultMessage: 'Sector' }), value: facts.sector },
+    facts.industry && { label: intl.formatMessage({ id: 'intel.fact.348c0ef6', defaultMessage: 'Industry' }), value: facts.industry },
     (facts.exchange || asset.exchange) && {
-      label: 'Exchange',
+      label: intl.formatMessage({ id: 'intel.fact.2a4dd22f', defaultMessage: 'Exchange' }),
       value: facts.exchange || asset.exchange || '',
     },
-    countryCode && { label: 'Country', value: `${countryFlag(countryCode)} ${countryCode}` },
-    facts.ceo && { label: 'CEO', value: facts.ceo },
-    facts.employees && { label: 'Employees', value: facts.employees.toLocaleString() },
+    countryCode && { label: intl.formatMessage({ id: 'intel.fact.9ccef0fa', defaultMessage: 'Country' }), value: `${countryFlag(countryCode)} ${countryCode}` },
+    facts.ceo && { label: intl.formatMessage({ id: 'intel.fact.e6f00dca', defaultMessage: 'CEO' }), value: facts.ceo },
+    facts.employees && { label: intl.formatMessage({ id: 'intel.fact.387341a3', defaultMessage: 'Employees' }), value: facts.employees.toLocaleString(getNumberLocale()) },
     facts.ipo_date && {
-      label: 'IPO Date',
+      label: intl.formatMessage({ id: 'intel.fact.64023ffd', defaultMessage: 'IPO Date' }),
       value: fDate(facts.ipo_date, 'short', 'always'),
     },
   ].filter(Boolean) as Row[]
 }
 
 export function KeyFactsCard({ asset, instrumentId, facts, cryptoFacts, generating }: Props) {
+  const intl = useAppIntl()
   const [expanded, setExpanded] = useState(false)
 
   const isCrypto = !!cryptoFacts
-  const rows = isCrypto ? cryptoRows(asset, cryptoFacts) : equityRows(asset, facts)
+  const rows = isCrypto ? cryptoRows(asset, cryptoFacts, intl) : equityRows(asset, facts, intl)
 
   const desc = asset.description
   const descPreview = desc && !expanded ? desc.slice(0, 200) + (desc.length > 200 ? '…' : '') : desc
@@ -128,13 +133,13 @@ export function KeyFactsCard({ asset, instrumentId, facts, cryptoFacts, generati
 
   return (
     <Panel
-      title="Key Facts"
+      title={intl.formatMessage({ id: "intel.field.c07e63e7", defaultMessage: "Key Facts" })}
       className="asd-rail-panel"
       actions={
         showGenerating ? (
-          <span className="asd-pi-updating" role="status" aria-label="Key facts are generating">
+          <span className="asd-pi-updating" role="status" aria-label={intl.formatMessage({ id: "intel.field.9f246b11", defaultMessage: "Key facts are generating" })}>
             <span className="ui-btn__spinner" aria-hidden="true" />
-            Generating
+            {<FormattedMessage id="intel.extra.fcbce60e" defaultMessage={"Generating"} />}
           </span>
         ) : undefined
       }
@@ -165,7 +170,7 @@ export function KeyFactsCard({ asset, instrumentId, facts, cryptoFacts, generati
         ))}
 
         {showGenerating && (
-          <div className="asd-skel-stack" role="status" aria-label="Generating">
+          <div className="asd-skel-stack" role="status" aria-label={intl.formatMessage({ id: "intel.field.fcbce60e", defaultMessage: "Generating" })}>
             <Skeleton height={13} width="85%" />
             <Skeleton height={13} width="70%" />
             <Skeleton height={13} width="60%" />
@@ -183,7 +188,7 @@ export function KeyFactsCard({ asset, instrumentId, facts, cryptoFacts, generati
                 className="asd-fact-desc-toggle"
                 onClick={() => setExpanded((e) => !e)}
               >
-                {expanded ? 'Show less' : 'View more'}
+                {expanded ? intl.formatMessage({ id: 'miss.showLess', defaultMessage: 'Show less' }) : intl.formatMessage({ id: 'miss.viewMore', defaultMessage: 'View more' })}
               </button>
             )}
           </div>
@@ -192,12 +197,12 @@ export function KeyFactsCard({ asset, instrumentId, facts, cryptoFacts, generati
         {/* Crypto facts are real CoinGecko data; equity facts are AI-synthesized. */}
         {isCrypto ? (
           <Text size="xs" tone="faint" className="asd-fact-disclaimer">
-            Data via CoinGecko
+            {<FormattedMessage id="intel.extra.5bdc80be" defaultMessage={"Data via CoinGecko"} />}
           </Text>
         ) : (
           facts.unverified && (
             <Text size="xs" tone="faint" className="asd-fact-disclaimer">
-              AI-generated facts, may be inaccurate.
+              {<FormattedMessage id="intel.extra.f1f123a3" defaultMessage={"AI-generated facts, may be inaccurate."} />}
             </Text>
           )
         )}

@@ -23,6 +23,7 @@ export type CallProblemKind = 'mic' | 'insecure' | 'setup' | 'dropped' | 'servic
 export interface CallProblem {
   kind: CallProblemKind
   message: string
+  messageCode?: 'micMac' | 'micSystem' | 'micBrowser' | 'micMissing' | 'insecure' | 'left' | 'dropped' | 'noPickup' | 'startFailed'
   /** The service's own words (LiveKit's refusal), for the notice's Details. */
   detail?: string
 }
@@ -204,12 +205,12 @@ function classify(e: unknown): CallProblem {
   const name = e instanceof Error ? e.name : ''
   const message = e instanceof Error ? e.message : String(e)
   if (name === 'NotAllowedError' || /permission denied/i.test(message)) {
-    return { kind: 'mic', message: micBlockedMessage() }
+    return { kind: 'mic', message: micBlockedMessage(), messageCode: desktopClientBridge()?.openMicrophoneSettings ? 'micMac' : desktopBridge() || desktopClientBridge() ? 'micSystem' : 'micBrowser' }
   }
   if (name === 'NotFoundError') {
-    return { kind: 'mic', message: 'No microphone was found. Connect one, then try again.' }
+    return { kind: 'mic', message: 'No microphone was found. Connect one, then try again.', messageCode: 'micMissing' }
   }
-  return { kind: 'other', message: message || 'The call could not start.' }
+  return message ? { kind: 'other', message } : { kind: 'other', message: 'The call could not start.', messageCode: 'startFailed' }
 }
 
 const FOLLOW_MS = 1500
@@ -273,7 +274,7 @@ export async function startCall(sessionId: string): Promise<void> {
       ...IDLE,
       problem: {
         kind: 'insecure',
-        message: 'Calls need a secure address: open the app on localhost or over HTTPS.',
+        message: 'Calls need a secure address: open the app on localhost or over HTTPS.', messageCode: 'insecure',
       },
     })
     return
@@ -346,7 +347,7 @@ export async function startCall(sessionId: string): Promise<void> {
       window.clearTimeout(leftTimer)
       leftTimer = window.setTimeout(() => {
         if (room !== next) return
-        endProblem = { kind: 'dropped', message: 'Lucius left the call. Call again to keep going.' }
+        endProblem = { kind: 'dropped', message: 'Lucius left the call. Call again to keep going.', messageCode: 'left' }
         void next.disconnect()
       }, LEFT_GRACE_MS)
     })
@@ -357,14 +358,14 @@ export async function startCall(sessionId: string): Promise<void> {
       // owner's own hang-up. Any other disconnect is a dropped call, said as such.
       const ended = !endProblem && (localHangUp || reason === DisconnectReason.ROOM_DELETED)
       const byUs = localHangUp
-      finish(ended ? null : (endProblem ?? { kind: 'dropped', message: 'The call dropped.' }))
+      finish(ended ? null : (endProblem ?? { kind: 'dropped', message: 'The call dropped.', messageCode: 'dropped' }))
       if (!byUs) void explainEnd()
     })
     await next.connect(grant.url, grant.token)
     set({ sessionId: grant.session_id, phase: 'ringing' })
     pickupTimer = window.setTimeout(() => {
       if (room !== next || state.phase !== 'ringing') return
-      endProblem = { kind: 'setup', message: "Lucius didn't pick up." }
+      endProblem = { kind: 'setup', message: "Lucius didn't pick up.", messageCode: 'noPickup' }
       void next.disconnect()
     }, PICKUP_TIMEOUT_MS)
     // The call's small talk is recorded in a few ms — gone before the 4s live poll looks — so

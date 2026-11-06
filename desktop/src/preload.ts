@@ -1,6 +1,14 @@
 import { contextBridge, ipcRenderer } from 'electron';
 import type { DesktopBridge, DesktopClientBridge, DesktopCommand, DesktopUpdateState } from './contracts';
 
+let displayRequestPending = false;
+let displayRequestListener: (() => void) | null = null;
+ipcRenderer.on('desktop-client:request-profile-display', () => {
+  ipcRenderer.send('desktop-client:browser-languages', Array.from(navigator.languages));
+  if (displayRequestListener) displayRequestListener();
+  else displayRequestPending = true;
+});
+
 const bridge: DesktopBridge = {
   version: 1,
   chooseImportFiles: () => ipcRenderer.invoke('desktop:choose-import'),
@@ -29,6 +37,14 @@ const bridge: DesktopBridge = {
 
 const client: DesktopClientBridge = {
   version: 1,
+  setLocale: locale => ipcRenderer.send('desktop-client:locale', locale),
+  setDateFormat: format => ipcRenderer.send('desktop-client:date-format', format),
+  setProfileDisplay: (locale, format) => ipcRenderer.send('desktop-client:profile-display', locale, format),
+  onRequestProfileDisplay: listener => {
+    displayRequestListener = listener;
+    if (displayRequestPending) { displayRequestPending = false; listener(); }
+    return () => { if (displayRequestListener === listener) displayRequestListener = null; };
+  },
   getConnection: () => ipcRenderer.invoke('desktop-client:get-connection'),
   changeConnection: (serverForm?: boolean) => ipcRenderer.invoke('desktop-client:change-connection', serverForm === true),
   openBrowser: () => ipcRenderer.invoke('desktop-client:open-browser'),
@@ -92,16 +108,27 @@ if (process.isMainFrame) {
 
   contextBridge.exposeInMainWorld('onwDesktop', Object.freeze(bridge));
   // A book that moved to a Private Cloud: a quiet note on the page, so the old copy is never mistaken for the live one.
-  ipcRenderer.on('desktop-moved:banner', (_event, info: { when?: unknown }) => {
+  ipcRenderer.on('desktop-moved:banner', (_event, info: { text?: unknown; openLabel?: unknown }) => {
     const show = () => {
-      if (document.getElementById('onw-moved-note') || !document.body) return;
+      if (typeof info?.text !== 'string' || typeof info?.openLabel !== 'string' || !document.body) return;
+      const existing = document.getElementById('onw-moved-note');
+      if (existing) {
+        const text = existing.querySelector('[data-onw-moved-text]');
+        const button = existing.querySelector('button');
+        if (text) text.textContent = info.text;
+        if (button) button.textContent = info.openLabel;
+        return;
+      }
       const note = document.createElement('div');
       note.id = 'onw-moved-note';
       note.setAttribute('role', 'status');
       note.style.cssText = 'position:fixed;left:16px;bottom:16px;z-index:2147483000;max-width:380px;padding:12px 14px;border-radius:10px;background:#1b1f27;color:#f2f2f2;border:1px solid #c8a24a;font:13px/1.45 system-ui,sans-serif;box-shadow:0 6px 24px rgba(0,0,0,.35)';
-      note.append(document.createTextNode(`This book moved to your Private Cloud on ${typeof info?.when === 'string' ? info.when : 'an earlier date'}. Changes made here will not appear there. `));
+      const text = document.createElement('span');
+      text.dataset.onwMovedText = '';
+      text.textContent = info.text;
+      note.append(text);
       const open = document.createElement('button');
-      open.textContent = 'Open Private Cloud';
+      open.textContent = info.openLabel;
       open.style.cssText = 'margin-top:8px;display:block;padding:5px 10px;border-radius:6px;border:1px solid #c8a24a;background:transparent;color:#f2f2f2;font:inherit;cursor:pointer';
       open.addEventListener('click', () => { void ipcRenderer.invoke('desktop:open-cloud'); });
       note.append(open);

@@ -519,3 +519,17 @@ describe('StoryArcCard F11 — bounded feed timeline, fetch the rest on demand',
     })
   })
 })
+
+it('renders structured watch story values in Chinese while retaining user names', async () => {
+  const { IntlProvider } = await import('react-intl')
+  const { default: messages } = await import('./zh-CN.messages.json')
+  const headline = 'ACME: Up 8.0% today'
+  const summary = 'Test Co is on your watchlist, not held — no position at risk.'
+  const watchStory: StoryArc = {
+    ...STORY, label: headline, ticker: 'ACME', summary, portfolio_impact: '', timeline: [], watch: true,
+    watch_presentation: { version: 1, ticker: 'ACME', name: 'Test Co', headline_source: headline, summary_source: summary, impact_source: '', headline_findings: [{ kind: 'big_move', tone: 'good', weight: 1, severity: 'medium', text: 'Up 8.0% today', text_message: { id: 'watchPulse.move', params: { direction: 'up', percent: '8.0' } } }], extra_findings: [] },
+  }
+  const { getByText } = render(<IntlProvider locale="zh-CN" messages={messages}><StoryArcCard story={watchStory} onAskLucius={noop} /></IntlProvider>, { wrapper: Wrapper })
+  expect(getByText('ACME：今日上涨 8.0%')).toBeTruthy()
+  expect(getByText('Test Co 在您的自选列表中，您未持有该标的 — 没有持仓风险。')).toBeTruthy()
+})

@@ -139,8 +139,10 @@ def test_outcomes_reads_only_the_outcome_fields_oldest_first(stores):
         "started_at",
         "finished_at",
         "error",
+        "error_message",
     }
     assert rows[1]["error"] == "boom"
+    assert rows[1]["error_message"] is None
 
 
 def test_the_conversation_list_carries_each_runs_status(stores, monkeypatch):

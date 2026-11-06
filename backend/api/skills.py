@@ -31,19 +31,66 @@ here.
 from __future__ import annotations
 
 import io
+import json
 import stat
 import zipfile
-from pathlib import PurePosixPath
+from pathlib import Path, PurePosixPath
 from typing import Optional
 
-from fastapi import APIRouter, File, HTTPException, Response, UploadFile
+from fastapi import APIRouter, File, HTTPException, Request, Response, UploadFile
+from fastapi.responses import JSONResponse
+from fastapi.routing import APIRoute
 from pydantic import BaseModel
 
 from backend.core.errors import ValidationError
+from backend.core.skill_problem import problem_messages
 from backend.db.skill_store import SkillStore, validate_skill_id
 from backend.services import skills as skills_service
 
-router = APIRouter()
+
+class SkillError(HTTPException):
+    def __init__(
+        self,
+        status_code: int,
+        detail: str,
+        message_id: str,
+        *,
+        items: list[dict] | None = None,
+        **params: str,
+    ):
+        super().__init__(status_code, detail)
+        self.message_id = message_id
+        self.params = params
+        self.items = items
+
+
+class SkillRoute(APIRoute):
+    def get_route_handler(self):
+        handler = super().get_route_handler()
+
+        async def handle(request: Request):
+            try:
+                return await handler(request)
+            except SkillError as exc:
+                return JSONResponse(
+                    status_code=exc.status_code,
+                    content={
+                        "detail": exc.detail,
+                        "message_id": exc.message_id,
+                        "message_params": exc.params,
+                        **({"message_items": exc.items} if exc.items is not None else {}),
+                    },
+                )
+
+        return handle
+
+
+router = APIRouter(route_class=SkillRoute)
+_VALIDATION_CONTRACT = json.loads(
+    (Path(__file__).resolve().parents[1] / "core/skill_validation_contract.json").read_text(
+        encoding="utf-8"
+    )
+)
 
 # Upload safety caps (zip-bomb / zip-slip defense for POST /api/skills/upload).
 _MAX_ZIP_BYTES = 5 * 1024 * 1024  # 5 MB compressed input cap
@@ -60,7 +107,7 @@ def _validated_skill_id(skill_id: str) -> str:
     try:
         return validate_skill_id(skill_id)
     except ValidationError as exc:
-        raise HTTPException(status_code=422, detail=exc.message or str(exc)) from exc
+        raise SkillError(422, exc.message or str(exc), "skills.error.invalidId") from exc
 
 
 # ── Bodies ─────────────────────────────────────────────────────────────────────
@@ -101,7 +148,9 @@ def create_skill(body: SkillCreate):
     candidate = body.model_dump()
     problems = skills_service.validate(candidate, require_standard_fields=True)
     if problems:
-        raise HTTPException(400, "; ".join(problems))
+        raise SkillError(
+            400, "; ".join(problems), "skills.error.validation", items=problem_messages(problems)
+        )
     return {"ok": True, "skill": _store().create({**candidate, "author": "user"})}
 
 
@@ -114,6 +163,8 @@ def create_skill(body: SkillCreate):
 def list_starters():
     """Built-in starter skills NOT yet present in the library (so the Browse modal only
     offers ones the user can add). Returns ``[{id,name,description,category}]``."""
+    import hashlib
+
     from backend.db.skill_store import STARTER_SKILLS
 
     existing = {s.get("id") for s in _store().all()}
@@ -122,6 +173,15 @@ def list_starters():
             "id": s["id"],
             "name": s.get("name", ""),
             "description": s.get("description", ""),
+            "starter_source": {
+                "id": s["id"],
+                **{
+                    f"{field}_sha256": hashlib.sha256(
+                        str(s.get(field, "")).encode("utf-8")
+                    ).hexdigest()
+                    for field in ("name", "description")
+                },
+            },
         }
         for s in STARTER_SKILLS
         if s.get("id") not in existing
@@ -136,7 +196,7 @@ def add_starter(starter_id: str):
 
     starter = next((s for s in STARTER_SKILLS if s.get("id") == starter_id), None)
     if starter is None:
-        raise HTTPException(404, "Unknown starter skill")
+        raise SkillError(404, "Unknown starter skill", "skills.error.unknownStarter")
     store = _store()
     existing = store.find_by_id(starter_id)
     # The managed skill-creator installer must run even when the skill record already exists:
@@ -147,11 +207,15 @@ def add_starter(starter_id: str):
         ensure_skill_creator_installed()
         created = store.find_by_id(starter_id)
         if created is None:
-            raise HTTPException(500, "Managed skill-creator install did not persist the skill")
+            raise SkillError(
+                500,
+                "Managed skill-creator install did not persist the skill",
+                "skills.error.managedInstall",
+            )
         return {"ok": True, "skill": created, **({"already": True} if existing else {})}
     if existing is not None:
         return {"ok": True, "skill": existing, "already": True}
-    store.create({**starter, "author": "builtin"})
+    store.create({**starter, "author": "builtin", "_starter_source": starter_id})
     from backend.services.starter_skill_files import write_starter_files
 
     write_starter_files(starter_id)
@@ -172,11 +236,16 @@ def _safe_unzip(raw: bytes) -> dict[str, bytes]:
     try:
         zf = zipfile.ZipFile(io.BytesIO(raw))
     except zipfile.BadZipFile:
-        raise HTTPException(400, "Not a valid .zip file")
+        raise SkillError(400, "Not a valid .zip file", "skills.error.invalidZip")
 
     infos = zf.infolist()
     if len(infos) > _MAX_ENTRIES:
-        raise HTTPException(400, f"Too many files in the zip (>{_MAX_ENTRIES})")
+        raise SkillError(
+            400,
+            f"Too many files in the zip (>{_MAX_ENTRIES})",
+            "skills.error.tooManyFiles",
+            maximum=str(_MAX_ENTRIES),
+        )
 
     out: dict[str, bytes] = {}
     total = 0
@@ -186,7 +255,12 @@ def _safe_unzip(raw: bytes) -> dict[str, bytes]:
             continue
         # Symlink reject (the high 16 bits of external_attr hold the unix mode).
         if stat.S_ISLNK((zi.external_attr >> 16) & 0xFFFF):
-            raise HTTPException(400, f"Zip contains a symlink ('{name}') — refused")
+            raise SkillError(
+                400,
+                f"Zip contains a symlink ('{name}') — refused",
+                "skills.error.symlink",
+                path=name,
+            )
         # Path-traversal / absolute-path reject.
         path = PurePosixPath(name)
         canonical_name = path.as_posix()
@@ -197,14 +271,29 @@ def _safe_unzip(raw: bytes) -> dict[str, bytes]:
             or any(part in {"", ".", ".."} for part in name.split("/"))
             or canonical_name != name
         ):
-            raise HTTPException(400, f"Unsafe path in zip: '{name}'")
+            raise SkillError(
+                400, f"Unsafe path in zip: '{name}'", "skills.error.unsafePath", path=name
+            )
         if canonical_name in out:
-            raise HTTPException(400, f"Duplicate path in zip: '{canonical_name}'")
+            raise SkillError(
+                400,
+                f"Duplicate path in zip: '{canonical_name}'",
+                "skills.error.duplicatePath",
+                path=canonical_name,
+            )
         if zi.file_size > _MAX_ENTRY_BYTES:
-            raise HTTPException(400, f"File '{name}' is too large (>{_MAX_ENTRY_BYTES} bytes)")
+            raise SkillError(
+                400,
+                f"File '{name}' is too large (>{_MAX_ENTRY_BYTES} bytes)",
+                "skills.error.fileTooLarge",
+                path=name,
+                maximum=str(_MAX_ENTRY_BYTES),
+            )
         total += zi.file_size
         if total > _MAX_TOTAL_UNCOMPRESSED:
-            raise HTTPException(400, "Zip contents exceed the total size limit")
+            raise SkillError(
+                400, "Zip contents exceed the total size limit", "skills.error.zipTotal"
+            )
         with zf.open(zi) as fh:
             out[canonical_name] = fh.read(_MAX_ENTRY_BYTES + 1)
     return out
@@ -234,7 +323,9 @@ def _sub_files(files: dict[str, bytes], prefix: str) -> dict[str, str]:
         try:
             out[path[len(prefix) :]] = content.decode("utf-8")
         except UnicodeDecodeError as exc:
-            raise HTTPException(400, f"'{path}' must be UTF-8 text") from exc
+            raise SkillError(
+                400, f"'{path}' must be UTF-8 text", "skills.error.fileEncoding", path=str(path)
+            ) from exc
     return out
 
 
@@ -257,14 +348,21 @@ async def upload_skill(file: UploadFile = File(...)):
     """
     raw = await file.read(_MAX_ZIP_BYTES + 1)
     if len(raw) > _MAX_ZIP_BYTES:
-        raise HTTPException(400, f"Upload exceeds the {_MAX_ZIP_BYTES}-byte limit")
+        raise SkillError(
+            400,
+            f"Upload exceeds the {_MAX_ZIP_BYTES}-byte limit",
+            "skills.error.uploadSize",
+            maximum=str(_MAX_ZIP_BYTES),
+        )
     if not raw:
-        raise HTTPException(400, "Empty upload")
+        raise SkillError(400, "Empty upload", "skills.error.emptyUpload")
 
     files = _strip_common_wrapper(_safe_unzip(raw))  # G1: unwrap a `skill-name/` directory
     if "SKILL.md" not in files:
-        raise HTTPException(
-            400, "Zip must contain a SKILL.md (standard frontmatter + instructions)"
+        raise SkillError(
+            400,
+            "Zip must contain a SKILL.md (standard frontmatter + instructions)",
+            "skills.error.missingSkillFile",
         )
 
     from backend.services.skill_bundles import (
@@ -280,14 +378,20 @@ async def upload_skill(file: UploadFile = File(...)):
     try:
         skill_md = files["SKILL.md"].decode("utf-8")
     except UnicodeDecodeError as exc:
-        raise HTTPException(400, "SKILL.md must be UTF-8 text") from exc
+        raise SkillError(400, "SKILL.md must be UTF-8 text", "skills.error.skillEncoding") from exc
     meta, body = parse_skill_md(skill_md)
 
     from backend.services.skill_bundles import validate_skill_md_frontmatter
 
     frontmatter_problems = validate_skill_md_frontmatter(meta)
     if frontmatter_problems:
-        raise HTTPException(400, "Invalid SKILL.md: " + "; ".join(frontmatter_problems))
+        raise SkillError(
+            400,
+            "Invalid SKILL.md: " + "; ".join(frontmatter_problems),
+            "skills.error.invalidSkillFile",
+            reason="; ".join(frontmatter_problems),
+            items=problem_messages(frontmatter_problems),
+        )
 
     name = str(meta["name"]).strip()
 
@@ -296,10 +400,18 @@ async def upload_skill(file: UploadFile = File(...)):
     try:
         openai_text = files.get("agents/openai.yaml", b"").decode("utf-8")
     except UnicodeDecodeError as exc:
-        raise HTTPException(400, "agents/openai.yaml must be UTF-8 text") from exc
+        raise SkillError(
+            400, "agents/openai.yaml must be UTF-8 text", "skills.error.openaiEncoding"
+        ) from exc
     openai_problems = validate_openai_yaml(openai_text)
     if openai_problems:
-        raise HTTPException(400, "Invalid agents/openai.yaml: " + "; ".join(openai_problems))
+        raise SkillError(
+            400,
+            "Invalid agents/openai.yaml: " + "; ".join(openai_problems),
+            "skills.error.invalidOpenaiFile",
+            reason="; ".join(openai_problems),
+            items=problem_messages(openai_problems),
+        )
     openai = parse_openai_yaml(openai_text)
     # Old ONW-only sidecars are intentionally discarded during canonical import.
     _RESERVED = {"SKILL.md", "onw.yaml", "manifest.json", "agents/openai.yaml"}
@@ -325,7 +437,13 @@ async def upload_skill(file: UploadFile = File(...)):
     }
     problems = skills_service.validate(candidate, require_standard_fields=True)
     if problems:
-        raise HTTPException(400, "Invalid skill: " + "; ".join(problems))
+        raise SkillError(
+            400,
+            "Invalid skill: " + "; ".join(problems),
+            "skills.error.invalidSkill",
+            reason="; ".join(problems),
+            items=problem_messages(problems),
+        )
 
     store = _store()
     warnings = body_advisories(body)
@@ -356,7 +474,30 @@ async def upload_skill(file: UploadFile = File(...)):
         )
     except Exception as exc:  # noqa: BLE001 — roll back the dangling record on any bundle failure
         store.delete(sid)
-        raise HTTPException(400, f"Invalid skill bundle: {exc}")
+        items = None
+        reason_message_id = ""
+        if isinstance(exc, ValidationError):
+            message_id = exc.context.get("message_id")
+            params = exc.context.get("message_params", {})
+            if (
+                isinstance(message_id, str)
+                and message_id in _VALIDATION_CONTRACT
+                and isinstance(params, dict)
+                and set(params) == set(_VALIDATION_CONTRACT[message_id])
+                and all(isinstance(v, str) for v in params.values())
+            ):
+                items = [{"text": str(exc), "message_id": message_id, "params": params}]
+                if message_id == "skills.validation.manifestInvalid":
+                    reason_message_id = message_id
+                    items = exc.context.get("message_items") or items
+        raise SkillError(
+            400,
+            f"Invalid skill bundle: {exc}",
+            "skills.error.invalidBundle",
+            reason=str(exc),
+            reason_message_id=reason_message_id,
+            items=items,
+        )
     updated = store.find_by_id(sid) or created
     return {"ok": True, "skill": updated, "warnings": warnings}
 
@@ -444,7 +585,7 @@ def get_skill(skill_id: str):
     skill_id = _validated_skill_id(skill_id)
     s = _store().find_by_id(skill_id)
     if s is None:
-        raise HTTPException(404, "Skill not found")
+        raise SkillError(404, "Skill not found", "skills.error.notFound")
     known = skills_service.tool_names()
     return skills_service.to_list_row(s, known_tools=known)
 
@@ -454,15 +595,17 @@ def update_skill(skill_id: str, body: SkillUpdate):
     skill_id = _validated_skill_id(skill_id)
     existing = _store().find_by_id(skill_id)
     if existing is None:
-        raise HTTPException(404, "Skill not found")
+        raise SkillError(404, "Skill not found", "skills.error.notFound")
     changes = dict(body.changes)
     merged = {**existing, **changes}
     problems = skills_service.validate(merged, require_standard_fields=True)
     if problems:
-        raise HTTPException(400, "; ".join(problems))
+        raise SkillError(
+            400, "; ".join(problems), "skills.error.validation", items=problem_messages(problems)
+        )
     s = _store().update_skill(skill_id, changes)
     if s is None:
-        raise HTTPException(404, "Skill not found")
+        raise SkillError(404, "Skill not found", "skills.error.notFound")
     return {"ok": True, "skill": s}
 
 
@@ -505,7 +648,7 @@ def get_skill_bundle(skill_id: str):
     skill_id = _validated_skill_id(skill_id)
     s = _store().find_by_id(skill_id)
     if s is None:
-        raise HTTPException(404, "Skill not found")
+        raise SkillError(404, "Skill not found", "skills.error.notFound")
     return _bundle_view(s)
 
 
@@ -517,7 +660,7 @@ def export_skill(skill_id: str):
     skill_id = _validated_skill_id(skill_id)
     s = _store().find_by_id(skill_id)
     if s is None:
-        raise HTTPException(404, "Skill not found")
+        raise SkillError(404, "Skill not found", "skills.error.notFound")
     data = _build_skill_zip(s)
     slug = (
         "".join(c if c.isalnum() else "-" for c in (s.get("name") or "skill").lower()).strip("-")[
@@ -536,5 +679,5 @@ def export_skill(skill_id: str):
 def delete_skill(skill_id: str):
     skill_id = _validated_skill_id(skill_id)
     if not _store().delete(skill_id):
-        raise HTTPException(404, "Skill not found")
+        raise SkillError(404, "Skill not found", "skills.error.notFound")
     return {"ok": True}

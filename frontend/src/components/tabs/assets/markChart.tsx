@@ -1,3 +1,4 @@
+import { fFixed } from '../../../utils/format'
 // The asset page's value chart — the stepped line through every point in `marks` (valuations
 // and the derived purchase point), held forward to today at the asset's current value, with the
 // purchase price as a dashed line. The domain math is pure and unit-tested (markChartModel.ts);
@@ -17,7 +18,7 @@ import type { OwnedAsset } from '../../../types/assets'
 import { useTheme } from '../../../theme'
 import { cssToken } from '../../../utils/chartTheme'
 import { Text } from '../../ui'
-import { purchaseCopy } from './assetCategoryRules'
+import { useAppIntl } from '../../../i18n/useAppIntl'
 import { fmt, fmtK, monthYear } from './assetsData'
 import {
   COLOR_TOKEN,
@@ -51,6 +52,12 @@ export interface MarkChartProps {
  *  today. Chart chrome needs CONCRETE colors (canvas can't resolve `var(--token)`), so it
  *  rebuilds whenever the resolved theme flips — see TrajectoryChart.tsx for the same pattern. */
 export function MarkChart({ a }: MarkChartProps) {
+  const intl = useAppIntl()
+  const valueLabel = intl.formatMessage({ id: 'assets.value.label', defaultMessage: 'Value' })
+  const costLabel =
+    a.category === 'policy'
+      ? intl.formatMessage({ id: 'assets.sections.premiums', defaultMessage: 'Premiums paid' })
+      : intl.formatMessage({ id: 'assets.sections.boughtFor', defaultMessage: 'Bought for' })
   // Every figure the chart draws. Correcting an older value, or a Purchase edit, changes neither
   // the current value nor the number of points — the chart must still redraw.
   const drawn = [a.value, a.cost, ...a.marks.flatMap((m) => [m.id, m.date, m.value])].join('|')
@@ -74,7 +81,7 @@ export function MarkChart({ a }: MarkChartProps) {
 
     const datasets: Chart['data']['datasets'] = [
       {
-        label: 'Value',
+        label: valueLabel,
         data: series,
         borderColor: cssToken(COLOR_TOKEN[model.colorKey]),
         backgroundColor: rgbaFromToken(COLOR_TOKEN[model.colorKey], 0.14),
@@ -100,7 +107,7 @@ export function MarkChart({ a }: MarkChartProps) {
     ]
     if (costLine) {
       datasets.push({
-        label: purchaseCopy(a.category).chartLabel,
+        label: costLabel,
         data: [
           { x: costLine.x0, y: costLine.value },
           { x: costLine.xMax, y: costLine.value },
@@ -176,7 +183,7 @@ export function MarkChart({ a }: MarkChartProps) {
                 if (!m) return ''
                 if (a.cost == null || m.value === a.cost) return fmt(m.value)
                 const d = m.value - a.cost
-                return `${fmt(m.value)}   ${d >= 0 ? '+' : '−'}${Math.abs((d / a.cost) * 100).toFixed(1)}%`
+                return `${fmt(m.value)}   ${d >= 0 ? '+' : '−'}${fFixed(Math.abs((d / a.cost) * 100), 1)}%`
               },
             },
           },
@@ -234,7 +241,7 @@ export function MarkChart({ a }: MarkChartProps) {
         },
       },
     })
-  }, [a.id, drawn, theme])
+  }, [a.id, drawn, theme, valueLabel, costLabel])
 
   useEffect(() => {
     return () => {
@@ -252,7 +259,7 @@ export function MarkChart({ a }: MarkChartProps) {
         <span>
           {/* The swatch is the line's own colour: good above the purchase price, bad below. */}
           <i style={{ background: `var(${COLOR_TOKEN[valueColorKey(a.value, a.cost)]})` }} />
-          Value
+          {valueLabel}
         </span>
         {/* The dashed horizontal line IS this dataset (pushed above only when a.cost != null)
             — it had no legend entry at all, so it read as an unexplained line on the chart. */}
@@ -264,12 +271,15 @@ export function MarkChart({ a }: MarkChartProps) {
                   'repeating-linear-gradient(to right, var(--faint) 0 4px, transparent 4px 8px)',
               }}
             />
-            {purchaseCopy(a.category).chartLabel}
+            {costLabel}
           </span>
         )}
         {a.marks.length === 1 && (
           <Text size="xs" tone="muted">
-            One value so far — update it to see a trend
+            {intl.formatMessage({
+              id: 'assets.chart.oneValue',
+              defaultMessage: 'One value so far — update it to see a trend',
+            })}
           </Text>
         )}
       </div>

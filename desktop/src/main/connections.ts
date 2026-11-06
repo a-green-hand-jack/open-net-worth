@@ -1,3 +1,4 @@
+import { message as t } from './native-messages';
 import { isIP } from 'node:net';
 import { setTimeout as delay } from 'node:timers/promises';
 import type { BookFolder } from './book-folder';
@@ -23,13 +24,13 @@ function withScheme(input: string): string {
 }
 
 export function serverAddress(value: string): ServerAddress {
-  if (typeof value !== 'string' || value.length > 2048) throw new Error('Enter a server URL.');
+  if (typeof value !== 'string' || value.length > 2048) throw new Error(t("Enter a server URL."));
   const input = withScheme(value.trim());
   let url: URL;
-  try { url = new URL(input); } catch { throw new Error('Enter a complete server URL, such as https://wealth.example.com.'); }
-  if (!['http:', 'https:'].includes(url.protocol) || url.username || url.password || url.pathname !== '/' || /[?#]/.test(input)) throw new Error('Use the server origin only, without credentials, a path, query or fragment.');
+  try { url = new URL(input); } catch { throw new Error(t("Enter a complete server URL, such as https://wealth.example.com.")); }
+  if (!['http:', 'https:'].includes(url.protocol) || url.username || url.password || url.pathname !== '/' || /[?#]/.test(input)) throw new Error(t("Use the server origin only, without credentials, a path, query or fragment."));
   const { loopback, privateHost } = hostKind(url.hostname);
-  if (url.protocol === 'http:' && !loopback && !privateHost) throw new Error('Use HTTPS for this server. HTTP is available only for loopback or a private local-network address.');
+  if (url.protocol === 'http:' && !loopback && !privateHost) throw new Error(t("Use HTTPS for this server. HTTP is available only for loopback or a private local-network address."));
   return { origin: url.origin, insecure: url.protocol === 'http:' && !loopback };
 }
 
@@ -50,7 +51,7 @@ export async function validateServer(origin: string, signal: AbortSignal, fetche
     const login = await auth.json() as Record<string, unknown>;
     if (typeof login.required !== 'boolean' || typeof login.authenticated !== 'boolean') throw new Error();
     if (signal.aborted) throw new Error();
-  } catch { throw new Error('Could not reach a compatible Open Net Worth server. Check the URL, connection and server certificate, then try again.'); }
+  } catch { throw new Error(t("Could not reach a compatible Open Net Worth server. Check the URL, connection and server certificate, then try again.")); }
 }
 
 export interface ServerWait {
@@ -76,7 +77,7 @@ export async function waitForServer(origin: string, signal: AbortSignal, wait: S
     catch (error) { if (signal.aborted || now() + pause > deadline) throw error; }
     wait.onPause?.(pause);
     await sleep(pause, signal);
-    if (signal.aborted) throw new Error('Stopped waiting for the server.');
+    if (signal.aborted) throw new Error(t("Stopped waiting for the server."));
     pause = Math.min(pause * 2, wait.maxDelayMs ?? 5000);
   }
 }
@@ -102,7 +103,7 @@ export class ConnectionSwitcher {
       this.current = previous;
       try { await this.lifecycle.open(previous); } catch { await this.lifecycle.recover(previous); }
       const reason = error instanceof Error ? `${error.message} ` : '';
-      throw new Error(`${reason}The selected connection could not open. Your previous connection has been kept.`);
+      throw new Error(`${reason}${t('The selected connection could not open. Your previous connection has been kept.')}`);
     }
   }
 }

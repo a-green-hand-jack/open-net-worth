@@ -170,7 +170,13 @@ def test_bulk_update_payee_skips_transfer(env):
     p = payee_registry.create_payee("Green Smoothie Bar")
     result = svc.bulk_update_transactions([t["id"]], {"payee_id": p["id"]})
     assert result["count"] == 0
-    assert result["skipped"] == [{"id": t["id"], "reason": "payee not allowed on this kind"}]
+    assert result["skipped"] == [
+        {
+            "id": t["id"],
+            "reason": "payee not allowed on this kind",
+            "reason_message": {"id": "ledger.bulk.payee_kind", "params": {}},
+        }
+    ]
     assert svc.transactions.find_by_id(t["id"]).get("payee_id") is None
 
 

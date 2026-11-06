@@ -1,3 +1,4 @@
+import { useAppIntl } from '../../i18n/useAppIntl'
 import { Check, X } from '../../ui/icons'
 
 // Scan progress indicator — distinct from the chat "Ask Lucius" flow. A centered
@@ -9,6 +10,7 @@ export type ScanState =
   | null
 
 export function ScanToast({ scan, onClose }: { scan: ScanState; onClose: () => void }) {
+  const intl = useAppIntl()
   if (!scan) return null
   const scanning = scan.phase === 'scanning'
   const error = scan.phase === 'error'
@@ -32,22 +34,22 @@ export function ScanToast({ scan, onClose }: { scan: ScanState; onClose: () => v
           <div className="intel-scan-title">
             {scanning ? (
               <>
-                Analysing key developments <span className="intel-scan-spark">✦</span>
+                {intl.formatMessage({ id: 'intel.analysing', defaultMessage: 'Analysing key developments' })} <span className="intel-scan-spark">✦</span>
               </>
             ) : error ? (
-              'Scan failed'
+              intl.formatMessage({ id: 'intel.scanFailed', defaultMessage: 'Scan failed' })
             ) : scan.phase === 'pending' ? (
-              'Scan processing'
+              intl.formatMessage({ id: 'intel.scanProcessing', defaultMessage: 'Scan processing' })
             ) : (
-              'Up to date'
+              intl.formatMessage({ id: 'intel.upToDate', defaultMessage: 'Up to date' })
             )}
           </div>
           <div className="intel-scan-sub">
-            {scanning ? 'Re-scanning your holdings and watchlists…' : scan.msg}
+            {scanning ? intl.formatMessage({ id: 'intel.rescanning', defaultMessage: 'Re-scanning your holdings and watchlists…' }) : scan.msg}
           </div>
         </div>
         {!scanning && (
-          <button type="button" className="intel-scan-close" onClick={onClose} aria-label="Dismiss">
+          <button type="button" className="intel-scan-close" onClick={onClose} aria-label={intl.formatMessage({ id: 'intel.dismiss', defaultMessage: 'Dismiss' })}>
             <X size={14} />
           </button>
         )}

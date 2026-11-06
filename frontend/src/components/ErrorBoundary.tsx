@@ -1,5 +1,6 @@
 import { Component, type ErrorInfo, type ReactNode } from 'react'
 import { openReportProblem } from '../state/reportProblem'
+import { useAppIntl } from '../i18n/useAppIntl'
 
 // A render error in any single tab/component used to unmount the ENTIRE React
 // tree to a blank white screen (React's default with no boundary). This catches
@@ -42,27 +43,54 @@ export class ErrorBoundary extends Component<Props, State> {
     if (!error) return this.props.children
     if (this.props.fallback) return this.props.fallback
 
-    return (
-      <div className="error-boundary" role="alert">
-        <div className="error-boundary-title">
-          Something went wrong{this.props.label ? ` in ${this.props.label}` : ''}.
-        </div>
-        <div className="error-boundary-detail">{error.message}</div>
-        <div className="error-boundary-actions">
-          <button className="btn-secondary" onClick={this.reset}>
-            Try again
-          </button>
-          <button className="btn-secondary" onClick={() => window.location.reload()}>
-            Reload app
-          </button>
-          <button
-            className="btn-secondary"
-            onClick={() => openReportProblem({ error: error.message })}
-          >
-            Report this problem
-          </button>
-        </div>
-      </div>
-    )
+    return <ErrorFallback error={error} label={this.props.label} reset={this.reset} />
   }
+}
+
+function ErrorFallback({
+  error,
+  label,
+  reset,
+}: {
+  error: Error
+  label?: string
+  reset: () => void
+}) {
+  const intl = useAppIntl()
+  return (
+    <div className="error-boundary" role="alert">
+      <div className="error-boundary-title">
+        {label
+          ? intl.formatMessage(
+              {
+                id: 'errorBoundary.inSection',
+                defaultMessage: 'Something went wrong in {section}.',
+              },
+              { section: label },
+            )
+          : intl.formatMessage({
+              id: 'errorBoundary.generic',
+              defaultMessage: 'Something went wrong.',
+            })}
+      </div>
+      <div className="error-boundary-detail">{error.message}</div>
+      <div className="error-boundary-actions">
+        <button className="btn-secondary" onClick={reset}>
+          {intl.formatMessage({ id: 'errorBoundary.retry', defaultMessage: 'Try again' })}
+        </button>
+        <button className="btn-secondary" onClick={() => window.location.reload()}>
+          {intl.formatMessage({ id: 'errorBoundary.reload', defaultMessage: 'Reload app' })}
+        </button>
+        <button
+          className="btn-secondary"
+          onClick={() => openReportProblem({ error: error.message })}
+        >
+          {intl.formatMessage({
+            id: 'errorBoundary.report',
+            defaultMessage: 'Report this problem',
+          })}
+        </button>
+      </div>
+    </div>
+  )
 }

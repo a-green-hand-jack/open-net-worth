@@ -1,3 +1,8 @@
+import { watchStoryHeadline, watchStoryImpact, watchStorySummary } from './watchStoryPresentation'
+import { queueLabel, signalLabel } from './labels'
+import { intelTimeAgo } from './relativeTime'
+import { useAppIntl } from '../../i18n/useAppIntl'
+import { FormattedMessage } from './FormattedMessage'
 import { useState } from 'react'
 import { authFetch } from '../../api/client'
 import {
@@ -10,7 +15,7 @@ import {
   X,
   ArrowUpRight,
 } from '../../ui/icons'
-import { fDateTime, safeHref, timeAgo } from '../../utils/format'
+import { fDateTime, safeHref } from '../../utils/format'
 import { AssetLink } from './AssetLink'
 import { ExplainedBlock, ReadBlock } from './WatchWriteups'
 import { SOURCE_KIND, aggregateSources, signalMeta, storyHeadline } from './storyMeta'
@@ -62,12 +67,13 @@ export function StoryArcCard({
   onAskLucius,
   registerRef,
 }: Props) {
+  const intl = useAppIntl()
   const [open, setOpen] = useState(defaultExpanded ?? story.status !== 'monitoring')
   const meta = signalMeta(story.type)
   const st = QUEUE_META[classifySignal(story)]
   const historical = Number.isFinite(Date.parse(story.updated_at)) && !isFreshSignal(story)
   const sources = aggregateSources(story)
-  const headline = storyHeadline(story)
+  const headline = watchStoryHeadline(story, storyHeadline(story), intl)
   const archived = dismissed || resolved
 
   // F11 fix (owner-reported, 2026-08-29): the feed's own `story.timeline` is bounded to the
@@ -118,7 +124,7 @@ export function StoryArcCard({
         {/* head: unread dot + type pill + ticker + status */}
         <div className="intel-story-head">
           {!read && !archived && (
-            <span className="intel-story-unread" title="Unread" aria-label="Unread" />
+            <span className="intel-story-unread" title={intl.formatMessage({ id: "intel.field.72906fb0", defaultMessage: "Unread" })} aria-label={intl.formatMessage({ id: "intel.field.72906fb0", defaultMessage: "Unread" })} />
           )}
           <span
             className="intel-story-pill"
@@ -128,7 +134,7 @@ export function StoryArcCard({
             }}
           >
             <span className="intel-story-pill-dot" style={{ background: meta.color }} aria-hidden />
-            {meta.label}
+            {signalLabel(story.type, intl, meta.label)}
           </span>
           {story.ticker ? (
             <AssetLink ticker={story.ticker} label={story.label} className="intel-story-ticker">
@@ -142,7 +148,7 @@ export function StoryArcCard({
           {resolved ? (
             <span className="intel-story-status intel-story-status--resolved">
               <Check size={12} />
-              Resolved
+              {<FormattedMessage id="intel.extra.4ea2b199" defaultMessage={"Resolved"} />}
             </span>
           ) : (
             <span className="intel-story-status" style={{ color: st.color }}>
@@ -151,7 +157,7 @@ export function StoryArcCard({
                 style={{ background: st.color }}
                 aria-hidden
               />
-              {st.label}
+              {queueLabel(classifySignal(story), intl, st.label)}
             </span>
           )}
         </div>
@@ -160,7 +166,7 @@ export function StoryArcCard({
           <div className="intel-story-resolved-banner">
             <Check size={13} className="intel-story-resolved-icon" />
             <span className="intel-story-resolved-text">
-              <b>Auto-resolved.</b> {resolvedReason}
+              <b>{<FormattedMessage id="intel.static.auto_resolved_17a40ddc" defaultMessage={"Auto-resolved."} />}</b> {resolvedReason}
             </span>
           </div>
         )}
@@ -168,15 +174,15 @@ export function StoryArcCard({
         <div className="intel-story-headline">{headline}</div>
         {updatedLabel && (
           <div className={`intel-story-asof${historical ? ' intel-story-asof--historical' : ''}`}>
-            {historical ? 'Historical analysis' : 'Analysis checked'} · {updatedLabel}
-            {historical && ' · verify before acting'}
+            {historical ? intl.formatMessage({ id: 'intel.story.historical', defaultMessage: 'Historical analysis' }) : intl.formatMessage({ id: 'intel.story.checked', defaultMessage: 'Analysis checked' })} · {updatedLabel}
+            {historical && intl.formatMessage({ id: 'intel.story.verify', defaultMessage: ' · verify before acting' })}
           </div>
         )}
         {story.explained ? (
           <ExplainedBlock ex={story.explained} />
         ) : (
           <>
-            <p className="intel-story-summary">{story.summary}</p>
+            <p className="intel-story-summary">{watchStorySummary(story, intl)}</p>
             {story.lucius_read && <ReadBlock read={story.lucius_read} />}
           </>
         )}
@@ -186,9 +192,9 @@ export function StoryArcCard({
         {story.portfolio_impact && (
           <p className="intel-story-impact">
             <span className="intel-story-impact-label">
-              {historical ? 'For you · earlier scan' : 'For you'}
+              {historical ? intl.formatMessage({ id: 'intel.story.earlierImpact', defaultMessage: 'For you · earlier scan' }) : intl.formatMessage({ id: 'intel.story.impact', defaultMessage: 'For you' })}
             </span>
-            {story.portfolio_impact}
+            {watchStoryImpact(story, intl)}
           </p>
         )}
 
@@ -211,7 +217,7 @@ export function StoryArcCard({
         {/* sources — provenance, always visible */}
         {sources.length > 0 && (
           <div className="intel-story-sources">
-            <span className="intel-story-sources-label">Sources</span>
+            <span className="intel-story-sources-label">{<FormattedMessage id="intel.static.sources_1de05c6e" defaultMessage={"Sources"} />}</span>
             <div className="intel-story-sources-list">
               {sources.map((src, i) => {
                 const href = safeHref(src.url)
@@ -248,7 +254,7 @@ export function StoryArcCard({
         {/* footer */}
         <div className="intel-story-foot">
           <button type="button" className="intel-story-ask" onClick={askLucius}>
-            Ask Lucius <span className="intel-story-ask-spark">✦</span>
+            {intl.formatMessage({ id: 'remaining.askLucius', defaultMessage: 'Ask Lucius' })} <span className="intel-story-ask-spark">✦</span>
           </button>
           <div className="intel-story-foot-actions">
             {archived ? (
@@ -257,19 +263,19 @@ export function StoryArcCard({
                   type="button"
                   className="intel-story-life"
                   onClick={() => onRestore?.(story.id)}
-                  title={resolved ? 'Reopen this signal' : 'Restore to feed'}
+                  title={resolved ? intl.formatMessage({ id: 'remaining.reopenSignal', defaultMessage: 'Reopen this signal' }) : intl.formatMessage({ id: 'remaining.restoreFeed', defaultMessage: 'Restore to feed' })}
                 >
                   <RotateCcw size={12} />
-                  {resolved ? 'Reopen' : 'Restore'}
+                  {resolved ? intl.formatMessage({ id: 'remaining.reopen', defaultMessage: 'Reopen' }) : intl.formatMessage({ id: 'remaining.restore', defaultMessage: 'Restore' })}
                 </button>
                 <button
                   type="button"
                   className="intel-story-life intel-story-life--delete"
                   onClick={() => onDelete?.(story.id)}
-                  title="Delete permanently"
+                  title={intl.formatMessage({ id: "intel.field.3cab4752", defaultMessage: "Delete permanently" })}
                 >
                   <X size={12} />
-                  Delete
+                  {<FormattedMessage id="intel.extra.3dbe79b1" defaultMessage={"Delete"} />}
                 </button>
               </>
             ) : (
@@ -279,20 +285,20 @@ export function StoryArcCard({
                     type="button"
                     className="intel-story-life"
                     onClick={() => onRead?.(story.id)}
-                    title="Mark as read"
+                    title={intl.formatMessage({ id: "intel.field.491a9842", defaultMessage: "Mark as read" })}
                   >
                     <Check size={12} />
-                    Read
+                    {<FormattedMessage id="intel.extra.3865ee59" defaultMessage={"Read"} />}
                   </button>
                 )}
                 <button
                   type="button"
                   className="intel-story-life"
                   onClick={() => onDismiss?.(story.id)}
-                  title="Dismiss this signal"
+                  title={intl.formatMessage({ id: "intel.field.8f6f6422", defaultMessage: "Dismiss this signal" })}
                 >
                   <Archive size={12} />
-                  Dismiss
+                  {<FormattedMessage id="intel.extra.fff59f5b" defaultMessage={"Dismiss"} />}
                 </button>
               </>
             )}
@@ -303,7 +309,7 @@ export function StoryArcCard({
                 onClick={() => setOpen((o) => !o)}
                 aria-expanded={open}
               >
-                {open ? 'Hide' : 'Timeline'}
+                {open ? intl.formatMessage({ id: 'remaining.hide', defaultMessage: 'Hide' }) : intl.formatMessage({ id: 'remaining.timeline', defaultMessage: 'Timeline' })}
                 <ChevronRight
                   size={11}
                   className={`intel-story-toggle-chevron${open ? ' intel-story-toggle-chevron--open' : ''}`}
@@ -334,7 +340,7 @@ export function StoryArcCard({
                   />
                   <div className="intel-story-tl-body">
                     <div className="intel-story-tl-time" title={fDateTime(ev.date)}>
-                      {timeAgo(ev.date) || ev.date}
+                      {intelTimeAgo(ev.date, intl) || ev.date}
                     </div>
                     {(flagged || superseded) && (
                       <div className="intel-story-tl-flags">
@@ -345,18 +351,18 @@ export function StoryArcCard({
                               color: 'var(--warn)',
                               background: 'color-mix(in srgb, var(--warn) 13%, transparent)',
                             }}
-                            title="Awaiting a second independent source before this is treated as confirmed"
+                            title={intl.formatMessage({ id: "intel.field.8fbb4a40", defaultMessage: "Awaiting a second independent source before this is treated as confirmed" })}
                           >
-                            Unconfirmed
+                            {<FormattedMessage id="intel.extra.830f3f3b" defaultMessage={"Unconfirmed"} />}
                           </span>
                         )}
                         {superseded && (
                           <span
                             className="intel-story-pill intel-story-tl-flag"
                             style={{ color: 'var(--faint)', background: 'var(--surface2)' }}
-                            title="A later, corroborated update replaced this entry"
+                            title={intl.formatMessage({ id: "intel.field.33d9b3e4", defaultMessage: "A later, corroborated update replaced this entry" })}
                           >
-                            Superseded
+                            {<FormattedMessage id="intel.extra.97a849ce" defaultMessage={"Superseded"} />}
                           </span>
                         )}
                       </div>
@@ -392,8 +398,8 @@ export function StoryArcCard({
                 disabled={loadingFullTimeline}
               >
                 {loadingFullTimeline
-                  ? 'Loading…'
-                  : `Show ${(story.total_timeline ?? 0) - story.timeline.length} earlier`}
+                  ? intl.formatMessage({ id: 'intel.story.timelineLoading', defaultMessage: 'Loading…' })
+                  : intl.formatMessage({ id: 'intel.story.showEarlier', defaultMessage: 'Show {count} earlier' }, { count: (story.total_timeline ?? 0) - story.timeline.length })}
               </button>
             )}
           </div>

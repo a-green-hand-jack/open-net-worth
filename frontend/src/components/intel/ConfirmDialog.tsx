@@ -1,3 +1,5 @@
+import { useAppIntl } from '../../i18n/useAppIntl'
+import { FormattedMessage } from './FormattedMessage'
 import { Modal, Button, Text } from '../ui'
 
 export interface ConfirmSpec {
@@ -8,6 +10,7 @@ export interface ConfirmSpec {
 }
 
 export function ConfirmDialog({ spec, onCancel }: { spec: ConfirmSpec; onCancel: () => void }) {
+  const intl = useAppIntl()
   return (
     <Modal
       open
@@ -17,10 +20,10 @@ export function ConfirmDialog({ spec, onCancel }: { spec: ConfirmSpec; onCancel:
       footer={
         <div className="intel-pa-footer-right">
           <Button variant="ghost" onClick={onCancel}>
-            Cancel
+            {<FormattedMessage id="intel.extra.51bac044" defaultMessage={"Cancel"} />}
           </Button>
           <Button variant="danger" onClick={spec.onConfirm}>
-            {spec.confirmLabel ?? 'Delete'}
+            {spec.confirmLabel ?? intl.formatMessage({ id: 'intel.visible.delete', defaultMessage: 'Delete' })}
           </Button>
         </div>
       }

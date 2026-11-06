@@ -1,3 +1,4 @@
+import { getNumberLocale } from './format'
 // Pure helpers for the Commitments tab — kept out of the component so they're unit-testable.
 import type { Commitment, CommitmentAction, FundingSource, Installment } from '../types/commitments'
 import { fCurrency, fDate, fMonth, getBaseCurrency, toBase as toBaseFx } from './format'
@@ -93,9 +94,7 @@ export function fmtDay(iso: string): string {
 
 /** "Jun" from a "YYYY-MM" key */
 export function monthShort(ym: string): string {
-  const [y, m] = ym.split('-').map(Number)
-  if (!y) return ym
-  return new Date(y, (m || 1) - 1, 1).toLocaleDateString(undefined, { month: 'short' })
+  return fMonth(ym, 'short', 'never')
 }
 
 /** "Aug 2026" from a "YYYY-MM" key — always with the year, for an axis that spans more than
@@ -116,7 +115,7 @@ export function fCompactCurrency(amt: number, ccy?: string): string {
   const code = (ccy || getBaseCurrency()).toUpperCase()
   const value = amt === 0 ? 0 : amt
   try {
-    return new Intl.NumberFormat(undefined, {
+    return new Intl.NumberFormat(getNumberLocale(), {
       style: 'currency',
       currency: code,
       currencyDisplay: 'narrowSymbol',

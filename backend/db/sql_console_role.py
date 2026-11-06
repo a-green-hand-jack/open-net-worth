@@ -73,13 +73,22 @@ class ConsoleStatus:
     reason: str = ""
     fix: str = ""  # one command an operator can run when the app cannot fix it alone
     login: str = ""
+    reason_message: dict | None = None
 
 
 class _Unavailable(Exception):
-    def __init__(self, reason: str, fix: str = ""):
+    def __init__(
+        self,
+        reason: str,
+        fix: str = "",
+        *,
+        message_id: str | None = None,
+        params: dict | None = None,
+    ):
         super().__init__(reason)
         self.reason = reason
         self.fix = fix
+        self.reason_message = {"id": message_id, "params": params or {}} if message_id else None
 
 
 _lock = threading.Lock()
@@ -138,11 +147,16 @@ def prepare(denied: frozenset[str], override_url: str) -> ConsoleStatus:
             _status = ConsoleStatus(True, login=login)
         except _Unavailable as exc:
             logger.warning("sql_console_role: SQL access unavailable: %s", exc.reason)
-            _status = ConsoleStatus(False, exc.reason, exc.fix)
+            _status = ConsoleStatus(False, exc.reason, exc.fix, reason_message=exc.reason_message)
         except Exception as exc:  # noqa: BLE001 — anything unexpected fails CLOSED
             logger.exception("sql_console_role: preparing the SQL login failed")
             _status = ConsoleStatus(
-                False, f"preparing the SQL login failed ({type(exc).__name__}); see the app log."
+                False,
+                f"preparing the SQL login failed ({type(exc).__name__}); see the app log.",
+                reason_message={
+                    "id": "sqlAccess.reason.prepareFailed",
+                    "params": {"error": type(exc).__name__},
+                },
             )
         _checked_at = time.monotonic()
         return _status
@@ -170,7 +184,7 @@ def _invalidate() -> None:
 def _mark_unavailable(exc: _Unavailable) -> None:
     global _status, _checked_at
     with _lock:
-        _status = ConsoleStatus(False, exc.reason, exc.fix)
+        _status = ConsoleStatus(False, exc.reason, exc.fix, reason_message=exc.reason_message)
         _checked_at = time.monotonic()
     logger.warning("sql_console_role: SQL access switched off: %s", exc.reason)
 
@@ -183,7 +197,10 @@ def _prepare(denied: frozenset[str], override_url: str) -> tuple[Engine, str, st
     else:
         url = make_url(override_url)
         if not url.username:
-            raise _Unavailable("ONW_SQL_CONSOLE_DATABASE_URL names no database login.")
+            raise _Unavailable(
+                "ONW_SQL_CONSOLE_DATABASE_URL names no database login.",
+                message_id="sqlAccess.reason.noLogin",
+            )
         role = url.username
     with main.connect() as conn:
         app_login = conn.execute(text("SELECT session_user")).scalar_one()
@@ -192,7 +209,8 @@ def _prepare(denied: frozenset[str], override_url: str) -> tuple[Engine, str, st
         # credentials — and that login could read them anyway.
         raise _Unavailable(
             "ONW_SQL_CONSOLE_DATABASE_URL uses the app's own database login; Lucius needs a "
-            "separate one. Remove the setting and the app will create it."
+            "separate one. Remove the setting and the app will create it.",
+            message_id="sqlAccess.reason.appLogin",
         )
     if managed:
         url = main.url.set(username=role, password=_ensure_managed_login(main, role))
@@ -272,12 +290,19 @@ def _no_createrole(conn: Connection, role: str) -> _Unavailable:
         "Lucius's SQL runs as."
     )
     if version >= 160000:
-        return _Unavailable(reason, fix=f'ALTER ROLE "{app_login}" CREATEROLE;')
+        return _Unavailable(
+            reason,
+            fix=f'ALTER ROLE "{app_login}" CREATEROLE;',
+            message_id="sqlAccess.reason.createRole",
+            params={"login": app_login},
+        )
     # Before Postgres 16, CREATEROLE can grant itself almost anything — so don't suggest it.
     return _Unavailable(
         reason + " On this Postgres version, have an admin create it instead, then set "
         "ONW_SQL_CONSOLE_DATABASE_URL to it and restart.",
         fix=f"CREATE ROLE \"{role}\" LOGIN NOINHERIT PASSWORD '<choose a password>';",
+        message_id="sqlAccess.reason.createRoleOld",
+        params={"login": app_login},
     )
 
 
@@ -321,7 +346,13 @@ def _connect(url: URL, role: str, *, managed: bool) -> Engine:
             else "Check ONW_SQL_CONSOLE_DATABASE_URL."
         )
         logger.warning("sql_console_role: sign-in as %s failed: %s", role, type(exc).__name__)
-        raise _Unavailable(f"the database refused a sign-in as {role}. {hint}") from exc
+        raise _Unavailable(
+            f"the database refused a sign-in as {role}. {hint}",
+            message_id="sqlAccess.reason.signinManaged"
+            if managed
+            else "sqlAccess.reason.signinExternal",
+            params={"role": role},
+        ) from exc
     return console
 
 
@@ -335,23 +366,35 @@ def _check_session(raw: Any, schema: str, denied: frozenset[str]) -> None:
     finally:
         raw.rollback()
     if row is None:
-        raise _Unavailable("Lucius's SQL login could not be found in pg_roles.")
+        raise _Unavailable(
+            "Lucius's SQL login could not be found in pg_roles.",
+            message_id="sqlAccess.reason.loginMissing",
+        )
     signed_in_as_itself, *attributes, other_roles, readable = row
     if not signed_in_as_itself:
         raise _Unavailable(
             "Lucius's SQL login starts as a different role than it signs in as, so it could "
-            "switch back to the login mid-query."
+            "switch back to the login mid-query.",
+            message_id="sqlAccess.reason.differentRole",
         )
     held = [name for name, on in zip(_ATTRIBUTES, attributes) if on]
     if held:
-        raise _Unavailable(f"Lucius's SQL login has {', '.join(held)}, which it must not.")
+        raise _Unavailable(
+            f"Lucius's SQL login has {', '.join(held)}, which it must not.",
+            message_id="sqlAccess.reason.attributes",
+            params={"attributes": ", ".join(held)},
+        )
     if other_roles:
         raise _Unavailable(
             "Lucius's SQL login is a member of other roles "
-            f"({', '.join(other_roles)}), so it could switch to one that reads credentials."
+            f"({', '.join(other_roles)}), so it could switch to one that reads credentials.",
+            message_id="sqlAccess.reason.otherRoles",
+            params={"roles": ", ".join(other_roles)},
         )
     if readable:
         raise _Unavailable(
             f"Lucius's SQL login can still read {', '.join(readable)}, and the app could not "
-            "remove that access."
+            "remove that access.",
+            message_id="sqlAccess.reason.readable",
+            params={"tables": ", ".join(readable)},
         )

@@ -64,6 +64,7 @@ from __future__ import annotations
 from typing import Annotated, Any, Callable, List, Literal, Optional
 
 from fastapi import APIRouter, HTTPException
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field, StringConstraints
 
 from backend.ai.permissions import permission_api
@@ -121,11 +122,20 @@ class GroupLevelRequest(BaseModel):
     level: Level
 
 
-def _answer(call: Callable[[Any], dict]) -> dict:
+def _answer(call: Callable[[Any], dict]) -> Any:
     """Run one ``permission_api()`` call and map a domain error to its HTTP status."""
     try:
         return call(permission_api())
     except OpenNetWorthError as exc:
+        if exc.context.get("message_id") == "permissions.error.automationMissing":
+            return JSONResponse(
+                status_code=to_http_status(exc),
+                content={
+                    "detail": exc.message or str(exc),
+                    "message_id": exc.context["message_id"],
+                    "message_params": {},
+                },
+            )
         raise HTTPException(to_http_status(exc), exc.message or str(exc)) from exc
 
 

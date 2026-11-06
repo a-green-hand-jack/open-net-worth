@@ -1,6 +1,8 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
+import { IntlProvider } from 'react-intl'
+import tradingZh from './zh-CN.messages.json'
 import { tradingApi } from '../../../api/trading'
 import type { TradingRun, TradingWorkspace, TradingOrder } from '../../../types/trading'
 import { RunForm } from './RunForm'
@@ -208,6 +210,21 @@ describe('execution visibility and controls', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Cancel order ACME' }))
     expect(cancel).not.toHaveBeenCalled()
     fireEvent.click(screen.getByRole('button', { name: 'Request cancellation' }))
+    await waitFor(() => expect(cancel).toHaveBeenCalledWith(order))
+  })
+
+  it('localizes the cancellation warning without changing the order or action', async () => {
+    const cancel = vi.fn().mockResolvedValue(undefined)
+    render(
+      <IntlProvider locale="zh-CN" messages={tradingZh}>
+        <TradingOrders orders={[order]} fills={[]} onCancel={cancel} busy={false} />
+      </IntlProvider>,
+    )
+    expect(screen.getByText('部分成交')).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: '取消 ACME 订单' }))
+    expect(screen.getByText(/经纪商确认取消之前，订单仍可能成交/)).toBeTruthy()
+    expect(cancel).not.toHaveBeenCalled()
+    fireEvent.click(screen.getByRole('button', { name: '请求取消' }))
     await waitFor(() => expect(cancel).toHaveBeenCalledWith(order))
   })
 

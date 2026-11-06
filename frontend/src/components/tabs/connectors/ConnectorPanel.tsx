@@ -1,3 +1,6 @@
+import { useConnectorName } from './useConnectorLabels'
+import { useAppIntl } from '../../../i18n/useAppIntl'
+import { useConnectorActionMessage } from './useConnectorActionMessage'
 import { useMemo, useState } from 'react'
 import { useNavigate } from '@tanstack/react-router'
 import { invalidateQueryCache } from '../../../state/queryCache'
@@ -7,6 +10,7 @@ import { toEntry } from './adapter'
 import { ConnectorConfig, hasConfigForm } from './ConnectorConfig'
 import { ConnectorDetail } from './ConnectorDetail'
 import { removeNativeConnector, setConnectorEnabled } from './connectorActions'
+import { formatConnectorServerMessage } from './connectorServerMessages'
 import { savePermissions } from './permissions'
 import { useToast } from './primitives'
 import { CONNECTORS_KEY, useConnectors } from './useConnectors'
@@ -28,6 +32,10 @@ export function ConnectorPanel({
   configureOnOpen?: boolean
   onClose: () => void
 }) {
+  const intl = useAppIntl()
+  const { formatMessage } = intl
+  const connectorName = useConnectorName()
+  const actionMessage = useConnectorActionMessage()
   const { connectors, entries, refresh } = useConnectors()
   const [toast, toastNode] = useToast()
   const composer = useChatComposerOptional()
@@ -51,7 +59,7 @@ export function ConnectorPanel({
     if (!entry) return
     const result = await setConnectorEnabled(entry, enabled)
     if (result.ok) await reload()
-    toast(result.ok ? result.message : result.error)
+    toast(actionMessage(result, connectorName(entry.id, entry.name), enabled))
   }
 
   async function persist(tools: string[], level: PermissionLevel): Promise<boolean> {
@@ -69,7 +77,14 @@ export function ConnectorPanel({
     if (!entry) return
     const result = await removeNativeConnector(entry)
     if (!result.ok) {
-      toast(result.error)
+      toast(
+        result.fallback
+          ? formatMessage(
+              { id: 'connectors.removeFailed', defaultMessage: "Couldn't remove {name}" },
+              { name: connectorName(entry.id, entry.name) },
+            )
+          : formatConnectorServerMessage(intl, result.serverMessage, result.error),
+      )
       return
     }
     await reload()
@@ -94,7 +109,13 @@ export function ConnectorPanel({
         }
         onEditConnection={() => undefined}
         onRefreshTools={() =>
-          toast('Built-in connectors have a fixed set of tools — nothing to rediscover.')
+          toast(
+            formatMessage({
+              id: 'connectors.fixedTools',
+              defaultMessage:
+                'Built-in connectors have a fixed set of tools — nothing to rediscover.',
+            }),
+          )
         }
         removable={wire?.pausable !== false}
         alwaysOn={wire?.pausable === false}
@@ -108,7 +129,11 @@ export function ConnectorPanel({
         configForm={wire && hasConfigForm(wire) ? <ConnectorConfig connector={wire} /> : undefined}
         configureOnOpen={configure.on}
         onConfigClosed={() => void reload()}
-        onSaved={() => toast('Configuration saved')}
+        onSaved={() =>
+          toast(
+            formatMessage({ id: 'connectors.configSaved', defaultMessage: 'Configuration saved' }),
+          )
+        }
       />
       {toastNode}
     </div>

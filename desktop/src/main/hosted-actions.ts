@@ -13,6 +13,7 @@ import type { ConnectionTarget } from './connections';
 import type { BackendSupervisor } from './backend';
 import type { Preferences } from './preferences';
 import type { DesktopWindow } from './window';
+import { message as t } from './native-messages';
 
 interface HostedActionDeps {
   main(): DesktopWindow;
@@ -61,7 +62,7 @@ export class HostedActions {
 
   async moveBook(): Promise<void> {
     const main = this.deps.main();
-    if (main.serverOrigin || !this.deps.backend().origin || this.deps.quitting()) throw new Error('Open your book on this computer first.');
+    if (main.serverOrigin || !this.deps.backend().origin || this.deps.quitting()) throw new Error(t('Open your book on this computer first.'));
     await this.signInFlow.start(true);
     await this.showWaiting(true);
   }
@@ -69,12 +70,12 @@ export class HostedActions {
   handleArgv(argv: readonly string[]): void { const link = deepLinkArgument(argv); if (link) this.handleLink(link); }
 
   handleLink(url: string): void {
-    this.signInFlow.handleLink(url).catch(error => this.fail(error instanceof Error ? error.message : 'Signing in to your Private Cloud did not finish.'));
+    this.signInFlow.handleLink(url).catch(error => this.fail(error instanceof Error ? error.message : t('Signing in to your Private Cloud did not finish.')));
   }
 
   private showWaiting(moving: boolean): Promise<void> {
     const screen: FlowScreen = {
-      title: 'Sign in to Private Cloud',
+      title: t('Sign in to Private Cloud'),
       html: theme => waitingPage(theme, moving),
       onAction: async (name, argument) => {
         if (name === 'again') await this.signInFlow.reopen();
@@ -93,7 +94,7 @@ export class HostedActions {
     try { await this.signInFlow.complete(await redeemShortCode(hostedConfig(), code)); }
     catch (error) {
       if (error instanceof RedeemError) throw error;
-      throw new Error(error instanceof Error && error.message ? error.message : 'That code did not work. Start again from the sign-in page.');
+      throw new Error(error instanceof Error && error.message ? error.message : t('That code did not work. Start again from the sign-in page.'));
     }
   }
 
@@ -149,6 +150,6 @@ export class HostedActions {
 
   private fail(message: string): void {
     this.deps.flow().close();
-    void dialog.showMessageBox(this.deps.main().window, { type: 'error', title: 'Open Net Worth', message: 'Sign-in did not finish', detail: message }).catch(() => {});
+    void dialog.showMessageBox(this.deps.main().window, { type: 'error', title: 'Open Net Worth', message: t('Sign-in did not finish'), detail: message }).catch(() => {});
   }
 }

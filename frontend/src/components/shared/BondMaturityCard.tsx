@@ -1,3 +1,4 @@
+import { useAppIntl } from '../../i18n/useAppIntl'
 import { useFixedIncome } from '../../hooks/useFixedIncome'
 import { fBase, fDate } from '../../utils/format'
 import { CollapsibleSection, SummaryBar, Loading, ErrorState, EmptyState } from '../ui'
@@ -24,6 +25,7 @@ const SUBTYPE_LABEL: Record<string, string> = {
  * Data from GET /api/fixed-income via useFixedIncome.
  */
 export function BondMaturityCard({ version }: Props) {
+  const { formatMessage } = useAppIntl()
   const { data, loading, error } = useFixedIncome(version)
   const bp = useBreakpoint()
   // Open by default on desktop (md+), collapsed on mobile (<640px = only 'sm' label).
@@ -35,15 +37,15 @@ export function BondMaturityCard({ version }: Props) {
   const cards: StatCard[] = data
     ? [
         {
-          label: 'Matures ≤ 30d',
+          label: formatMessage({ id: 'shared.bond.d30', defaultMessage: 'Matures ≤ 30d' }),
           value: data.maturity_buckets.d30 > 0 ? fBase(data.maturity_buckets.d30) : '—',
         },
         {
-          label: 'Matures ≤ 90d',
+          label: formatMessage({ id: 'shared.bond.d90', defaultMessage: 'Matures ≤ 90d' }),
           value: data.maturity_buckets.d90 > 0 ? fBase(data.maturity_buckets.d90) : '—',
         },
         {
-          label: 'Matures ≤ 1y',
+          label: formatMessage({ id: 'shared.bond.y1', defaultMessage: 'Matures ≤ 1y' }),
           value: data.maturity_buckets.y1 > 0 ? fBase(data.maturity_buckets.y1) : '—',
         },
       ]
@@ -51,13 +53,30 @@ export function BondMaturityCard({ version }: Props) {
 
   return (
     <CollapsibleSection
-      title="Upcoming maturities & coupons"
+      title={formatMessage({
+        id: 'shared.bond.title',
+        defaultMessage: 'Upcoming maturities & coupons',
+      })}
       className="bond-maturity-card"
       defaultOpen={defaultOpen}
     >
-      {loading && <Loading label="Loading maturity data…" />}
+      {loading && (
+        <Loading
+          label={formatMessage({
+            id: 'shared.bond.loading',
+            defaultMessage: 'Loading maturity data…',
+          })}
+        />
+      )}
 
-      {!loading && error && <ErrorState message="Couldn't load fixed-income maturity data." />}
+      {!loading && error && (
+        <ErrorState
+          message={formatMessage({
+            id: 'shared.bond.error',
+            defaultMessage: "Couldn't load fixed-income maturity data.",
+          })}
+        />
+      )}
 
       {!loading && !error && data && (
         <>
@@ -65,16 +84,34 @@ export function BondMaturityCard({ version }: Props) {
 
           {data.maturity_ladder.length === 0 ? (
             <EmptyState
-              title="No maturities in the next 12 months."
-              body="Bonds and fixed deposits without a maturity date (e.g. bond ETFs) are not shown here."
+              title={formatMessage({
+                id: 'shared.bond.empty',
+                defaultMessage: 'No maturities in the next 12 months.',
+              })}
+              body={formatMessage({
+                id: 'shared.bond.emptyHelp',
+                defaultMessage:
+                  'Bonds and fixed deposits without a maturity date (e.g. bond ETFs) are not shown here.',
+              })}
             />
           ) : (
             <div className="bond-ladder-table">
               <div className="bond-ladder-row bond-ladder-row-head">
-                <span className="bond-ladder-date">Matures</span>
-                <span className="bond-ladder-name">Holding</span>
-                <span className="bond-ladder-type">Type</span>
-                <span className="bond-ladder-proceeds">Proceeds ({data.base_currency})</span>
+                <span className="bond-ladder-date">
+                  {formatMessage({ id: 'shared.bond.matures', defaultMessage: 'Matures' })}
+                </span>
+                <span className="bond-ladder-name">
+                  {formatMessage({ id: 'shared.bond.holding', defaultMessage: 'Holding' })}
+                </span>
+                <span className="bond-ladder-type">
+                  {formatMessage({ id: 'shared.bond.type', defaultMessage: 'Type' })}
+                </span>
+                <span className="bond-ladder-proceeds">
+                  {formatMessage(
+                    { id: 'shared.bond.proceeds', defaultMessage: 'Proceeds ({currency})' },
+                    { currency: data.base_currency },
+                  )}
+                </span>
               </div>
               {data.maturity_ladder.map((row) => (
                 <div key={row.instrument_id} className="bond-ladder-row">
@@ -83,7 +120,9 @@ export function BondMaturityCard({ version }: Props) {
                   </span>
                   <span className="bond-ladder-name">{row.name}</span>
                   <span className="bond-ladder-type">
-                    {SUBTYPE_LABEL[row.subtype] ?? row.subtype}
+                    {row.subtype === 'market'
+                      ? formatMessage({ id: 'shared.bond.market', defaultMessage: 'Market' })
+                      : (SUBTYPE_LABEL[row.subtype] ?? row.subtype)}
                   </span>
                   <span className="bond-ladder-proceeds">{fBase(row.proceeds_base)}</span>
                 </div>
@@ -92,9 +131,14 @@ export function BondMaturityCard({ version }: Props) {
           )}
           {(data.ladder_excluded_count ?? 0) > 0 && (
             <p className="bond-ladder-footnote">
-              {data.ladder_excluded_count}{' '}
-              {data.ladder_excluded_count === 1 ? 'bond fund' : 'bond funds'} without a fixed
-              maturity {data.ladder_excluded_count === 1 ? 'is' : 'are'} not shown above.
+              {formatMessage(
+                {
+                  id: 'shared.bond.excluded',
+                  defaultMessage:
+                    '{count, plural, one {# bond fund without a fixed maturity is} other {# bond funds without a fixed maturity are}} not shown above.',
+                },
+                { count: data.ladder_excluded_count },
+              )}
             </p>
           )}
         </>

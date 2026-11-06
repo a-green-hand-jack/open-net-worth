@@ -2,6 +2,7 @@
 // cards again, read-only, with the current method marked. Switching lives in the menu, never
 // here (owner, 2026-09-25 — the Budget Onboarding (cards) design's CompareModal, readOnly).
 import { useState } from 'react'
+import { useAppIntl } from '../../../../i18n/useAppIntl'
 import { Modal } from '../../../ui'
 import { MethodCard } from './MethodCard'
 import { METHODS } from './methodsData'
@@ -15,9 +16,18 @@ export function CompareMethodsModal({
   onClose: () => void
   homeId: string
 }) {
+  const { formatMessage } = useAppIntl()
   const [more, setMore] = useState(false)
   return (
-    <Modal open={open} onClose={onClose} title="Compare budgeting methods" size="xl">
+    <Modal
+      open={open}
+      onClose={onClose}
+      title={formatMessage({
+        id: 'plan.compareBudgetMethods',
+        defaultMessage: 'Compare budgeting methods',
+      })}
+      size="xl"
+    >
       <div className="bo-cards">
         {METHODS.map((m) => (
           <MethodCard

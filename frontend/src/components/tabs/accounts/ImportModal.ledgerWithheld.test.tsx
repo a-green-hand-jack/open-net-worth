@@ -9,6 +9,9 @@
 
 import { describe, it, expect, afterEach, beforeEach, vi } from 'vitest'
 import { render, cleanup, screen, fireEvent, waitFor } from '@testing-library/react'
+import { IntlProvider } from 'react-intl'
+import messages from './zh-CN.messages.json'
+import commonMessages from '../../../i18n/zh-CN.json'
 import { ImportModal } from './ImportModal'
 import type { Account, Category } from './types'
 
@@ -28,8 +31,8 @@ const card = {
 } as unknown as Account
 const catList: Category[] = []
 
-async function openWith(onPreview: ReturnType<typeof vi.fn>) {
-  render(
+async function openWith(onPreview: ReturnType<typeof vi.fn>, chinese = false) {
+  const content = (
     <ImportModal
       open
       accounts={[card]}
@@ -41,13 +44,14 @@ async function openWith(onPreview: ReturnType<typeof vi.fn>) {
       onDecisionCommit={vi
         .fn()
         .mockResolvedValue({ created: 0, merged: 0, duplicates: 0, skipped: 0 })}
-    />,
+    />
   )
+  render(chinese ? <IntlProvider locale="zh-CN" messages={{ ...commonMessages, ...messages }}>{content}</IntlProvider> : content)
   const fileInput = document.body.querySelector('input[type="file"]') as HTMLInputElement
   fireEvent.change(fileInput, {
     target: { files: [new File(['%PDF-1.4'], 's.pdf', { type: 'application/pdf' })] },
   })
-  fireEvent.click(await screen.findByText(/Read the statement/i))
+  fireEvent.click(await screen.findByText(chinese ? '读取账单' : /Read the statement/i))
   await waitFor(() => expect(onPreview).toHaveBeenCalled())
 }
 
@@ -221,4 +225,12 @@ describe('withheld ledger check — regression, an open gate still renders the b
     expect(screen.getByText('Not on statement')).toBeTruthy()
     expect(screen.queryByText('Can’t check what’s already in your ledger yet')).toBeNull()
   })
+})
+
+it('explains incomplete parsing in Chinese without offering a false ledger comparison', async () => {
+  const onPreview = vi.fn().mockResolvedValue(basePreview({ withheld: 'parse_incomplete', pages_incomplete: 2 }))
+  await openWith(onPreview, true)
+  expect(await screen.findByText(/此账单有 2 页未读取完成/)).toBeTruthy()
+  expect(screen.queryByText('不在账单中')).toBeNull()
+  expect(document.querySelector('.imp-pair-bandhead')).toBeNull()
 })

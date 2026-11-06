@@ -1,3 +1,5 @@
+import { useAppIntl } from '../../../i18n/useAppIntl'
+import type { IntlShape } from 'react-intl'
 // The segmented "how it's funded" bar — shared by the Funding tab's full-size render
 // (detailFunding.tsx) and the Overview tab's condensed digest (detailOverview.tsx), so both
 // surfaces get the identical hover-popover behavior (owner: "let's reuse the same chart/
@@ -32,14 +34,18 @@ interface Props {
 // The "gap" (unfunded) segment, appended after the real funding-type segments when there's a
 // shortfall — a plain, non-interactive entry (Meter renders it as a <div> since it carries no
 // event handlers), matching the original hand-rolled bar exactly.
-function gapSegment(gap: number, scaleMax: number): MeterSegment | null {
+function gapSegment(gap: number, scaleMax: number, intl: IntlShape): MeterSegment | null {
   if (gap <= 0) return null
+  const label = intl.formatMessage(
+    { id: 'commitments.funding.gapAmount', defaultMessage: 'Unfunded: {amount}' },
+    { amount: fBase(gap) },
+  )
   return {
     id: 'gap',
     pct: (gap / scaleMax) * 100,
     className: 'gap',
-    title: `Unfunded: ${fBase(gap)}`,
-    ariaLabel: `Unfunded: ${fBase(gap)}`,
+    title: label,
+    ariaLabel: label,
     content: fCompactCurrency(gap),
   }
 }
@@ -52,6 +58,18 @@ export function FundingCoverageBar({
   fundingPlan,
   positions,
 }: Props) {
+  const intl = useAppIntl()
+  const { formatMessage } = intl
+  const typeLabels: Record<string, string> = {
+    cash: formatMessage({ id: 'commitments.funding.cash', defaultMessage: 'Cash earmark' }),
+    income: formatMessage({
+      id: 'commitments.funding.income',
+      defaultMessage: 'Recurring savings',
+    }),
+    asset_sale: formatMessage({ id: 'commitments.funding.sale', defaultMessage: 'Asset sale' }),
+    loan: formatMessage({ id: 'commitments.funding.loan', defaultMessage: 'Loan' }),
+    windfall: formatMessage({ id: 'commitments.funding.windfall', defaultMessage: 'Windfall' }),
+  }
   const [hovered, setHovered] = useState<{ type: string; rect: DOMRect } | null>(null)
   const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const openTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -119,7 +137,7 @@ export function FundingCoverageBar({
       id: s.type,
       pct: s.pct,
       className: s.type,
-      ariaLabel: `${s.label}: ${fBase(s.val)}`,
+      ariaLabel: `${typeLabels[s.type] || s.label}: ${fBase(s.val)}`,
       ariaExpanded: hovered?.type === s.type,
       content: fCompactCurrency(s.val),
       onClick: (e: MouseEvent<HTMLButtonElement>) =>
@@ -131,7 +149,7 @@ export function FundingCoverageBar({
         scheduleOpen(s.type, e.currentTarget.getBoundingClientRect()),
       onBlur: () => scheduleClose(),
     }))
-  const gapSeg = gapSegment(gap, scaleMax)
+  const gapSeg = gapSegment(gap, scaleMax, intl)
   const meterSegments = gapSeg ? [...typeSegments, gapSeg] : typeSegments
 
   return (
@@ -140,13 +158,19 @@ export function FundingCoverageBar({
         variant="linear"
         size="lg"
         segments={meterSegments}
-        ariaLabel={`Funding coverage: ${fBase(Math.max(0, remaining - gap))} of ${fBase(remaining)} covered`}
+        ariaLabel={formatMessage(
+          {
+            id: 'commitments.funding.coverage',
+            defaultMessage: 'Funding coverage: {covered} of {total} covered',
+          },
+          { covered: fBase(Math.max(0, remaining - gap)), total: fBase(remaining) },
+        )}
       />
       {hovered && hoveredSeg && (
         <FundingSourcesPopover
           anchorRect={hovered.rect}
           type={hoveredSeg.type}
-          typeLabel={hoveredSeg.label}
+          typeLabel={typeLabels[hoveredSeg.type] || hoveredSeg.label}
           typeTotal={hoveredSeg.val}
           sources={hoveredSeg.sources}
           fundingPlan={fundingPlan}
@@ -158,7 +182,8 @@ export function FundingCoverageBar({
       <div className="c2-fund-scale">
         <span>{fBase(0)}</span>
         <span>
-          <span className="money">{fBase(remaining)}</span> to cover
+          <span className="money">{fBase(remaining)}</span>{' '}
+          {formatMessage({ id: 'commitments.funding.toCover', defaultMessage: 'to cover' })}
         </span>
       </div>
     </>

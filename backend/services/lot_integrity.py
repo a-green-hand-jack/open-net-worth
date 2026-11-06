@@ -84,11 +84,26 @@ def _tell_the_user(removed: list[dict]) -> None:
         {
             "type": "notification",
             "title": "Cleaned up leftover holdings",
+            "title_message": {"id": "inbox.server.lotTitle", "params": {}},
             "summary": (
                 f"Removed {len(removed)} leftover purchase record(s) from positions you had already "
                 f"deleted: {items}. They were still being counted in your net-worth history and "
                 "returns; your live balances were never affected."
             ),
+            "summary_message": {
+                "id": "inbox.server.lotSummary",
+                "params": {
+                    "items": [
+                        {
+                            "quantity": f"{lot.get('original_qty'):g}",
+                            "symbol": instruments.get(lot.get("instrument_id"), {}).get("symbol")
+                            or None,
+                            "date": lot.get("acquired_at") or None,
+                        }
+                        for lot in removed
+                    ]
+                },
+            },
             "trigger": "data_repair",
         }
     )

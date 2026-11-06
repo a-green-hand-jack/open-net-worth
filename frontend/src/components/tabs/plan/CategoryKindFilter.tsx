@@ -12,6 +12,7 @@
 // passes the width it can spare (`inlineWidth`); a hidden copy of the chip row measures its
 // own natural width, so the swap tracks real label/count widths, not a guessed breakpoint.
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { useAppIntl } from '../../../i18n/useAppIntl'
 import type { PointerEvent as ReactPointerEvent } from 'react'
 import { createPortal } from 'react-dom'
 import { useIsMobile } from '../../../hooks/useIsMobile'
@@ -71,7 +72,7 @@ export function CategoryKindFilter({
   options,
   value,
   onChange,
-  label = 'Filter categories',
+  label: providedLabel,
   inlineWidth = 0,
 }: {
   options: KindFilterOption[]
@@ -81,6 +82,10 @@ export function CategoryKindFilter({
   /** Width the host can give an inline chip row (desktop only). 0 = always the icon. */
   inlineWidth?: number
 }) {
+  const { formatMessage } = useAppIntl()
+  const label =
+    providedLabel ??
+    formatMessage({ id: 'plan.filterCategories', defaultMessage: 'Filter categories' })
   const [open, setOpen] = useState(false)
   const [pos, setPos] = useState<{ left: number; top?: number; bottom?: number } | null>(null)
   const isMobile = useIsMobile()
@@ -241,7 +246,14 @@ export function CategoryKindFilter({
         ref={btnRef}
         type="button"
         className={'pl-catfilter-btn' + (active ? ' is-active' : '')}
-        aria-label={active ? `${label} (active)` : label}
+        aria-label={
+          active
+            ? formatMessage(
+                { id: 'plan.activeFilter', defaultMessage: '{label} (active)' },
+                { label },
+              )
+            : label
+        }
         aria-haspopup="listbox"
         aria-expanded={open}
         onClick={() => setOpen((o) => !o)}
@@ -275,7 +287,7 @@ export function CategoryKindFilter({
                 <button
                   type="button"
                   className="kebab-sheet-x"
-                  aria-label="Close"
+                  aria-label={formatMessage({ id: 'plan.close', defaultMessage: 'Close' })}
                   onClick={() => setOpen(false)}
                 >
                   <X size={18} />

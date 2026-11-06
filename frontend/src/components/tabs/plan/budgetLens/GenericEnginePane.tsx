@@ -16,7 +16,13 @@ import { ErrorState, Panel, Skeleton } from '../../../ui'
 import { useCategories } from '../../../../hooks/serverState'
 import { useQueryCache } from '../../../../state/queryCache'
 import { fBase, fPct } from '../../../../utils/format'
-import { applyBudgetVerb, fetchBudgetView, fetchEngineDraft, viewKey } from './api'
+import {
+  applyBudgetVerb,
+  fetchBudgetView,
+  fetchEngineDraft,
+  viewKey,
+  BudgetVerbRequestError,
+} from './api'
 import { currentYm } from './period'
 import { GenericEngineSetup } from './GenericEngineSetup'
 import { GenericEngineReview } from './GenericEngineReview'
@@ -29,6 +35,7 @@ import {
   setupVerb,
 } from './genericRows'
 import type { BudgetEngineDescriptor, GenericDraftRow, HeadlineUnit, Measure } from './types'
+import { useAppIntl } from '../../../../i18n/useAppIntl'
 
 function formatHeadline(value: number, unit: HeadlineUnit): string {
   if (unit === 'percent') return fPct(value)
@@ -59,6 +66,7 @@ export function GenericEnginePane({
   onConfiguredChange: () => void
   onAskLucius?: (text: string) => void
 }) {
+  const { formatMessage } = useAppIntl()
   const period = useMemo(() => currentYm(), [])
   const categoriesQuery = useCategories()
   const verb = useMemo(() => setupVerb(descriptor.verbs ?? []), [descriptor.verbs])
@@ -89,7 +97,12 @@ export function GenericEnginePane({
     try {
       const res = await fetchEngineDraft(descriptor.id, period)
       if (!res.has_proposal || !res.proposed_state) {
-        setDraftError('Nothing to draft yet — try Start blank instead.')
+        setDraftError(
+          formatMessage({
+            id: 'plan.generic.nothingToDraft',
+            defaultMessage: 'Nothing to draft yet — try Start blank instead.',
+          }),
+        )
         return
       }
       setReview({
@@ -100,7 +113,14 @@ export function GenericEnginePane({
         selected: proposedSelection(res.proposed_state, paramName),
       })
     } catch (e) {
-      setDraftError(e instanceof Error ? e.message : 'Could not draft a proposal — try again.')
+      setDraftError(
+        e instanceof Error
+          ? e.message
+          : formatMessage({
+              id: 'plan.generic.draftFailed',
+              defaultMessage: 'Could not draft a proposal — try again.',
+            }),
+      )
     } finally {
       setDrafting(false)
     }
@@ -129,7 +149,19 @@ export function GenericEnginePane({
       setReview(null)
       onConfiguredChange()
     } catch (e) {
-      setApplyError(e instanceof Error ? e.message : 'Could not save your selection — try again.')
+      setApplyError(
+        e instanceof BudgetVerbRequestError
+          ? formatMessage(
+              { id: 'plan.model.requestFailed', defaultMessage: 'Request failed ({status})' },
+              { status: e.status },
+            )
+          : e instanceof Error
+            ? e.message
+            : formatMessage({
+                id: 'plan.generic.saveFailed',
+                defaultMessage: 'Could not save your selection — try again.',
+              }),
+      )
     } finally {
       setApplying(false)
     }
@@ -168,7 +200,13 @@ export function GenericEnginePane({
   if (view.initialLoading) return <Skeleton width="100%" height={160} radius="var(--radius-lg)" />
   if (view.error && !view.data) {
     return (
-      <ErrorState message={`Couldn't load ${descriptor.name}.`} onRetry={() => view.refresh()} />
+      <ErrorState
+        message={formatMessage(
+          { id: 'plan.generic.loadFailed', defaultMessage: "Couldn't load {name}." },
+          { name: descriptor.name },
+        )}
+        onRetry={() => view.refresh()}
+      />
     )
   }
   if (!view.data) return null

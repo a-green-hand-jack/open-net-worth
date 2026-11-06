@@ -10,7 +10,6 @@ import type { AssetCategory, AssetLoan, OwnedAsset } from '../../../types/assets
 import { localIso } from '../../../utils/format'
 import { Button, ConfirmDialog, Modal, Text } from '../../ui'
 import * as api from './api'
-import { purchaseCopy } from './assetCategoryRules'
 import {
   WIZARD_STEPS,
   isDirty,
@@ -26,6 +25,9 @@ import { OwnershipStep } from './OwnershipStep'
 import { PurchaseStep } from './PurchaseStep'
 import { useWizardFlow, useWizardSave, type WizardFlow } from './useAssetWizard'
 import { linkedTo, useStagedLoan } from './useStagedLoan'
+import { useAppIntl } from '../../../i18n/useAppIntl'
+import { assetCategoryLabel } from './categoryLabels'
+import type { IntlShape } from 'react-intl'
 
 export interface AssetWizardProps {
   /** The book's currency — what every amount here is typed in. */
@@ -41,17 +43,36 @@ export interface AssetWizardProps {
 }
 
 /** Each step leads with its question — step 4's is a policy's own. */
-function questionOf(step: WizardStep, category: string | null): string {
-  if (step === 'cat') return 'What is it?'
-  if (step === 'nameValue') return 'Name and value'
-  if (step === 'ownership') return 'Is it all yours?'
-  return purchaseCopy(category ?? '').question
+function questionOf(intl: IntlShape, step: WizardStep, category: string | null): string {
+  if (step === 'cat')
+    return intl.formatMessage({ id: 'assets.wizard.category', defaultMessage: 'What is it?' })
+  if (step === 'nameValue')
+    return intl.formatMessage({ id: 'assets.wizard.nameValue', defaultMessage: 'Name and value' })
+  if (step === 'ownership')
+    return intl.formatMessage({ id: 'assets.wizard.ownership', defaultMessage: 'Is it all yours?' })
+  return category === 'policy'
+    ? intl.formatMessage({
+        id: 'assets.wizard.premiumQuestion',
+        defaultMessage: 'How much have you paid in?',
+      })
+    : intl.formatMessage({
+        id: 'assets.wizard.purchaseQuestion',
+        defaultMessage: 'How much did you pay?',
+      })
 }
 
 /** "Step 1 of 4" — then "{Category} · Step n of 4" once there is a category. */
-function subtitleOf(step: WizardStep, categoryLabel: string | null): string {
-  const position = `Step ${WIZARD_STEPS.indexOf(step) + 1} of 4`
-  return step === 'cat' || !categoryLabel ? position : `${categoryLabel} · ${position}`
+function subtitleOf(intl: IntlShape, step: WizardStep, categoryLabel: string | null): string {
+  const position = intl.formatMessage(
+    { id: 'assets.wizard.step', defaultMessage: 'Step {step} of 4' },
+    { step: WIZARD_STEPS.indexOf(step) + 1 },
+  )
+  return step === 'cat' || !categoryLabel
+    ? position
+    : intl.formatMessage(
+        { id: 'assets.wizard.categoryStep', defaultMessage: '{category} · {position}' },
+        { category: categoryLabel, position },
+      )
 }
 
 /** Four thin segments, the steps reached so far filled. Decorative: the subtitle says it. */
@@ -174,6 +195,7 @@ function WizardFooter({
   onPrimary,
   onAskLucius,
 }: WizardFooterProps) {
+  const intl = useAppIntl()
   if (step === 'cat') return <DescribeToLucius onAsk={onAskLucius} />
   return (
     <>
@@ -184,10 +206,14 @@ function WizardFooter({
         onClick={onBack}
         disabled={saving}
       >
-        Back
+        {intl.formatMessage({ id: 'common.back', defaultMessage: 'Back' })}
       </Button>
       <Button variant="primary" size="sm" onClick={onPrimary} disabled={saving || blocked}>
-        {step !== 'purchase' ? 'Continue' : saving ? 'Adding…' : 'Add asset'}
+        {step !== 'purchase'
+          ? intl.formatMessage({ id: 'common.continue', defaultMessage: 'Continue' })
+          : saving
+            ? intl.formatMessage({ id: 'assets.adding', defaultMessage: 'Adding…' })
+            : intl.formatMessage({ id: 'assets.add', defaultMessage: 'Add asset' })}
       </Button>
     </>
   )
@@ -201,18 +227,35 @@ interface DiscardConfirmProps {
 }
 
 function DiscardConfirm({ open, createdLoan, onConfirm, onCancel }: DiscardConfirmProps) {
+  const intl = useAppIntl()
   const body = createdLoan
-    ? `You'll lose what you've entered. The loan you added, ${createdLoan.name}, stays in Accounts.`
-    : "You'll lose what you've entered."
+    ? intl.formatMessage(
+        {
+          id: 'assets.wizard.discardLoan',
+          defaultMessage:
+            "You'll lose what you've entered. The loan you added, {name}, stays in Accounts.",
+        },
+        { name: createdLoan.name },
+      )
+    : intl.formatMessage({
+        id: 'assets.wizard.discardBody',
+        defaultMessage: "You'll lose what you've entered.",
+      })
   return (
     <ConfirmDialog
       data={
         open
           ? {
-              title: 'Discard this asset?',
+              title: intl.formatMessage({
+                id: 'assets.wizard.discardTitle',
+                defaultMessage: 'Discard this asset?',
+              }),
               body,
-              confirmLabel: 'Discard',
-              cancelLabel: 'Keep editing',
+              confirmLabel: intl.formatMessage({ id: 'common.discard', defaultMessage: 'Discard' }),
+              cancelLabel: intl.formatMessage({
+                id: 'common.keepEditing',
+                defaultMessage: 'Keep editing',
+              }),
               danger: true,
             }
           : null
@@ -238,6 +281,7 @@ interface WizardDialogProps {
 
 /** The one fixed frame every step shows in, with its footer. */
 function WizardDialog(props: WizardDialogProps) {
+  const intl = useAppIntl()
   const { flow, saving, cats, onPrimary } = props
   const { step, draft } = flow
   const category = draft.cat ? catOf(cats, draft.cat) : null
@@ -256,8 +300,8 @@ function WizardDialog(props: WizardDialogProps) {
       open
       onClose={props.onRequestClose}
       size="md"
-      title={questionOf(step, draft.cat)}
-      subtitle={subtitleOf(step, category?.label ?? null)}
+      title={questionOf(intl, step, draft.cat)}
+      subtitle={subtitleOf(intl, step, category ? assetCategoryLabel(intl, category) : null)}
       footer={
         <WizardFooter
           step={step}

@@ -1,3 +1,4 @@
+import { useAppIntl } from '../../i18n/useAppIntl'
 // A screen's first-visit introduction: a picture of what it holds, why it is worth using, and
 // two ways to start (Lucius, or by yourself). A screen with several parts walks through them
 // one step at a time, with its progress shown; the two ways in come on the last step.
@@ -54,6 +55,7 @@ function useRecheck(waiting: boolean): void {
 }
 
 export function FeatureIntro({ open, steps, lucius, secondary, onClose }: FeatureIntroProps) {
+  const { formatMessage } = useAppIntl()
   const [i, setI] = useState(0)
   // Never on top of a tour or tip, and never a second guide in one visit: it waits, unseen,
   // for a visit where it is the first (see `guidedThisVisit`).
@@ -92,7 +94,10 @@ export function FeatureIntro({ open, steps, lucius, secondary, onClose }: Featur
           {steps.length > 1 && (
             <span className="fi-progress">
               <span className="ui-visually-hidden">
-                Step {i + 1} of {steps.length}
+                {formatMessage(
+                  { id: 'firstrun.intro.progress', defaultMessage: 'Step {step} of {total}' },
+                  { step: i + 1, total: steps.length },
+                )}
               </span>
               {steps.map((s, n) => (
                 <span
@@ -106,7 +111,7 @@ export function FeatureIntro({ open, steps, lucius, secondary, onClose }: Featur
           <span className="fi-actions">
             {i > 0 && (
               <Button size="sm" variant="ghost" onClick={() => setI((n) => n - 1)}>
-                Back
+                {formatMessage({ id: 'firstrun.intro.back', defaultMessage: 'Back' })}
               </Button>
             )}
             {last ? (
@@ -127,7 +132,7 @@ export function FeatureIntro({ open, steps, lucius, secondary, onClose }: Featur
               </>
             ) : (
               <Button size="sm" variant="primary" data-autofocus onClick={() => setI((n) => n + 1)}>
-                Next
+                {formatMessage({ id: 'firstrun.intro.next', defaultMessage: 'Next' })}
               </Button>
             )}
           </span>

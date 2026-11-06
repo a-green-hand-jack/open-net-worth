@@ -3,6 +3,7 @@ import { authFetch } from '../api/client'
 import { tooManyAttemptsMessage } from '../api/rateLimit'
 import { useBrand } from '../brand-context'
 import { PasswordField } from './ui'
+import { useAppIntl } from '../i18n/useAppIntl'
 
 // Full-screen pre-app gate (P3-AUTH S3). Rendered by App.tsx INSTEAD of the
 // tabs/sidebar/chat when auth is required and this request isn't authenticated.
@@ -10,6 +11,7 @@ import { PasswordField } from './ui'
 // App.tsx to re-check GET /api/auth/status and render the app.
 
 export function Login({ onAuthenticated }: { onAuthenticated: () => void }) {
+  const intl = useAppIntl()
   const brand = useBrand()
   const [password, setPassword] = useState('')
   const [submitting, setSubmitting] = useState(false)
@@ -27,17 +29,24 @@ export function Login({ onAuthenticated }: { onAuthenticated: () => void }) {
         body: JSON.stringify({ password }),
       })
       if (res.status === 401) {
-        setError('Incorrect password')
+        setError(
+          intl.formatMessage({ id: 'login.incorrect', defaultMessage: 'Incorrect password' }),
+        )
         setSubmitting(false)
         return
       }
       if (res.status === 429) {
-        setError(tooManyAttemptsMessage(res))
+        setError(tooManyAttemptsMessage(res, intl))
         setSubmitting(false)
         return
       }
       if (!res.ok) {
-        setError(`Login failed (HTTP ${res.status})`)
+        setError(
+          intl.formatMessage(
+            { id: 'login.failed', defaultMessage: 'Login failed (HTTP {status})' },
+            { status: res.status },
+          ),
+        )
         setSubmitting(false)
         return
       }
@@ -45,7 +54,12 @@ export function Login({ onAuthenticated }: { onAuthenticated: () => void }) {
       setPassword('')
       onAuthenticated()
     } catch {
-      setError('Could not reach the server. Try again.')
+      setError(
+        intl.formatMessage({
+          id: 'login.unreachable',
+          defaultMessage: 'Could not reach the server. Try again.',
+        }),
+      )
       setSubmitting(false)
     }
   }
@@ -54,16 +68,21 @@ export function Login({ onAuthenticated }: { onAuthenticated: () => void }) {
     <div className="login-screen">
       <form className="login-card" onSubmit={submit}>
         <div className="login-brand">{brand.app_name.toUpperCase()}</div>
-        <p className="login-sub">Enter your password to access this instance.</p>
+        <p className="login-sub">
+          {intl.formatMessage({
+            id: 'login.description',
+            defaultMessage: 'Enter your password to access this instance.',
+          })}
+        </p>
         <label className="form-label" htmlFor="login-password">
-          Password
+          {intl.formatMessage({ id: 'login.password', defaultMessage: 'Password' })}
         </label>
         <PasswordField
           id="login-password"
           value={password}
           autoFocus
           autoComplete="current-password"
-          placeholder="Password"
+          placeholder={intl.formatMessage({ id: 'login.password', defaultMessage: 'Password' })}
           onChange={(e) => {
             setPassword(e.target.value)
             if (error) setError(null)
@@ -75,17 +94,25 @@ export function Login({ onAuthenticated }: { onAuthenticated: () => void }) {
           type="submit"
           disabled={submitting || !password}
         >
-          {submitting ? 'Signing in…' : 'Sign in'}
+          {submitting
+            ? intl.formatMessage({ id: 'login.signingIn', defaultMessage: 'Signing in…' })
+            : intl.formatMessage({ id: 'login.signIn', defaultMessage: 'Sign in' })}
         </button>
         <p className="login-help">
-          Lost your password? In the desktop app, set a new one in Settings → Security. On a server,
-          run <code>onw reset-password</code> on that machine.{' '}
+          {intl.formatMessage(
+            {
+              id: 'login.lostPassword',
+              defaultMessage:
+                'Lost your password? In the desktop app, set a new one in Settings → Security. On a server, run <code>onw reset-password</code> on that machine.',
+            },
+            { code: (chunks) => <code>{chunks}</code> },
+          )}{' '}
           <a
             href="https://docs.opennetworth.ai/troubleshooting/lost-password/"
             target="_blank"
             rel="noreferrer"
           >
-            More options
+            {intl.formatMessage({ id: 'login.moreOptions', defaultMessage: 'More options' })}
           </a>
         </p>
       </form>

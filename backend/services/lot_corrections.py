@@ -55,13 +55,19 @@ def plan_sold_lot_amend(
     if "quantity" in change:
         qty = float(change.get("quantity") or 0)
         if not math.isfinite(qty) or qty <= 0:
-            return {"error": "quantity must be a positive number"}
+            return {
+                "error": "quantity must be a positive number",
+                "message_id": "lots.error.quantityPositive",
+                "message_params": {},
+            }
         if qty + _QTY_EPS < sold:
             return {
                 "error": (
                     f"{sold:g} units of this lot have already been sold, so it can't hold fewer "
                     f"than {sold:g} — edit or undo the sale first to sell fewer from it"
-                )
+                ),
+                "message_id": "lots.error.quantityBelowSold",
+                "message_params": {"sold": f"{sold:g}"},
             }
         updates["original_qty"] = qty
         updates["remaining_qty"] = round(qty - sold, 10)

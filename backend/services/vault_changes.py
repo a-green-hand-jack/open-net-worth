@@ -35,7 +35,11 @@ def _clean_note(note: object) -> str | None:
     never cut."""
     text = "\n".join(line.rstrip() for line in str(note or "").splitlines()).strip()
     if len(text) > vault.MAX_NOTE:
-        raise ValidationError(f"A note can be up to {vault.MAX_NOTE} characters.")
+        raise ValidationError(
+            f"A note can be up to {vault.MAX_NOTE} characters.",
+            message_id="vault.error.noteLength",
+            message_params={"limit": str(vault.MAX_NOTE)},
+        )
     return text or None
 
 
@@ -45,9 +49,15 @@ def _clean_year(year: object) -> int | None:
     try:
         value = int(str(year))
     except ValueError:
-        raise ValidationError("year must be a whole number, e.g. 2025") from None
+        raise ValidationError(
+            "year must be a whole number, e.g. 2025", message_id="vault.error.yearInteger"
+        ) from None
     if not vault.MIN_YEAR <= value <= vault.MAX_YEAR:
-        raise ValidationError(f"year must be between {vault.MIN_YEAR} and {vault.MAX_YEAR}")
+        raise ValidationError(
+            f"year must be between {vault.MIN_YEAR} and {vault.MAX_YEAR}",
+            message_id="vault.error.yearRange",
+            message_params={"min": str(vault.MIN_YEAR), "max": str(vault.MAX_YEAR)},
+        )
     return value
 
 
@@ -63,7 +73,9 @@ def _merge_meta(current: dict, changes: dict) -> dict:
         meta["tags"] = vault.clean_tags(changes["tags"])
     if "private" in changes:
         if not isinstance(changes["private"], bool):
-            raise ValidationError("private must be true or false")
+            raise ValidationError(
+                "private must be true or false", message_id="vault.error.privateBoolean"
+            )
         meta["private"] = changes["private"]
     return meta
 
@@ -71,7 +83,11 @@ def _merge_meta(current: dict, changes: dict) -> dict:
 def _require_attachment(attachment_id: str) -> dict:
     row = AttachmentStore().find_meta(attachment_id) if attachment_id else None
     if row is None:
-        raise NotFoundError(f"no stored upload {attachment_id!r}")
+        raise NotFoundError(
+            f"no stored upload {attachment_id!r}",
+            message_id="vault.error.uploadMissing",
+            message_params={"id": str(attachment_id)},
+        )
     return row
 
 
@@ -121,7 +137,10 @@ def keep_attachment(attachment_id: str, **meta: object) -> dict:
     the user's own edit (``update_file``) may make a Private file readable again."""
     changes = {k: v for k, v in meta.items() if k in _EDITABLE and v is not None}
     if changes.get("private") is False and vault.is_private_attachment(attachment_id):
-        raise ValidationError("Only the user can switch Private off, in Documents.")
+        raise ValidationError(
+            "Only the user can switch Private off, in Documents.",
+            message_id="vault.error.privateUserOnly",
+        )
     return _keep(attachment_id, changes)
 
 
@@ -130,12 +149,17 @@ def _set_asset_file_private(vid: str, changes: dict) -> dict:
     one flag, written where the asset page reads it (owner: "i can't see we can control that
     in the document modal")."""
     if set(changes) - {"private"}:
-        raise ValidationError("an asset file's Private is its only setting here")
+        raise ValidationError(
+            "an asset file's Private is its only setting here",
+            message_id="vault.error.assetPrivateOnly",
+        )
     item = vault.get_item(vid)  # 404 before any write
     if "private" not in changes:
         return item
     if not isinstance(changes["private"], bool):
-        raise ValidationError("private must be true or false")
+        raise ValidationError(
+            "private must be true or false", message_id="vault.error.privateBoolean"
+        )
     from backend.services import owned_assets
 
     owned_assets.apply_owned_asset_change(
@@ -154,13 +178,23 @@ def update_file(vid: str, changes: dict) -> dict:
     if kind == "asset":
         return _set_asset_file_private(vid, changes)
     if kind != "file":
-        raise ValidationError("only your own files have editable details")
+        raise ValidationError(
+            "only your own files have editable details", message_id="vault.error.editOwnOnly"
+        )
     unknown = sorted(set(changes) - set(_EDITABLE))
     if unknown:
-        raise ValidationError(f"cannot change {unknown} — editable: {list(_EDITABLE)}")
+        raise ValidationError(
+            f"cannot change {unknown} — editable: {list(_EDITABLE)}",
+            message_id="vault.error.unknownFields",
+            message_params={"fields": str(unknown), "editable": str(list(_EDITABLE))},
+        )
     current = _require_attachment(attachment_id).get("vault") or {}
     if not current.get("saved"):
-        raise NotFoundError(f"no document {vid!r}")
+        raise NotFoundError(
+            f"no document {vid!r}",
+            message_id="vault.error.documentMissing",
+            message_params={"id": str(vid)},
+        )
     return _keep(attachment_id, changes)
 
 
@@ -185,7 +219,7 @@ def rename_item(vid: str, title: object) -> dict:
         apply_receipt_change({"type": "rename", "receipt_id": source_id, "title": name})
         return vault.get_item(vid)
     if not name:
-        raise ValidationError("the name can't be empty")
+        raise ValidationError("the name can't be empty", message_id="vault.error.emptyName")
     if kind == "artifact":
         ArtifactStore().update_by_id(source_id, {"title": name})
     else:
@@ -252,7 +286,11 @@ def save_artifact(artifact_id: str) -> dict:
     store = ArtifactStore()
     row = store.find_by_id(artifact_id) if artifact_id else None
     if row is None:
-        raise NotFoundError(f"artifact not found: {artifact_id}")
+        raise NotFoundError(
+            f"artifact not found: {artifact_id}",
+            message_id="vault.error.artifactMissing",
+            message_params={"id": str(artifact_id)},
+        )
     if not row.get("saved"):
         store.update_by_id(artifact_id, {"saved": True, "saved_at": vault.now_iso()})
     return vault.get_item(item_id("artifact", artifact_id))
@@ -265,7 +303,11 @@ def unsave_artifact(artifact_id: str) -> dict:
     store = ArtifactStore()
     row = store.find_by_id(artifact_id) if artifact_id else None
     if row is None:
-        raise NotFoundError(f"artifact not found: {artifact_id}")
+        raise NotFoundError(
+            f"artifact not found: {artifact_id}",
+            message_id="vault.error.artifactMissing",
+            message_params={"id": str(artifact_id)},
+        )
     if row.get("detached_from_session") and not row.get("session_id"):
         store.delete_artifact(artifact_id)
         return {"artifact_id": artifact_id, "saved": False, "deleted": True}
@@ -283,7 +325,9 @@ def delete_file(vid: str) -> dict:
 
     kind, source_id = parse_item_id(vid)
     if kind != "file":
-        raise ValidationError("only your own files can be deleted here")
+        raise ValidationError(
+            "only your own files can be deleted here", message_id="vault.error.deleteOwnOnly"
+        )
     item = vault.get_item(vid)  # 404 before any write
     delete_attachment(source_id)
     return {"id": item["id"], "action": "deleted"}
@@ -299,7 +343,11 @@ def _delete_filed(item: dict) -> None:
         from backend.db.statement_store import StatementStore
 
         if not StatementStore().delete_statement(source_id):
-            raise NotFoundError(f"no document {item['id']!r}")
+            raise NotFoundError(
+                f"no document {item['id']!r}",
+                message_id="vault.error.documentMissing",
+                message_params={"id": str(item["id"])},
+            )
     elif kind == "receipt":
         from backend.services.receipts import apply_receipt_change
 
@@ -350,14 +398,26 @@ def unfile_item(vid: str) -> dict:
     if kind == "artifact":
         row = ArtifactStore().find_by_id(source_id) or {}
         if row.get("detached_from_session") and not row.get("session_id"):
-            raise ValidationError(f"{item['title']!r}: its conversation is gone, so {only_here}")
+            raise ValidationError(
+                f"{item['title']!r}: its conversation is gone, so {only_here}",
+                message_id="vault.error.orphanRemoval",
+                message_params={"title": str(item["title"])},
+            )
         unsave_artifact(source_id)
         return {"id": item["id"], "action": "removed"}
     if kind != "file":
-        raise ValidationError(f"{item['title']!r} is a {kind}: {only_here}")
+        raise ValidationError(
+            f"{item['title']!r} is a {kind}: {only_here}",
+            message_id="vault.error.soleHomeRemoval",
+            message_params={"title": str(item["title"]), "kind": str(kind)},
+        )
     row = _require_attachment(source_id)
     if row.get("source_channel") == VAULT_CHANNEL:
-        raise ValidationError(f"{item['title']!r} was added to Documents directly: {only_here}")
+        raise ValidationError(
+            f"{item['title']!r} was added to Documents directly: {only_here}",
+            message_id="vault.error.directRemoval",
+            message_params={"title": str(item["title"])},
+        )
     meta = dict(row.get("vault") or {})
     meta.update(saved=False, saved_at=None)
     AttachmentStore().update_by_id(source_id, {"vault": meta})

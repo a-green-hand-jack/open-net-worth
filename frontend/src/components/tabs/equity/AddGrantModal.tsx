@@ -1,3 +1,6 @@
+import { equityError } from './equityErrors'
+import { getNumberLocale } from '../../../utils/format'
+import { useAppIntl } from '../../../i18n/useAppIntl'
 import { useEffect, useState } from 'react'
 import type {
   GrantCreate,
@@ -74,6 +77,7 @@ const NEW_ACCOUNT_SENTINEL = '__new__'
 type Mode = 'schedule' | 'manual'
 
 export function AddGrantModal({ onClose, onDone }: Props) {
+  const intl = useAppIntl()
   const [symbol, setSymbol] = useState('')
   const [instrumentId, setInstrumentId] = useState<string | null>(null)
   const [symbolError, setSymbolError] = useState<string | null>(null)
@@ -90,7 +94,7 @@ export function AddGrantModal({ onClose, onDone }: Props) {
 
   // Grant text paste-box state
   const [pasteText, setPasteText] = useState('')
-  const [parsedNote, setParsedNote] = useState<string | null>(null)
+  const [parsedCount, setParsedCount] = useState<number | null>(null)
 
   // Mode: schedule generator vs manual entry
   const [mode, setMode] = useState<Mode>('schedule')
@@ -144,17 +148,15 @@ export function AddGrantModal({ onClose, onDone }: Props) {
       setSymbolError(null)
     } else {
       setInstrumentId(null)
-      setSymbolError('Unknown instrument — add it under Investments first.')
+      setSymbolError(intl.formatMessage({ id: 'equity.unknownInstrument', defaultMessage: 'Unknown instrument — add it under Investments first.' }))
     }
   }
 
   function handleFillFromText() {
     const parsed = eqLuciusParse(pasteText)
     const count = countParsedFields(parsed)
-    if (count === 0) {
-      setParsedNote("Couldn't parse any fields — review and fill manually.")
-      return
-    }
+    setParsedCount(count)
+    if (count === 0) return
     if (parsed.symbol) {
       setSymbol(parsed.symbol)
       resolveSymbol(parsed.symbol)
@@ -163,7 +165,6 @@ export function AddGrantModal({ onClose, onDone }: Props) {
     if (parsed.freq) setSchedFreq(parsed.freq)
     if (parsed.years) setSchedYears(parsed.years)
     if (parsed.firstVest) setSchedFirstVest(parsed.firstVest)
-    setParsedNote(`Filled in ${count} field${count === 1 ? '' : 's'} — review below.`)
   }
 
   function updateTranche(key: number, patch: Partial<TrancheRow>) {
@@ -188,7 +189,7 @@ export function AddGrantModal({ onClose, onDone }: Props) {
 
   const schedSummary =
     generatedTranches.length > 0
-      ? `${generatedTranches.length} tranches of ${generatedTranches[0]!.units}–${generatedTranches[generatedTranches.length - 1]!.units} units • ${fDate(generatedTranches[0]!.vest_date, 'short', 'always')} → ${fDate(generatedTranches[generatedTranches.length - 1]!.vest_date, 'short', 'always')}`
+      ? intl.formatMessage({ id: 'equity.scheduleSummary', defaultMessage: '{count} tranches of {first}–{last} units • {start} → {end}' }, { count: generatedTranches.length.toLocaleString(getNumberLocale()), first: generatedTranches[0]!.units.toLocaleString(getNumberLocale()), last: generatedTranches[generatedTranches.length - 1]!.units.toLocaleString(getNumberLocale()), start: fDate(generatedTranches[0]!.vest_date, 'short', 'always'), end: fDate(generatedTranches[generatedTranches.length - 1]!.vest_date, 'short', 'always') })
       : null
 
   function handleEditManually() {
@@ -269,11 +270,11 @@ export function AddGrantModal({ onClose, onDone }: Props) {
       })
       if (!res.ok) {
         const detail = await res.json().catch(() => ({}))
-        throw new Error((detail as { detail?: string }).detail || `HTTP ${res.status}`)
+        throw new Error(equityError(intl, detail, (detail as { detail?: string }).detail || `HTTP ${res.status}`))
       }
       onDone()
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to save grant.')
+      setError(err instanceof Error ? err.message : intl.formatMessage({ id: 'equity.saveFailed', defaultMessage: "Failed to save grant." }))
       setSubmitting(false)
     }
   }
@@ -281,30 +282,30 @@ export function AddGrantModal({ onClose, onDone }: Props) {
   const footer = (
     <Cluster gap="--space-3" justify="between">
       <Button variant="secondary" onClick={onClose} disabled={submitting}>
-        Cancel
+        {intl.formatMessage({ id: 'equity.cancel', defaultMessage: 'Cancel' })}
       </Button>
       <Button variant="primary" onClick={handleSave} disabled={!isValid || submitting}>
-        {submitting ? 'Saving…' : 'Save grant'}
+        {submitting ? intl.formatMessage({ id: 'equity.saving', defaultMessage: 'Saving…' }) : intl.formatMessage({ id: 'equity.saveGrant', defaultMessage: "Save grant" })}
       </Button>
     </Cluster>
   )
 
   return (
-    <Modal open onClose={onClose} title="Add equity grant" size="lg" footer={footer}>
+    <Modal open onClose={onClose} title={intl.formatMessage({ id: 'equity.addTitle', defaultMessage: "Add equity grant" })} size="lg" footer={footer}>
       <Stack gap="--space-5">
         {/* ── Grant text paste-box ── */}
         <div className="equity-add-paste">
           <div className="lx-mark lx-mark--sm equity-add-paste__icon" aria-hidden>
             ✦
           </div>
-          <p className="equity-add-paste__heading">Paste grant letter or describe it</p>
+          <p className="equity-add-paste__heading">{intl.formatMessage({ id: 'equity.pasteHeading', defaultMessage: "Paste grant letter or describe it" })}</p>
           <textarea
             className="equity-add-paste__box"
-            placeholder="e.g. 1,000 NVDA RSUs, quarterly over 4 years from 2026-09-15"
+            placeholder={intl.formatMessage({ id: 'equity.pastePlaceholder', defaultMessage: "e.g. 1,000 NVDA RSUs, quarterly over 4 years from 2026-09-15" })}
             rows={3}
             value={pasteText}
             onChange={(e) => setPasteText(e.target.value)}
-            aria-label="Grant letter text"
+            aria-label={intl.formatMessage({ id: 'equity.grantText', defaultMessage: "Grant letter text" })}
           />
           <div className="equity-add-paste__foot">
             <Button
@@ -313,33 +314,33 @@ export function AddGrantModal({ onClose, onDone }: Props) {
               onClick={handleFillFromText}
               disabled={!pasteText.trim()}
             >
-              Fill from text
+              {intl.formatMessage({ id: 'equity.fillText', defaultMessage: "Fill from text" })}
             </Button>
-            {parsedNote && (
+            {parsedCount !== null && (
               <Text
                 as="span"
                 size="sm"
-                tone={parsedNote.startsWith("Couldn't") ? 'faint' : undefined}
+                tone={parsedCount === 0 ? 'faint' : undefined}
               >
-                {parsedNote}
+                {parsedCount === 0 ? intl.formatMessage({ id: 'equity.parseFailed', defaultMessage: "Couldn't parse any fields — review and fill manually." }) : intl.formatMessage({ id: 'equity.parsedCount', defaultMessage: 'Filled in {count, plural, one {# field} other {# fields}} — review below.' }, { count: parsedCount })}
               </Text>
             )}
           </div>
         </div>
 
         <div className="equity-add-or" aria-hidden>
-          or fill in manually
+          {intl.formatMessage({ id: 'equity.manualEntry', defaultMessage: "or fill in manually" })}
         </div>
 
         <FormField
-          label="Instrument / ticker"
+          label={intl.formatMessage({ id: 'equity.instrument', defaultMessage: "Instrument / ticker" })}
           htmlFor="grant-symbol"
           required
           error={symbolError ?? undefined}
         >
           <TextField
             id="grant-symbol"
-            placeholder="e.g. ONWAI"
+            placeholder={intl.formatMessage({ id: 'equity.instrumentExample', defaultMessage: "e.g. ONWAI" })}
             value={symbol}
             onChange={(e) => {
               setSymbol(e.target.value)
@@ -353,13 +354,13 @@ export function AddGrantModal({ onClose, onDone }: Props) {
         {/* ── Mode segmented control ── */}
         <div>
           <Text as="p" size="sm" weight={600} style={{ marginBottom: 'var(--space-2)' }}>
-            Schedule
+            {intl.formatMessage({ id: 'equity.schedule', defaultMessage: "Schedule" })}
           </Text>
           <SegmentedControl
-            ariaLabel="Schedule entry mode"
+            ariaLabel={intl.formatMessage({ id: 'equity.entryMode', defaultMessage: "Schedule entry mode" })}
             options={[
-              { value: 'schedule', label: 'Schedule generator' },
-              { value: 'manual', label: 'Manual tranches' },
+              { value: 'schedule', label: intl.formatMessage({ id: 'equity.scheduleGenerator', defaultMessage: "Schedule generator" }) },
+              { value: 'manual', label: intl.formatMessage({ id: 'equity.manualTranches', defaultMessage: "Manual tranches" }) },
             ]}
             value={mode}
             onChange={(v) => setMode(v as Mode)}
@@ -370,7 +371,7 @@ export function AddGrantModal({ onClose, onDone }: Props) {
         {mode === 'schedule' && (
           <div className="equity-sched">
             <Cluster gap="--space-3" align="end" wrap>
-              <FormField label="Total units" htmlFor="sched-total">
+              <FormField label={intl.formatMessage({ id: 'equity.totalUnits', defaultMessage: "Total units" })} htmlFor="sched-total">
                 <NumberField
                   id="sched-total"
                   value={schedTotalUnits}
@@ -379,19 +380,19 @@ export function AddGrantModal({ onClose, onDone }: Props) {
                   onChange={(e) => setSchedTotalUnits(e.target.value)}
                 />
               </FormField>
-              <FormField label="Frequency" htmlFor="sched-freq">
+              <FormField label={intl.formatMessage({ id: 'equity.frequency', defaultMessage: "Frequency" })} htmlFor="sched-freq">
                 <Select
                   id="sched-freq"
                   value={schedFreq}
                   onChange={(e) => setSchedFreq(e.target.value as Frequency)}
                   options={[
-                    { value: 'monthly', label: 'Monthly' },
-                    { value: 'quarterly', label: 'Quarterly' },
-                    { value: 'annual', label: 'Annual' },
+                    { value: 'monthly', label: intl.formatMessage({ id: 'equity.monthly', defaultMessage: "Monthly" }) },
+                    { value: 'quarterly', label: intl.formatMessage({ id: 'equity.quarterly', defaultMessage: "Quarterly" }) },
+                    { value: 'annual', label: intl.formatMessage({ id: 'equity.annual', defaultMessage: "Annual" }) },
                   ]}
                 />
               </FormField>
-              <FormField label="Over (years)" htmlFor="sched-years">
+              <FormField label={intl.formatMessage({ id: 'equity.years', defaultMessage: "Over (years)" })} htmlFor="sched-years">
                 <NumberField
                   id="sched-years"
                   value={schedYears}
@@ -401,7 +402,7 @@ export function AddGrantModal({ onClose, onDone }: Props) {
                   onChange={(e) => setSchedYears(e.target.value)}
                 />
               </FormField>
-              <FormField label="First vest" htmlFor="sched-first-vest">
+              <FormField label={intl.formatMessage({ id: 'equity.firstVest', defaultMessage: "First vest" })} htmlFor="sched-first-vest">
                 <TextField
                   id="sched-first-vest"
                   type="date"
@@ -420,10 +421,10 @@ export function AddGrantModal({ onClose, onDone }: Props) {
                   {schedSummary}
                 </Text>
                 <Button variant="ghost" size="sm" onClick={() => setSchedPreviewOpen((o) => !o)}>
-                  {schedPreviewOpen ? 'Hide preview' : 'Preview'}
+                  {schedPreviewOpen ? intl.formatMessage({ id: 'equity.hidePreview', defaultMessage: "Hide preview" }) : intl.formatMessage({ id: 'equity.preview', defaultMessage: "Preview" })}
                 </Button>
                 <Button variant="ghost" size="sm" onClick={handleEditManually}>
-                  Edit manually
+                  {intl.formatMessage({ id: 'equity.editManually', defaultMessage: "Edit manually" })}
                 </Button>
               </div>
             )}
@@ -436,7 +437,7 @@ export function AddGrantModal({ onClose, onDone }: Props) {
                       {fDate(t.vest_date, 'short', 'always')}
                     </Text>
                     <Text as="span" size="sm" tone="faint">
-                      {t.units.toLocaleString()} units
+                      {intl.formatMessage({ id: 'equity.unitCount', defaultMessage: '{units} units' }, { units: t.units.toLocaleString(getNumberLocale()) })}
                     </Text>
                   </div>
                 ))}
@@ -449,12 +450,12 @@ export function AddGrantModal({ onClose, onDone }: Props) {
         {mode === 'manual' && (
           <div className="equity-tranches">
             <Text as="h3" size="sm" weight={600} className="equity-tranches__heading">
-              Tranches
+              {intl.formatMessage({ id: 'equity.tranches', defaultMessage: "Tranches" })}
             </Text>
             <Stack gap="--space-3">
               {tranches.map((t) => (
                 <Cluster key={t._key} gap="--space-2" align="end">
-                  <FormField label="Vest date" htmlFor={`tranche-date-${t._key}`}>
+                  <FormField label={intl.formatMessage({ id: 'equity.vest.date', defaultMessage: "Vest date" })} htmlFor={`tranche-date-${t._key}`}>
                     <TextField
                       id={`tranche-date-${t._key}`}
                       type="date"
@@ -462,7 +463,7 @@ export function AddGrantModal({ onClose, onDone }: Props) {
                       onChange={(e) => updateTranche(t._key, { vest_date: e.target.value })}
                     />
                   </FormField>
-                  <FormField label="Units" htmlFor={`tranche-units-${t._key}`}>
+                  <FormField label={intl.formatMessage({ id: 'equity.units', defaultMessage: "Units" })} htmlFor={`tranche-units-${t._key}`}>
                     <NumberField
                       id={`tranche-units-${t._key}`}
                       value={t.units || ''}
@@ -473,7 +474,7 @@ export function AddGrantModal({ onClose, onDone }: Props) {
                       }
                     />
                   </FormField>
-                  <FormField label="Kind" htmlFor={`tranche-kind-${t._key}`}>
+                  <FormField label={intl.formatMessage({ id: 'equity.kind', defaultMessage: "Kind" })} htmlFor={`tranche-kind-${t._key}`}>
                     <Select
                       id={`tranche-kind-${t._key}`}
                       value={t.kind}
@@ -481,8 +482,8 @@ export function AddGrantModal({ onClose, onDone }: Props) {
                         updateTranche(t._key, { kind: e.target.value as TrancheKind })
                       }
                       options={[
-                        { value: 'time', label: 'Standard' },
-                        { value: 'performance', label: 'Performance' },
+                        { value: 'time', label: intl.formatMessage({ id: 'equity.standard', defaultMessage: "Standard" }) },
+                        { value: 'performance', label: intl.formatMessage({ id: 'equity.performance', defaultMessage: "Performance" }) },
                       ]}
                     />
                   </FormField>
@@ -491,7 +492,7 @@ export function AddGrantModal({ onClose, onDone }: Props) {
                       variant="ghost"
                       size="sm"
                       onClick={() => removeTranche(t._key)}
-                      aria-label="Remove tranche"
+                      aria-label={intl.formatMessage({ id: 'equity.removeTranche', defaultMessage: "Remove tranche" })}
                     >
                       <X size={14} aria-hidden="true" />
                     </Button>
@@ -506,7 +507,7 @@ export function AddGrantModal({ onClose, onDone }: Props) {
               onClick={addTranche}
               className="equity-tranches__add"
             >
-              Add tranche row
+              {intl.formatMessage({ id: 'equity.addTranche', defaultMessage: "Add tranche row" })}
             </Button>
           </div>
         )}
@@ -522,12 +523,12 @@ export function AddGrantModal({ onClose, onDone }: Props) {
             <span className="equity-add-advanced__chevron" aria-hidden>
               {advancedOpen ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
             </span>
-            Advanced
+            {intl.formatMessage({ id: 'equity.advanced', defaultMessage: "Advanced" })}
           </button>
 
           {advancedOpen && (
             <Stack gap="--space-4" className="equity-add-advanced__body">
-              <FormField label="Grant date" htmlFor="grant-date" required>
+              <FormField label={intl.formatMessage({ id: 'equity.grantDate', defaultMessage: "Grant date" })} htmlFor="grant-date" required>
                 <TextField
                   id="grant-date"
                   type="date"
@@ -537,9 +538,9 @@ export function AddGrantModal({ onClose, onDone }: Props) {
               </FormField>
 
               <FormField
-                label="Price at grant (per unit)"
+                label={intl.formatMessage({ id: 'equity.grantPrice', defaultMessage: "Price at grant (per unit)" })}
                 htmlFor="grant-price-per-unit"
-                help="Optional — for reference and since-grant performance. Not used for tax."
+                help={intl.formatMessage({ id: 'equity.grantPriceHelp', defaultMessage: "Optional — for reference and since-grant performance. Not used for tax." })}
               >
                 <TextField
                   id="grant-price-per-unit"
@@ -554,7 +555,7 @@ export function AddGrantModal({ onClose, onDone }: Props) {
                 />
               </FormField>
 
-              <FormField label="Grant type" htmlFor="grant-type" required>
+              <FormField label={intl.formatMessage({ id: 'equity.grantType', defaultMessage: "Grant type" })} htmlFor="grant-type" required>
                 <Select
                   id="grant-type"
                   value={grantTypeUi}
@@ -562,35 +563,35 @@ export function AddGrantModal({ onClose, onDone }: Props) {
                   options={[
                     { value: 'rsu', label: 'RSU' },
                     { value: 'esow', label: 'ESOW' },
-                    { value: 'ltip', label: 'LTIP (performance)' },
+                    { value: 'ltip', label: intl.formatMessage({ id: 'equity.ltip', defaultMessage: "LTIP (performance)" }) },
                   ]}
                 />
               </FormField>
 
-              <FormField label="Tax event" htmlFor="grant-tax-event" required>
+              <FormField label={intl.formatMessage({ id: 'equity.taxEvent', defaultMessage: "Tax event" })} htmlFor="grant-tax-event" required>
                 <Select
                   id="grant-tax-event"
                   value={taxEvent}
                   onChange={(e) => setTaxEvent(e.target.value as TaxEvent)}
                   options={[
-                    { value: 'at_vest', label: 'Tax at vest — Singapore / US / Germany' },
-                    { value: 'deferred', label: 'Tax deferred — Vietnam and others' },
+                    { value: 'at_vest', label: intl.formatMessage({ id: 'equity.taxAtVest', defaultMessage: "Tax at vest — Singapore / US / Germany" }) },
+                    { value: 'deferred', label: intl.formatMessage({ id: 'equity.taxDeferred', defaultMessage: "Tax deferred — Vietnam and others" }) },
                   ]}
                 />
               </FormField>
 
               <FormField
-                label="Share delivery"
+                label={intl.formatMessage({ id: 'equity.shareDelivery', defaultMessage: "Share delivery" })}
                 htmlFor="grant-release-required"
-                help="Choose delayed when your plan hands the shares over some time AFTER the vest date — a broker settlement lag, a blackout window, or country delivery rules. Vested units then count in your net worth but stay unsellable until you mark them released."
+                help={intl.formatMessage({ id: 'equity.deliveryHelp', defaultMessage: "Choose delayed when your plan hands the shares over some time AFTER the vest date — a broker settlement lag, a blackout window, or country delivery rules. Vested units then count in your net worth but stay unsellable until you mark them released." })}
               >
                 <Select
                   id="grant-release-required"
                   value={releaseRequired ? 'delayed' : 'at_vest'}
                   onChange={(e) => setReleaseRequired(e.target.value === 'delayed')}
                   options={[
-                    { value: 'at_vest', label: 'Sellable at vest — the usual case' },
-                    { value: 'delayed', label: 'Delivered later — released after vest' },
+                    { value: 'at_vest', label: intl.formatMessage({ id: 'equity.sellableAtVest', defaultMessage: "Sellable at vest — the usual case" }) },
+                    { value: 'delayed', label: intl.formatMessage({ id: 'equity.deliveredLater', defaultMessage: "Delivered later — released after vest" }) },
                   ]}
                 />
               </FormField>
@@ -599,10 +600,10 @@ export function AddGrantModal({ onClose, onDone }: Props) {
         </div>
 
         <FormField
-          label="Account"
+          label={intl.formatMessage({ id: 'equity.account', defaultMessage: "Account" })}
           htmlFor="grant-account"
           required
-          help="Custodian or brokerage account where unvested units and vest transactions are tracked."
+          help={intl.formatMessage({ id: 'equity.accountHelp', defaultMessage: "Custodian or brokerage account where unvested units and vest transactions are tracked." })}
         >
           <Select
             id="grant-account"
@@ -612,15 +613,15 @@ export function AddGrantModal({ onClose, onDone }: Props) {
               if (e.target.value !== NEW_ACCOUNT_SENTINEL) setNewAccountName('')
             }}
             options={[
-              { value: '', label: 'Select an account…' },
+              { value: '', label: intl.formatMessage({ id: 'equity.selectAccount', defaultMessage: "Select an account…" }) },
               ...accounts.map((a) => ({ value: a.id, label: a.name })),
-              { value: NEW_ACCOUNT_SENTINEL, label: '+ New account…' },
+              { value: NEW_ACCOUNT_SENTINEL, label: intl.formatMessage({ id: 'equity.newAccount', defaultMessage: "+ New account…" }) },
             ]}
           />
           {accountId === NEW_ACCOUNT_SENTINEL && (
             <TextField
               id="grant-new-account-name"
-              placeholder="Account name (e.g. JP Morgan)"
+              placeholder={intl.formatMessage({ id: 'equity.accountName', defaultMessage: "Account name (e.g. JP Morgan)" })}
               value={newAccountName}
               onChange={(e) => setNewAccountName(e.target.value)}
               style={{ marginTop: 'var(--space-2)' }}

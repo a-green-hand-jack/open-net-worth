@@ -1,0 +1,39 @@
+{
+  "builder.guidance.codex": [],
+  "builder.guidance.claude": [],
+  "builder.error.desktop": [],
+  "builder.error.demo": [],
+  "builder.error.workspace": [],
+  "builder.error.unknownEngine": [
+    "engine"
+  ],
+  "builder.error.unknownMode": [
+    "mode"
+  ],
+  "builder.error.promptRequired": [],
+  "builder.error.promptLong": [
+    "count"
+  ],
+  "builder.error.active": [
+    "run_id"
+  ],
+  "builder.error.notInstalled": [
+    "engine"
+  ],
+  "builder.error.runNotFound": [],
+  "builder.error.exitStatus": [
+    "status"
+  ],
+  "builder.error.engineFailed": [],
+  "builder.error.executableMissing": [
+    "command"
+  ],
+  "builder.event.queued": [],
+  "builder.event.started": [
+    "engine"
+  ],
+  "builder.event.finished": [],
+  "builder.event.stopped": [],
+  "builder.event.codexFailed": [],
+  "builder.event.filesChanged": []
+}

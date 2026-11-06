@@ -7,10 +7,13 @@
 // that rule exists to close).
 
 import type { JSX } from 'react'
+import { defineMessages } from 'react-intl'
+import { useAppIntl } from '../../../i18n/useAppIntl'
+import { useConnectorLabels } from './useConnectorLabels'
 import { Badge, Btn, Empty } from './primitives'
 import { Icons } from './icons'
 import { ConnectorRow } from './ConnectorRow'
-import { emptyStateFor, FAMILY_BLURB } from './emptyState'
+import { emptyStateFor } from './emptyState'
 import { DirectoryCard } from './DirectoryCard'
 import { matchesSearch, type DirectoryRow } from './catalog'
 import {
@@ -22,8 +25,16 @@ import {
   type StatusFilter,
 } from './model'
 
+const blurbs = defineMessages({
+  channels: { id: 'connectors.blurb.channels', defaultMessage: 'Channels are how Lucius reaches you — notifications, questions, and approvals.' },
+  data: { id: 'connectors.blurb.data', defaultMessage: 'Data sources bring balances, transactions, and positions in.' },
+  web: { id: 'connectors.blurb.web', defaultMessage: 'Web providers give Lucius live search and page reads.' },
+  mcp: { id: 'connectors.blurb.mcp', defaultMessage: 'MCP servers are third-party tools you point Lucius at.' },
+})
+
 export interface ListFilters {
   query: string
+  displayQuery?: string
   tab: FamilyTab
   statusFilter: StatusFilter
 }
@@ -110,13 +121,15 @@ export function ConnectorList({
   onSuggest,
   sectionSuggestions,
 }: ConnectorListProps): JSX.Element {
+  const { formatMessage } = useAppIntl()
+  const labels = useConnectorLabels()
   const sections = visibleSections(entries, filters)
   const notAdded =
     suggestions.length > 0 && onSuggest ? (
       <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
         <div className="cn-colhead">
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <span style={{ fontSize: 12.5, fontWeight: 700 }}>Not added yet</span>
+            <span style={{ fontSize: 12.5, fontWeight: 700 }}>{formatMessage({ id: 'connectors.notAdded', defaultMessage: 'Not added yet' })}</span>
             <Badge>{suggestions.length}</Badge>
           </div>
         </div>
@@ -133,7 +146,7 @@ export function ConnectorList({
         </div>
         <div>
           <button className="cn-addlink" onClick={() => onBrowse(filters.tab)}>
-            <Icons.plus /> Browse & add
+            <Icons.plus /> {formatMessage({ id: 'connectors.browse', defaultMessage: 'Browse & add' })}
           </button>
         </div>
       </div>
@@ -141,7 +154,22 @@ export function ConnectorList({
 
   if (sections.length === 0 && notAdded) return notAdded
   if (sections.length === 0) {
-    const copy = emptyStateFor(filters)
+    const original = emptyStateFor(filters)
+    const family = filters.tab === 'all' ? null : labels.family(filters.tab)
+    const where = family ? formatMessage({ id: 'connectors.empty.where', defaultMessage: ' in {family}' }, { family }) : ''
+    const query = (filters.displayQuery ?? filters.query).trim()
+    const copy = { ...original, actionLabel: formatMessage({ id: 'connectors.browse', defaultMessage: 'Browse & add' }),
+      title: query ? formatMessage({ id: 'connectors.empty.searchTitle', defaultMessage: 'No connectors match “{query}”' }, { query })
+        : filters.statusFilter === 'attention' ? formatMessage({ id: 'connectors.empty.attentionTitle', defaultMessage: 'Nothing needs attention{where}' }, { where })
+        : filters.statusFilter === 'connected' ? formatMessage({ id: 'connectors.empty.connectedTitle', defaultMessage: 'Nothing connected{where}' }, { where })
+        : family ? formatMessage({ id: 'connectors.empty.familyTitle', defaultMessage: 'Nothing in {family} yet' }, { family })
+        : formatMessage({ id: 'connectors.empty.noConnectors', defaultMessage: 'No connectors' }),
+      body: query ? formatMessage({ id: 'connectors.empty.searchBody', defaultMessage: 'Try a different search or filter, or browse the directory to add one.' })
+        : filters.statusFilter === 'attention' ? formatMessage({ id: 'connectors.empty.attentionBody', defaultMessage: 'Every connector here is working. A connector appears under Attention as soon as it errors.' })
+        : filters.statusFilter === 'connected' ? formatMessage({ id: 'connectors.empty.connectedBody', defaultMessage: 'No connector here is connected right now. Reconnect one that has an error, or browse the directory to add another.' })
+        : filters.tab !== 'all' ? formatMessage(blurbs[filters.tab]) + formatMessage({ id: 'connectors.empty.browseSuffix', defaultMessage: ' Browse the directory to add one.' })
+        : formatMessage({ id: 'connectors.empty.noConnectorsBody', defaultMessage: 'Browse the directory to connect a channel, a data source, a web provider, or an MCP server.' }),
+    }
     const section = FAMILY_SECTIONS.find((s) => s.key === filters.tab)
     const picks = sectionSuggestions?.[filters.tab]
     // An empty family tab shows a few connectors to start with INSIDE its empty view, under its
@@ -149,11 +177,11 @@ export function ConnectorList({
     // "Nothing here yet" read as two contradicting messages, and as if those few were all there is.
     if (section && onSuggest && picks?.length) {
       return (
-        <Empty title={copy.title} body={FAMILY_BLURB[section.key]}>
+        <Empty title={copy.title} body={formatMessage(blurbs[section.key])}>
           <Btn variant="primary" onClick={() => onBrowse(section.key)}>
             {copy.actionLabel}
           </Btn>
-          <div className="cn-emptypicks" aria-label={`Start with ${section.title}`}>
+          <div className="cn-emptypicks" aria-label={formatMessage({ id: 'connectors.startWith', defaultMessage: 'Start with {family}' }, { family: labels.family(section.key) })}>
             {picks.map((d) => (
               <DirectoryCard
                 key={d.id}
@@ -183,7 +211,7 @@ export function ConnectorList({
         <div key={section.key} style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
           <div className="cn-colhead">
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              <span style={{ fontSize: 12.5, fontWeight: 700 }}>{section.title}</span>
+              <span style={{ fontSize: 12.5, fontWeight: 700 }}>{labels.family(section.key)}</span>
               <Badge>{rows.length}</Badge>
             </div>
           </div>
@@ -201,12 +229,12 @@ export function ConnectorList({
             <SuggestedBlock
               rows={sectionSuggestions?.[section.key]}
               onSuggest={onSuggest}
-              label={`Suggested ${section.title.toLowerCase()}`}
+              label={formatMessage({ id: 'connectors.suggestedFamily', defaultMessage: 'Suggested {family}' }, { family: labels.family(section.key).toLowerCase() })}
             />
           ) : null}
           <div style={{ display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap' }}>
             <button className="cn-addlink" onClick={() => onBrowse(section.key)}>
-              <Icons.plus /> {section.add}
+              <Icons.plus /> {labels.add(section.key)}
             </button>
             {/* Hidden for now (owner request, 2026-08-18) — the institution-search flow
                 itself (InstitutionPickerModal, onAddBank) is left wired so this can come
@@ -216,7 +244,7 @@ export function ConnectorList({
                 still-live mechanism underneath. */}
             {section.key === 'data' ? (
               <button className="cn-addlink" onClick={onAddBank} style={{ display: 'none' }}>
-                <Icons.search /> Find your bank
+                <Icons.search /> {formatMessage({ id: 'connectors.findBank', defaultMessage: 'Find your bank' })}
               </button>
             ) : null}
           </div>
@@ -226,7 +254,7 @@ export function ConnectorList({
         <SuggestedBlock
           rows={sectionSuggestions?.all}
           onSuggest={onSuggest}
-          label="Suggested connectors"
+          label={formatMessage({ id: 'connectors.suggestedConnectors', defaultMessage: 'Suggested connectors' })}
         />
       ) : null}
       {notAdded}
@@ -245,10 +273,11 @@ function SuggestedBlock({
   onSuggest?: (row: DirectoryRow) => void
   label: string
 }): JSX.Element | null {
+  const { formatMessage } = useAppIntl()
   if (!onSuggest || !rows?.length) return null
   return (
     <div className="cn-suggest" aria-label={label}>
-      <div className="cn-suggest-h">Suggested</div>
+      <div className="cn-suggest-h">{formatMessage({ id: 'connectors.suggested', defaultMessage: 'Suggested' })}</div>
       <div className="cn-suggestgrid">
         {rows.map((d) => (
           <DirectoryCard

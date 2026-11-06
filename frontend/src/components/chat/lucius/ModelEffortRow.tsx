@@ -1,3 +1,5 @@
+import { defineMessages, type IntlShape, type MessageDescriptor } from 'react-intl'
+import { useAppIntl } from '../../../i18n/useAppIntl'
 import { useEffect, useMemo } from 'react'
 import {
   useModels,
@@ -22,6 +24,18 @@ import { Check } from '../../../ui/icons'
 // side panel, and send path update in the same render. Effort is a dropdown here (not the
 // side panel's 4-button segmented control) because dock width is limited.
 
+const effortMessages = defineMessages({
+  off: { id: 'chat.effort.off', defaultMessage: 'Off' },
+  low: { id: 'chat.effort.low', defaultMessage: 'Low' },
+  medium: { id: 'chat.effort.medium', defaultMessage: 'Medium' },
+  high: { id: 'chat.effort.high', defaultMessage: 'High' },
+  xhigh: { id: 'chat.effort.xhigh', defaultMessage: 'Xhigh' },
+  max: { id: 'chat.effort.max', defaultMessage: 'Max' },
+})
+function localizedEffort(choice: EffortChoice, intl: IntlShape): string {
+  return Object.hasOwn(effortMessages, choice) ? intl.formatMessage(effortMessages[choice as keyof typeof effortMessages] as MessageDescriptor) : effortChoiceLabel(choice)
+}
+
 export type EffortLevel = 'low' | 'medium' | 'high' | 'xhigh' | 'max'
 
 interface Props {
@@ -41,6 +55,7 @@ export function ModelEffortCluster({
   effort,
   onEffortChange,
 }: Props) {
+  const intl = useAppIntl()
   const modelInfo = useModels(true)
   // Explicit human picks stay authoritative even if their provider is later disabled; the
   // backend then rejects them loudly. Automation fallbacks are validated before they reach
@@ -73,39 +88,37 @@ export function ModelEffortCluster({
 
   const modelTitle =
     (activeModel
-      ? `This chat runs on ${activeModel}`
-      : `This chat runs on the default model${
-          modelInfo.defaultModel ? ` (${modelInfo.defaultModel})` : ''
-        }`) +
-    (modelInfo.source === 'fallback' ? ' — model list unavailable (showing known models)' : '')
+      ? intl.formatMessage({ id: 'chat.model.active', defaultMessage: 'This chat runs on {model}' }, { model: activeModel })
+      : intl.formatMessage({ id: 'chat.model.defaultInfo', defaultMessage: 'This chat runs on the default model{model}' }, { model: modelInfo.defaultModel ? ` (${modelInfo.defaultModel})` : '' })) +
+    (modelInfo.source === 'fallback' ? intl.formatMessage({ id: 'chat.model.unavailable', defaultMessage: ' — model list unavailable (showing known models)' }) : '')
 
   const current = clampEffortChoice(effort, effortChoices)
 
   return (
     <div className="lx-me-cluster">
       {sessionCost > 0 && (
-        <span className="lx-me-cost chat-session-cost" title={`Session cost: ${fUsd(sessionCost)}`}>
+        <span className="lx-me-cost chat-session-cost" title={intl.formatMessage({ id: 'chat.sessionCost', defaultMessage: 'Session cost: {cost}' }, { cost: fUsd(sessionCost) })}>
           {fUsd(sessionCost)}
         </span>
       )}
       <ModelPicker
         className="lx-me-model"
-        label="Chat model"
+        label={intl.formatMessage({ id: 'chat.model', defaultMessage: 'Chat model' })}
         size="sm"
         title={modelTitle}
         models={modelInfo.models}
         value={activeModel}
-        defaultLabel="Default"
+        defaultLabel={intl.formatMessage({ id: 'chat.default', defaultMessage: 'Default' })}
         defaultModelId={modelInfo.defaultModel}
         onChange={onModelChange}
-        trailing={showEffort ? effortChoiceLabel(current) : null}
+        trailing={showEffort ? localizedEffort(current, intl) : null}
         panes={
           showEffort
             ? [
                 {
                   key: 'effort',
-                  label: 'Effort',
-                  value: effortChoiceLabel(current),
+                  label: intl.formatMessage({ id: 'chat.effort', defaultMessage: 'Effort' }),
+                  value: localizedEffort(current, intl),
                   content: (close) => (
                     <EffortChoices
                       value={current}
@@ -146,8 +159,9 @@ export function EffortChoices({
   choices: EffortChoice[]
   onChange: (next: EffortChoice) => void
 }) {
+  const intl = useAppIntl()
   return (
-    <div className="mp-list" role="radiogroup" aria-label="Reasoning effort">
+    <div className="mp-list" role="radiogroup" aria-label={intl.formatMessage({ id: 'chat.effort.reasoning', defaultMessage: 'Reasoning effort' })}>
       {choices.map((lvl) => (
         <button
           key={lvl}
@@ -159,7 +173,7 @@ export function EffortChoices({
           onMouseDown={(e) => e.preventDefault()}
           onClick={() => onChange(lvl)}
         >
-          <span className="mp-opt-name">{effortChoiceLabel(lvl)}</span>
+          <span className="mp-opt-name">{localizedEffort(lvl, intl)}</span>
           <span className="mp-opt-tick" aria-hidden="true">
             <Check size={14} />
           </span>

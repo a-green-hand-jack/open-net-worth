@@ -198,21 +198,23 @@ def _txn_to_draft(txn: dict, acct_id_in_file: str, resolved_account: str) -> dic
     CamtImportError with a per-row reason for any unmappable entry (recorded as a skip)."""
     date_raw = (txn.get("date") or "").strip()
     if not date_raw:
-        raise CamtImportError("missing date")
+        raise CamtImportError("missing date", message_id="statement.skip.missing_date")
     amount = _parse_amount(txn.get("amount", ""))
     if amount is None:
-        raise CamtImportError("unparseable amount")
+        raise CamtImportError("unparseable amount", message_id="statement.skip.unparseable_amount")
     if amount == 0:
-        raise CamtImportError("zero amount")
+        raise CamtImportError("zero amount", message_id="statement.skip.zero_amount")
     dc = (txn.get("dc") or "").upper()
     if dc not in ("CRDT", "DBIT"):
-        raise CamtImportError("missing or invalid CdtDbtInd")
+        raise CamtImportError(
+            "missing or invalid CdtDbtInd", message_id="statement.skip.invalid_credit_debit"
+        )
 
     inflow = dc == "CRDT"
     description = (txn.get("description") or "").strip() or "Imported transaction"
     acct = ledger_service.accounts.find_by_id(resolved_account)
     if acct is None:
-        raise CamtImportError("account not found")
+        raise CamtImportError("account not found", message_id="statement.skip.account_not_found")
     # Native currency: the account's own currency wins; fall back to the entry's <Amt Ccy>,
     # then the base currency (the leg is always in the account's native currency).
     currency = (
@@ -278,7 +280,7 @@ def _map_rows(raw: list[dict], acct_id_in_file: str, account_id: str | None) -> 
         try:
             draft = _txn_to_draft(txn, acct_id_in_file, resolved)
         except CamtImportError as exc:
-            results.append(RowResult(line=i, skip_reason=str(exc)))
+            results.append(RowResult(line=i, skip_reason=str(exc), skip_message=exc.skip_message))
             continue
         results.append(RowResult(line=i, draft=draft))
     disambiguate_identical_rows(results)

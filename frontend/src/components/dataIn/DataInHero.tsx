@@ -1,3 +1,5 @@
+import { useAppIntl } from '../../i18n/useAppIntl'
+import { FormattedMessage } from '../tabs/imports/FormattedMessage'
 // The shared "you have no accounts yet" empty view. Reused by Dashboard and Accounts so the
 // first-run moment reads the same on both, and like every other empty view in the app.
 
@@ -23,6 +25,7 @@ export function DataInHero({
   luciusMessage,
   onAskLucius,
 }: DataInHeroProps) {
+  const intl = useAppIntl()
   return (
     <EmptyState
       fill
@@ -32,9 +35,9 @@ export function DataInHero({
       action={
         <Cluster gap="--space-3" justify="center">
           <Button variant="primary" size="sm" onClick={onAddAccount}>
-            Add an account myself
+            {<FormattedMessage id="imports.static.b6fb2821" defaultMessage={"Add an account myself"} />}
           </Button>
-          <LuciusCta label="Add with Lucius" message={luciusMessage} onAskLucius={onAskLucius} />
+          <LuciusCta label={intl.formatMessage({ id: 'imports.hero.withLucius', defaultMessage: 'Add with Lucius' })} message={luciusMessage} onAskLucius={onAskLucius} />
         </Cluster>
       }
     />

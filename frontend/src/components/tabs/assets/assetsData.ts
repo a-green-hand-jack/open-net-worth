@@ -1,3 +1,4 @@
+import { fFixed } from '../../../utils/format'
 // Assets tab engine — a typed port of the design handoff's data.jsx
 // (design_handoffs/assets_handoff/prototype/assets_tab/data.jsx), minus the mock
 // ASSETS/LOANS/CLASSES/OTHER_DEBT constants (real data now comes from GET /api/assets via
@@ -172,7 +173,7 @@ export function fmtOrDash(n: number | null): string {
 /** "+13.3%" / "−4.0%" / "+0.0%" — verbatim, true minus sign. */
 export function pct(n: number): string {
   const sign = n > 0 ? '+' : n < 0 ? '−' : ''
-  return sign + Math.abs(n).toFixed(1) + '%'
+  return sign + fFixed(Math.abs(n), 1) + '%'
 }
 
 /** ISO date → "Apr 2026", or "—" when there is no date. */

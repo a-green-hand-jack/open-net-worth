@@ -4,6 +4,7 @@
 import type { ReactNode } from 'react'
 import { useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
+import { useAppIntl } from '../../../i18n/useAppIntl'
 
 export function Spark({ size = 14 }: { size?: number }) {
   return (
@@ -195,6 +196,7 @@ export function FlowIcon({ size = 14 }: { size?: number }) {
 // Hover/focus "i" info tooltip (verbatim from outlook.jsx / app.jsx — `.stat-info`/`.stat-pop`).
 // `up` = tooltip above the marker (no `down` modifier); `r` = right-aligned popover.
 export function Info({ text, up, r }: { text: ReactNode; up?: boolean; r?: boolean }) {
+  const { formatMessage } = useAppIntl()
   const ref = useRef<HTMLSpanElement>(null)
   const [box, setBox] = useState<{ left: number; top: number; up: boolean } | null>(null)
   // The tooltip is PORTALED to <body> with fixed positioning so it escapes every
@@ -217,7 +219,7 @@ export function Info({ text, up, r }: { text: ReactNode; up?: boolean; r?: boole
       className="stat-info"
       tabIndex={0}
       role="button"
-      aria-label="More info"
+      aria-label={formatMessage({ id: 'plan.moreInfo', defaultMessage: 'More info' })}
       onMouseEnter={open}
       onMouseLeave={close}
       onFocus={open}

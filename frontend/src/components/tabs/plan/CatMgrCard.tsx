@@ -10,10 +10,11 @@
 // imports THIS file (to pick CatMgrRow vs CatMgrCard per useIsMobile()), so importing back from
 // it would be a circular import (confirmed via `npx madge --circular`) — CatMgrRow.tsx is the
 // shared leaf both sides depend on instead.
+import { useAppIntl } from '../../../i18n/useAppIntl'
 import { ColorDot, ColorIcon, InlineEdit, Kebab } from './budgetParts'
 import { STRUCTURAL_CATEGORY_KEYS } from '../../../hooks/useCategories'
 import { EntityRow } from '../../../lucius/EntityRow'
-import { EnvelopeCell, KIND_LABEL, kindPillClass, type CatMgrRowProps } from './CatMgrRow'
+import { EnvelopeCell, useKindLabel, kindPillClass, type CatMgrRowProps } from './CatMgrRow'
 
 export function CatMgrCard({
   c,
@@ -28,6 +29,8 @@ export function CatMgrCard({
   onDelete,
   onAddToEnvelope,
 }: CatMgrRowProps) {
+  const { formatMessage } = useAppIntl()
+  const kindLabel = useKindLabel(c.kind)
   const locked = STRUCTURAL_CATEGORY_KEYS.has(c.id)
   return (
     <EntityRow
@@ -55,7 +58,15 @@ export function CatMgrCard({
             </span>
           </span>
         ) : (
-          <ColorDot color={c.color} onPick={onRecolor} label={'Color for ' + c.label} icon="tag" />
+          <ColorDot
+            color={c.color}
+            onPick={onRecolor}
+            label={formatMessage(
+              { id: 'plan.colorFor', defaultMessage: 'Color for {name}' },
+              { name: c.label },
+            )}
+            icon="tag"
+          />
         )}
         <span className="pl-cmain">
           {renaming ? (
@@ -63,7 +74,14 @@ export function CatMgrCard({
           ) : (
             <span
               className="pl-clabel"
-              title={locked ? undefined : 'Double-tap to rename'}
+              title={
+                locked
+                  ? undefined
+                  : formatMessage({
+                      id: 'plan.doubleTapRename',
+                      defaultMessage: 'Double-tap to rename',
+                    })
+              }
               onDoubleClick={() => {
                 if (!locked) onStartRename()
               }}
@@ -82,13 +100,38 @@ export function CatMgrCard({
           </span>
         ) : (
           <Kebab
-            label={c.label + ' options'}
+            label={formatMessage(
+              { id: 'plan.optionsFor', defaultMessage: '{name} options' },
+              { name: c.label },
+            )}
             items={[
-              { label: 'Rename', onClick: onStartRename },
-              ...(onAddToEnvelope ? [{ label: 'Add to envelope…', onClick: onAddToEnvelope }] : []),
-              { label: c.hidden ? 'Unhide' : 'Hide', onClick: onToggleHide },
+              {
+                label: formatMessage({ id: 'plan.rename', defaultMessage: 'Rename' }),
+                onClick: onStartRename,
+              },
+              ...(onAddToEnvelope
+                ? [
+                    {
+                      label: formatMessage({
+                        id: 'plan.addToEnvelope',
+                        defaultMessage: 'Add to envelope…',
+                      }),
+                      onClick: onAddToEnvelope,
+                    },
+                  ]
+                : []),
+              {
+                label: c.hidden
+                  ? formatMessage({ id: 'plan.unhide', defaultMessage: 'Unhide' })
+                  : formatMessage({ id: 'plan.hide', defaultMessage: 'Hide' }),
+                onClick: onToggleHide,
+              },
               { divider: true },
-              { label: 'Delete…', danger: true, onClick: onDelete },
+              {
+                label: formatMessage({ id: 'plan.deleteEllipsis', defaultMessage: 'Delete…' }),
+                danger: true,
+                onClick: onDelete,
+              },
             ]}
           />
         )}
@@ -98,9 +141,7 @@ export function CatMgrCard({
           was removed (2026-09): hide/unhide is fully wired through the kebab's Hide/Unhide
           item above, so a second control for the same action was redundant. */}
       <span className="pl-catmgr-card-row">
-        <span className={'pl-kindpill ' + kindPillClass(c.kind)}>
-          {KIND_LABEL[c.kind] ?? c.kind}
-        </span>
+        <span className={'pl-kindpill ' + kindPillClass(c.kind)}>{kindLabel}</span>
         <EnvelopeCell envelope={envelope} labelOf={labelOf} />
       </span>
     </EntityRow>

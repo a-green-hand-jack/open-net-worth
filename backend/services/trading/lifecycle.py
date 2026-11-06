@@ -38,19 +38,29 @@ async def _start(run_id, action):
     run = TradingStore("runs").required(run_id)
     expected = "ready" if action == "start" else "paused"
     if run["state"] != expected:
-        raise ConflictError(f"Run must be {expected} to {action}")
+        raise ConflictError(
+            f"Run must be {expected} to {action}",
+            message_id="trading.error.run_state_action",
+            message_params={"expected": expected, "action": action},
+        )
     if run["mode"] != "backtest" and not (
         instant(run["start_at"]) <= instant(now())
         and (run.get("end_at") is None or instant(now()) < instant(run["end_at"]))
     ):
-        raise ConflictError("Current time is outside the trading mandate period")
+        raise ConflictError(
+            "Current time is outside the trading mandate period",
+            message_id="trading.error.outside_period",
+        )
     verified = (
         await _verify_live(run, initial=action == "start") if uses_broker_execution(run) else {}
     )
     with trading_transaction() as conn:
         run = TradingStore("runs").required(run_id, conn=conn)
         if run["state"] != expected:
-            raise ConflictError("Run state changed during activation")
+            raise ConflictError(
+                "Run state changed during activation",
+                message_id="trading.error.activation_state_changed",
+            )
         for account_id, actual in verified.items():
             TradingStore("accounts").update_by_id(
                 account_id, {"provider_id": actual["provider_id"]}, conn=conn
@@ -64,6 +74,7 @@ async def _start(run_id, action):
                 "current_time": environment_time(run).isoformat(),
                 "updated_at": now(),
                 "last_agent_error": None,
+                "last_agent_error_message": None,
                 "agent_state": "idle",
             },
             conn=conn,
@@ -74,33 +85,50 @@ async def _start(run_id, action):
 
 async def _verify_live(run, *, initial):
     if run["mode"] == "live" and not run["live_authorized"]:
-        raise ConflictError("Human authorization is required for a live run")
+        raise ConflictError(
+            "Human authorization is required for a live run",
+            message_id="trading.error.live_authorization_required",
+        )
     verified = {}
     for account in TradingStore("accounts").list_scope(run["id"]):
         if not account.get("broker_account_id") or not account.get("connector_id"):
-            raise ConflictError("Live account requires a broker identity and connector")
+            raise ConflictError(
+                "Live account requires a broker identity and connector",
+                message_id="trading.error.broker_identity_required",
+            )
         actual = await get_live_adapter(account).inspect_account(account)
         if not isinstance(actual.get("provider_id"), str) or not actual["provider_id"]:
-            raise ConflictError("Broker adapter did not establish a canonical provider identity")
+            raise ConflictError(
+                "Broker adapter did not establish a canonical provider identity",
+                message_id="trading.error.provider_identity_missing",
+            )
         required = {"client_order_id", "lookup_order", "fills", "cancel"}
         if not actual.get("allocation_isolated") or not required <= set(
             actual.get("capabilities", [])
         ):
-            raise ConflictError("Broker account cannot enforce isolated managed execution")
+            raise ConflictError(
+                "Broker account cannot enforce isolated managed execution",
+                message_id="trading.error.execution_isolation_unavailable",
+            )
         if (
             actual.get("broker_account_id") != account["broker_account_id"]
             or actual.get("currency") != account["currency"]
         ):
-            raise ConflictError("Broker account identity or currency does not match allocation")
+            raise ConflictError(
+                "Broker account identity or currency does not match allocation",
+                message_id="trading.error.allocation_mismatch",
+            )
         from backend.services.trading.reconciliation import account_matches
 
         if not account_matches(account, actual):
             raise ConflictError(
-                "Broker state differs from allocated account; reconciliation required"
+                "Broker state differs from allocated account; reconciliation required",
+                message_id="trading.error.reconciliation_required",
             )
         if initial and (actual.get("positions") or actual.get("open_orders")):
             raise ConflictError(
-                "Start live management with a dedicated cash-only funded account without open orders"
+                "Start live management with a dedicated cash-only funded account without open orders",
+                message_id="trading.error.live_account_prerequisites",
             )
         managed = {
             row["id"]
@@ -108,7 +136,10 @@ async def _verify_live(run, *, initial):
             if row["account_id"] == account["id"] and row["status"] in ACTIVE_ORDER_STATES
         }
         if any(row.get("client_order_id") not in managed for row in actual.get("open_orders", [])):
-            raise ConflictError("Broker has an open order outside this managed mandate")
+            raise ConflictError(
+                "Broker has an open order outside this managed mandate",
+                message_id="trading.error.external_order",
+            )
         verified[account["id"]] = actual
     return verified
 
@@ -126,13 +157,19 @@ def _assert_exclusive_account(conn, run):
     own_accounts = TradingStore("accounts").list_scope(run["id"], conn=conn)
     own = {(row["provider_id"], row["broker_account_id"]) for row in own_accounts}
     if len(own) != len(own_accounts):
-        raise ConflictError("A broker account cannot be allocated twice in the same run")
+        raise ConflictError(
+            "A broker account cannot be allocated twice in the same run",
+            message_id="trading.error.duplicate_allocation",
+        )
     for account in TradingStore("accounts").all(conn=conn):
         if (
             account["run_id"] in active
             and (account.get("provider_id"), account.get("broker_account_id")) in own
         ):
-            raise ConflictError("Broker account is already managed by another run")
+            raise ConflictError(
+                "Broker account is already managed by another run",
+                message_id="trading.error.account_already_managed",
+            )
 
 
 async def _stop(run_id, action):
@@ -217,10 +254,15 @@ def _advance(run_id, until):
 
 def _advance_time(run, until):
     if uses_broker_execution(run):
-        raise ConflictError("Broker clocks advance through broker reconciliation")
+        raise ConflictError(
+            "Broker clocks advance through broker reconciliation",
+            message_id="trading.error.broker_clock",
+        )
     if run["mode"] == "paper":
         if until is not None:
-            raise ValidationError("Paper clock follows current time")
+            raise ValidationError(
+                "Paper clock follows current time", message_id="trading.error.paper_clock"
+            )
         return environment_time(run).isoformat()
     candidates = [
         instant(row["available_at"] or row["timestamp"])
@@ -229,7 +271,10 @@ def _advance_time(run, until):
     ]
     target = instant(until) if until else min(candidates, default=instant(run["end_at"]))
     if not instant(run["current_time"]) < target <= instant(run["end_at"]):
-        raise ValidationError("Backtest clock must move forward within the mandate")
+        raise ValidationError(
+            "Backtest clock must move forward within the mandate",
+            message_id="trading.error.backtest_clock",
+        )
     return target.isoformat()
 
 

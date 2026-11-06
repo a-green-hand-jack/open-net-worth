@@ -14,6 +14,7 @@
 // (assistant turns and background structured-output attempts). The panel leads with the count
 // and its denominator, never a bare percentage, and the caveat line at the top says so.
 import { useState } from 'react'
+import { useAppIntl } from '../../../../i18n/useAppIntl'
 import { authFetch } from '../../../../api/client'
 import { useCachedFetchState } from '../../../../state/queryCache'
 import { Badge, Btn, Empty, Panel, useSectionBusy } from '../ds'
@@ -71,32 +72,77 @@ function modelLabel(row: ModelTelemetryRow): string {
   return row.provider ? `${row.provider} — ${row.model}` : row.model
 }
 
-const DURATION_TOOLTIP = 'Older samples predate duration tracking — fills in as new turns run'
-
 function TelemetryRow({ row }: { row: ModelTelemetryRow }) {
+  const { formatMessage } = useAppIntl()
   const denom = row.samples + row.errors
   return (
     <tr>
       <th className="rd-telemetry-model" scope="row">
         <span className="rd-telemetry-row-label">{modelLabel(row)}</span>
         <span className="rd-telemetry-row-samples">
-          {row.samples} sample{row.samples === 1 ? '' : 's'}
+          {formatMessage(
+            {
+              id: 'settings.remaining.telemetrySamples',
+              defaultMessage: '{count, plural, one {# sample} other {# samples}}',
+            },
+            { count: row.samples },
+          )}
         </span>
       </th>
-      <td className="rd-telemetry-metric" data-label="TTFT p50">
+      <td
+        className="rd-telemetry-metric"
+        data-label={formatMessage({
+          id: 'settings.remaining.telemetryTtft',
+          defaultMessage: 'TTFT p50',
+        })}
+      >
         {fmtMs(row.ttft_ms_p50)}
       </td>
-      <td className="rd-telemetry-metric" data-label="Duration p50">
-        <span title={row.duration_ms_p50 == null ? DURATION_TOOLTIP : undefined}>
+      <td
+        className="rd-telemetry-metric"
+        data-label={formatMessage({
+          id: 'settings.remaining.telemetryDuration',
+          defaultMessage: 'Duration p50',
+        })}
+      >
+        <span
+          title={
+            row.duration_ms_p50 == null
+              ? formatMessage({
+                  id: 'settings.remaining.telemetryOld',
+                  defaultMessage:
+                    'Older samples predate duration tracking — fills in as new turns run',
+                })
+              : undefined
+          }
+        >
           {fmtMs(row.duration_ms_p50)}
         </span>
       </td>
-      <td className="rd-telemetry-metric" data-label="Tok/sec p50">
+      <td
+        className="rd-telemetry-metric"
+        data-label={formatMessage({
+          id: 'settings.remaining.telemetryTokens',
+          defaultMessage: 'Tok/sec p50',
+        })}
+      >
         {fmtTokPerSec(row.tok_per_sec_p50)}
       </td>
-      <td className="rd-telemetry-reliability" data-label="JSON-retry rate">
+      <td
+        className="rd-telemetry-reliability"
+        data-label={formatMessage({
+          id: 'settings.remaining.telemetryRetryRate',
+          defaultMessage: 'JSON-retry rate',
+        })}
+      >
         <Badge tone={badgeTone(row.error_rate)}>
-          {row.errors} of {denom} · {fmtRatePct(row.error_rate)} JSON-retry rate
+          {formatMessage(
+            {
+              id: 'settings.remaining.telemetryReliability',
+              defaultMessage: '{errors} of {denom} · {rate} JSON-retry rate',
+            },
+            { errors: row.errors, denom, rate: fmtRatePct(row.error_rate) },
+          )}
         </Badge>
       </td>
     </tr>
@@ -104,6 +150,7 @@ function TelemetryRow({ row }: { row: ModelTelemetryRow }) {
 }
 
 export function ModelTelemetryPanel() {
+  const { formatMessage } = useAppIntl()
   const [retrying, setRetrying] = useState(false)
   const query = useCachedFetchState<{ models: ModelTelemetryRow[] }>(
     TELEMETRY_PATH,
@@ -130,40 +177,101 @@ export function ModelTelemetryPanel() {
 
   return (
     <Panel
-      title="Model performance"
-      sub="Latency and structured-output reliability, per model, over the last 50 recorded events"
+      title={formatMessage({
+        id: 'settings.remaining.telemetryTitle',
+        defaultMessage: 'Model performance',
+      })}
+      sub={formatMessage({
+        id: 'settings.remaining.telemetrySub',
+        defaultMessage:
+          'Latency and structured-output reliability, per model, over the last 50 recorded events',
+      })}
     >
       <span className="rd-help">
-        Grouped by model id — if the same model runs through two provider configs, their numbers are
-        pooled here. JSON-retry rate only counts structured-output retries from background
-        completions, not every kind of failure or every chat turn.
+        {formatMessage({
+          id: 'settings.remaining.telemetryHelp',
+          defaultMessage:
+            'Grouped by model id — if the same model runs through two provider configs, their numbers are pooled here. JSON-retry rate only counts structured-output retries from background completions, not every kind of failure or every chat turn.',
+        })}
       </span>
 
       {showError ? (
         <Empty
-          title="Could not load model performance"
-          body="Something went wrong reaching the server."
+          title={formatMessage({
+            id: 'settings.remaining.telemetryError',
+            defaultMessage: 'Could not load model performance',
+          })}
+          body={formatMessage({
+            id: 'settings.remaining.telemetryNetwork',
+            defaultMessage: 'Something went wrong reaching the server.',
+          })}
           action={
             <Btn size="xs" onClick={() => void retry()}>
-              {retrying ? 'Retrying…' : 'Retry'}
+              {retrying
+                ? formatMessage({
+                    id: 'settings.remaining.telemetryRetrying',
+                    defaultMessage: 'Retrying…',
+                  })
+                : formatMessage({
+                    id: 'settings.remaining.telemetryRetry',
+                    defaultMessage: 'Retry',
+                  })}
             </Btn>
           }
         />
       ) : showEmpty ? (
         <Empty
-          title="No telemetry yet"
-          body="Performance data appears here after Lucius completes its first AI turn."
+          title={formatMessage({
+            id: 'settings.remaining.telemetryEmpty',
+            defaultMessage: 'No telemetry yet',
+          })}
+          body={formatMessage({
+            id: 'settings.remaining.telemetryEmptyHelp',
+            defaultMessage:
+              'Performance data appears here after Lucius completes its first AI turn.',
+          })}
         />
       ) : (
         <div className="rd-telemetry-table-wrap">
-          <table className="rd-telemetry-table" aria-label="Model performance comparison">
+          <table
+            className="rd-telemetry-table"
+            aria-label={formatMessage({
+              id: 'settings.remaining.telemetryComparison',
+              defaultMessage: 'Model performance comparison',
+            })}
+          >
             <thead>
               <tr>
-                <th scope="col">Model</th>
-                <th scope="col">TTFT p50</th>
-                <th scope="col">Duration p50</th>
-                <th scope="col">Tok/sec p50</th>
-                <th scope="col">JSON-retry rate</th>
+                <th scope="col">
+                  {formatMessage({
+                    id: 'settings.remaining.telemetryModel',
+                    defaultMessage: 'Model',
+                  })}
+                </th>
+                <th scope="col">
+                  {formatMessage({
+                    id: 'settings.remaining.telemetryTtft',
+                    defaultMessage: 'TTFT p50',
+                  })}
+                </th>
+                <th scope="col">
+                  {formatMessage({
+                    id: 'settings.remaining.telemetryDuration',
+                    defaultMessage: 'Duration p50',
+                  })}
+                </th>
+                <th scope="col">
+                  {formatMessage({
+                    id: 'settings.remaining.telemetryTokens',
+                    defaultMessage: 'Tok/sec p50',
+                  })}
+                </th>
+                <th scope="col">
+                  {formatMessage({
+                    id: 'settings.remaining.telemetryRetryRate',
+                    defaultMessage: 'JSON-retry rate',
+                  })}
+                </th>
               </tr>
             </thead>
             <tbody>

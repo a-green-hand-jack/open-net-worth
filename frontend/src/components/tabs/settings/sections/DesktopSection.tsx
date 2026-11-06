@@ -1,3 +1,4 @@
+import { useAppIntl } from '../../../../i18n/useAppIntl'
 import { useState } from 'react'
 import { useNavigate } from '@tanstack/react-router'
 import type { DesktopSettings } from '../../../../../../desktop/src/contracts'
@@ -38,6 +39,7 @@ export function DesktopSection() {
 }
 
 function ServerActivitySettings() {
+  const { formatMessage } = useAppIntl()
   const openActivitySettings = desktopClientBridge()?.openActivitySettings
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -49,7 +51,12 @@ function ServerActivitySettings() {
     try {
       await openActivitySettings!()
     } catch {
-      setError('Could not open background and startup settings. Try again.')
+      setError(
+        formatMessage({
+          id: 'settings.remaining.backgroundError',
+          defaultMessage: 'Could not open background and startup settings. Try again.',
+        }),
+      )
     } finally {
       setBusy(false)
     }
@@ -57,14 +64,30 @@ function ServerActivitySettings() {
 
   return (
     <Panel
-      title="Background and startup"
-      sub="Your automations and Intelligence keep updating on your server, even when this app is closed."
+      title={formatMessage({
+        id: 'settings.remaining.backgroundTitle',
+        defaultMessage: 'Background and startup',
+      })}
+      sub={formatMessage({
+        id: 'settings.remaining.backgroundSub',
+        defaultMessage:
+          'Your automations and Intelligence keep updating on your server, even when this app is closed.',
+      })}
     >
       {row(
-        'Keep Open Net Worth ready',
-        'Keep it close at hand and ready when you sign in.',
+        formatMessage({
+          id: 'settings.remaining.keepReady',
+          defaultMessage: 'Keep Open Net Worth ready',
+        }),
+        formatMessage({
+          id: 'settings.remaining.keepReadyHelp',
+          defaultMessage: 'Keep it close at hand and ready when you sign in.',
+        }),
         <Btn disabled={busy} onClick={() => void open()}>
-          Background and startup…
+          {formatMessage({
+            id: 'settings.remaining.backgroundOpen',
+            defaultMessage: 'Background and startup…',
+          })}
         </Btn>,
       )}
       {error && <ErrorState message={error} />}
@@ -73,6 +96,7 @@ function ServerActivitySettings() {
 }
 
 function LocalDesktopSection() {
+  const { formatMessage } = useAppIntl()
   const bridge = desktopBridge()
   const navigate = useNavigate()
   const [error, setError] = useState<string | null>(null)
@@ -90,7 +114,12 @@ function LocalDesktopSection() {
       await preferences.refresh()
       setError(null)
     } catch {
-      setError('Could not load desktop settings. Try again.')
+      setError(
+        formatMessage({
+          id: 'settings.remaining.desktopLoadError',
+          defaultMessage: 'Could not load desktop settings. Try again.',
+        }),
+      )
     }
   }
   async function mutate(action: () => Promise<DesktopSettings>) {
@@ -100,7 +129,12 @@ function LocalDesktopSection() {
       setError(null)
       await imports.refresh()
     } catch {
-      setError('Could not save this desktop setting. Try again.')
+      setError(
+        formatMessage({
+          id: 'settings.remaining.desktopSaveError',
+          defaultMessage: 'Could not save this desktop setting. Try again.',
+        }),
+      )
     } finally {
       setBusy(false)
     }
@@ -116,7 +150,12 @@ function LocalDesktopSection() {
         search: { account: undefined, txn: undefined, review: undefined },
       })
     } catch {
-      setError('Could not open this file for review. Try again.')
+      setError(
+        formatMessage({
+          id: 'settings.remaining.desktopReviewError',
+          defaultMessage: 'Could not open this file for review. Try again.',
+        }),
+      )
     } finally {
       setBusy(false)
     }
@@ -129,7 +168,12 @@ function LocalDesktopSection() {
     try {
       await bridge.chooseBookFolder()
     } catch {
-      setError('Could not open this book folder. Try again.')
+      setError(
+        formatMessage({
+          id: 'settings.remaining.desktopBookError',
+          defaultMessage: 'Could not open this book folder. Try again.',
+        }),
+      )
     } finally {
       setBusy(false)
     }
@@ -142,16 +186,35 @@ function LocalDesktopSection() {
     try {
       await bridge.openBrowser()
     } catch {
-      setError('Could not open your browser. Try again.')
+      setError(
+        formatMessage({
+          id: 'settings.remaining.browserError',
+          defaultMessage: 'Could not open your browser. Try again.',
+        }),
+      )
     } finally {
       setBusy(false)
     }
   }
 
   if (!bridge) return null
-  if (preferences.initialLoading && !error) return <Loading label="Loading desktop settings…" />
+  if (preferences.initialLoading && !error)
+    return (
+      <Loading
+        label={formatMessage({
+          id: 'settings.remaining.desktopLoading',
+          defaultMessage: 'Loading desktop settings…',
+        })}
+      />
+    )
   const displayError =
-    error ?? (preferences.error ? 'Could not load desktop settings. Try again.' : null)
+    error ??
+    (preferences.error
+      ? formatMessage({
+          id: 'settings.remaining.desktopLoadError',
+          defaultMessage: 'Could not load desktop settings. Try again.',
+        })
+      : null)
   const jobs = imports.data?.jobs ?? []
   return (
     <>
@@ -159,57 +222,125 @@ function LocalDesktopSection() {
       {settings && (
         <>
           <Panel
-            title="Browser access"
-            sub="Open the same book in your browser on this computer. Browser access follows Settings → Security."
+            title={formatMessage({
+              id: 'settings.remaining.browserAccess',
+              defaultMessage: 'Browser access',
+            })}
+            sub={formatMessage({
+              id: 'settings.remaining.browserAccessHelp',
+              defaultMessage:
+                'Open the same book in your browser on this computer. Browser access follows Settings → Security.',
+            })}
           >
             {row(
               <span style={{ overflowWrap: 'anywhere' }}>
-                {settings.browserUrl ?? 'Browser access is unavailable while the book opens.'}
+                {settings.browserUrl ??
+                  formatMessage({
+                    id: 'settings.remaining.browserUnavailable',
+                    defaultMessage: 'Browser access is unavailable while the book opens.',
+                  })}
               </span>,
-              'Keep the desktop app running. Quit stops browser access. The address may change after a restart or when you open another book.',
+              formatMessage({
+                id: 'settings.remaining.browserDetail',
+                defaultMessage:
+                  'Keep the desktop app running. Quit stops browser access. The address may change after a restart or when you open another book.',
+              }),
               <Btn disabled={busy || !settings.browserUrl} onClick={() => void openBrowser()}>
-                Open in browser
+                {formatMessage({
+                  id: 'settings.remaining.openBrowser',
+                  defaultMessage: 'Open in browser',
+                })}
               </Btn>,
             )}
           </Panel>
-          <Panel title="Background activity">
+          <Panel
+            title={formatMessage({
+              id: 'settings.remaining.backgroundActivity',
+              defaultMessage: 'Background activity',
+            })}
+          >
             {row(
-              'Keep running when the window closes',
-              'Keep your scheduled automations running and Intelligence fresh with news and alerts—even when you close the window.',
+              formatMessage({
+                id: 'settings.remaining.keepRunning',
+                defaultMessage: 'Keep running when the window closes',
+              }),
+              formatMessage({
+                id: 'settings.remaining.keepRunningHelp',
+                defaultMessage:
+                  'Keep your scheduled automations running and Intelligence fresh with news and alerts—even when you close the window.',
+              }),
               <Toggle
-                label="Keep running when the window closes"
+                label={formatMessage({
+                  id: 'settings.remaining.keepRunning',
+                  defaultMessage: 'Keep running when the window closes',
+                })}
                 on={settings.background}
                 disabled={busy}
                 onChange={(on) => void mutate(() => bridge.updateSettings({ background: on }))}
               />,
             )}
             {row(
-              'Start at login',
-              'Let Lucius get back to work when you sign in, without remembering to open the app.',
+              formatMessage({
+                id: 'settings.remaining.startLogin',
+                defaultMessage: 'Start at login',
+              }),
+              formatMessage({
+                id: 'settings.remaining.startLoginHelp',
+                defaultMessage:
+                  'Let Lucius get back to work when you sign in, without remembering to open the app.',
+              }),
               <Toggle
-                label="Start at login"
+                label={formatMessage({
+                  id: 'settings.remaining.startLogin',
+                  defaultMessage: 'Start at login',
+                })}
                 on={settings.launchAtLogin}
                 disabled={busy}
                 onChange={(on) => void mutate(() => bridge.updateSettings({ launchAtLogin: on }))}
               />,
             )}
             {row(
-              'Keep computer awake',
-              'Stop idle sleep so automations run on time. The display can still turn off.',
+              formatMessage({
+                id: 'settings.remaining.keepAwake',
+                defaultMessage: 'Keep computer awake',
+              }),
+              formatMessage({
+                id: 'settings.remaining.keepAwakeHelp',
+                defaultMessage:
+                  'Stop idle sleep so automations run on time. The display can still turn off.',
+              }),
               <Toggle
-                label="Keep computer awake"
+                label={formatMessage({
+                  id: 'settings.remaining.keepAwake',
+                  defaultMessage: 'Keep computer awake',
+                })}
                 on={settings.keepAwake}
                 disabled={busy}
                 onChange={(on) => void mutate(() => bridge.updateSettings({ keepAwake: on }))}
               />,
             )}
           </Panel>
-          <Panel title="Notifications">
+          <Panel
+            title={formatMessage({
+              id: 'settings.remaining.notifications',
+              defaultMessage: 'Notifications',
+            })}
+          >
             {row(
-              'Show desktop notifications',
-              'Notifications open the relevant review. Financial values and document contents stay out of notification previews. If alerts do not appear, allow Open Net Worth in your computer’s notification settings.',
+              formatMessage({
+                id: 'settings.remaining.showNotifications',
+                defaultMessage: 'Show desktop notifications',
+              }),
+              formatMessage({
+                id: 'settings.remaining.notificationHelp',
+                defaultMessage:
+                  'Notifications open the relevant review. Financial values and document contents stay out of notification previews. If alerts do not appear, allow Open Net Worth in your computer’s notification settings.',
+              }),
               <Toggle
-                label="Show desktop notifications"
+                label={formatMessage({
+                  id: 'settings.remaining.showNotifications',
+                  defaultMessage: 'Show desktop notifications',
+                })}
                 on={settings.notifications}
                 disabled={busy}
                 onChange={(on) => void mutate(() => bridge.updateSettings({ notifications: on }))}
@@ -217,18 +348,33 @@ function LocalDesktopSection() {
             )}
           </Panel>
           <Panel
-            title="Statement folders"
-            sub="New files appear for review. You decide what gets booked."
+            title={formatMessage({
+              id: 'settings.remaining.statementFolders',
+              defaultMessage: 'Statement folders',
+            })}
+            sub={formatMessage({
+              id: 'settings.remaining.statementHelp',
+              defaultMessage: 'New files appear for review. You decide what gets booked.',
+            })}
             actions={
               <Btn disabled={busy} onClick={() => void mutate(() => bridge.chooseWatchedFolder())}>
-                Choose folder…
+                {formatMessage({
+                  id: 'settings.remaining.chooseFolder',
+                  defaultMessage: 'Choose folder…',
+                })}
               </Btn>
             }
           >
             {!settings.watchedFolders.length && (
               <Empty
-                title="Add a statement folder"
-                body="New files appear for review. You decide what gets booked."
+                title={formatMessage({
+                  id: 'settings.remaining.addFolder',
+                  defaultMessage: 'Add a statement folder',
+                })}
+                body={formatMessage({
+                  id: 'settings.remaining.statementHelp',
+                  defaultMessage: 'New files appear for review. You decide what gets booked.',
+                })}
               />
             )}
             {settings.watchedFolders.map((folder) => (
@@ -238,10 +384,19 @@ function LocalDesktopSection() {
                     {folder.label}{' '}
                     <Badge tone={!folder.enabled ? 'bad' : folder.available ? 'good' : 'warn'}>
                       {!folder.enabled
-                        ? 'Access revoked'
+                        ? formatMessage({
+                            id: 'settings.remaining.revoked',
+                            defaultMessage: 'Access revoked',
+                          })
                         : folder.available
-                          ? 'Watching'
-                          : 'Unavailable'}
+                          ? formatMessage({
+                              id: 'settings.remaining.watching',
+                              defaultMessage: 'Watching',
+                            })
+                          : formatMessage({
+                              id: 'settings.remaining.unavailable',
+                              defaultMessage: 'Unavailable',
+                            })}
                     </Badge>
                   </>,
                   <span style={{ overflowWrap: 'anywhere' }}>{folder.location}</span>,
@@ -249,7 +404,10 @@ function LocalDesktopSection() {
                     disabled={busy || !folder.enabled}
                     onClick={() => void mutate(() => bridge.revokeWatchedFolder(folder.id))}
                   >
-                    Remove access
+                    {formatMessage({
+                      id: 'settings.remaining.removeAccess',
+                      defaultMessage: 'Remove access',
+                    })}
                   </Btn>,
                 )}
               </div>
@@ -261,13 +419,22 @@ function LocalDesktopSection() {
                   {row(
                     job.filename,
                     job.status === 'failed'
-                      ? 'Could not read file'
+                      ? formatMessage({
+                          id: 'settings.remaining.fileReadError',
+                          defaultMessage: 'Could not read file',
+                        })
                       : job.status === 'ready'
                         ? null
-                        : 'Reading…',
+                        : formatMessage({
+                            id: 'settings.remaining.reading',
+                            defaultMessage: 'Reading…',
+                          }),
                     job.status === 'ready' && job.attachment_id ? (
                       <Btn size="xs" disabled={busy} onClick={() => void review(job)}>
-                        Review
+                        {formatMessage({
+                          id: 'settings.remaining.review',
+                          defaultMessage: 'Review',
+                        })}
                       </Btn>
                     ) : null,
                   )}
@@ -275,34 +442,64 @@ function LocalDesktopSection() {
               ))}
             {Boolean(imports.error) && (
               <ErrorState
-                message="Could not load folder imports."
+                message={formatMessage({
+                  id: 'settings.remaining.folderImportError',
+                  defaultMessage: 'Could not load folder imports.',
+                })}
                 onRetry={() => void imports.refresh()}
               />
             )}
           </Panel>
           <Panel
-            title="Your book"
-            sub="Your book stays on this computer. Export a portable backup to keep another copy."
+            title={formatMessage({
+              id: 'settings.remaining.yourBook',
+              defaultMessage: 'Your book',
+            })}
+            sub={formatMessage({
+              id: 'settings.remaining.yourBookHelp',
+              defaultMessage:
+                'Your book stays on this computer. Export a portable backup to keep another copy.',
+            })}
           >
             {row(
-              'Book folder',
+              formatMessage({ id: 'settings.remaining.bookFolder', defaultMessage: 'Book folder' }),
               <span style={{ overflowWrap: 'anywhere' }}>{settings.bookFolder}</span>,
               <Btn
                 disabled={busy}
                 onClick={() =>
                   void bridge
                     .saveExport()
-                    .catch(() => setError('Could not export your book. Try again.'))
+                    .catch(() =>
+                      setError(
+                        formatMessage({
+                          id: 'settings.remaining.exportError',
+                          defaultMessage: 'Could not export your book. Try again.',
+                        }),
+                      ),
+                    )
                 }
               >
-                Export backup…
+                {formatMessage({
+                  id: 'settings.remaining.exportBackup',
+                  defaultMessage: 'Export backup…',
+                })}
               </Btn>,
             )}
             {row(
-              'Open another book',
-              'Open another book folder, or choose an empty folder for a new book.',
+              formatMessage({
+                id: 'settings.remaining.openAnotherBook',
+                defaultMessage: 'Open another book',
+              }),
+              formatMessage({
+                id: 'settings.remaining.openAnotherBookHelp',
+                defaultMessage:
+                  'Open another book folder, or choose an empty folder for a new book.',
+              }),
               <Btn disabled={busy} onClick={() => void chooseBook()}>
-                Open another folder…
+                {formatMessage({
+                  id: 'settings.remaining.openAnotherFolder',
+                  defaultMessage: 'Open another folder…',
+                })}
               </Btn>,
             )}
           </Panel>

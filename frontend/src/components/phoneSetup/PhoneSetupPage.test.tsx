@@ -2,6 +2,9 @@
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 import { PhoneSetupPage } from './PhoneSetupPage'
+import { IntlProvider } from 'react-intl'
+import messages from '../firstrun/zh-CN.messages.json'
+import common from '../../i18n/zh-CN.json'
 import { resetPhoneSetupForTests } from './setupData'
 
 const DATA = {
@@ -42,6 +45,19 @@ beforeEach(() => {
 afterEach(() => {
   cleanup()
   vi.unstubAllGlobals()
+})
+
+it('shows Chinese instructions while copying the original setup code', async () => {
+  vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(JSON.stringify(DATA))))
+  render(
+    <IntlProvider locale="zh-CN" messages={{ ...common, ...messages }}>
+      <PhoneSetupPage />
+    </IntlProvider>,
+  )
+  expect(await screen.findByLabelText('设置代码')).toBeTruthy()
+  expect(screen.getByText('Apple Pay 支付')).toBeTruthy()
+  fireEvent.click(screen.getByRole('button', { name: '复制' }))
+  await waitFor(() => expect(writeText).toHaveBeenCalledWith(DATA.setup_code))
 })
 
 it('loads the ticket and shows the setup code and both signed installs', async () => {

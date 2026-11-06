@@ -7,24 +7,32 @@ from backend.services.trading.common import amount
 def base_fee_quantity(fill):
     if "fee_asset" not in fill:
         if "fee_quantity" in fill or "fee_value_quote" in fill:
-            raise ConflictError("Execution fee has no asset identity")
+            raise ConflictError(
+                "Execution fee has no asset identity", message_id="trading.error.fee_asset_missing"
+            )
         return amount(0)
     instrument = fill["instrument"]
     parts = instrument["symbol"].split("/")
     if instrument["asset_class"] != "crypto" or len(parts) != 2:
         raise ConflictError(
-            "Asset-denominated execution fees require a BASE/QUOTE crypto instrument"
+            "Asset-denominated execution fees require a BASE/QUOTE crypto instrument",
+            message_id="trading.error.fee_instrument_invalid",
         )
     base, quote = parts
     quantity = amount(fill["fee_quantity"])
     cash_fee, value = amount(fill["fees"]), amount(fill["fee_value_quote"])
     if quantity < 0 or value < 0 or quote != instrument["currency"]:
-        raise ConflictError("Invalid execution fee units")
+        raise ConflictError(
+            "Invalid execution fee units", message_id="trading.error.fee_units_invalid"
+        )
     if fill["fee_asset"] == quote and quantity == cash_fee == value:
         return amount(0)
     if fill["fee_asset"] == base and cash_fee == 0 and value == quantity * amount(fill["price"]):
         return quantity
-    raise ConflictError("Unsupported commission asset or inconsistent execution fee valuation")
+    raise ConflictError(
+        "Unsupported commission asset or inconsistent execution fee valuation",
+        message_id="trading.error.fee_valuation_invalid",
+    )
 
 
 def book_execution_terms(fill):
@@ -32,5 +40,8 @@ def book_execution_terms(fill):
     gross_quantity, price = amount(fill["quantity"]), amount(fill["price"])
     quantity = gross_quantity - base_fee if fill["side"] == "buy" else gross_quantity + base_fee
     if quantity <= 0:
-        raise ConflictError("Execution commission consumes the acquired quantity")
+        raise ConflictError(
+            "Execution commission consumes the acquired quantity",
+            message_id="trading.error.fee_consumes_quantity",
+        )
     return quantity, gross_quantity * price / quantity, amount(fill["fees"])

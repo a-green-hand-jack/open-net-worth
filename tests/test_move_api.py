@@ -87,6 +87,8 @@ def test_begin_refuses_a_book_the_disk_cannot_hold(client, monkeypatch):
     response = _begin(client, b"x" * 101)
     assert response.status_code == 413
     assert response.json()["detail"]["max_size"] == 100
+    assert response.json()["message_id"] == "move.too_large"
+    assert response.json()["message_params"] == {"max_size": 100}
 
 
 def test_begin_validates_its_input(client):
@@ -119,7 +121,10 @@ def test_upload_resumes_idempotently_out_of_order(client):
 
 def test_a_part_is_checked_for_checksum_length_and_range(client):
     move_id = _begin(client).json()["move_id"]
-    assert _put(client, move_id, 0, sha="0" * 64).status_code == 422
+    invalid = _put(client, move_id, 0, sha="0" * 64)
+    assert invalid.status_code == 422
+    assert invalid.json()["detail"] == "part checksum does not match"
+    assert invalid.json()["message_id"] == "move.part_checksum_mismatch"
     assert (
         client.put(
             f"/api/move/{move_id}/parts/0",
@@ -172,6 +177,8 @@ def test_a_corrupted_whole_file_fails_without_importing(client):
     client.post(f"/api/move/{move_id}/commit", json={"replace": True}, headers=HEADERS)
     final = _wait(client, move_id)
     assert final["status"] == "failed" and "checksum" in final["error"]
+    assert final["error_message_id"] == "move.import_checksum_mismatch"
+    assert final["error_message_params"] == {}
     assert client.imported == []
 
 
@@ -193,6 +200,8 @@ def test_a_server_with_a_book_asks_before_replacing(client, monkeypatch):
     _upload_all(client, move_id)
     refused = client.post(f"/api/move/{move_id}/commit", json={"replace": False}, headers=HEADERS)
     assert refused.status_code == 409 and refused.json()["detail"]["code"] == "not_empty"
+    assert refused.json()["message_id"] == "move.book_not_empty"
+    assert refused.json()["message_params"] == {}
     assert (
         client.post(
             f"/api/move/{move_id}/commit", json={"replace": True}, headers=HEADERS
@@ -413,7 +422,10 @@ def test_an_import_interrupted_by_a_restart_reads_as_failed(client):
     meta = move._read(move_id)
     meta["status"] = "importing"
     move._write(meta)
-    assert client.get(f"/api/move/{move_id}").json()["status"] == "failed"
+    state = client.get(f"/api/move/{move_id}").json()
+    assert state["status"] == "failed"
+    assert state["error_message_id"] == "move.import_interrupted"
+    assert state["error_message_params"] == {}
 
 
 def test_beginning_is_rate_limited(client, monkeypatch):

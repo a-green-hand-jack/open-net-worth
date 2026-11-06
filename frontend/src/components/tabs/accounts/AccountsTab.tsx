@@ -7,6 +7,7 @@
  * Consumes the existing app nav rail + LuciusDock (handoff-frozen) — does NOT render them.
  */
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react'
+import { useAppIntl } from '../../../i18n/useAppIntl'
 import type { AccountType } from './categories'
 import {
   markNativeImportReviewed,
@@ -52,6 +53,7 @@ import { AccountHeader, type DueInfo } from './AccountHeader'
 import { ArchivedAccountsModal } from './ArchivedAccountsModal'
 import { Register } from './Register'
 import { useColumnVisibility } from './columns'
+import { useBulkReason } from './useBulkReason'
 import { BulkBar } from './BulkBar'
 import { Filters, ActiveChips } from './SearchFilter'
 import type { FilterState, FilterToken } from './SearchFilter'
@@ -78,7 +80,7 @@ import type { RowPatch } from './TxnRow'
 import { DataInHero } from '../../dataIn/DataInHero'
 import { ReviewConfetti } from './ReviewConfetti'
 import { useChatComposerOptional } from '../../../state/chatComposer'
-import { SCREEN_INTROS } from '../../intro/screenIntros'
+import { screenIntros } from '../../intro/screenIntros'
 
 const PALETTE = [
   '#e2554f',
@@ -241,6 +243,9 @@ export function AccountsTab({
   /** Hands a message to Lucius in a fresh conversation (the shell's one path for it). */
   onAskLucius?: (text: string) => void
 }) {
+  const intl = useAppIntl()
+  const { formatMessage } = intl
+  const bulkReason = useBulkReason()
   // Pass the outbound refresh so every write also refreshes app-wide net worth / other tabs / Lucius.
   const L = useAccountsLedger(refresh)
   const { accounts, transactions, categories, payees, fx, baseCurrency } = L
@@ -368,15 +373,15 @@ export function AccountsTab({
     setArchivedError(null)
     try {
       const response = await authFetch('/api/accounts?include_archived=true')
-      if (!response.ok) throw new Error('Could not load archived accounts')
+      if (!response.ok) throw new Error(formatMessage({ id: 'accounts.feedback.archivedLoad', defaultMessage: "Could not load archived accounts" }))
       const rows = (await response.json()) as ApiAccount[]
       setArchivedAccounts(rows.filter((row) => row.archived).map((row) => fromApiAccount(row, 0)))
     } catch (error) {
-      setArchivedError(error instanceof Error ? error.message : 'Could not load archived accounts')
+      setArchivedError(error instanceof Error ? error.message : formatMessage({ id: 'accounts.feedback.archivedLoad', defaultMessage: "Could not load archived accounts" }))
     } finally {
       setArchivedLoading(false)
     }
-  }, [])
+  }, [formatMessage])
 
   const openArchivedAccounts = useCallback(() => {
     setArchivedSelected(null)
@@ -393,7 +398,7 @@ export function AccountsTab({
       const response = await authFetch(
         `/api/transactions?account_id=${encodeURIComponent(account.id)}`,
       )
-      if (!response.ok) throw new Error('Could not load transactions')
+      if (!response.ok) throw new Error(formatMessage({ id: 'accounts.feedback.transactionsLoad', defaultMessage: "Could not load transactions" }))
       const body = (await response.json()) as { transactions?: ApiTxn[] }
       setArchivedTransactions((body.transactions ?? []).map(fromApiTxn))
     } catch {
@@ -401,7 +406,7 @@ export function AccountsTab({
     } finally {
       setArchivedTransactionsLoading(false)
     }
-  }, [])
+  }, [formatMessage])
   const [institutions, setInstitutions] = useState<InstitutionOption[]>([])
   const refreshAccounts = L.refresh
   const loadInstitutions = useCallback(async () => {
@@ -443,7 +448,7 @@ export function AccountsTab({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name }),
       })
-      if (!response?.ok) throw new Error('Could not rename institution')
+      if (!response?.ok) throw new Error(formatMessage({ id: 'accounts.feedback.renameInstitution', defaultMessage: "Could not rename institution" }))
       const body = (await response.json()) as {
         id: string
         name: string
@@ -460,20 +465,20 @@ export function AccountsTab({
       await refreshAccounts()
       return renamed
     },
-    [refreshAccounts],
+    [formatMessage, refreshAccounts],
   )
   const deleteInstitution = useCallback(
     async (id: string): Promise<InstitutionDeleteResult> => {
       const response = await authFetch(`/api/institutions/${encodeURIComponent(id)}`, {
         method: 'DELETE',
       })
-      if (!response?.ok) throw new Error('Could not delete institution')
+      if (!response?.ok) throw new Error(formatMessage({ id: 'accounts.feedback.deleteInstitution', defaultMessage: "Could not delete institution" }))
       const body = (await response.json()) as InstitutionDeleteResult
       setInstitutions((current) => current.filter((item) => item.id !== id))
       await refreshAccounts()
       return body
     },
-    [refreshAccounts],
+    [formatMessage, refreshAccounts],
   )
   const [confirm, setConfirm] = useState<{
     title: string
@@ -955,6 +960,7 @@ export function AccountsTab({
           field: 'category' as const,
           value: k,
           label: 'Category: ' + (catMap[k]?.label || 'Uncategorized'),
+          displayValue: catMap[k]?.label || 'Uncategorized',
         }))
         next.tokens = [...f.tokens.filter((t) => t.field !== 'category'), ...catTokens]
       }
@@ -986,7 +992,7 @@ export function AccountsTab({
       if (payee) {
         next.tokens = [
           ...next.tokens.filter((t) => t.field !== 'payee'),
-          { field: 'payee', value: payee, label: 'Payee: ' + payee },
+          { field: 'payee', value: payee, label: 'Payee: ' + payee, displayValue: payee },
         ]
       }
       if (dateOn) {
@@ -1018,7 +1024,7 @@ export function AccountsTab({
         const label = 'Category: ' + (catMap[String(t.value)]?.label || 'Uncategorized')
         if (label === t.label) return t
         changed = true
-        return { ...t, label }
+        return { ...t, label, displayValue: catMap[String(t.value)]?.label || 'Uncategorized' }
       })
       return changed ? { ...f, tokens } : f
     })
@@ -1203,9 +1209,28 @@ export function AccountsTab({
         const warn =
           created?.warnings?.find((w) => w.type === 'before_tracking_start') ??
           created?.warnings?.[0]
-        showToast(warn ? warn.message : data.transferTo ? 'Transfer added' : 'Transaction added')
+        showToast(
+          warn
+            ? warn.message
+            : data.transferTo
+              ? formatMessage({ id: 'accounts.transferAdded', defaultMessage: 'Transfer added' })
+              : formatMessage({
+                  id: 'accounts.transactionAdded',
+                  defaultMessage: 'Transaction added',
+                }),
+        )
       } catch (e) {
-        showToast('Could not add: ' + (e instanceof Error ? e.message : 'error'))
+        showToast(
+          formatMessage(
+            { id: 'accounts.couldNotAdd', defaultMessage: 'Could not add: {error}' },
+            {
+              error:
+                e instanceof Error
+                  ? e.message
+                  : formatMessage({ id: 'accounts.error', defaultMessage: 'error' }),
+            },
+          ),
+        )
       }
     })()
     return true
@@ -1237,7 +1262,11 @@ export function AccountsTab({
         if (patch.payee !== undefined) u.payee_id = await resolveOrCreatePayeeId(patch.payee)
         await L.updateTxn(id, u)
       } catch (e) {
-        showToast(e instanceof Error ? e.message : 'Update failed')
+        showToast(
+          e instanceof Error
+            ? e.message
+            : formatMessage({ id: 'accounts.updateFailed', defaultMessage: 'Update failed' }),
+        )
       }
     })()
   }
@@ -1258,9 +1287,15 @@ export function AccountsTab({
         else u.payee_id = await resolveOrCreatePayeeId(payeeVal as string)
       }
       await L.updateTxn(id, u)
-      showToast('Transaction updated')
+      showToast(
+        formatMessage({ id: 'accounts.transactionUpdated', defaultMessage: 'Transaction updated' }),
+      )
     })().catch((e) => {
-      showToast(e instanceof Error ? e.message : 'Update failed')
+      showToast(
+        e instanceof Error
+          ? e.message
+          : formatMessage({ id: 'accounts.updateFailed', defaultMessage: 'Update failed' }),
+      )
       throw e
     })
   }
@@ -1277,19 +1312,36 @@ export function AccountsTab({
         showToast(reconcileToastMessage(r.adjustment, r.cleared_balance, account.currency))
         setReconcileBurst((n) => n + 1)
       })
-      .catch((e) => showToast(e instanceof Error ? e.message : 'Reconcile failed'))
+      .catch((e) =>
+        showToast(
+          e instanceof Error
+            ? e.message
+            : formatMessage({ id: 'accounts.reconcileFailed', defaultMessage: 'Reconcile failed' }),
+        ),
+      )
   }
 
   const archive = (a: Account) =>
     setConfirm({
-      title: 'Archive account',
-      body: `"${a.name}" will be hidden from your accounts. Its transactions are kept.`,
-      confirmLabel: 'Archive',
+      title: formatMessage({ id: 'accounts.archiveAccount', defaultMessage: 'Archive account' }),
+      body: formatMessage(
+        {
+          id: 'accounts.archiveBody',
+          defaultMessage: '"{name}" will be hidden from your accounts. Its transactions are kept.',
+        },
+        { name: a.name },
+      ),
+      confirmLabel: formatMessage({ id: 'accounts.archive', defaultMessage: 'Archive' }),
       danger: true,
       onConfirm: () => {
         void L.archiveAccount(a.id).then(() => {
           if (selectedId === a.id) selectAccount(null)
-          showToast('Archived ' + a.name)
+          showToast(
+            formatMessage(
+              { id: 'accounts.archived', defaultMessage: 'Archived {name}' },
+              { name: a.name },
+            ),
+          )
         })
         setConfirm(null)
       },
@@ -1306,7 +1358,21 @@ export function AccountsTab({
     }
     const runDelete = (force: boolean) =>
       L.deleteAccount(a.id, { force }).then(
-        () => afterDelete(force ? `Deleted ${a.name} and its transactions` : `Deleted ${a.name}`),
+        () =>
+          afterDelete(
+            force
+              ? formatMessage(
+                  {
+                    id: 'accounts.deletedWithTransactions',
+                    defaultMessage: 'Deleted {name} and its transactions',
+                  },
+                  { name: a.name },
+                )
+              : formatMessage(
+                  { id: 'accounts.deleted', defaultMessage: 'Deleted {name}' },
+                  { name: a.name },
+                ),
+          ),
         (err: unknown) => {
           // ONLY AccountDeleteConflictError (a genuine transaction_count) ever offers the
           // force-delete escalation — AccountDeleteBlockedError (a linked loan/position/lot/
@@ -1322,17 +1388,36 @@ export function AccountsTab({
             const otherNames = err.otherAccounts.map((o) => o.name)
             const otherNote =
               otherNames.length > 0
-                ? ` This includes transfers also affecting ${otherNames.join(', ')}.`
+                ? formatMessage(
+                    {
+                      id: 'accounts.otherTransfers',
+                      defaultMessage: ' This includes transfers also affecting {names}.',
+                    },
+                    { names: otherNames.join(', ') },
+                  )
                 : ''
             setDeleteConfirm({
               data: {
-                title: 'Delete account and its transactions?',
+                title: formatMessage({
+                  id: 'accounts.deleteAccountTransactions',
+                  defaultMessage: 'Delete account and its transactions?',
+                }),
                 body:
-                  `"${a.name}" still has ${n} transaction(s). ` +
-                  'Force deleting removes the account AND all of its transactions — this ' +
-                  "can't be undone." +
-                  otherNote,
-                confirmLabel: `Force delete and remove ${n} transaction(s)`,
+                  formatMessage(
+                    {
+                      id: 'accounts.forceDeleteBody',
+                      defaultMessage:
+                        '"{name}" still has {count} transaction(s). Force deleting removes the account AND all of its transactions — this can\'t be undone.',
+                    },
+                    { name: a.name, count: n },
+                  ) + otherNote,
+                confirmLabel: formatMessage(
+                  {
+                    id: 'accounts.forceDeleteConfirm',
+                    defaultMessage: 'Force delete and remove {count} transaction(s)',
+                  },
+                  { count: n },
+                ),
                 danger: true,
               },
               onConfirm: () => {
@@ -1342,15 +1427,28 @@ export function AccountsTab({
             })
             return
           }
-          showToast(err instanceof Error ? err.message : 'Delete failed')
+          showToast(
+            err instanceof Error
+              ? err.message
+              : formatMessage({ id: 'accounts.deleteFailed', defaultMessage: 'Delete failed' }),
+          )
         },
       )
 
     setDeleteConfirm({
       data: {
-        title: 'Delete account',
-        body: `"${a.name}" will be permanently deleted. This can't be undone.`,
-        confirmLabel: 'Delete account',
+        title: formatMessage({ id: 'accounts.deleteAccount', defaultMessage: 'Delete account' }),
+        body: formatMessage(
+          {
+            id: 'accounts.deleteAccountBody',
+            defaultMessage: '"{name}" will be permanently deleted. This can\'t be undone.',
+          },
+          { name: a.name },
+        ),
+        confirmLabel: formatMessage({
+          id: 'accounts.deleteAccount',
+          defaultMessage: 'Delete account',
+        }),
         danger: true,
       },
       onConfirm: () => {
@@ -1381,8 +1479,20 @@ export function AccountsTab({
   ) => {
     if (!keepSelection) clearSelection()
     void L.bulkUpdate(targetIds, data)
-      .then((r) => showToast(done(r.count)))
-      .catch((e) => showToast(e instanceof Error ? e.message : 'Bulk update failed'))
+      .then((r) => {
+        const details = [...new Set(r.skipped.map(bulkReason))].join(formatMessage({ id: 'accounts.bulk.reasonSeparator', defaultMessage: '; ' }))
+        showToast(r.skipped.length ? formatMessage({ id: 'accounts.bulk.partial', defaultMessage: '{success} · {count, plural, one {# skipped} other {# skipped}}: {reasons}' }, { success: done(r.count), count: r.skipped.length, reasons: details }) : done(r.count))
+      })
+      .catch((e) =>
+        showToast(
+          e instanceof Error
+            ? e.message
+            : formatMessage({
+                id: 'accounts.bulkUpdateFailed',
+                defaultMessage: 'Bulk update failed',
+              }),
+        ),
+      )
   }
   // Rows a given action would ACTUALLY change. Re-applying a flag a row already carries is a
   // redundant write through the per-txn choke point (an audit entry + a checkpoint capture
@@ -1396,7 +1506,12 @@ export function AccountsTab({
     unhide: selList.filter((t) => t.hidden).length,
   }
   const bulkCategory = (cat: string) =>
-    runBulk(ids(), { category: cat }, (n) => 'Re-categorised ' + n)
+    runBulk(ids(), { category: cat }, (n) =>
+      formatMessage(
+        { id: 'accounts.recategorised', defaultMessage: 'Re-categorised {count}' },
+        { count: n },
+      ),
+    )
   // Mobile's bulk bar hands categorization to Lucius instead of a flyout (see BulkBar) — one
   // mention chip per selected row, exactly like dragging a multi-selection onto the dock
   // (dragRightClick.tsx's `drop`): chips carry the txn id as `ref`, so Lucius knows precisely
@@ -1428,25 +1543,65 @@ export function AccountsTab({
   const bulkSetCleared = (v: boolean) => {
     const targetIds = selList.filter((t) => t.cleared !== v).map((t) => t.id)
     if (targetIds.length === 0) {
-      showToast(v ? 'All selected are already cleared' : 'All selected are already uncleared')
+      showToast(
+        v
+          ? formatMessage({
+              id: 'accounts.alreadyCleared',
+              defaultMessage: 'All selected are already cleared',
+            })
+          : formatMessage({
+              id: 'accounts.alreadyUncleared',
+              defaultMessage: 'All selected are already uncleared',
+            }),
+      )
       return
     }
-    runBulk(targetIds, { cleared: v }, (n) => n + (v ? ' marked cleared' : ' marked uncleared'))
+    runBulk(targetIds, { cleared: v }, (n) =>
+      v
+        ? formatMessage(
+            { id: 'accounts.markedCleared', defaultMessage: '{count} marked cleared' },
+            { count: n },
+          )
+        : formatMessage(
+            { id: 'accounts.markedUncleared', defaultMessage: '{count} marked uncleared' },
+            { count: n },
+          ),
+    )
   }
   const bulkMarkReviewed = () => {
     const reviewIds = selList.filter((t) => t.needsReview).map((t) => t.id)
     if (reviewIds.length === 0) {
-      showToast('All selected transactions were already reviewed')
+      showToast(
+        formatMessage({
+          id: 'accounts.alreadyReviewed',
+          defaultMessage: 'All selected transactions were already reviewed',
+        }),
+      )
       return
     }
-    runBulk(reviewIds, { needs_review: false }, (n) => `${n} marked as reviewed`)
+    runBulk(reviewIds, { needs_review: false }, (n) =>
+      formatMessage(
+        { id: 'accounts.markedReviewed', defaultMessage: '{count} marked as reviewed' },
+        { count: n },
+      ),
+    )
   }
   // Hiding drops the rows out of view unless "Show hidden" is on — then, like a move, the
   // selection clears rather than counting rows that are no longer on screen.
   const bulkSetHidden = (v: boolean) => {
     const targetIds = selList.filter((t) => !!t.hidden !== v).map((t) => t.id)
     if (targetIds.length === 0) {
-      showToast(v ? 'All selected are already hidden' : 'None of the selected are hidden')
+      showToast(
+        v
+          ? formatMessage({
+              id: 'accounts.alreadyHidden',
+              defaultMessage: 'All selected are already hidden',
+            })
+          : formatMessage({
+              id: 'accounts.noneHidden',
+              defaultMessage: 'None of the selected are hidden',
+            }),
+      )
       return
     }
     runBulk(
@@ -1454,18 +1609,48 @@ export function AccountsTab({
       { hidden: v },
       (n) =>
         v
-          ? `${n} hidden${showHidden ? '' : isMobile ? ' · search Status: Hidden to find them' : ' · Display › Show hidden brings them back'}`
-          : `${n} unhidden`,
+          ? formatMessage(
+              { id: 'accounts.hiddenCount', defaultMessage: '{count} hidden{hint}' },
+              {
+                count: n,
+                hint: showHidden
+                  ? ''
+                  : isMobile
+                    ? formatMessage({
+                        id: 'accounts.hiddenMobileHint',
+                        defaultMessage: ' · search Status: Hidden to find them',
+                      })
+                    : formatMessage({
+                        id: 'accounts.hiddenDesktopHint',
+                        defaultMessage: ' · Display › Show hidden brings them back',
+                      }),
+              },
+            )
+          : formatMessage(
+              { id: 'accounts.unhiddenCount', defaultMessage: '{count} unhidden' },
+              { count: n },
+            ),
       !v || showHidden,
     )
   }
   const bulkMemo = (text: string) =>
-    runBulk(ids(), { description: text }, (n) => 'Description set on ' + n)
+    runBulk(ids(), { description: text }, (n) =>
+      formatMessage(
+        { id: 'accounts.descriptionSet', defaultMessage: 'Description set on {count}' },
+        { count: n },
+      ),
+    )
   // A move re-points the rows at another account, so they drop out of an account-scoped
   // register — keeping them "selected" would leave the bar counting rows that are no longer in
   // view. This is the one label change that clears.
   const bulkMove = (accountId: string) =>
-    runBulk(ids(), { to_account_id: accountId }, (n) => 'Moved ' + n, false)
+    runBulk(
+      ids(),
+      { to_account_id: accountId },
+      (n) =>
+        formatMessage({ id: 'accounts.movedCount', defaultMessage: 'Moved {count}' }, { count: n }),
+      false,
+    )
   // Duplicate creates one row per selection (no bulk-create choke for arbitrary rows), so it
   // reports how far it got — a mid-loop failure has already written the earlier copies.
   const bulkDuplicate = async () => {
@@ -1478,27 +1663,70 @@ export function AccountsTab({
       }
     } catch (e) {
       showToast(
-        `Duplicated ${n} of ${list.length} — ` + (e instanceof Error ? e.message : 'failed'),
+        formatMessage(
+          {
+            id: 'accounts.duplicatePartial',
+            defaultMessage: 'Duplicated {done} of {total} — {error}',
+          },
+          {
+            done: n,
+            total: list.length,
+            error:
+              e instanceof Error
+                ? e.message
+                : formatMessage({ id: 'accounts.failed', defaultMessage: 'failed' }),
+          },
+        ),
       )
       return
     }
     // The originals are untouched and still on screen, so they stay selected.
-    showToast('Duplicated ' + n)
+    showToast(
+      formatMessage(
+        { id: 'accounts.duplicatedCount', defaultMessage: 'Duplicated {count}' },
+        { count: n },
+      ),
+    )
   }
   const bulkExport = () => {
     exportCsv(selList)
   }
   const bulkDelete = () =>
     setConfirm({
-      title: 'Delete transactions',
-      body: `${selectedIds.size} transaction(s) will be deleted from the register.`,
-      confirmLabel: 'Delete ' + selectedIds.size,
+      title: formatMessage({
+        id: 'accounts.deleteTransactions',
+        defaultMessage: 'Delete transactions',
+      }),
+      body: formatMessage(
+        {
+          id: 'accounts.deleteTransactionsBody',
+          defaultMessage: '{count} transaction(s) will be deleted from the register.',
+        },
+        { count: selectedIds.size },
+      ),
+      confirmLabel: formatMessage(
+        { id: 'accounts.deleteCount', defaultMessage: 'Delete {count}' },
+        { count: selectedIds.size },
+      ),
       danger: true,
       onConfirm: () => {
         const n = selectedIds.size
         void L.bulkDelete(ids())
-          .then(() => afterBulk(n + ' deleted'))
-          .catch((e) => showToast(e instanceof Error ? e.message : 'Delete failed'))
+          .then(() =>
+            afterBulk(
+              formatMessage(
+                { id: 'accounts.deletedCount', defaultMessage: '{count} deleted' },
+                { count: n },
+              ),
+            ),
+          )
+          .catch((e) =>
+            showToast(
+              e instanceof Error
+                ? e.message
+                : formatMessage({ id: 'accounts.deleteFailed', defaultMessage: 'Delete failed' }),
+            ),
+          )
         setConfirm(null)
       },
     })
@@ -1577,7 +1805,7 @@ export function AccountsTab({
     a.click()
     document.body.removeChild(a)
     setTimeout(() => URL.revokeObjectURL(url), 1500)
-    showToast('Exported ' + list.length + ' transaction' + (list.length === 1 ? '' : 's'))
+    showToast(formatMessage({ id: 'accounts.feedback.exported', defaultMessage: 'Exported {count, plural, one {# transaction} other {# transactions}}' }, { count: list.length }))
   }
 
   // accounts
@@ -1587,7 +1815,7 @@ export function AccountsTab({
     // worth reading on this save.
     const notices: string[] = []
     const acct = await L.saveAccount(form, id, (m) => notices.push(m))
-    showToast(notices[0] ?? (id ? 'Saved ' + acct.name : 'Created ' + acct.name))
+    showToast(notices[0] ?? (id ? formatMessage({ id: 'accounts.feedback.savedAccount', defaultMessage: 'Saved {name}' }, { name: acct.name }) : formatMessage({ id: 'accounts.feedback.createdAccount', defaultMessage: 'Created {name}' }, { name: acct.name })))
     if (!id) {
       selectAccount(acct.id)
       setAcctModal({ open: true, mode: 'edit', account: acct })
@@ -1607,13 +1835,13 @@ export function AccountsTab({
       )
       const row = (await res.json())?.transactions?.[0]
       if (!row) {
-        showToast('This account has no starting balance transaction')
+        showToast(formatMessage({ id: 'accounts.feedback.noOpening', defaultMessage: "This account has no starting balance transaction" }))
         return
       }
       setAcctModal({ open: false, mode: 'add', account: null })
       surfaces.openTransaction(fromApiTxn(row))
     } catch {
-      showToast("Couldn't open the starting balance transaction")
+      showToast(formatMessage({ id: 'accounts.feedback.openStarting', defaultMessage: "Couldn't open the starting balance transaction" }))
     }
   }
 
@@ -1631,14 +1859,14 @@ export function AccountsTab({
       color,
     }
     const res = await authFetch('/api/categories', { method: 'POST', body: JSON.stringify(body) })
-    if (!res.ok) throw new Error((await res.text().catch(() => '')) || 'Failed to add category')
+    if (!res.ok) throw new Error((await res.text().catch(() => '')) || formatMessage({ id: 'accounts.feedback.addCategory', defaultMessage: "Failed to add category" }))
     const cat: Category = await res.json()
     // Await the reload so `categories` (and every picker deriving its options from it) already
     // contains the new category by the time the caller's onDone/cb fires — a fire-and-forget
     // refresh raced the picker's re-render, so the just-created category could be selected before
     // it existed in the options list (and stayed missing until an unrelated later refresh).
     await L.refresh()
-    showToast('Category “' + cat.label + '” added')
+    showToast(formatMessage({ id: 'accounts.feedback.categoryAdded', defaultMessage: 'Category “{name}” added' }, { name: cat.label }))
     return cat
   }
 
@@ -1749,7 +1977,7 @@ export function AccountsTab({
       })
       return
     }
-    showToast("We'll keep reading — we'll tell you when it's ready to review.")
+    showToast(formatMessage({ id: 'accounts.feedback.readingBackground', defaultMessage: "We'll keep reading — we'll tell you when it's ready to review." }))
   }
   // Decision-based commit (RFC D7): one atomic server batch against the cached preview parse
   // — the ONLY commit path out of the import modal, every format (the old client-built
@@ -1833,7 +2061,7 @@ export function AccountsTab({
     })
     if (!res.ok) {
       const body = await res.json().catch(() => null)
-      throw new Error(body?.detail || 'Could not undo this import — try again.')
+      throw new Error(body?.detail || formatMessage({ id: 'accounts.feedback.undoImport', defaultMessage: "Could not undo this import — try again." }))
     }
     const out = await res.json()
     await L.refresh()
@@ -1852,12 +2080,12 @@ export function AccountsTab({
     // otherwise the row silently reverts on the next refresh with no explanation.
     void authFetch(`/api/payees/${id}`, { method: 'PATCH', body: JSON.stringify(body) })
       .then(async (res) => {
-        if (!res.ok) throw new Error((await res.text().catch(() => '')) || 'Could not update payee')
+        if (!res.ok) throw new Error((await res.text().catch(() => '')) || formatMessage({ id: 'accounts.feedback.updatePayee', defaultMessage: "Could not update payee" }))
         L.refresh()
       })
       .catch((e) => {
         L.refresh()
-        showToast(e instanceof Error ? e.message : 'Could not update payee')
+        showToast(e instanceof Error ? e.message : formatMessage({ id: 'accounts.feedback.updatePayee', defaultMessage: "Could not update payee" }))
       })
   }
   const mergePayee = (from: string, to: string) =>
@@ -1866,20 +2094,20 @@ export function AccountsTab({
       body: JSON.stringify({ target_id: to }),
     }).then(() => {
       L.refresh()
-      showToast('Payees merged')
+      showToast(formatMessage({ id: 'accounts.feedback.payeesMerged', defaultMessage: "Payees merged" }))
     })
   const addPayee = (name: string): string => {
     const tmp = 'pending-' + Math.abs(hashStr(name)).toString(36)
     // Same uniqueness guard as rename: a duplicate name is a 409, not a created payee.
     void authFetch('/api/payees', { method: 'POST', body: JSON.stringify({ name }) })
       .then(async (res) => {
-        if (!res.ok) throw new Error((await res.text().catch(() => '')) || 'Could not create payee')
+        if (!res.ok) throw new Error((await res.text().catch(() => '')) || formatMessage({ id: 'accounts.feedback.createPayee', defaultMessage: "Could not create payee" }))
         L.refresh()
-        showToast('Payee created')
+        showToast(formatMessage({ id: 'accounts.feedback.payeeCreated', defaultMessage: "Payee created" }))
       })
       .catch((e) => {
         L.refresh()
-        showToast(e instanceof Error ? e.message : 'Could not create payee')
+        showToast(e instanceof Error ? e.message : formatMessage({ id: 'accounts.feedback.createPayee', defaultMessage: "Could not create payee" }))
       })
     return tmp
   }
@@ -1889,7 +2117,7 @@ export function AccountsTab({
       { method: 'DELETE' },
     ).then(() => {
       L.refresh()
-      showToast(reassignTo ? 'Payee deleted — transactions reassigned' : 'Payee deleted')
+      showToast(reassignTo ? formatMessage({ id: 'accounts.feedback.payeeDeletedReassigned', defaultMessage: "Payee deleted — transactions reassigned" }) : formatMessage({ id: 'accounts.feedback.payeeDeleted', defaultMessage: "Payee deleted" }))
     })
   const addPayeeRule = (payeeId: string, matchType: string, value: string) =>
     void authFetch(`/api/payees/${payeeId}/rules`, {
@@ -1897,20 +2125,20 @@ export function AccountsTab({
       body: JSON.stringify({ match_type: matchType, value }),
     })
       .then(() => L.refresh())
-      .catch((e) => showToast(e instanceof Error ? e.message : 'Could not add rule'))
+      .catch((e) => showToast(e instanceof Error ? e.message : formatMessage({ id: 'accounts.feedback.addRule', defaultMessage: "Could not add rule" })))
   const removePayeeRule = (payeeId: string, index: number) =>
     void authFetch(`/api/payees/${payeeId}/rules/${index}`, { method: 'DELETE' })
       .then(() => L.refresh())
-      .catch((e) => showToast(e instanceof Error ? e.message : 'Could not remove rule'))
+      .catch((e) => showToast(e instanceof Error ? e.message : formatMessage({ id: 'accounts.feedback.removeRule', defaultMessage: "Could not remove rule" })))
   const removePayeeAlias = (payeeId: string, alias: string) =>
     void authFetch(`/api/payees/${payeeId}/aliases/${encodeURIComponent(alias)}`, {
       method: 'DELETE',
     })
       .then(() => {
         L.refresh()
-        showToast('Auto-match removed')
+        showToast(formatMessage({ id: 'accounts.feedback.autoMatchRemoved', defaultMessage: 'Auto-match removed' }))
       })
-      .catch((e) => showToast(e instanceof Error ? e.message : 'Could not remove auto-match'))
+      .catch((e) => showToast(e instanceof Error ? e.message : formatMessage({ id: 'accounts.feedback.removeAutoMatch', defaultMessage: "Could not remove auto-match" })))
   const viewPayee = (name: string) => {
     setShowPayees(false)
     selectAccount(null)
@@ -1929,16 +2157,16 @@ export function AccountsTab({
       body: JSON.stringify({ confirm: true }),
     }).then(() => {
       L.refreshTxns()
-      showToast('Applied rules to history')
+      showToast(formatMessage({ id: 'accounts.feedback.rulesApplied', defaultMessage: "Applied rules to history" }))
     })
   const applyPayeeCategory = (payeeId: string) =>
     void authFetch(`/api/payees/${payeeId}/apply-category`, { method: 'POST' })
       .then(() => L.refreshTxns())
-      .catch((e) => showToast(e instanceof Error ? e.message : 'Could not apply category'))
+      .catch((e) => showToast(e instanceof Error ? e.message : formatMessage({ id: 'accounts.feedback.applyCategory', defaultMessage: "Could not apply category" })))
   const applyPayeeRulesExisting = (payeeId: string) =>
     void authFetch(`/api/payees/${payeeId}/apply-rules`, { method: 'POST' })
       .then(() => L.refreshTxns())
-      .catch((e) => showToast(e instanceof Error ? e.message : 'Could not apply rules'))
+      .catch((e) => showToast(e instanceof Error ? e.message : formatMessage({ id: 'accounts.feedback.applyRules', defaultMessage: "Could not apply rules" })))
 
   const loadActivity = async (id: string) => {
     const res = await authFetch(`/api/transactions/${id}/activity`)
@@ -1983,7 +2211,10 @@ export function AccountsTab({
     return (
       <>
         <div className="acct-shell acct-shell-state">
-          <TabSkeleton variant="accounts" label="Loading accounts…" />
+          <TabSkeleton
+            variant="accounts"
+            label={formatMessage({ id: 'accounts.loading', defaultMessage: 'Loading accounts…' })}
+          />
         </div>
       </>
     )
@@ -1993,7 +2224,10 @@ export function AccountsTab({
       <>
         <div className="acct-shell acct-shell-state">
           <ErrorState
-            title="Couldn’t load accounts"
+            title={formatMessage({
+              id: 'accounts.loadError',
+              defaultMessage: 'Couldn’t load accounts',
+            })}
             message={L.error}
             onRetry={() => L.refresh()}
           />
@@ -2078,10 +2312,17 @@ export function AccountsTab({
         >
           {accounts.length === 0 ? (
             <DataInHero
-              title="Start with the account you use most"
-              body="Add it here or with Lucius. An automation can then keep its transactions up to date and categorized for you."
+              title={formatMessage({
+                id: 'accounts.emptyTitle',
+                defaultMessage: 'Start with the account you use most',
+              })}
+              body={formatMessage({
+                id: 'accounts.emptyBody',
+                defaultMessage:
+                  'Add it here or with Lucius. An automation can then keep its transactions up to date and categorized for you.',
+              })}
               onAddAccount={() => setAcctModal({ open: true, mode: 'add', account: null })}
-              luciusMessage={SCREEN_INTROS.accounts.lucius}
+              luciusMessage={screenIntros(intl).accounts.lucius}
               onAskLucius={onAskLucius}
             />
           ) : (
@@ -2273,7 +2514,7 @@ export function AccountsTab({
           <Modal
             open={accountSheetOpen}
             onClose={() => setAccountSheetOpen(false)}
-            title="Accounts"
+            title={formatMessage({ id: 'accounts.title', defaultMessage: 'Accounts' })}
             className="acct-side-sheet"
           >
             <Sidebar
@@ -2316,10 +2557,10 @@ export function AccountsTab({
               .then(() => {
                 setArchivedAccounts((rows) => rows.filter((row) => row.id !== account.id))
                 setArchivedSelected(null)
-                showToast(`Restored ${account.name}`)
+                showToast(formatMessage({ id: 'accounts.feedback.accountRestored', defaultMessage: 'Restored {name}' }, { name: account.name }))
               })
               .catch((error: unknown) => {
-                showToast(error instanceof Error ? error.message : 'Could not restore account')
+                showToast(error instanceof Error ? error.message : formatMessage({ id: 'accounts.feedback.restoreAccount', defaultMessage: "Could not restore account" }))
               })
           }}
           onDelete={(account) =>
@@ -2388,7 +2629,7 @@ export function AccountsTab({
                 deleteIds,
               )
               if (sourceFile && !(await markNativeImportReviewed(sourceFile))) {
-                showToast('Import saved. The folder review status could not be updated.')
+                showToast(formatMessage({ id: 'accounts.feedback.importSaved', defaultMessage: "Import saved. The folder review status could not be updated." }))
               }
               return result
             }}
@@ -2401,12 +2642,12 @@ export function AccountsTab({
             rates={fx}
             onSaveTxn={saveDetailEdit}
             onDeleteTxn={(id) => {
-              showToast('Transaction deleted')
+              showToast(formatMessage({ id: 'accounts.feedback.transactionDeleted', defaultMessage: "Transaction deleted" }))
               return L.deleteTxn(id)
             }}
             onMarkTxnReviewed={(id) =>
               L.updateTxn(id, { needs_review: false }).then(() => {
-                showToast('Marked as reviewed')
+                showToast(formatMessage({ id: 'accounts.feedback.reviewed', defaultMessage: "Marked as reviewed" }))
               })
             }
             onManagePayees={() => setShowPayees(true)}
@@ -2464,7 +2705,7 @@ export function AccountsTab({
             onSave={(data) => {
               void createCategory(data)
                 .then((c) => catModal.onDone(c))
-                .catch((e) => showToast(e instanceof Error ? e.message : 'Failed to add category'))
+                .catch((e) => showToast(e instanceof Error ? e.message : formatMessage({ id: 'accounts.feedback.addCategory', defaultMessage: "Failed to add category" })))
               setCatModal(null)
             }}
           />

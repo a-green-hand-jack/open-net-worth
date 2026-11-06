@@ -24,7 +24,8 @@ from typing import Any, Dict, Optional
 from fastapi import APIRouter, HTTPException, Response
 from pydantic import BaseModel
 
-from backend.core.errors import NotFoundError
+from backend.api.connector_error_responses import connector_domain_error
+from backend.core.errors import ConflictError, NotFoundError
 from backend.db.mcp_client_store import McpClientStore
 from backend.mcp import probe_progress
 from backend.mcp.claude_desktop import parse_claude_desktop_config
@@ -135,7 +136,13 @@ def create_mcp_client(body: McpServerCreate):
     try:
         store.create(config)
     except ValueError as exc:
-        raise HTTPException(409, str(exc)) from exc
+        return connector_domain_error(
+            ConflictError(
+                str(exc),
+                message_id="connector.error.mcpDuplicate",
+                message_params={"server": config.id},
+            )
+        )
     if not config.enabled:
         return store.public_one(config.id)
     # The same handshake "Refresh tools list" runs, on the config as SAVED (its own token, its
@@ -211,7 +218,13 @@ def update_mcp_client(server_id: str, body: McpServerUpdate):
     before = store.find(server_id)
     updated = store.update(server_id, body.model_dump(exclude_unset=True))
     if updated is None:
-        raise HTTPException(404, f"unknown mcp server: {server_id}")
+        return connector_domain_error(
+            NotFoundError(
+                f"unknown mcp server: {server_id}",
+                message_id="connector.error.mcpUnknown",
+                message_params={"server": server_id},
+            )
+        )
     endpoint_changed = _endpoint_changed(before, updated)
     spawn_changed = _spawn_signature_changed(before, updated)
     if endpoint_changed:
@@ -259,8 +272,14 @@ def delete_mcp_client(server_id: str):
     """
     try:
         connector_catalog.remove_mcp_server(server_id)
-    except NotFoundError as exc:
-        raise HTTPException(404, f"unknown mcp server: {server_id}") from exc
+    except NotFoundError:
+        return connector_domain_error(
+            NotFoundError(
+                f"unknown mcp server: {server_id}",
+                message_id="connector.error.mcpUnknown",
+                message_params={"server": server_id},
+            )
+        )
     return {"deleted": server_id}
 
 
@@ -332,5 +351,11 @@ def test_mcp_client(server_id: str):
     """
     result = get_manager().test_connect(server_id)
     if isinstance(result, dict) and result.get("error"):
-        raise HTTPException(404, result["error"])
+        return connector_domain_error(
+            NotFoundError(
+                result["error"],
+                message_id="connector.error.mcpUnknown",
+                message_params={"server": server_id},
+            )
+        )
     return result

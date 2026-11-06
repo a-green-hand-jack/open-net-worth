@@ -1,3 +1,4 @@
+import { useAppIntl } from '../../../i18n/useAppIntl'
 // Rich hover popup for a FUNDING bar segment — lists the individual sources rolled into that
 // segment's aggregate total (e.g. "Windfall: S$59,000.00" used to be one opaque number; this
 // shows each of the underlying sources by name). Visual shell mirrors the chat mention-detail
@@ -6,7 +7,7 @@
 // in memory (no resolve-on-open network fetch) and the trigger is hover, not click, matching
 // this bar's pre-existing (native title=) hover behavior.
 import { fBase } from '../../../utils/format'
-import { fundingWhen } from './detailFunding'
+import { localizedFundingWhen } from './detailFunding'
 import type { CoverageBarSource } from './detailFunding'
 import type { FundingSource, FundingType } from '../../../types/commitments'
 import type { PositionMeta } from './fundingValue'
@@ -45,6 +46,7 @@ export function FundingSourcesPopover({
   onMouseEnter,
   onMouseLeave,
 }: Props) {
+  const intl = useAppIntl()
   const rowsHeight = Math.min(sources.length * ROW_HEIGHT, ROWS_MAX_HEIGHT)
   const estHeight = HEAD_HEIGHT + ROWS_PADDING + rowsHeight
   const placeBelow = anchorRect.bottom + 8 + estHeight < window.innerHeight
@@ -78,7 +80,7 @@ export function FundingSourcesPopover({
               <span className={'c2-fund-dot ' + type} />
               <span className="lbl">
                 {s.label}
-                {f && <span className="sub">{fundingWhen(f, pos)}</span>}
+                {f && <span className="sub">{localizedFundingWhen(f, pos, intl)}</span>}
               </span>
               <span className="amt money">{fBase(s.base)}</span>
             </div>

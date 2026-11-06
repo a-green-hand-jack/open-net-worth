@@ -1,3 +1,5 @@
+import { useAppIntl } from '../../../i18n/useAppIntl'
+import { templateText } from './templateMessages'
 import { useState } from 'react'
 import { CalendarDays, Clock3, Zap } from 'lucide-react'
 import type { AutomationDraft } from '../../../api/automations'
@@ -19,12 +21,16 @@ export function TemplateGallery({
   options?: AutomationOptions
   onTemplate: OnTemplate
 }) {
+  const { formatMessage } = useAppIntl()
   const [showAll, setShowAll] = useState(false)
   return (
     <>
       <TemplateSection
         id="recommended-templates-heading"
-        title="Recommended"
+        title={formatMessage({
+          id: 'automations.templates.recommended',
+          defaultMessage: 'Recommended',
+        })}
         gridId="recommended-template-grid"
         templates={RECOMMENDED_TEMPLATES}
         options={options}
@@ -32,7 +38,10 @@ export function TemplateGallery({
       />
       <TemplateSection
         id="connector-sync-templates-heading"
-        title="Sync a connector"
+        title={formatMessage({
+          id: 'automations.templates.syncConnector',
+          defaultMessage: 'Sync a connector',
+        })}
         gridId="connector-template-grid"
         templates={CONNECTOR_SYNC_TEMPLATES}
         options={options}
@@ -40,14 +49,25 @@ export function TemplateGallery({
       />
       <TemplateSection
         id="automation-templates-heading"
-        title="Start from a template"
+        title={formatMessage({
+          id: 'automations.templates.start',
+          defaultMessage: 'Start from a template',
+        })}
         gridId="template-grid"
         templates={showAll ? AUTOMATION_TEMPLATES : AUTOMATION_TEMPLATES.slice(0, 4)}
         options={options}
         onTemplate={onTemplate}
       >
         <button type="button" className="a3-linkbtn" onClick={() => setShowAll((value) => !value)}>
-          {showAll ? 'Show fewer templates' : 'Browse all templates'}
+          {showAll
+            ? formatMessage({
+                id: 'automations.templates.fewer',
+                defaultMessage: 'Show fewer templates',
+              })
+            : formatMessage({
+                id: 'automations.templates.browse',
+                defaultMessage: 'Browse all templates',
+              })}
         </button>
       </TemplateSection>
     </>
@@ -101,24 +121,38 @@ function TemplateCard({
   options?: AutomationOptions
   onTemplate: OnTemplate
 }) {
+  const intl = useAppIntl()
+  const text = templateText(intl, template)
   const Icon = TEMPLATE_ICONS[template.key] ?? CalendarDays
   const TriggerIcon = template.trigger.kind === 'event' ? Zap : Clock3
   return (
     <button
       type="button"
       className="a3-tpl"
-      aria-label={`${template.name} template`}
-      onClick={() => onTemplate(template)}
+      aria-label={intl.formatMessage(
+        { id: 'automations.templates.label', defaultMessage: '{name} template' },
+        { name: text.name },
+      )}
+      onClick={() =>
+        onTemplate({
+          ...template,
+          template_source: {
+            name: template.key,
+            description: template.key,
+            instructions: template.key,
+          },
+        })
+      }
     >
       <span className="a3-tpl-ic">
         <Icon size={15} strokeWidth={1.7} aria-hidden="true" />
       </span>
       <span className="a3-tpl-body">
-        <span className="a3-tpl-title">{template.name}</span>
-        <span className="a3-tpl-blurb">{template.description}</span>
+        <span className="a3-tpl-title">{text.name}</span>
+        <span className="a3-tpl-blurb">{text.description}</span>
         <span className="a3-tpl-when">
           <TriggerIcon size={11} aria-hidden="true" />{' '}
-          {automationTriggerLabel(template.trigger, options)}
+          {automationTriggerLabel(template.trigger, options, intl)}
         </span>
       </span>
     </button>

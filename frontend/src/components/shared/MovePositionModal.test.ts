@@ -70,6 +70,19 @@ describe('buildDestinationOptions', () => {
     expect(groups[0]).toBe('IBKR')
   })
 
+  it('localizes only the empty institution group and preserves a user institution named Other', () => {
+    const groups = buildDestinationOptions(
+      [
+        makeAccount({ id: 'a', name: 'Named', institution: 'Other' }),
+        makeAccount({ id: 'b', name: 'Unassigned', institution: null }),
+      ],
+      '其他',
+    )
+    expect(groups.map((group) => group.group)).toEqual(['Other', '其他'])
+    expect(groups[0]?.options[0]?.value).toBe('a')
+    expect(groups[1]?.options[0]?.value).toBe('b')
+  })
+
   it('sorts accounts within each group by name', () => {
     const accounts = [
       makeAccount({ id: 'a1', name: 'IBKR SGD', institution: 'IBKR' }),

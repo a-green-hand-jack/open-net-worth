@@ -1,3 +1,4 @@
+import { useTradingErrorText } from './useTradingErrorText'
 import { useState, type FormEvent } from 'react'
 import { tradingApi } from '../../../api/trading'
 import type { TradingWorkspace, WorkspaceOverview } from '../../../types/trading'
@@ -14,7 +15,8 @@ import {
   TextArea,
 } from '../../ui'
 import { CodeBlock } from '../../chat/CodeBlock'
-import { errorText, tradingMoney, tradingTime } from './presentation'
+import { tradingMoney, tradingTime } from './presentation'
+import { useAppIntl } from '../../../i18n/useAppIntl'
 
 export function TradingMandate({
   workspace,
@@ -23,6 +25,8 @@ export function TradingMandate({
   workspace: TradingWorkspace
   overview?: WorkspaceOverview
 }) {
+  const { formatMessage } = useAppIntl()
+  const errorText = useTradingErrorText()
   const [dialog, setDialog] = useState<'original' | 'history' | 'amend' | null>(null)
   const [instructions, setInstructions] = useState(workspace.instructions)
   const [maxOrder, setMaxOrder] = useState(String(workspace.mandate.max_order_notional ?? ''))
@@ -65,18 +69,24 @@ export function TradingMandate({
   return (
     <>
       <Panel
-        title="Mandate"
+        title={formatMessage({ id: 'trading.mandate', defaultMessage: 'Mandate' })}
         className="trading-mandate-panel"
         actions={
           <Cluster>
             <Button size="sm" onClick={() => setDialog('original')}>
-              Original mandate
+              {formatMessage({ id: 'trading.originalMandate', defaultMessage: 'Original mandate' })}
             </Button>
             <Button size="sm" onClick={() => setDialog('history')}>
-              {overview?.amendments.length ?? 0} amendments
+              {formatMessage(
+                {
+                  id: 'trading.amendmentCount',
+                  defaultMessage: '{count, plural, one {# amendment} other {# amendments}}',
+                },
+                { count: overview?.amendments.length ?? 0 },
+              )}
             </Button>
             <Button size="sm" onClick={openAmend}>
-              Amend mandate
+              {formatMessage({ id: 'trading.amendMandate', defaultMessage: 'Amend mandate' })}
             </Button>
           </Cluster>
         }
@@ -86,22 +96,60 @@ export function TradingMandate({
             {original?.instructions ?? workspace.instructions}
           </Text>
           <Text size="sm" tone="muted">
-            {original
-              ? 'Original instruction preserved verbatim'
-              : overview
-                ? 'Original instruction was not recorded for this earlier workspace'
-                : 'Original mandate is being loaded'}{' '}
-            · Effective revision {workspace.revision} · {workspace.agent_label}
+            {formatMessage(
+              {
+                id: 'trading.mandateRevisionSummary',
+                defaultMessage: '{status} · Effective revision {revision} · {agent}',
+              },
+              {
+                status: original
+                  ? formatMessage({
+                      id: 'trading.originalPreserved',
+                      defaultMessage: 'Original instruction preserved verbatim',
+                    })
+                  : overview
+                    ? formatMessage({
+                        id: 'trading.originalMissing',
+                        defaultMessage:
+                          'Original instruction was not recorded for this earlier workspace',
+                      })
+                    : formatMessage({
+                        id: 'trading.originalLoading',
+                        defaultMessage: 'Original mandate is being loaded',
+                      }),
+                revision: workspace.revision,
+                agent: workspace.agent_label,
+              },
+            )}
           </Text>
           {original && workspace.instructions !== original.instructions && (
-            <Text as="p">Current instruction: {workspace.instructions}</Text>
+            <Text as="p">
+              {formatMessage(
+                {
+                  id: 'trading.currentInstruction',
+                  defaultMessage: 'Current instruction: {instruction}',
+                },
+                { instruction: workspace.instructions },
+              )}
+            </Text>
           )}
           <Text size="sm">
-            Maximum order{' '}
-            {workspace.mandate.max_order_notional == null
-              ? 'Available authorized capital'
-              : String(workspace.mandate.max_order_notional)}{' '}
-            · Agent budget {tradingMoney(workspace.mandate.max_model_cost_usd, 'USD')}
+            {formatMessage(
+              {
+                id: 'trading.orderBudgetSummary',
+                defaultMessage: 'Maximum order {order} · Agent budget {budget}',
+              },
+              {
+                order:
+                  workspace.mandate.max_order_notional == null
+                    ? formatMessage({
+                        id: 'trading.availableAuthorizedCapital',
+                        defaultMessage: 'Available authorized capital',
+                      })
+                    : String(workspace.mandate.max_order_notional),
+                budget: tradingMoney(workspace.mandate.max_model_cost_usd, 'USD'),
+              },
+            )}
           </Text>
         </Stack>
       </Panel>
@@ -111,12 +159,18 @@ export function TradingMandate({
           onClose={() => setDialog(null)}
           title={
             dialog === 'original'
-              ? 'Original mandate'
+              ? formatMessage({ id: 'trading.originalMandate', defaultMessage: 'Original mandate' })
               : dialog === 'history'
-                ? 'Mandate amendments'
+                ? formatMessage({
+                    id: 'trading.mandateAmendments',
+                    defaultMessage: 'Mandate amendments',
+                  })
                 : review
-                  ? 'Review mandate amendment'
-                  : 'Amend mandate'
+                  ? formatMessage({
+                      id: 'trading.reviewMandateAmendment',
+                      defaultMessage: 'Review mandate amendment',
+                    })
+                  : formatMessage({ id: 'trading.amendMandate', defaultMessage: 'Amend mandate' })
           }
           size="lg"
         >
@@ -125,14 +179,23 @@ export function TradingMandate({
               <Stack gap="--space-4">
                 <Text className="trading-mandate-text">{original.instructions}</Text>
                 <Text size="sm" tone="muted">
-                  Recorded {tradingTime(original.created_at)} · Revision {original.revision}
+                  {formatMessage(
+                    {
+                      id: 'trading.recordedRevision',
+                      defaultMessage: 'Recorded {time} · Revision {revision}',
+                    },
+                    { time: tradingTime(original.created_at), revision: original.revision },
+                  )}
                 </Text>
                 <CodeBlock className="trading-code">{JSON.stringify(original, null, 2)}</CodeBlock>
               </Stack>
             ) : (
               <Text tone="muted">
-                Original mandate was not recorded for this earlier workspace. Current instructions
-                are shown on the workspace page.
+                {formatMessage({
+                  id: 'trading.originalMissingDetails',
+                  defaultMessage:
+                    'Original mandate was not recorded for this earlier workspace. Current instructions are shown on the workspace page.',
+                })}
               </Text>
             ))}
           {dialog === 'history' && (
@@ -141,15 +204,28 @@ export function TradingMandate({
                 overview.amendments.map((item) => (
                   <details key={item.id}>
                     <summary>
-                      Revision {item.revision} · {item.reason} · {tradingTime(item.created_at)}
+                      {formatMessage(
+                        {
+                          id: 'trading.amendmentSummary',
+                          defaultMessage: 'Revision {revision} · {reason} · {time}',
+                        },
+                        {
+                          revision: item.revision,
+                          reason: item.reason,
+                          time: tradingTime(item.created_at),
+                        },
+                      )}
                     </summary>
                     <CodeBlock className="trading-code">{JSON.stringify(item, null, 2)}</CodeBlock>
                   </details>
                 ))
               ) : (
                 <Text tone="muted">
-                  No recorded amendments. Earlier order authority is retained when a mandate
-                  changes.
+                  {formatMessage({
+                    id: 'trading.noAmendments',
+                    defaultMessage:
+                      'No recorded amendments. Earlier order authority is retained when a mandate changes.',
+                  })}
                 </Text>
               )}
             </Stack>
@@ -158,12 +234,23 @@ export function TradingMandate({
             <form onSubmit={save}>
               <Stack gap="--space-4">
                 <Text tone="muted">
-                  The original instruction and earlier execution records remain unchanged. The
-                  amendment applies to subsequent work after it takes effect.
+                  {formatMessage({
+                    id: 'trading.amendmentWarning',
+                    defaultMessage:
+                      'The original instruction and earlier execution records remain unchanged. The amendment applies to subsequent work after it takes effect.',
+                  })}
                 </Text>
-                <FormField label="Effective instruction">
+                <FormField
+                  label={formatMessage({
+                    id: 'trading.effectiveInstruction',
+                    defaultMessage: 'Effective instruction',
+                  })}
+                >
                   <TextArea
-                    aria-label="Effective instruction"
+                    aria-label={formatMessage({
+                      id: 'trading.effectiveInstruction',
+                      defaultMessage: 'Effective instruction',
+                    })}
                     required
                     maxLength={12000}
                     readOnly={review}
@@ -172,9 +259,17 @@ export function TradingMandate({
                     rows={5}
                   />
                 </FormField>
-                <FormField label="Maximum order value">
+                <FormField
+                  label={formatMessage({
+                    id: 'trading.maximumOrderValue',
+                    defaultMessage: 'Maximum order value',
+                  })}
+                >
                   <NumberField
-                    aria-label="Maximum order value"
+                    aria-label={formatMessage({
+                      id: 'trading.maximumOrderValue',
+                      defaultMessage: 'Maximum order value',
+                    })}
                     min={0.01}
                     step="any"
                     readOnly={review}
@@ -182,9 +277,17 @@ export function TradingMandate({
                     onChange={(e) => setMaxOrder(e.target.value)}
                   />
                 </FormField>
-                <FormField label="Reason for amendment">
+                <FormField
+                  label={formatMessage({
+                    id: 'trading.reasonAmendment',
+                    defaultMessage: 'Reason for amendment',
+                  })}
+                >
                   <TextArea
-                    aria-label="Reason for amendment"
+                    aria-label={formatMessage({
+                      id: 'trading.reasonAmendment',
+                      defaultMessage: 'Reason for amendment',
+                    })}
                     required
                     maxLength={4000}
                     readOnly={review}
@@ -196,11 +299,24 @@ export function TradingMandate({
                 <Cluster>
                   {review && (
                     <Button disabled={busy} onClick={() => setReview(false)}>
-                      Edit amendment
+                      {formatMessage({
+                        id: 'trading.editAmendment',
+                        defaultMessage: 'Edit amendment',
+                      })}
                     </Button>
                   )}
                   <Button type="submit" variant="primary" disabled={busy}>
-                    {busy ? 'Applying…' : review ? 'Apply amendment' : 'Review amendment'}
+                    {busy
+                      ? formatMessage({ id: 'trading.applying', defaultMessage: 'Applying…' })
+                      : review
+                        ? formatMessage({
+                            id: 'trading.applyAmendment',
+                            defaultMessage: 'Apply amendment',
+                          })
+                        : formatMessage({
+                            id: 'trading.reviewAmendment',
+                            defaultMessage: 'Review amendment',
+                          })}
                   </Button>
                 </Cluster>
               </Stack>

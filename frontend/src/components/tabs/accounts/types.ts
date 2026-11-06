@@ -272,14 +272,18 @@ export interface Payee {
   rules: Array<{ match_type: string; value: string }>
 }
 
+export interface AuditMessage { id: string; params?: Record<string, string | number> }
+
 export interface ActivityEntry {
   action: string
   /** Actor TYPE id — drives the timeline icon + badge (you|lucius|agent|automation|system). */
   actor: string
   /** Resolved actor display name (a named agent shows its own name; else You/Lucius/System…). */
   actorName?: string | null
+  actorNameMessage?: AuditMessage | null
   /** The automation/channel that initiated this event — shown as "via <X>". */
   via?: string | null
+  viaMessage?: AuditMessage | null
   /** Stable id of the firing automation behind `via` (for future click-through). */
   automationId?: string | null
   at: string
@@ -293,8 +297,10 @@ export interface ActivityEntry {
 export interface TxnActivity {
   source: string
   addedBy: string
+  addedByMessage?: AuditMessage | null
   /** The automation/channel that initiated the create — drives "Added by … · via X". */
   via?: string | null
+  viaMessage?: AuditMessage | null
   automationId?: string | null
   createdAt: string
   updatedAt: string

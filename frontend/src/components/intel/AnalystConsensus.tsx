@@ -1,3 +1,6 @@
+import { getNumberLocale } from '../../utils/format'
+import { useAppIntl } from '../../i18n/useAppIntl'
+import { FormattedMessage } from './FormattedMessage'
 import { useState } from 'react'
 import { Panel, Skeleton } from '../ui'
 import { ArrowRight } from '../../ui/icons'
@@ -19,7 +22,7 @@ const RATINGS_PREVIEW = 10
 
 function fMoney(n: number | undefined, sym: string): string {
   if (n == null) return DASH
-  return `${n < 0 ? '-' : ''}${sym}${Math.abs(n).toLocaleString(undefined, { maximumFractionDigits: 2 })}`
+  return `${n < 0 ? '-' : ''}${sym}${Math.abs(n).toLocaleString(getNumberLocale(), { maximumFractionDigits: 2 })}`
 }
 
 /** Rating → tone: buys are good (green), hold neutral (amber), sells bad (red). */
@@ -45,6 +48,7 @@ function clampPct(n: number): number {
 // Self-hiding: renders nothing for assets with no analyst coverage (crypto / commodities).
 // Data is fetched + cached by useAnalystConsensus (prefetched at the detail-view level).
 export function AnalystConsensus({ data, loading, currency, section = 'all' }: Props) {
+  const intl = useAppIntl()
   const [showAllRatings, setShowAllRatings] = useState(false)
   const showEstimates = section === 'estimates' || section === 'all'
   const showRatings = section === 'ratings' || section === 'all'
@@ -64,9 +68,9 @@ export function AnalystConsensus({ data, loading, currency, section = 'all' }: P
   const total = bullish + neutral + bearish
 
   const bars: { label: string; value: number; mod: 'bull' | 'neutral' | 'bear' }[] = [
-    { label: 'Bullish', value: bullish, mod: 'bull' },
-    { label: 'Neutral', value: neutral, mod: 'neutral' },
-    { label: 'Bearish', value: bearish, mod: 'bear' },
+    { label: intl.formatMessage({ id: 'intel.analyst.bullish', defaultMessage: 'Bullish' }), value: bullish, mod: 'bull' },
+    { label: intl.formatMessage({ id: 'intel.analyst.neutral', defaultMessage: 'Neutral' }), value: neutral, mod: 'neutral' },
+    { label: intl.formatMessage({ id: 'intel.analyst.bearish', defaultMessage: 'Bearish' }), value: bearish, mod: 'bear' },
   ]
 
   const { target_low: lo, target_mean: avg, target_high: hi, current } = analyst
@@ -83,12 +87,12 @@ export function AnalystConsensus({ data, loading, currency, section = 'all' }: P
   // Legend ordered by actual value, so Current sits where it truly falls (e.g. right of
   // Average when it's higher). Low/High anchor the ends only when their value is unknown.
   const targetLegend = [
-    { key: 'low', label: 'Low', value: lo, sort: lo ?? -Infinity },
+    { key: 'low', label: intl.formatMessage({ id: 'intel.analyst.low', defaultMessage: 'Low' }), value: lo, sort: lo ?? -Infinity },
     ...(current != null
-      ? [{ key: 'current', label: 'Current', value: current, sort: current }]
+      ? [{ key: 'current', label: intl.formatMessage({ id: 'intel.analyst.current', defaultMessage: 'Current' }), value: current, sort: current }]
       : []),
-    ...(avg != null ? [{ key: 'mean', label: 'Average', value: avg, sort: avg }] : []),
-    { key: 'high', label: 'High', value: hi, sort: hi ?? Infinity },
+    ...(avg != null ? [{ key: 'mean', label: intl.formatMessage({ id: 'intel.analyst.average', defaultMessage: 'Average' }), value: avg, sort: avg }] : []),
+    { key: 'high', label: intl.formatMessage({ id: 'intel.analyst.high', defaultMessage: 'High' }), value: hi, sort: hi ?? Infinity },
   ].sort((a, b) => a.sort - b.sort)
 
   // Per-firm ratings table (Yahoo upgrades_downgrades). Upside is derived per row vs the
@@ -103,15 +107,15 @@ export function AnalystConsensus({ data, loading, currency, section = 'all' }: P
       {showEstimates && (
         <Panel>
           <div className="asd-section-head">
-            <span className="asd-section-title">Analyst Estimates</span>
+            <span className="asd-section-title">{<FormattedMessage id="intel.static.analyst_estimates_d9728503" defaultMessage={"Analyst Estimates"} />}</span>
             {analyst.analyst_count != null && (
-              <span className="asd-analyst-count">Based on {analyst.analyst_count} analysts</span>
+              <span className="asd-analyst-count">{intl.formatMessage({ id: 'scan2.basedOnAnalysts', defaultMessage: 'Based on {count, plural, one {# analyst} other {# analysts}}' }, { count: analyst.analyst_count })}</span>
             )}
           </div>
           <div className="asd-analyst-grid">
             {/* Consensus rating + bullish/neutral/bearish distribution */}
             <div className="asd-analyst-card">
-              <span className="asd-analyst-card-title">Analyst Consensus</span>
+              <span className="asd-analyst-card-title">{<FormattedMessage id="intel.static.analyst_consensus_c70165d3" defaultMessage={"Analyst Consensus"} />}</span>
               {analyst.rating_label && (
                 <span
                   className={`asd-consensus-rating asd-consensus-rating--${ratingTone(analyst.rating_key)}`}
@@ -144,15 +148,15 @@ export function AnalystConsensus({ data, loading, currency, section = 'all' }: P
 
             {/* 52-week price targets: low — current — avg — high range */}
             <div className="asd-analyst-card">
-              <span className="asd-analyst-card-title">52W Price Targets</span>
+              <span className="asd-analyst-card-title">{<FormattedMessage id="intel.static.52w_price_targets_6855245e" defaultMessage={"52W Price Targets"} />}</span>
               <div className="asd-target-headline">
                 <span className="asd-target-avg">{fMoney(avg, sym)}</span>
-                <span className="asd-target-avg-label">Avg target</span>
+                <span className="asd-target-avg-label">{<FormattedMessage id="intel.static.avg_target_f375a0d6" defaultMessage={"Avg target"} />}</span>
                 {analyst.upside_pct != null && (
                   <span className={`asd-target-upside ${upTone}`}>
                     {analyst.upside_pct >= 0 ? '+' : ''}
-                    {analyst.upside_pct.toFixed(1)}%{' '}
-                    {analyst.upside_pct >= 0 ? 'upside' : 'downside'}
+                    {analyst.upside_pct.toLocaleString(getNumberLocale(), { minimumFractionDigits: 1, maximumFractionDigits: 1, useGrouping: false })}%{' '}
+                    {intl.formatMessage({ id: 'intel.analyst.upside', defaultMessage: '{direction, select, up {upside} other {downside}}' }, { direction: analyst.upside_pct >= 0 ? 'up' : 'down' })}
                   </span>
                 )}
               </div>
@@ -163,14 +167,14 @@ export function AnalystConsensus({ data, loading, currency, section = 'all' }: P
                     <span
                       className="asd-target-marker asd-target-marker--current"
                       style={{ left: `${curPos}%` }}
-                      title={`Current ${fMoney(current, sym)}`}
+                      title={intl.formatMessage({ id: 'intel.visible.currentPrice', defaultMessage: 'Current {price}' }, { price: fMoney(current, sym) })}
                     />
                   )}
                   {meanPos != null && (
                     <span
                       className="asd-target-marker asd-target-marker--mean"
                       style={{ left: `${meanPos}%` }}
-                      title={`Average ${fMoney(avg, sym)}`}
+                      title={intl.formatMessage({ id: 'intel.visible.averagePrice', defaultMessage: 'Average {price}' }, { price: fMoney(avg, sym) })}
                     />
                   )}
                 </div>
@@ -196,16 +200,16 @@ export function AnalystConsensus({ data, loading, currency, section = 'all' }: P
       {showRatings && ratings.length > 0 && (
         <Panel>
           <div className="asd-section-head">
-            <span className="asd-section-title">Analyst Ratings</span>
-            <span className="asd-analyst-count">Firm • rating • target — via Yahoo</span>
+            <span className="asd-section-title">{<FormattedMessage id="intel.static.analyst_ratings_4de718c0" defaultMessage={"Analyst Ratings"} />}</span>
+            <span className="asd-analyst-count">{<FormattedMessage id="intel.static.firm_rating_target_via_yahoo_9a94aee4" defaultMessage={"Firm • rating • target — via Yahoo"} />}</span>
           </div>
           <div className="asd-ratings">
             <div className="asd-ratings-row asd-ratings-row--head">
-              <span>Firm</span>
-              <span className="asd-rating-cell">Rating</span>
-              <span className="asd-ratings-num">Price Target</span>
-              <span className="asd-ratings-num">Upside</span>
-              <span className="asd-ratings-num">Date</span>
+              <span>{<FormattedMessage id="intel.static.firm_f6372ec3" defaultMessage={"Firm"} />}</span>
+              <span className="asd-rating-cell">{<FormattedMessage id="intel.static.rating_df252314" defaultMessage={"Rating"} />}</span>
+              <span className="asd-ratings-num">{<FormattedMessage id="intel.static.price_target_0e4bf9a0" defaultMessage={"Price Target"} />}</span>
+              <span className="asd-ratings-num">{<FormattedMessage id="intel.static.upside_16961c81" defaultMessage={"Upside"} />}</span>
+              <span className="asd-ratings-num">{<FormattedMessage id="intel.static.date_0aac9844" defaultMessage={"Date"} />}</span>
             </div>
             {visibleRatings.map((r, i) => {
               const up = rowUpside(r.target)
@@ -230,7 +234,7 @@ export function AnalystConsensus({ data, loading, currency, section = 'all' }: P
                   <span
                     className={`asd-ratings-num asd-rating-upside${up == null ? '' : up >= 0 ? ' asd-rating-upside--good' : ' asd-rating-upside--bad'}`}
                   >
-                    {up == null ? DASH : `${up >= 0 ? '+' : ''}${up.toFixed(0)}%`}
+                    {up == null ? DASH : `${up >= 0 ? '+' : ''}${up.toLocaleString(getNumberLocale(), { maximumFractionDigits: 0, useGrouping: false })}%`}
                   </span>
                   <span className="asd-ratings-num asd-rating-date">
                     {fDate(r.date, 'short', 'always')}
@@ -245,7 +249,7 @@ export function AnalystConsensus({ data, loading, currency, section = 'all' }: P
               className="asd-view-all-btn asd-ratings-more"
               onClick={() => setShowAllRatings((v) => !v)}
             >
-              {showAllRatings ? 'Show less' : `See ${ratings.length - RATINGS_PREVIEW} more`}
+              {showAllRatings ? intl.formatMessage({ id: 'intel.analyst.showLess', defaultMessage: 'Show less' }) : intl.formatMessage({ id: 'intel.analyst.more', defaultMessage: 'See {count} more' }, { count: ratings.length - RATINGS_PREVIEW })}
             </button>
           )}
         </Panel>
@@ -266,6 +270,7 @@ interface RailCardProps {
  *  52W price-target range in ONE card, unlike the Analysis tab's two separate panels above
  *  (there's room there for the fuller layout; the rail is narrow). */
 export function AnalystConsensusRailCard({ data, loading, currency, onSeeAll }: RailCardProps) {
+  const intl = useAppIntl()
   if (loading) return <AnalystConsensusRailSkeleton />
 
   const analyst = data?.analyst
@@ -283,22 +288,22 @@ export function AnalystConsensusRailCard({ data, loading, currency, onSeeAll }: 
   const meanPos = hasTargets && avg != null ? clampPct(((avg - lo) / (hi - lo)) * 100) : null
   const curPos = hasTargets && current != null ? clampPct(((current - lo) / (hi - lo)) * 100) : null
   const targetLegend = [
-    { key: 'low', label: 'Low', value: lo, sort: lo ?? -Infinity },
+    { key: 'low', label: intl.formatMessage({ id: 'intel.analyst.low', defaultMessage: 'Low' }), value: lo, sort: lo ?? -Infinity },
     ...(current != null
-      ? [{ key: 'current', label: 'Current', value: current, sort: current }]
+      ? [{ key: 'current', label: intl.formatMessage({ id: 'intel.analyst.current', defaultMessage: 'Current' }), value: current, sort: current }]
       : []),
-    ...(avg != null ? [{ key: 'mean', label: 'Average', value: avg, sort: avg }] : []),
-    { key: 'high', label: 'High', value: hi, sort: hi ?? Infinity },
+    ...(avg != null ? [{ key: 'mean', label: intl.formatMessage({ id: 'intel.analyst.average', defaultMessage: 'Average' }), value: avg, sort: avg }] : []),
+    { key: 'high', label: intl.formatMessage({ id: 'intel.analyst.high', defaultMessage: 'High' }), value: hi, sort: hi ?? Infinity },
   ].sort((a, b) => a.sort - b.sort)
 
   const seeAllAction = onSeeAll && (
     <button type="button" className="asd-rail-manage" onClick={onSeeAll}>
-      See all <ArrowRight size={12} />
+      {intl.formatMessage({ id: 'intel.analyst.seeAll', defaultMessage: 'See all' })} <ArrowRight size={12} />
     </button>
   )
 
   return (
-    <Panel title="Analyst Consensus" actions={seeAllAction} className="asd-rail-panel">
+    <Panel title={intl.formatMessage({ id: "intel.field.c70165d3", defaultMessage: "Analyst Consensus" })} actions={seeAllAction} className="asd-rail-panel">
       <div className="asd-consensus-rail">
         {analyst.rating_label && (
           <div className="asd-consensus-rail-meta">
@@ -308,7 +313,7 @@ export function AnalystConsensusRailCard({ data, loading, currency, onSeeAll }: 
               {analyst.rating_label}
             </span>
             {analyst.analyst_count != null && (
-              <span className="asd-analyst-count">{analyst.analyst_count} analysts</span>
+              <span className="asd-analyst-count">{intl.formatMessage({ id: 'scan2.analystCount', defaultMessage: '{count, plural, one {# analyst} other {# analysts}}' }, { count: analyst.analyst_count })}</span>
             )}
           </div>
         )}
@@ -316,13 +321,13 @@ export function AnalystConsensusRailCard({ data, loading, currency, onSeeAll }: 
           <>
             <div className="asd-consensus-rail-counts">
               <span className="asd-consensus-rail-count asd-consensus-rail-count--bear">
-                {bearish} Bearish
+                {intl.formatMessage({ id: 'scan2.bearishCount', defaultMessage: '{count} Bearish' }, { count: bearish })}
               </span>
               <span className="asd-consensus-rail-count asd-consensus-rail-count--neutral">
-                {neutral} Neutral
+                {intl.formatMessage({ id: 'scan2.neutralCount', defaultMessage: '{count} Neutral' }, { count: neutral })}
               </span>
               <span className="asd-consensus-rail-count asd-consensus-rail-count--bull">
-                {bullish} Bullish
+                {intl.formatMessage({ id: 'scan2.bullishCount', defaultMessage: '{count} Bullish' }, { count: bullish })}
               </span>
             </div>
             <div className="asd-consensus-rail-bar">
@@ -355,14 +360,14 @@ export function AnalystConsensusRailCard({ data, loading, currency, onSeeAll }: 
                 <span
                   className="asd-target-marker asd-target-marker--current"
                   style={{ left: `${curPos}%` }}
-                  title={`Current ${fMoney(current, sym)}`}
+                  title={intl.formatMessage({ id: 'intel.visible.currentPrice', defaultMessage: 'Current {price}' }, { price: fMoney(current, sym) })}
                 />
               )}
               {meanPos != null && (
                 <span
                   className="asd-target-marker asd-target-marker--mean"
                   style={{ left: `${meanPos}%` }}
-                  title={`Average ${fMoney(avg, sym)}`}
+                  title={intl.formatMessage({ id: 'intel.visible.averagePrice', defaultMessage: 'Average {price}' }, { price: fMoney(avg, sym) })}
                 />
               )}
             </div>

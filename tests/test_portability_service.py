@@ -239,6 +239,36 @@ def test_zip_slip_entry_rejected(sandbox):
     report = svc.inspect_bundle(buf.getvalue())
     assert report["ok"] is False
     assert any("unsafe" in e or "unknown" in e for e in report["errors"])
+    assert report["error_messages"] == [
+        {
+            "message_id": "restore.error.unsafeEntry",
+            "message_params": {"name": "../../etc/evil.json"},
+        }
+    ]
+
+
+def test_money_shape_diagnostic_has_stable_source_and_preserves_name(sandbox, monkeypatch):
+    monkeypatch.setattr(svc, "_is_safe_name", lambda name: name == "accounts.json")
+    buf = io.BytesIO()
+    raw = b"{}"
+    digest = __import__("hashlib").sha256(raw).hexdigest()
+    with zipfile.ZipFile(buf, "w") as zf:
+        zf.writestr("accounts.json", raw)
+        zf.writestr(
+            "manifest.json",
+            json.dumps(
+                {
+                    "schema_version": svc.SCHEMA_VERSION,
+                    "entries": {"accounts.json": {"sha256": digest}},
+                }
+            ),
+        )
+    report = svc.inspect_bundle(buf.getvalue())
+    assert not report["ok"]
+    assert report["error_messages"] == [
+        {"message_id": "restore.error.expectedList", "message_params": {"name": "accounts.json"}}
+    ]
+    assert report["errors"] == ["accounts.json: expected a JSON list of objects"]
 
 
 def test_wrong_schema_version_refused(sandbox):
@@ -304,6 +334,9 @@ def test_not_a_zip_rejected(sandbox):
     report = svc.inspect_bundle(b"this is not a zip")
     assert report["ok"] is False
     assert any("zip" in e for e in report["errors"])
+    assert report["error_messages"] == [
+        {"message_id": "restore.error.notBackup", "message_params": {}}
+    ]
 
 
 # ── BUG-HUNT REGRESSION: session import checkpoint coverage ──────────────────

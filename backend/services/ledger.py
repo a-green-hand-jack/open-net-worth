@@ -3481,7 +3481,13 @@ def bulk_update_transactions(ids: list[str], changes: dict) -> dict:
         if set_category is not None:
             if existing.get("kind") in _NO_CATEGORY_KINDS:
                 # The no-category invariant: an adjustment never gets a category.
-                skipped.append({"id": txn_id, "reason": "category not allowed on this kind"})
+                skipped.append(
+                    {
+                        "id": txn_id,
+                        "reason": "category not allowed on this kind",
+                        "reason_message": {"id": "ledger.bulk.category_kind", "params": {}},
+                    }
+                )
             else:
                 per_txn["category"] = set_category
         if add_tags:
@@ -3494,7 +3500,13 @@ def bulk_update_transactions(ids: list[str], changes: dict) -> dict:
         if has_payee_change:
             if existing.get("kind") in _NO_PAYEE_KINDS:
                 # Transfers/adjustments never carry a payee.
-                skipped.append({"id": txn_id, "reason": "payee not allowed on this kind"})
+                skipped.append(
+                    {
+                        "id": txn_id,
+                        "reason": "payee not allowed on this kind",
+                        "reason_message": {"id": "ledger.bulk.payee_kind", "params": {}},
+                    }
+                )
             else:
                 per_txn["payee_id"] = set_payee
         if has_review_change:
@@ -3506,7 +3518,13 @@ def bulk_update_transactions(ids: list[str], changes: dict) -> dict:
         if move_to is not None:
             leg = _move_leg_field(existing.get("kind", "expense"), existing)
             if leg is None:
-                skipped.append({"id": txn_id, "reason": "move not supported on transfers"})
+                skipped.append(
+                    {
+                        "id": txn_id,
+                        "reason": "move not supported on transfers",
+                        "reason_message": {"id": "ledger.bulk.transfer_move", "params": {}},
+                    }
+                )
             elif existing.get(leg) == move_to:
                 # already on the target — nothing to re-point on this leg
                 pass
@@ -3526,7 +3544,13 @@ def bulk_update_transactions(ids: list[str], changes: dict) -> dict:
         if touched:
             updated.append(txn_id)
         elif txn_id not in (s["id"] for s in skipped):
-            skipped.append({"id": txn_id, "reason": "no applicable change"})
+            skipped.append(
+                {
+                    "id": txn_id,
+                    "reason": "no applicable change",
+                    "reason_message": {"id": "ledger.bulk.no_change", "params": {}},
+                }
+            )
 
     return {
         "updated": updated,

@@ -1,9 +1,10 @@
+import { fLocalizedMonth } from '../../../utils/format'
 // plan/moneyFlowModal.tsx — "Money flow": where one month's income went, as a Sankey (or a
 // table). Opened from Cash Flow's hero button, an actual month's row or the current month's
 // (month to date). A phone gets the
 // server's compact 3-column graph in the same PlanningModal (a bottom sheet there).
 
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { CollapsibleSection, ErrorState, SegmentedControl, Skeleton } from '../../ui'
 import { useCashFlowGraph } from '../../../hooks/serverState'
 import { nextMonth, prevMonth, thisMonth } from '../../../hooks/useBudget'
@@ -17,6 +18,8 @@ import { Chevron, X } from './icons'
 import { fMonth } from '../../../utils/format'
 import { fBase } from './planData'
 import type { RegisterFilter } from './budget'
+import { useAppIntl } from '../../../i18n/useAppIntl'
+import { formatMoneyFlowLabel } from '../../shared/moneyFlowMessages'
 
 type View = 'flow' | 'table'
 
@@ -32,15 +35,30 @@ function Kpi({ value, label, tone }: { value: string; label: string; tone?: 'pos
 }
 
 function Kpis({ g }: { g: CashFlowGraph }) {
+  const { formatMessage } = useAppIntl()
   const rate = g.savings_rate_pct != null ? ` · ${Math.round(g.savings_rate_pct)}%` : ''
   return (
     <div className="mf-kpis">
-      <Kpi label="Income" value={fBase(g.income_total)} />
-      <Kpi label="Spending" value={fBase(g.spend_total)} />
+      <Kpi
+        label={formatMessage({ id: 'plan.flow.income', defaultMessage: 'Income' })}
+        value={fBase(g.income_total)}
+      />
+      <Kpi
+        label={formatMessage({ id: 'plan.flow.spending', defaultMessage: 'Spending' })}
+        value={fBase(g.spend_total)}
+      />
       {g.shortfall > 0 ? (
-        <Kpi label="From savings" value={`−${fBase(g.shortfall)}`} tone="neg" />
+        <Kpi
+          label={formatMessage({ id: 'plan.flow.fromSavings', defaultMessage: 'From savings' })}
+          value={`−${fBase(g.shortfall)}`}
+          tone="neg"
+        />
       ) : (
-        <Kpi label={`Saved${rate}`} value={fBase(g.saved)} tone="pos" />
+        <Kpi
+          label={formatMessage({ id: 'plan.flow.saved', defaultMessage: 'Saved{rate}' }, { rate })}
+          value={fBase(g.saved)}
+          tone="pos"
+        />
       )}
     </div>
   )
@@ -61,14 +79,17 @@ function tableRows(g: CashFlowGraph): CashFlowNode[] {
 }
 
 function FlowTable({ g }: { g: CashFlowGraph }) {
+  const { formatMessage } = useAppIntl()
   const rows = tableRows(g)
   return (
     <table className="mf-table">
       <thead>
         <tr>
-          <th>Category</th>
-          <th className="n">Amount</th>
-          <th className="n">Share</th>
+          <th>{formatMessage({ id: 'plan.flow.category', defaultMessage: 'Category' })}</th>
+          <th className="n">
+            {formatMessage({ id: 'plan.flow.amount', defaultMessage: 'Amount' })}
+          </th>
+          <th className="n">{formatMessage({ id: 'plan.flow.share', defaultMessage: 'Share' })}</th>
         </tr>
       </thead>
       <tbody>
@@ -103,8 +124,14 @@ export function MoneyFlowModal({
   onClose: () => void
   onOpenRegister?: (filter: RegisterFilter) => void
 }) {
+  const intl = useAppIntl()
+  const { formatMessage, locale } = intl
   const isMobile = useIsMobile()
   const [month, setMonth] = useState(initialMonth)
+  const monthLabel =
+    locale === 'en'
+      ? fMonth(month)
+      : fLocalizedMonth(month, locale)
   const [view, setView] = useState<View>('flow')
   // The table always lists every category; a phone's chart is the compact 3-column graph. On
   // desktop both are the same URL, so the cache serves them with one request.
@@ -115,8 +142,30 @@ export function MoneyFlowModal({
   const chartQuery = useCashFlowGraph(month, compact)
   // Stepping months keeps the previous month on screen (dimmed) until the next arrives, so the
   // sheet never collapses to a skeleton mid-browse.
-  const g = useLastDefined(query.data)
-  const chart = useLastDefined(chartQuery.data)
+  const rawGraph = useLastDefined(query.data)
+  const rawChart = useLastDefined(chartQuery.data)
+  const g = useMemo(
+    () =>
+      rawGraph && {
+        ...rawGraph,
+        nodes: rawGraph.nodes.map((n) => ({
+          ...n,
+          label: formatMoneyFlowLabel(intl, n.label_message, n.label),
+        })),
+      },
+    [rawGraph, intl],
+  )
+  const chart = useMemo(
+    () =>
+      rawChart && {
+        ...rawChart,
+        nodes: rawChart.nodes.map((n) => ({
+          ...n,
+          label: formatMoneyFlowLabel(intl, n.label_message, n.label),
+        })),
+      },
+    [rawChart, intl],
+  )
   const stale = !!g && g.month !== month
   const atLatest = month >= thisMonth()
   const toDate = month === thisMonth()
@@ -146,20 +195,41 @@ export function MoneyFlowModal({
     : undefined
 
   return (
-    <PlanningModal onClose={onClose} label="Money flow" className="mf-modal">
+    <PlanningModal
+      onClose={onClose}
+      label={formatMessage({ id: 'plan.flow.title', defaultMessage: 'Money flow' })}
+      className="mf-modal"
+    >
       <div className="pl-modal-head mf-head">
-        <h3>Money flow</h3>
+        <h3>{formatMessage({ id: 'plan.flow.title', defaultMessage: 'Money flow' })}</h3>
         <div className="mf-ctrl">
-          <div className="mf-stepper" role="group" aria-label="Month">
-            <button aria-label="Previous month" onClick={() => setMonth(prevMonth(month))}>
+          <div
+            className="mf-stepper"
+            role="group"
+            aria-label={formatMessage({ id: 'plan.flow.month', defaultMessage: 'Month' })}
+          >
+            <button
+              aria-label={formatMessage({
+                id: 'plan.flow.previousMonth',
+                defaultMessage: 'Previous month',
+              })}
+              onClick={() => setMonth(prevMonth(month))}
+            >
               <Chevron dir="left" size={14} />
             </button>
             <span aria-live="polite">
-              {fMonth(month)}
-              {toDate && ' to date'}
+              {toDate
+                ? formatMessage(
+                    { id: 'plan.flow.toDate', defaultMessage: '{month} to date' },
+                    { month: monthLabel },
+                  )
+                : monthLabel}
             </span>
             <button
-              aria-label="Next month"
+              aria-label={formatMessage({
+                id: 'plan.flow.nextMonth',
+                defaultMessage: 'Next month',
+              })}
               disabled={atLatest}
               onClick={() => setMonth(nextMonth(month))}
             >
@@ -168,16 +238,27 @@ export function MoneyFlowModal({
           </div>
           {!compact && (
             <SegmentedControl<View>
-              ariaLabel="View"
+              ariaLabel={formatMessage({ id: 'plan.flow.view', defaultMessage: 'View' })}
               value={view}
               onChange={setView}
               options={[
-                { value: 'flow', label: 'Flow' },
-                { value: 'table', label: 'Table' },
+                {
+                  value: 'flow',
+                  label: formatMessage({ id: 'plan.flow.flow', defaultMessage: 'Flow' }),
+                },
+                {
+                  value: 'table',
+                  label: formatMessage({ id: 'plan.flow.table', defaultMessage: 'Table' }),
+                },
               ]}
             />
           )}
-          <button className="pl-modal-x" onClick={onClose} aria-label="Close" data-autofocus>
+          <button
+            className="pl-modal-x"
+            onClick={onClose}
+            aria-label={formatMessage({ id: 'plan.flow.close', defaultMessage: 'Close' })}
+            data-autofocus
+          >
             <X />
           </button>
         </div>
@@ -195,11 +276,22 @@ export function MoneyFlowModal({
           <Skeleton height={320} />
         ) : !g ? (
           <ErrorState
-            message="Couldn't load this month's money flow."
+            message={formatMessage({
+              id: 'plan.flow.error',
+              defaultMessage: "Couldn't load this month's money flow.",
+            })}
             onRetry={() => void query.refresh()}
           />
         ) : g.flow_total <= 0 ? (
-          <div className="mf-empty">No income or spending recorded in {fMonth(month)}.</div>
+          <div className="mf-empty">
+            {formatMessage(
+              {
+                id: 'plan.flow.empty',
+                defaultMessage: 'No income or spending recorded in {month}.',
+              },
+              { month: monthLabel },
+            )}
+          </div>
         ) : (
           <>
             <Kpis g={g} />
@@ -208,7 +300,7 @@ export function MoneyFlowModal({
                 <div className="mf-drill">
                   <button type="button" className="mf-drill-back" onClick={() => setDrill(null)}>
                     <Chevron dir="left" size={12} />
-                    All spending
+                    {formatMessage({ id: 'plan.flow.allSpending', defaultMessage: 'All spending' })}
                   </button>
                   <span className="mf-drill-title">
                     {drilledGroup.label} ·{' '}
@@ -217,7 +309,13 @@ export function MoneyFlowModal({
                 </div>
                 <MoneyFlowChart
                   graph={drilled}
-                  label={`${drilledGroup.label} in ${fMonth(month)}, by category`}
+                  label={formatMessage(
+                    {
+                      id: 'plan.flow.drillLabel',
+                      defaultMessage: '{group} in {month}, by category',
+                    },
+                    { group: drilledGroup.label, month: monthLabel },
+                  )}
                   shareOf={drilledGroup.label}
                   onOpenCategory={openCategory}
                   fill={fillChart}
@@ -228,8 +326,23 @@ export function MoneyFlowModal({
               chart && (
                 <MoneyFlowChart
                   graph={chart}
-                  label={`Money flow for ${fMonth(month)}: ${fBase(chart.income_total)} income, ${fBase(chart.spend_total)} spending`}
-                  shareOf={chart.shortfall > 0 ? 'spending' : 'income'}
+                  label={formatMessage(
+                    {
+                      id: 'plan.flow.chartLabel',
+                      defaultMessage:
+                        'Money flow for {month}: {income} income, {spending} spending',
+                    },
+                    {
+                      month: monthLabel,
+                      income: fBase(chart.income_total),
+                      spending: fBase(chart.spend_total),
+                    },
+                  )}
+                  shareOf={
+                    chart.shortfall > 0
+                      ? formatMessage({ id: 'plan.flow.spendingLower', defaultMessage: 'spending' })
+                      : formatMessage({ id: 'plan.flow.incomeLower', defaultMessage: 'income' })
+                  }
                   onOpenCategory={openCategory}
                   onDrill={compact ? (n) => setDrill({ month, id: n.id }) : undefined}
                   fill={fillChart}
@@ -238,7 +351,7 @@ export function MoneyFlowModal({
             )}
             {compact ? (
               <CollapsibleSection
-                title="Breakdown"
+                title={formatMessage({ id: 'plan.flow.breakdown', defaultMessage: 'Breakdown' })}
                 className="mf-breakdown"
                 open={tableOpen}
                 onOpenChange={setTableOpen}
@@ -252,8 +365,11 @@ export function MoneyFlowModal({
         )}
       </div>
       <div className="mf-foot">
-        Small spending categories are folded into “Other”. Card payments and transfers between your
-        own accounts are not spending.
+        {formatMessage({
+          id: 'plan.flow.footnote',
+          defaultMessage:
+            'Small spending categories are folded into “Other”. Card payments and transfers between your own accounts are not spending.',
+        })}
       </div>
     </PlanningModal>
   )

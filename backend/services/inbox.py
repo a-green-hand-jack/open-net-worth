@@ -52,6 +52,11 @@ def _normalize_intel(signal: dict) -> dict:
         "id": f"intel:{signal.get('id', '')}",
         "kind": "intel",
         "title": signal.get("label", "") or "Intel signal",
+        **(
+            {"title_message": {"id": "inbox.server.intelSignal", "params": {}}}
+            if not signal.get("label")
+            else {}
+        ),
         "summary": signal.get("current_summary", ""),
         "status": status,
         "created_at": signal.get("updated_at") or signal.get("created_at") or "",
@@ -76,7 +81,15 @@ def _normalize_signal(signal: dict) -> dict:
         "id": f"signal:{signal.get('id', '')}",
         "kind": "signal",
         "title": signal.get("title", "") or "Notification",
+        **(
+            {"title_message": signal["title_message"]}
+            if signal.get("title_message")
+            else {"title_message": {"id": "inbox.server.notification", "params": {}}}
+            if not signal.get("title")
+            else {}
+        ),
         "summary": signal.get("summary", ""),
+        **({"summary_message": signal["summary_message"]} if signal.get("summary_message") else {}),
         "status": sig_type,
         "created_at": signal.get("created_at", ""),
         "source": sig_type,

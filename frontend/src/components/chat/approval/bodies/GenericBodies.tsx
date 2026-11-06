@@ -1,3 +1,7 @@
+import { useAppIntl } from '../../../../i18n/useAppIntl'
+import type { IntlShape } from 'react-intl'
+import { displayValue, fieldLabel, fieldPathLabel } from '../FieldLabels'
+import { FormattedMessage } from '../FormattedMessage'
 import { useMemo, useState, type ReactElement } from 'react'
 import { diffLines, diffWords } from 'diff'
 import type {
@@ -23,18 +27,14 @@ import {
   type DiffKind,
 } from '../ApprovalCard'
 import {
-  humanizeType,
   isRecord,
   permissionArguments,
   permissionTextEdits,
-  plainText,
   previewHasNoChanges,
-  scalarText,
   withNamesInPlace,
 } from '../cardTypes'
 import { BatchCell } from './BatchBody'
 import { fBase } from '../../../../utils/format'
-import { pluralize } from '../../../../utils/pluralize'
 
 type Entry = [string, unknown]
 
@@ -47,30 +47,31 @@ const isScalar = (v: unknown) => v == null || ['string', 'number', 'boolean'].in
 /** A value as one line of plain words: lists joined, an object as "key: value" pairs. */
 
 /** The value as a fact row's text, or null when it is too big for one row. */
-function inlineText(v: unknown): string | null {
+function inlineText(v: unknown, intl: IntlShape, tool?: string, version?: string, path?: string): string | null {
   const flat =
     isScalar(v) ||
     (Array.isArray(v) && v.every(isScalar)) ||
     (isRecord(v) && Object.keys(v).length <= 3 && Object.values(v).every(isScalar))
   if (!flat) return null
-  const text = plainText(v)
+  const text = displayValue(v, intl, tool, version, path)
   const max = isScalar(v) ? TEXT_INLINE_MAX : INLINE_MAX
   return text.length <= max && !text.includes('\n') ? text : null
 }
 
-function foldSummary(key: string, v: unknown): string {
+function foldSummary(key: string, v: unknown, intl: IntlShape, tool?: string, version?: string): string {
   const [n, unit] =
     typeof v === 'string'
       ? [v.length, 'character']
       : Array.isArray(v)
         ? [v.length, 'item']
         : [Object.keys(v as object).length, 'field']
-  return `${humanizeType(key)} · ${n} ${pluralize(unit, n)}`
+  const size = unit === 'character' ? intl.formatMessage({ id: 'chat.approval.characters', defaultMessage: '{count, plural, one {# character} other {# characters}}' }, { count: n }) : unit === 'item' ? intl.formatMessage({ id: 'chat.approval.items', defaultMessage: '{count, plural, one {# item} other {# items}}' }, { count: n }) : intl.formatMessage({ id: 'chat.approval.fields', defaultMessage: '{count, plural, one {# field} other {# fields}}' }, { count: n })
+  return `${fieldLabel(key, intl, undefined, tool, version, key)} · ${size}`
 }
 
 function RawArguments({ value }: { value: unknown }) {
   return (
-    <ApprovalDetails summary="Raw arguments">
+    <ApprovalDetails summary={<FormattedMessage id="chat.approval.field.raw_arguments" defaultMessage="Raw arguments" />}>
       <ApprovalCode>{JSON.stringify(value, null, 2)}</ApprovalCode>
     </ApprovalDetails>
   )
@@ -78,7 +79,9 @@ function RawArguments({ value }: { value: unknown }) {
 
 /** Each entry on its own row; a value too big for a row folds behind a summary that names
  * its key and size — never one row holding a JSON blob. */
-function ArgumentRows({ entries, format }: { entries: Entry[]; format?: Format }) {
+function ArgumentRows({ entries, format, tool, version, authorizedPaths }: { entries: Entry[]; format?: Format; tool?: string; version?: string; authorizedPaths?: Set<string> }) {
+  const intl = useAppIntl()
+  const trustedTool = (key: string) => !/[.*]/.test(key) && (!authorizedPaths || authorizedPaths.has(key)) ? tool : undefined
   const facts: Array<[string, string]> = []
   const tables: Array<[string, Record<string, unknown>[]]> = []
   const folds: Entry[] = []
@@ -87,7 +90,7 @@ function ArgumentRows({ entries, format }: { entries: Entry[]; format?: Format }
       tables.push([key, value])
       continue
     }
-    const text = inlineText(value)
+    const text = inlineText(value, intl, trustedTool(key), version, key)
     if (text === null) folds.push([key, value])
     else facts.push([key, text])
   }
@@ -96,15 +99,15 @@ function ArgumentRows({ entries, format }: { entries: Entry[]; format?: Format }
   return (
     <ApprovalFacts>
       {facts.map(([key, text]) => (
-        <ApprovalFact key={key} label={humanizeType(key)}>
+        <ApprovalFact key={key} label={fieldLabel(key, intl, undefined, trustedTool(key), version, key)}>
           {text}
         </ApprovalFact>
       ))}
       {tables.map(([key, rows]) => (
-        <RecordsTable key={key} rows={rows} format={format} />
+        <RecordsTable key={key} rows={rows} format={format} tool={trustedTool(key)} version={version} path={key} />
       ))}
       {folds.map(([key, value]) => (
-        <ApprovalDetails key={key} summary={foldSummary(key, value)}>
+        <ApprovalDetails key={key} summary={foldSummary(key, value, intl, trustedTool(key), version)}>
           <ApprovalCode>
             {typeof value === 'string' ? value : JSON.stringify(value, null, 2)}
           </ApprovalCode>
@@ -121,15 +124,18 @@ type Format = (key: string, value: unknown) => unknown
 const isRecordList = (v: unknown): v is Record<string, unknown>[] =>
   Array.isArray(v) && v.length > 0 && v.length <= 12 && v.every(isRecord)
 
-function RecordsTable({ rows, format }: { rows: Record<string, unknown>[]; format?: Format }) {
+function RecordsTable({ rows, format, tool, version, path }: { rows: Record<string, unknown>[]; format?: Format; tool?: string; version?: string; path: string }) {
+  const intl = useAppIntl()
   const named = rows.map((r) => Object.fromEntries(namedEntries(r, format)))
   const columns = [...new Set(named.flatMap((r) => Object.keys(r)))]
+  const originalCell = (row: number, column: string) =>
+    Object.hasOwn(rows[row] || {}, column) && JSON.stringify(rows[row]?.[column]) === JSON.stringify(named[row]?.[column])
   return (
     <ApprovalTable
-      head={columns.map(humanizeType)}
+      head={columns.map((column) => fieldLabel(column, intl, undefined, !/[.*]/.test(column) && named.every((row, i) => !Object.hasOwn(row, column) || originalCell(i, column)) ? tool : undefined, version, `${path}.*.${column}`))}
       rows={named.map((r, i) => ({
         key: i,
-        cells: columns.map((c) => <BatchCell key={c} field={c} value={r[c]} />),
+        cells: columns.map((c) => <BatchCell key={c} field={c} value={r[c]} tool={!/[.*]/.test(c) && originalCell(i, c) ? tool : undefined} version={version} path={`${path}.*.${c}`} />),
       }))}
     />
   )
@@ -155,6 +161,7 @@ const OMIT = new Set([
   'grant_tool',
   'tool_use_id',
   'session_id',
+  'enum_schema_version',
 ])
 
 // What a card shows, in order of trust: a gated tool's own arguments, the backend's
@@ -181,17 +188,18 @@ function genericEntries(change: ProposedChange): Entry[] {
 // changes — and every gated tool that has no card of its own. The load-bearing safety net:
 // the user always sees what they're confirming.
 export function GenericChangePreview({ change }: { change: ProposedChange }) {
+  const intl = useAppIntl()
   const entries = genericEntries(change)
   if (entries.length === 0) {
     return (
       <ApprovalNote>
         {change.grant_tool && isRecord(change.display?.arguments)
-          ? 'No arguments'
-          : 'No further details'}
+          ? intl.formatMessage({ id: 'chat.approval.noArguments', defaultMessage: 'No arguments' })
+          : intl.formatMessage({ id: 'chat.approval.noFurtherDetails', defaultMessage: 'No further details' })}
       </ApprovalNote>
     )
   }
-  return <ArgumentRows entries={entries} />
+  return <ArgumentRows entries={entries} tool={isRecord(change.display?.arguments) ? change.grant_tool : undefined} version={change.enum_schema_version} />
 }
 
 type WordPart = { text: string; op: 'context' | 'added' | 'removed' }
@@ -267,6 +275,7 @@ function collapseContext(rows: DiffRow[], size = 3): DiffItem[] {
 
 /** A line diff with its unchanged stretches folded; each expands on a tap. */
 function TextDiff({ before, after }: { before: string; after: string }) {
+  const intl = useAppIntl()
   const [expanded, setExpanded] = useState<Record<number, boolean>>({})
   const items = useMemo(() => collapseContext(diffRows(before, after)), [before, after])
   return (
@@ -300,7 +309,7 @@ function TextDiff({ before, after }: { before: string; after: string }) {
         return (
           <ApprovalDiffLine key={i} kind="context">
             <ApprovalToggle onClick={() => setExpanded((prev) => ({ ...prev, [i]: true }))}>
-              Show {n} unchanged line{n === 1 ? '' : 's'}
+              {intl.formatMessage({ id: 'chat.approval.unchangedLines', defaultMessage: 'Show {count, plural, one {# unchanged line} other {# unchanged lines}}' }, { count: n })}
             </ApprovalToggle>
           </ApprovalDiffLine>
         )
@@ -310,6 +319,7 @@ function TextDiff({ before, after }: { before: string; after: string }) {
 }
 
 export function PermissionArgumentsPreview({ change }: { change: ProposedChange }) {
+  const intl = useAppIntl()
   const args = permissionArguments(change)
   const identifiers = Object.entries(args).filter(
     ([key, value]) =>
@@ -318,9 +328,9 @@ export function PermissionArgumentsPreview({ change }: { change: ProposedChange 
 
   return (
     <>
-      <ArgumentRows entries={identifiers} />
+      <ArgumentRows entries={identifiers} tool={change.grant_tool} version={change.enum_schema_version} />
       {permissionTextEdits(change).map((edit) => (
-        <ApprovalSection key={edit.path} title={edit.path.replace(/\./g, ' › ')}>
+        <ApprovalSection key={edit.path} title={fieldPathLabel(edit.path, intl, edit.schemaPathSafe ? change.grant_tool : undefined, change.enum_schema_version)}>
           <TextDiff before={edit.old} after={edit.new} />
         </ApprovalSection>
       ))}
@@ -340,12 +350,13 @@ function AutomationFieldDiffView({
   oldVal: unknown
   newVal: unknown
 }) {
+  const intl = useAppIntl()
   const structured = !isScalar(oldVal) || !isScalar(newVal)
   const toText = (v: unknown) =>
     structured ? JSON.stringify(v ?? null, null, 2) : v == null ? '' : String(v)
   return (
     <>
-      <ApprovalMeta items={[humanizeType(fieldName)]} />
+      <ApprovalMeta items={[fieldLabel(fieldName, intl)]} />
       <TextDiff before={toText(oldVal)} after={toText(newVal)} />
     </>
   )
@@ -355,10 +366,11 @@ const isShort = (v: unknown) =>
   isScalar(v) && !(typeof v === 'string' && (v.includes('\n') || v.length > INLINE_MAX))
 
 function AutomationChanges({ changes }: { changes: Record<string, AutomationFieldChange> }) {
+  const intl = useAppIntl()
   const fields = Object.entries(changes)
   const short = fields.filter(([, c]) => isShort(c.old) && isShort(c.new))
   const long = fields.filter(([, c]) => !(isShort(c.old) && isShort(c.new)))
-  if (fields.length === 0) return <ApprovalNote>No changes</ApprovalNote>
+  if (fields.length === 0) return <ApprovalNote>{<FormattedMessage id="chat.approval.field.no_changes" defaultMessage="No changes" />}</ApprovalNote>
   return (
     <>
       {short.length > 0 && (
@@ -366,9 +378,9 @@ function AutomationChanges({ changes }: { changes: Record<string, AutomationFiel
           {short.map(([field, c]) => (
             <ApprovalChange
               key={field}
-              label={humanizeType(field)}
-              before={scalarText(c.old)}
-              after={scalarText(c.new)}
+              label={fieldLabel(field, intl)}
+              before={displayValue(c.old, intl)}
+              after={displayValue(c.new, intl)}
             />
           ))}
         </ApprovalFacts>
@@ -385,31 +397,38 @@ function AutomationChanges({ changes }: { changes: Record<string, AutomationFiel
 const budgetAmount: Format = (key, value) =>
   key === 'amount' && typeof value === 'number' ? fBase(value) : value
 
-function NamedArgsPreview({ preview }: { preview: ToolPreview }) {
-  const entries = namedEntries(isRecord(preview.data) ? preview.data : {}, budgetAmount)
+function unchangedArgumentPaths(entries: Entry[], raw: unknown): Set<string> {
+  if (!isRecord(raw)) return new Set()
+  return new Set(entries.filter(([key, value]) => Object.hasOwn(raw, key) && JSON.stringify(raw[key]) === JSON.stringify(value)).map(([key]) => key))
+}
+
+function NamedArgsPreview({ preview, change }: { preview: ToolPreview; change?: ProposedChange }) {
+  const rawEntries = namedEntries(isRecord(preview.data) ? preview.data : {})
+  const entries = rawEntries.map(([key, value]): Entry => [key, budgetAmount(key, value)])
   return (
     <>
       {entries.length > 0 ? (
-        <ArgumentRows entries={entries} format={budgetAmount} />
+        <ArgumentRows entries={entries} format={budgetAmount} tool={change?.grant_tool} version={change?.enum_schema_version} authorizedPaths={unchangedArgumentPaths(rawEntries, preview.raw_arguments)} />
       ) : (
-        <ApprovalNote tone="muted">No arguments</ApprovalNote>
+        <ApprovalNote tone="muted">{<FormattedMessage id="chat.approval.field.no_arguments" defaultMessage="No arguments" />}</ApprovalNote>
       )}
       {preview.raw_arguments && <RawArguments value={preview.raw_arguments} />}
     </>
   )
 }
 
-const PREVIEW_RENDERERS: Record<string, (preview: ToolPreview) => ReactElement> = {
+const PREVIEW_RENDERERS: Record<string, (preview: ToolPreview, change?: ProposedChange) => ReactElement> = {
   field_diff: (preview) => <FieldDiffPreview preview={preview} />,
-  named_args: (preview) => <NamedArgsPreview preview={preview} />,
+  named_args: (preview, change) => <NamedArgsPreview preview={preview} change={change} />,
 }
 
-export function ToolPreviewBody({ preview }: { preview: ToolPreview }) {
+export function ToolPreviewBody({ preview, change }: { preview: ToolPreview; change?: ProposedChange }) {
   const renderer = PREVIEW_RENDERERS[preview.kind]
-  return renderer ? renderer(preview) : <GenericPreviewBody preview={preview} />
+  return renderer ? renderer(preview, change) : <GenericPreviewBody preview={preview} change={change} />
 }
 
 function FieldDiffPreview({ preview }: { preview: ToolPreview }) {
+  const intl = useAppIntl()
   const updates = (
     Array.isArray(preview.data?.items) ? preview.data.items : []
   ) as AutomationUpdateDisplay[]
@@ -417,12 +436,12 @@ function FieldDiffPreview({ preview }: { preview: ToolPreview }) {
   return (
     <>
       {previewHasNoChanges(preview) ? (
-        <ApprovalNote>The proposed values match the current automation</ApprovalNote>
+        <ApprovalNote>{<FormattedMessage id="chat.approval.field.the_proposed_values_match_the_current_automation" defaultMessage="The proposed values match the current automation" />}</ApprovalNote>
       ) : (
         updates.map((update, i) => (
           <ApprovalSection
             key={update.id || i}
-            title={update.name || update.id || `Automation ${i + 1}`}
+            title={update.name || update.id || intl.formatMessage({ id: 'chat.approval.automationNumber', defaultMessage: 'Automation {number}' }, { number: i + 1 })}
           >
             <AutomationChanges changes={update.changes || {}} />
           </ApprovalSection>
@@ -434,16 +453,16 @@ function FieldDiffPreview({ preview }: { preview: ToolPreview }) {
 }
 
 // A preview kind this card has no renderer for: its data reads like any other arguments.
-function GenericPreviewBody({ preview }: { preview: ToolPreview }) {
+function GenericPreviewBody({ preview, change }: { preview: ToolPreview; change?: ProposedChange }) {
   const entries = Object.entries(preview.data ?? {}).filter(
     ([, value]) => value != null && value !== '',
   )
   return (
     <>
       {entries.length > 0 ? (
-        <ArgumentRows entries={entries} />
+        <ArgumentRows entries={entries} tool={change?.grant_tool} version={change?.enum_schema_version} authorizedPaths={unchangedArgumentPaths(entries, preview.raw_arguments)} />
       ) : (
-        <ApprovalNote>No preview available</ApprovalNote>
+        <ApprovalNote>{<FormattedMessage id="chat.approval.field.no_preview_available" defaultMessage="No preview available" />}</ApprovalNote>
       )}
       {preview.raw_arguments && <RawArguments value={preview.raw_arguments} />}
     </>

@@ -1,15 +1,16 @@
+import { fLocalizedMonth } from '../../../utils/format'
 // plan/budget.tsx — Budget sub-tab. Ported from prototype/plan/budget.jsx: Summary,
 // CategoryRow, GroupBlock, BudgetTab. Wired to the real backend via useBudgetModel.
 // Adds (owner-approved): the money-moves AvailCell (B4),
 // Notes (B1, in budgetTarget), real-txn ActivityCell; + Lucius screen facts and category
 // @-mentions reusing the existing dock.
 import { useState, useRef, useEffect, useCallback, useLayoutEffect, useMemo } from 'react'
+import { useAppIntl } from '../../../i18n/useAppIntl'
 import type { CSSProperties } from 'react'
 import { createPortal } from 'react-dom'
 import { useNavigate } from '@tanstack/react-router'
 import { Tag } from 'lucide-react'
 import * as PD from './planData'
-import { monthLabel } from '../../../hooks/useBudget'
 import type { BudgetMonth } from '../../../hooks/useBudget'
 import { useCommitments } from '../../../hooks/useCommitments'
 import { authFetch } from '../../../api/client'
@@ -215,6 +216,7 @@ function Summary({
    *  toolbar's "Underfunded". */
   onFundUnderfunded: () => void
 }) {
+  const { formatMessage } = useAppIntl()
   const rta = b.readyToAssign
   const ufN = b.underfundedCount
   const [briefOpen, setBriefOpen] = useState(false)
@@ -264,11 +266,21 @@ function Summary({
         // reads "Started fresh from <month>".
         const nav = (
           <span className="pl-mnav">
-            <button onClick={onPrev} disabled={!canPrev} aria-label="Previous month">
+            <button
+              onClick={onPrev}
+              disabled={!canPrev}
+              aria-label={formatMessage({
+                id: 'plan.previousMonth',
+                defaultMessage: 'Previous month',
+              })}
+            >
               <Arrow dir="left" />
             </button>
-            <span className="lbl">{month.replace(/^(\w{3})\w*/, '$1')}</span>
-            <button onClick={onNext} aria-label="Next month">
+            <span className="lbl">{month.replace(/^([A-Za-z]{3})[A-Za-z]*/, '$1')}</span>
+            <button
+              onClick={onNext}
+              aria-label={formatMessage({ id: 'plan.nextMonth', defaultMessage: 'Next month' })}
+            >
               <Arrow dir="right" />
             </button>
           </span>
@@ -276,7 +288,9 @@ function Summary({
         return isMobile ? (
           <div className="pl-sum-row">
             <div className="pl-sum-headrow">
-              <span className="pl-sum-eyebrow">Ready to Assign</span>
+              <span className="pl-sum-eyebrow">
+                {formatMessage({ id: 'plan.readyToAssign', defaultMessage: 'Ready to Assign' })}
+              </span>
               {nav}
             </div>
             {heroFigure}
@@ -286,19 +300,27 @@ function Summary({
              the row, which put the page's most important number in the middle of it. */
           <div className="pl-sum-row">
             <div className="pl-sum-hero-block">
-              <span className="pl-sum-eyebrow">Ready to Assign</span>
+              <span className="pl-sum-eyebrow">
+                {formatMessage({ id: 'plan.readyToAssign', defaultMessage: 'Ready to Assign' })}
+              </span>
               {heroFigure}
             </div>
             <div className="pl-sum-stat pl-sum-age">
-              <span className="k">Age of money</span>
+              <span className="k">
+                {formatMessage({ id: 'plan.ageOfMoney', defaultMessage: 'Age of money' })}
+              </span>
               <span className="v">
                 {b.ageForecastable && b.ageOfMoney != null ? (
                   <>
                     {b.ageOfMoney}
-                    <span className="u"> days</span>
+                    <span className="u">
+                      {formatMessage({ id: 'plan.daysSuffix', defaultMessage: ' days' })}
+                    </span>
                   </>
                 ) : (
-                  <span className="u">not enough history</span>
+                  <span className="u">
+                    {formatMessage({ id: 'plan.noHistory', defaultMessage: 'not enough history' })}
+                  </span>
                 )}
               </span>
             </div>
@@ -313,7 +335,10 @@ function Summary({
             onClick={() => setFilter(filter === 'overspent' ? null : 'overspent')}
           >
             <i />
-            {b.overspentCount} overspent
+            {formatMessage(
+              { id: 'plan.overspentCount', defaultMessage: '{count} overspent' },
+              { count: b.overspentCount },
+            )}
           </button>
         )}
         {b.underfundedCount > 0 && (
@@ -322,17 +347,23 @@ function Summary({
             onClick={() => setFilter(filter === 'underfunded' ? null : 'underfunded')}
           >
             <i />
-            {b.underfundedCount} underfunded
+            {formatMessage(
+              { id: 'plan.underfundedCount', defaultMessage: '{count} underfunded' },
+              { count: b.underfundedCount },
+            )}
           </button>
         )}
         {b.overspentCount === 0 && b.underfundedCount === 0 && (
           <span className="pl-sum-mini-stat ok">
             <i />
-            On track
+            {formatMessage({ id: 'plan.onTrack', defaultMessage: 'On track' })}
           </span>
         )}
         <span className="pl-sum-mini-stat">
-          <span className="mask">{fBase(b.totalAvailable)}</span> available
+          {formatMessage(
+            { id: 'plan.amountAvailable', defaultMessage: '{amount} available' },
+            { amount: <span className="mask">{fBase(b.totalAvailable)}</span> },
+          )}
         </span>
       </div>
       {showBrief &&
@@ -349,7 +380,10 @@ function Summary({
                 className="pl-sum-brief-toggle"
                 onClick={() => setBriefOpen((o) => !o)}
                 aria-expanded={briefOpen}
-                aria-label="Toggle insight detail"
+                aria-label={formatMessage({
+                  id: 'plan.toggleInsight',
+                  defaultMessage: 'Toggle insight detail',
+                })}
               >
                 <Chevron dir={briefOpen ? 'up' : 'down'} size={13} />
               </button>
@@ -593,8 +627,43 @@ export function OutsideEnvelopes({
   onLabelIncome: () => void
   onAddToEnvelope: (categoryId: string, categoryLabel: string) => void
 }) {
+  const { formatMessage } = useAppIntl()
   const isMobile = useIsMobile()
-  const rows = buildOutsideRows(data, onReviewInAccounts, onLabelIncome, onAddToEnvelope)
+  const rows = buildOutsideRows(data, onReviewInAccounts, onLabelIncome, onAddToEnvelope).map(
+    (row) => {
+      const label =
+        row.kindClass === 'unsorted'
+          ? formatMessage({ id: 'plan.uncategorized', defaultMessage: 'Uncategorized' })
+          : row.kindClass === 'uncatincome'
+            ? formatMessage({
+                id: 'plan.uncategorizedIncome',
+                defaultMessage: 'Uncategorized income',
+              })
+            : row.label
+      const status =
+        row.kindClass === 'unsorted'
+          ? formatMessage({
+              id: 'plan.missingCategory',
+              defaultMessage: 'transactions missing a category',
+            })
+          : row.kindClass === 'uncatincome'
+            ? formatMessage({
+                id: 'plan.alreadyAssigned',
+                defaultMessage: 'already in Ready to Assign',
+              })
+            : formatMessage({
+                id: 'plan.categoryOutside',
+                defaultMessage: 'category not in an envelope',
+              })
+      const actionLabel =
+        row.kindClass === 'unsorted'
+          ? formatMessage({ id: 'plan.reviewAccounts', defaultMessage: 'Review in Accounts' })
+          : row.kindClass === 'uncatincome'
+            ? formatMessage({ id: 'plan.labelIt', defaultMessage: 'Label it' })
+            : formatMessage({ id: 'plan.addToEnvelope', defaultMessage: 'Add to envelope…' })
+      return { ...row, label, status, actionLabel, cellTarget: { ...row.cellTarget, label } }
+    },
+  )
   if (!rows.length) return null
   const sub = outsideSubtotal(data)
   // What these buckets HOLD until the roll — the identity's `held_outside_envelopes` (ADR
@@ -608,7 +677,7 @@ export function OutsideEnvelopes({
           className="pl-grow--outside"
           name={
             <span className="pl-gname-btn pl-gname--outside" style={{ cursor: 'default' }}>
-              Outside envelopes
+              {formatMessage({ id: 'plan.outsideEnvelopes', defaultMessage: 'Outside envelopes' })}
             </span>
           }
           count={<span className="pl-gcount">{rows.length}</span>}
@@ -680,13 +749,17 @@ export function OutsideEnvelopes({
     <>
       <div
         className="pl-trow pl-grow pl-grow--outside"
-        title="Spending that isn't drawing from any envelope — give it a category, or link its category to an envelope"
+        title={formatMessage({
+          id: 'plan.outsideHelp',
+          defaultMessage:
+            "Spending that isn't drawing from any envelope — give it a category, or link its category to an envelope",
+        })}
       >
         <span className="pl-gname">
           <span className="pl-grip pl-grip--group" aria-hidden="true" />
           <span className="pl-gtoggle">
             <span className="pl-gname-btn pl-gname--outside" style={{ cursor: 'default' }}>
-              Outside envelopes
+              {formatMessage({ id: 'plan.outsideEnvelopes', defaultMessage: 'Outside envelopes' })}
             </span>
           </span>
           <span className="pl-gcount">{rows.length}</span>
@@ -772,11 +845,21 @@ export function envCatsChipText(memberCount: number): string | null {
 /** A category-count chip's face: the tag (the app's category glyph) + the count, with the noun
  *  for screen readers — so the chip's text still reads "2 categories". */
 function CatCount({ n }: { n: number }) {
+  const { formatMessage } = useAppIntl()
   return (
     <>
       <Tag size={11} strokeWidth={2.2} aria-hidden="true" />
       {n}
-      <span className="sr-only"> {catCountNoun(n)}</span>
+      <span className="sr-only">
+        {' '}
+        {formatMessage(
+          {
+            id: 'plan.categoryCountNoun',
+            defaultMessage: '{count, plural, one {category} other {categories}}',
+          },
+          { count: n },
+        )}
+      </span>
     </>
   )
 }
@@ -788,10 +871,14 @@ export function envCatsBadgeVisible(memberKeys: string[]): boolean {
 /** The "0 categories" hint a zero-category envelope wears in the chip's place. Exported for the
  *  50/30/20 table, whose rows are the same envelopes (propCells.tsx). */
 export function EnvCatsEmptyHint() {
+  const { formatMessage } = useAppIntl()
   return (
     <span
       className="pl-gcount pl-gcount--empty"
-      title="Link a category to this envelope to start budgeting for it"
+      title={formatMessage({
+        id: 'plan.emptyEnvelopeHelp',
+        defaultMessage: 'Link a category to this envelope to start budgeting for it',
+      })}
     >
       <CatCount n={0} />
     </span>
@@ -811,6 +898,7 @@ export function EnvCatsBadge({
   onRemove: (categoryId: string, categoryLabel: string) => void
   onAddCategories: () => void
 }) {
+  const { formatMessage } = useAppIntl()
   const [open, setOpen] = useState(false)
   const [pos, setPos] = useState<{
     left: number
@@ -879,7 +967,10 @@ export function EnvCatsBadge({
       <button
         ref={btnRef}
         className="pl-envcats pl-envcats--btn"
-        title={'Funds ' + names.map((n) => n.label).join(', ') + ' — click to manage'}
+        title={formatMessage(
+          { id: 'plan.envBadge.manage', defaultMessage: 'Funds {names} — click to manage' },
+          { names: names.map((n) => n.label).join(', ') },
+        )}
         onClick={(e) => {
           e.stopPropagation()
           setOpen((o) => !o)
@@ -909,7 +1000,13 @@ export function EnvCatsBadge({
             onClick={(e) => e.stopPropagation()}
           >
             <div className="pl-menu-lbl">
-              Funds {names.length} categor{names.length === 1 ? 'y' : 'ies'}
+              {formatMessage(
+                {
+                  id: 'plan.envBadge.count',
+                  defaultMessage: 'Funds {count, plural, one {# category} other {# categories}}',
+                },
+                { count: names.length },
+              )}
             </div>
             {names.map((n) => (
               <div key={n.key} className="pl-envcat-item">
@@ -919,7 +1016,13 @@ export function EnvCatsBadge({
                 </span>
                 <button
                   className="pl-envcat-x"
-                  title={'Remove ' + n.label + ' from this envelope'}
+                  title={formatMessage(
+                    {
+                      id: 'plan.envBadge.remove',
+                      defaultMessage: 'Remove {name} from this envelope',
+                    },
+                    { name: n.label },
+                  )}
                   onClick={() => {
                     setOpen(false)
                     onRemove(n.key, n.label)
@@ -937,7 +1040,7 @@ export function EnvCatsBadge({
                 onAddCategories()
               }}
             >
-              Add categories…
+              {formatMessage({ id: 'plan.kebab.addCategories', defaultMessage: 'Add categories…' })}
             </button>
           </div>,
           pos.root,
@@ -1005,6 +1108,8 @@ export function CategoryRow({
   onOpenTxn,
   onOpenRegister,
 }: RowHandlers & { c: LocalCat; gid: string; otherGroups: LocalGroup[]; locked: boolean }) {
+  const intl = useAppIntl()
+  const { formatMessage } = intl
   const [renaming, setRenaming] = useState(false)
   const [assigning, setAssigning] = useState(false)
   const [assignDraft, setAssignDraft] = useState('')
@@ -1076,10 +1181,20 @@ export function CategoryRow({
   const targetLocked = locked && !userOwned
   const barTitle =
     c.activity < -0.005 && eatenPool > 0.005
-      ? `Spent ${fSmart(-c.activity)} of ${fSmart(eatenPool)}` +
-        (c.target && !targetLocked ? ' — click to edit target' : '')
+      ? c.target && !targetLocked
+        ? formatMessage(
+            {
+              id: 'plan.budgetRow.spentEditable',
+              defaultMessage: 'Spent {spent} of {total} — click to edit target',
+            },
+            { spent: fSmart(-c.activity), total: fSmart(eatenPool) },
+          )
+        : formatMessage(
+            { id: 'plan.budgetRow.spent', defaultMessage: 'Spent {spent} of {total}' },
+            { spent: fSmart(-c.activity), total: fSmart(eatenPool) },
+          )
       : c.target && !targetLocked
-        ? 'Edit target'
+        ? formatMessage({ id: 'plan.budgetRow.editTarget', defaultMessage: 'Edit target' })
         : undefined
   // Lucius @-mention harvest — the Plan row's identity IS the envelope (owner decision
   // 2026-07-11, ADR 2026-07-11-envelope-first-class-mention-type): EVERY row emits its own
@@ -1108,7 +1223,7 @@ export function CategoryRow({
       onDragStart={dnd.catStart(gid, c.key)}
       onClick={(e) => e.stopPropagation()}
       aria-label={'Drag ' + c.label}
-      title="Drag to reorder"
+      title={formatMessage({ id: 'plan.dragReorder', defaultMessage: 'Drag to reorder' })}
     >
       <Grip />
     </button>
@@ -1126,7 +1241,10 @@ export function CategoryRow({
     <ColorDot
       color={c.color}
       onPick={(col) => onRecolor(c.envelopeId, col)}
-      label={'Color for ' + c.label}
+      label={formatMessage(
+        { id: 'plan.budgetRow.colorFor', defaultMessage: 'Color for {name}' },
+        { name: c.label },
+      )}
       icon="envelope"
     />
   )
@@ -1140,13 +1258,23 @@ export function CategoryRow({
       onCancel={() => setRenaming(false)}
     />
   ) : targetLocked ? (
-    <span className="pl-clabel" style={{ cursor: 'pointer' }} title={'Open ' + c.label}>
+    <span
+      className="pl-clabel"
+      style={{ cursor: 'pointer' }}
+      title={formatMessage(
+        { id: 'plan.openNamed', defaultMessage: 'Open {name}' },
+        { name: c.label },
+      )}
+    >
       {c.label}
     </span>
   ) : (
     <span
       className="pl-clabel"
-      title="Edit target — double-click to rename"
+      title={formatMessage({
+        id: 'plan.editTarget',
+        defaultMessage: 'Edit target — double-click to rename',
+      })}
       onClick={(e) => {
         e.stopPropagation()
         if (clickTimer.current) return
@@ -1174,8 +1302,14 @@ export function CategoryRow({
     <button
       type="button"
       className="pl-crow-open"
-      title={'Open ' + c.label + ' commitment'}
-      aria-label={'Open ' + c.label + ' commitment'}
+      title={formatMessage(
+        { id: 'plan.budgetRow.openCommitment', defaultMessage: 'Open {name} commitment' },
+        { name: c.label },
+      )}
+      aria-label={formatMessage(
+        { id: 'plan.budgetRow.openCommitment', defaultMessage: 'Open {name} commitment' },
+        { name: c.label },
+      )}
       onClick={(e) => {
         e.stopPropagation()
         onOpenCommitment(c)
@@ -1224,35 +1358,51 @@ export function CategoryRow({
       // that's been overpaid is not simultaneously short.
       paymentOverpaid ? null : paymentUnderfundedNow ? (
         <span className="pl-cstatus under">
-          <span className="mask">{fSmart(payUnder)}</span> more needed for this bill
+          {formatMessage(
+            { id: 'plan.billNeed', defaultMessage: '{amount} more needed for this bill' },
+            { amount: <span className="mask">{fSmart(payUnder)}</span> },
+          )}
         </span>
       ) : payAvail > 0.005 ? (
-        <span className="pl-cstatus funded">Funded</span>
+        <span className="pl-cstatus funded">
+          {formatMessage({ id: 'plan.funded', defaultMessage: 'Funded' })}
+        </span>
       ) : null
     ) : isOver ? (
       // Just the word (owner ask, 2026-09-15, matching YNAB) — the overspent AMOUNT is already
       // the row's own Available cell, in red, two columns to the right. Repeating it here made
       // the longest, loudest string on the row a duplicate of a figure the reader can see.
-      <span className="pl-cstatus over">Overspent</span>
+      <span className="pl-cstatus over">
+        {formatMessage({ id: 'plan.overspent', defaultMessage: 'Overspent' })}
+      </span>
     ) : under ? (
       <span className="pl-cstatus under">
-        <span className="mask">{fSmart(c.needed)}</span> more needed
+        {formatMessage(
+          { id: 'plan.moreNeeded', defaultMessage: '{amount} more needed' },
+          { amount: <span className="mask">{fSmart(c.needed)}</span> },
+        )}
       </span>
     ) : overfunded ? (
       <span className="pl-cstatus overfunded">
-        <span className="mask">{fSmart(excess)}</span> over target
+        {formatMessage(
+          { id: 'plan.overTarget', defaultMessage: '{amount} over target' },
+          { amount: <span className="mask">{fSmart(excess)}</span> },
+        )}
       </span>
     ) : fullySpent ? (
-      <span className="pl-cstatus spent">Fully Spent</span>
+      <span className="pl-cstatus spent">
+        {formatMessage({ id: 'plan.fullySpent', defaultMessage: 'Fully Spent' })}
+      </span>
     ) : funded ? (
       // YNAB's "Funded. Spent $5.50 of $200.00" (owner, 2026-09-25) — the bar tooltip's own
       // figures; just "Funded" until something is spent.
       <span className="pl-cstatus funded">
-        <span className="pl-cstatus-word">Funded</span>
+        <span className="pl-cstatus-word">
+          {formatMessage({ id: 'plan.funded', defaultMessage: 'Funded' })}
+        </span>
         {c.activity < -0.005 && eatenPool > 0.005 && (
           <span className="pl-cstatus-detail">
-            . Spent <span className="mask">{fSmart(-c.activity)}</span> of{' '}
-            <span className="mask">{fSmart(eatenPool)}</span>
+            {formatMessage({ id: 'planScan.spentOf', defaultMessage: '. Spent {spent} of {total}' }, { spent: <span className="mask">{fSmart(-c.activity)}</span>, total: <span className="mask">{fSmart(eatenPool)}</span> })}
           </span>
         )}
       </span>
@@ -1305,11 +1455,17 @@ export function CategoryRow({
     isMobile &&
     (isOver ? (
       <button className={actionCls('pl-caction cover')} onClick={() => onAction(c, 'cover')}>
-        Cover <span className="money mask">{fSmart(-c.available)}</span>
+        {formatMessage(
+          { id: 'plan.budgetRow.cover', defaultMessage: 'Cover {amount}' },
+          { amount: <span className="money mask">{fSmart(-c.available)}</span> },
+        )}
       </button>
     ) : under ? (
       <button className={actionCls('pl-caction fund')} onClick={() => onAction(c, 'fund')}>
-        Fund <span className="money mask">{fSmart(c.needed)}</span>
+        {formatMessage(
+          { id: 'plan.budgetRow.fund', defaultMessage: 'Fund {amount}' },
+          { amount: <span className="money mask">{fSmart(c.needed)}</span> },
+        )}
       </button>
     ) : overfunded ? (
       <button
@@ -1322,7 +1478,10 @@ export function CategoryRow({
           })
         }
       >
-        Move <span className="money mask">{fSmart(excess)}</span>
+        {formatMessage(
+          { id: 'plan.budgetRow.move', defaultMessage: 'Move {amount}' },
+          { amount: <span className="money mask">{fSmart(excess)}</span> },
+        )}
       </button>
     ) : null)
   const kebabNode = locked ? (
@@ -1337,17 +1496,27 @@ export function CategoryRow({
     </span>
   ) : (
     <Kebab
-      label={c.label + ' options'}
-      items={categoryKebabItems(c, otherGroups, allGroups, catLabel, {
-        onRename: () => setRenaming(true),
-        onEditTarget: () => onEditTarget(c, gid, 'edit'),
-        onMoveTo: (groupId) => onMoveTo(c.key, gid, groupId),
-        onToggleHide: () => onToggleHide(c.key),
-        onDeleteEnvelope: () => onDeleteEnvelope(c),
-        onMerge: () => onMerge(c),
-        onSplit: (key, label) => onSplit(c, key, label),
-        onAddCats: () => onAddCats(c),
-      })}
+      label={formatMessage(
+        { id: 'plan.budgetRow.options', defaultMessage: '{name} options' },
+        { name: c.label },
+      )}
+      items={categoryKebabItems(
+        c,
+        otherGroups,
+        allGroups,
+        catLabel,
+        {
+          onRename: () => setRenaming(true),
+          onEditTarget: () => onEditTarget(c, gid, 'edit'),
+          onMoveTo: (groupId) => onMoveTo(c.key, gid, groupId),
+          onToggleHide: () => onToggleHide(c.key),
+          onDeleteEnvelope: () => onDeleteEnvelope(c),
+          onMerge: () => onMerge(c),
+          onSplit: (key, label) => onSplit(c, key, label),
+          onAddCats: () => onAddCats(c),
+        },
+        intl,
+      )}
     />
   )
   const assignNode = assigning ? (
@@ -1374,7 +1543,7 @@ export function CategoryRow({
   ) : (
     <button
       className={'pl-assign mask' + (c.assigned < 0.005 ? ' zero' : '')}
-      title="Click to assign"
+      title={formatMessage({ id: 'plan.clickAssign', defaultMessage: 'Click to assign' })}
       onClick={(e) => {
         e.stopPropagation()
         startAssign()
@@ -1431,7 +1600,14 @@ export function CategoryRow({
         actionButton={actionButtonNode}
         nums={
           <MobileNumsGrid
-            availableLabel={c.isPaymentEnvelope ? 'PAYMENT' : 'AVAILABLE'}
+            availableLabel={
+              c.isPaymentEnvelope
+                ? formatMessage({ id: 'plan.budgetRow.paymentUpper', defaultMessage: 'PAYMENT' })
+                : formatMessage({
+                    id: 'plan.budgetRow.availableUpper',
+                    defaultMessage: 'AVAILABLE',
+                  })
+            }
             assigned={assignNode}
             activity={activityNode}
             available={availabilityCellNode}
@@ -1488,13 +1664,28 @@ export function CategoryRow({
             className="pl-paycell"
             title={
               paymentOverpaid
-                ? `You sent ${fSmart(-payAvail)} more to ${c.label} than you had set aside.`
+                ? formatMessage(
+                    {
+                      id: 'plan.budgetRow.overpaid',
+                      defaultMessage: 'You sent {amount} more to {name} than you had set aside.',
+                    },
+                    { amount: fSmart(-payAvail), name: c.label },
+                  )
                 : paymentUnderfundedNow
-                  ? `You have a ${fSmart(paymentOwed)} bill but only ${fSmart(payAvail)} set aside for ${c.label}.`
+                  ? formatMessage(
+                      {
+                        id: 'plan.budgetRow.underfunded',
+                        defaultMessage:
+                          'You have a {owed} bill but only {available} set aside for {name}.',
+                      },
+                      { owed: fSmart(paymentOwed), available: fSmart(payAvail), name: c.label },
+                    )
                   : undefined
             }
           >
-            <span className="pl-paycell-label">Payment</span>
+            <span className="pl-paycell-label">
+              {formatMessage({ id: 'plan.payment', defaultMessage: 'Payment' })}
+            </span>
             {availabilityCellNode}
           </span>
         ) : (
@@ -1536,6 +1727,7 @@ export function GroupBlock({
   allGroups: LocalGroup[]
   h: GroupHandlers
 }) {
+  const { formatMessage } = useAppIntl()
   const [renaming, setRenaming] = useState(false)
   const isMobile = useIsMobile()
   const collapsed = g.collapsed
@@ -1586,7 +1778,17 @@ export function GroupBlock({
             guardedToggle()
           }}
           aria-expanded={!collapsed}
-          aria-label={collapsed ? 'Expand ' + g.name : 'Collapse ' + g.name}
+          aria-label={
+            collapsed
+              ? formatMessage(
+                  { id: 'plan.propRows.expand', defaultMessage: 'Expand {name}' },
+                  { name: g.name },
+                )
+              : formatMessage(
+                  { id: 'plan.propRows.collapse', defaultMessage: 'Collapse {name}' },
+                  { name: g.name },
+                )
+          }
         >
           <span className="pl-chevron">
             <Chevron dir={collapsed ? 'right' : 'down'} size={13} />
@@ -1606,7 +1808,10 @@ export function GroupBlock({
               e.stopPropagation()
               setRenaming(true)
             }}
-            title={'Rename ' + g.name}
+            title={formatMessage(
+              { id: 'plan.budgetGroup.renameNamed', defaultMessage: 'Rename {name}' },
+              { name: g.name },
+            )}
           >
             {g.name}
           </button>
@@ -1623,18 +1828,29 @@ export function GroupBlock({
       }}
       title={
         isPaymentGroup
-          ? 'Synced from your credit cards — click to open Accounts. Assign and move money for these here in Plan.'
-          : 'Synced from your Commitments — click to open the Commitments tab. Assign and move money for these here in Plan.'
+          ? formatMessage({
+              id: 'plan.budgetGroup.cardSynced',
+              defaultMessage:
+                'Synced from your credit cards — click to open Accounts. Assign and move money for these here in Plan.',
+            })
+          : formatMessage({
+              id: 'plan.budgetGroup.commitmentSynced',
+              defaultMessage:
+                'Synced from your Commitments — click to open the Commitments tab. Assign and move money for these here in Plan.',
+            })
       }
     >
-      Synced
+      {formatMessage({ id: 'plan.synced', defaultMessage: 'Synced' })}
     </button>
   ) : (
     <>
       <button
         className="pl-gadd"
-        title={'Add an envelope to ' + g.name}
-        aria-label="Add envelope"
+        title={formatMessage(
+          { id: 'plan.addEnvelopeTo', defaultMessage: 'Add an envelope to {name}' },
+          { name: g.name },
+        )}
+        aria-label={formatMessage({ id: 'plan.addEnvelope', defaultMessage: 'Add envelope' })}
         onClick={(e) => {
           e.stopPropagation()
           h.onAddCatStart(g.id)
@@ -1643,13 +1859,29 @@ export function GroupBlock({
         <Plus />
       </button>
       <Kebab
-        label={g.name + ' group options'}
+        label={formatMessage(
+          { id: 'plan.budgetGroup.options', defaultMessage: '{name} group options' },
+          { name: g.name },
+        )}
         items={[
-          { label: 'Rename group', onClick: () => setRenaming(true) },
-          { label: 'Add envelope', onClick: () => h.onAddCatStart(g.id) },
-          { label: 'Hide group', onClick: () => h.onHideGroup(g.id) },
+          {
+            label: formatMessage({ id: 'plan.budgetGroup.rename', defaultMessage: 'Rename group' }),
+            onClick: () => setRenaming(true),
+          },
+          {
+            label: formatMessage({ id: 'plan.addEnvelope', defaultMessage: 'Add envelope' }),
+            onClick: () => h.onAddCatStart(g.id),
+          },
+          {
+            label: formatMessage({ id: 'plan.budgetGroup.hide', defaultMessage: 'Hide group' }),
+            onClick: () => h.onHideGroup(g.id),
+          },
           { divider: true },
-          { label: 'Delete group', danger: true, onClick: () => h.onDeleteGroup(g.id) },
+          {
+            label: formatMessage({ id: 'plan.budgetGroup.delete', defaultMessage: 'Delete group' }),
+            danger: true,
+            onClick: () => h.onDeleteGroup(g.id),
+          },
         ]}
       />
     </>
@@ -1736,7 +1968,10 @@ export function GroupBlock({
               onDragStart={h.dnd.groupStart(g.id)}
               onClick={(e) => e.stopPropagation()}
               aria-label={'Drag group ' + g.name}
-              title="Drag to reorder groups"
+              title={formatMessage({
+                id: 'plan.dragGroup',
+                defaultMessage: 'Drag to reorder groups',
+              })}
             >
               <Grip />
             </button>
@@ -1810,6 +2045,14 @@ export function BudgetTab({
   onOpenRegister,
   categoriesVersion = 0,
 }: BudgetTabProps) {
+  const { formatMessage, locale } = useAppIntl()
+  const displayMonth = (ym: string) => {
+    const match = /^(\d{4})-(\d{2})$/.exec(ym)
+    if (!match) return ym
+    const month = Number(match[2])
+    if (month < 1 || month > 12) return ym
+    return fLocalizedMonth(ym, locale)
+  }
   const navigate = useNavigate()
   const isMobile = useIsMobile()
   // Desktop-only (≥1024px) right-hand rail (RFC feat/budget-summary-rail) — gated on the
@@ -1940,8 +2183,10 @@ export function BudgetTab({
   // key → label for EVERY category (including a merged envelope's non-primary members,
   // which have no row of their own) — the badge tooltip + chip popover + kebab submenu.
   const catLabel = useCallback(
-    (key: string) => m.categories.find((c) => c.id === key)?.label ?? 'Uncategorized',
-    [m.categories],
+    (key: string) =>
+      m.categories.find((c) => c.id === key)?.label ??
+      formatMessage({ id: 'plan.uncategorized', defaultMessage: 'Uncategorized' }),
+    [m.categories, formatMessage],
   )
   // key → the CATEGORY's own colour (handoff item 15 — "member dots use each category's own
   // colour", distinct from the envelope's own colour used for the row dot).
@@ -2150,7 +2395,12 @@ export function BudgetTab({
   }
   function requestDeleteGroup(gid: string) {
     if (model.length <= 1) {
-      toast('Keep at least one group')
+      toast(
+        formatMessage({
+          id: 'plan.budgetGroup.keepOne',
+          defaultMessage: 'Keep at least one group',
+        }),
+      )
       return
     }
     const g = model.find((x) => x.id === gid)
@@ -2181,7 +2431,7 @@ export function BudgetTab({
     hasForeignCash: m.data?.has_foreign_cash ?? false,
     assignedInFuture: m.data?.assigned_in_future_months ?? 0,
     flow: m.data?.flow ?? null,
-    prevMonthLabel: m.data?.nav?.prev ? monthLabel(m.data.nav.prev) : '',
+    prevMonthLabel: m.data?.nav?.prev ? displayMonth(m.data.nav.prev) : '',
     totalAssigned: totals.assigned,
     ageOfMoney: ageOfMoney?.age_days ?? null,
     ageForecastable: !!ageOfMoney?.forecastable,
@@ -2192,11 +2442,11 @@ export function BudgetTab({
     totalAvailable: totals.available,
   }
   const FILTERS: [string, string][] = [
-    ['all', 'All'],
-    ['underfunded', 'Underfunded'],
-    ['overspent', 'Overspent'],
-    ['overfunded', 'Overfunded'],
-    ['funded', 'Money available'],
+    ['all', formatMessage({ id: 'plan.all', defaultMessage: 'All' })],
+    ['underfunded', formatMessage({ id: 'plan.autoUnderfunded', defaultMessage: 'Underfunded' })],
+    ['overspent', formatMessage({ id: 'plan.overspent', defaultMessage: 'Overspent' })],
+    ['overfunded', formatMessage({ id: 'plan.filter.overfunded', defaultMessage: 'Overfunded' })],
+    ['funded', formatMessage({ id: 'plan.filter.funded', defaultMessage: 'Money available' })],
   ]
 
   // sticky-header horizontal-scroll mirror
@@ -2224,14 +2474,23 @@ export function BudgetTab({
         // screen said $X, the click did nothing, with no explanation why.
         toast(
           label === 'Underfunded' && cardDebtUnderfunded.amount > 0.005
-            ? 'That total is card debt — pay it down in Credit Card Payments, not by assigning'
-            : 'Nothing to assign',
+            ? formatMessage({
+                id: 'plan.budgetAuto.cardDebt',
+                defaultMessage:
+                  'That total is card debt — pay it down in Credit Card Payments, not by assigning',
+              })
+            : formatMessage({ id: 'plan.budgetAuto.nothing', defaultMessage: 'Nothing to assign' }),
         )
         return
       }
       setAutoPrev(prev)
     } catch {
-      toast('Failed to preview auto-assign')
+      toast(
+        formatMessage({
+          id: 'plan.budgetAuto.previewFailed',
+          defaultMessage: 'Failed to preview auto-assign',
+        }),
+      )
     }
   }
 
@@ -2261,7 +2520,12 @@ export function BudgetTab({
     onRecolor: (envelopeId, color) => m.recolorEnvelope(envelopeId, color, toast),
     onMoveTo: (key, _from, to) => {
       m.moveCatBetween(key, to, null, toast)
-      toast('Moved to ' + (model.find((g) => g.id === to)?.name ?? ''))
+      toast(
+        formatMessage(
+          { id: 'plan.budgetGroup.moved', defaultMessage: 'Moved to {name}' },
+          { name: model.find((g) => g.id === to)?.name ?? '' },
+        ),
+      )
     },
     onToggleHide: (key) => m.toggleHide(key, toast),
     onDeleteEnvelope: requestDeleteEnvelope,
@@ -2355,7 +2619,14 @@ export function BudgetTab({
   if (m.loading && !m.data)
     return (
       <div className="pl-sub">
-        <TabSkeleton variant="budget" label="Loading your budget…" header={false} />
+        <TabSkeleton
+          variant="budget"
+          label={formatMessage({
+            id: 'plan.loadingBudget',
+            defaultMessage: 'Loading your budget…',
+          })}
+          header={false}
+        />
       </div>
     )
 
@@ -2366,7 +2637,7 @@ export function BudgetTab({
           sit below it, not beside it at the same height). */}
       <Summary
         b={liveB}
-        month={m.monthLabel}
+        month={displayMonth(m.month)}
         onPrev={m.onPrev}
         onNext={m.onNext}
         canPrev={!!m.data?.nav?.can_go_back}
@@ -2434,11 +2705,14 @@ export function BudgetTab({
               type="button"
               className="pl-madd-group"
               onClick={() => setAddingGroup(true)}
-              title="Add an envelope group"
+              title={formatMessage({
+                id: 'plan.addGroup',
+                defaultMessage: 'Add an envelope group',
+              })}
             >
               {/* Owner feedback: "Add" is redundant with the leading + icon — "Group" alone
                 reads the same, one word shorter, matching the compact toolbar row. */}
-              <Plus size={11} /> Group
+              <Plus size={11} /> {formatMessage({ id: 'planScan.group', defaultMessage: 'Group' })}
             </button>
           )}
         </div>
@@ -2466,7 +2740,10 @@ export function BudgetTab({
               {addingGroup && (
                 <div className="pl-mcard pl-maddrow">
                   <InlineEdit
-                    placeholder="New group name…  (Enter to add, Esc to cancel)"
+                    placeholder={formatMessage({
+                      id: 'plan.newGroupPlaceholder',
+                      defaultMessage: 'New group name…  (Enter to add, Esc to cancel)',
+                    })}
                     onSave={(t) => {
                       m.addGroup(t, toast)
                       setAddingGroup(false)
@@ -2482,18 +2759,36 @@ export function BudgetTab({
                 <div className="pl-trow pl-emptyrow">
                   {filter ? (
                     <span>
-                      Nothing matches this filter —{' '}
-                      <button className="pl-empty-clear" onClick={() => setFilter(null)}>
-                        clear
-                      </button>
+                      {formatMessage(
+                        {
+                          id: 'plan.budgetEmpty.filtered',
+                          defaultMessage: 'Nothing matches this filter — <clear>clear</clear>',
+                        },
+                        {
+                          clear: (chunks) => (
+                            <button className="pl-empty-clear" onClick={() => setFilter(null)}>
+                              {chunks}
+                            </button>
+                          ),
+                        },
+                      )}
                     </span>
                   ) : (
                     <span>
-                      No envelopes yet —{' '}
-                      <button className="pl-empty-clear" onClick={() => setAddingGroup(true)}>
-                        add a group
-                      </button>
-                      , then use its &ldquo;+&rdquo; to create your first envelope.
+                      {formatMessage(
+                        {
+                          id: 'plan.budgetEmpty.noEnvelopes',
+                          defaultMessage:
+                            'No envelopes yet — <add>add a group</add>, then use its “+” to create your first envelope.',
+                        },
+                        {
+                          add: (chunks) => (
+                            <button className="pl-empty-clear" onClick={() => setAddingGroup(true)}>
+                              {chunks}
+                            </button>
+                          ),
+                        },
+                      )}
                     </span>
                   )}
                 </div>
@@ -2520,7 +2815,9 @@ export function BudgetTab({
                 />
               )}
               <div className="pl-mtotal">
-                <span className="pl-mtotal-lbl">Total</span>
+                <span className="pl-mtotal-lbl">
+                  {formatMessage({ id: 'plan.total', defaultMessage: 'Total' })}
+                </span>
                 <MobileNumsGrid
                   assigned={<span className="pl-fig sub mask">{fBase(totals.assigned)}</span>}
                   activity={<span className="pl-fig sub mask">{fBase(totals.activity)}</span>}
@@ -2535,18 +2832,27 @@ export function BudgetTab({
                   <div className="pl-table-inner" ref={theadInnerRef}>
                     <div className="pl-trow pl-thead">
                       <span className="pl-thead-cat">
-                        Envelope
+                        {formatMessage({ id: 'plan.envelope', defaultMessage: 'Envelope' })}
                         <button
                           className="pl-thead-addbtn"
                           onClick={() => setAddingGroup(true)}
-                          title="Add an envelope group"
+                          title={formatMessage({
+                            id: 'plan.addGroup',
+                            defaultMessage: 'Add an envelope group',
+                          })}
                         >
-                          <Plus size={11} /> Add group
+                          <Plus size={11} /> {formatMessage({ id: 'planScan.addGroup', defaultMessage: 'Add group' })}
                         </button>
                       </span>
-                      <span className="num">Assigned</span>
-                      <span className="num">Activity</span>
-                      <span className="num">Available</span>
+                      <span className="num">
+                        {formatMessage({ id: 'plan.assigned', defaultMessage: 'Assigned' })}
+                      </span>
+                      <span className="num">
+                        {formatMessage({ id: 'plan.activity', defaultMessage: 'Activity' })}
+                      </span>
+                      <span className="num">
+                        {formatMessage({ id: 'plan.available', defaultMessage: 'Available' })}
+                      </span>
                     </div>
                   </div>
                 </div>
@@ -2559,7 +2865,10 @@ export function BudgetTab({
                         <span className="pl-gname">
                           <span className="pl-grip pl-grip--group" aria-hidden="true" />
                           <InlineEdit
-                            placeholder="New group name…  (Enter to add, Esc to cancel)"
+                            placeholder={formatMessage({
+                              id: 'plan.newGroupPlaceholder',
+                              defaultMessage: 'New group name…  (Enter to add, Esc to cancel)',
+                            })}
                             onSave={(t) => {
                               m.addGroup(t, toast)
                               setAddingGroup(false)
@@ -2576,18 +2885,43 @@ export function BudgetTab({
                       <div className="pl-trow pl-emptyrow">
                         {filter ? (
                           <span>
-                            Nothing matches this filter —{' '}
-                            <button className="pl-empty-clear" onClick={() => setFilter(null)}>
-                              clear
-                            </button>
+                            {formatMessage(
+                              {
+                                id: 'plan.budgetEmpty.filtered',
+                                defaultMessage:
+                                  'Nothing matches this filter — <clear>clear</clear>',
+                              },
+                              {
+                                clear: (chunks) => (
+                                  <button
+                                    className="pl-empty-clear"
+                                    onClick={() => setFilter(null)}
+                                  >
+                                    {chunks}
+                                  </button>
+                                ),
+                              },
+                            )}
                           </span>
                         ) : (
                           <span>
-                            No envelopes yet —{' '}
-                            <button className="pl-empty-clear" onClick={() => setAddingGroup(true)}>
-                              add a group
-                            </button>
-                            , then use its &ldquo;+&rdquo; to create your first envelope.
+                            {formatMessage(
+                              {
+                                id: 'plan.budgetEmpty.noEnvelopes',
+                                defaultMessage:
+                                  'No envelopes yet — <add>add a group</add>, then use its “+” to create your first envelope.',
+                              },
+                              {
+                                add: (chunks) => (
+                                  <button
+                                    className="pl-empty-clear"
+                                    onClick={() => setAddingGroup(true)}
+                                  >
+                                    {chunks}
+                                  </button>
+                                ),
+                              },
+                            )}
                           </span>
                         )}
                       </div>
@@ -2617,7 +2951,9 @@ export function BudgetTab({
                       />
                     )}
                     <div className="pl-trow pl-trow--total">
-                      <span className="pl-tname">Total</span>
+                      <span className="pl-tname">
+                        {formatMessage({ id: 'plan.total', defaultMessage: 'Total' })}
+                      </span>
                       <span className="pl-c-num pl-fig sub mask">{fBase(totals.assigned)}</span>
                       <span className="pl-c-num pl-fig sub mask">{fBase(totals.activity)}</span>
                       <span className="pl-c-num">
@@ -2639,12 +2975,22 @@ export function BudgetTab({
               className="pl-budget-rail-handle"
               role="separator"
               aria-orientation="vertical"
-              aria-label="Resize rail"
-              title="Drag to resize · double-click to reset"
+              aria-label={formatMessage({ id: 'plan.resizeRail', defaultMessage: 'Resize rail' })}
+              title={formatMessage({
+                id: 'plan.resizeRailHelp',
+                defaultMessage: 'Drag to resize · double-click to reset',
+              })}
               onPointerDown={onRailHandlePointerDown}
               onDoubleClick={onRailHandleReset}
             />
-            <aside className="pl-budget-rail" aria-label="This month at a glance" ref={railRefCb}>
+            <aside
+              className="pl-budget-rail"
+              aria-label={formatMessage({
+                id: 'plan.monthGlance',
+                defaultMessage: 'This month at a glance',
+              })}
+              ref={railRefCb}
+            >
               {/* .pl-pane-body is the rail's scroll content as ONE box, so the workspace can
                   offset it (a transform) while the chrome above scrolls away — see plan.css. */}
               <div className="pl-pane-body">
@@ -2665,7 +3011,7 @@ export function BudgetTab({
                   <>
                     <BudgetSummaryPanel
                       onBudgetCash={liveB.onBudgetCash}
-                      monthLabel={m.monthLabel}
+                      monthLabel={displayMonth(m.month)}
                       totalAssigned={totals.assigned}
                       totalActivity={totals.activity}
                       totalAvailable={totals.available}

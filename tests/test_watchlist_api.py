@@ -204,6 +204,8 @@ def test_add_item_no_list_id_returns_422(client):
         json={"type": "ticker", "value": "NVDA", "label": "NVIDIA"},
     )
     assert res.status_code == 422
+    assert res.json()["message_id"] == "watchlist.error.chooseList"
+    assert res.json()["message_params"] == {}
 
 
 def test_add_item_to_my_holdings_returns_409(client):
@@ -213,6 +215,7 @@ def test_add_item_to_my_holdings_returns_409(client):
         json={"type": "ticker", "value": "AAPL", "label": "Apple", "watchlist": MY_HOLDINGS_ID},
     )
     assert res.status_code == 409
+    assert res.json()["message_id"] == "watchlist.error.managedEdit"
 
 
 def test_add_unknown_ticker_422(client, monkeypatch):
@@ -696,3 +699,16 @@ def test_the_lucius_tool_sets_the_ai_settings(client):
     cfg = read_watchlist()["config"]
     assert (cfg["ai_opinion_level"], cfg["watch_reads_per_day"]) == ("lean", 5)
     assert cfg["holdings_brief_verbosity"] == 5
+
+
+def test_watchlist_message_contract_covers_application_ids():
+    import json
+    import re
+    from pathlib import Path
+
+    root = Path(__file__).resolve().parents[1]
+    contract = json.loads((root / "backend/core/watchlist_message_contract.json").read_text())
+    source = (root / "backend/api/watchlist.py").read_text() + (
+        root / "backend/db/watchlist_store.py"
+    ).read_text()
+    assert set(contract) == set(re.findall(r'"(watchlist\.error\.[a-zA-Z]+)"', source))

@@ -137,7 +137,19 @@ def _assigned_phase(
         recorder.assigned_change("sent", names.get(it.cid, "Category"), it.month, it.ynab, it.onw)
     for it in deferred:
         label = f"{names.get(it.cid, 'Category')} · {month_name(it.month)}"
-        recorder.deferred(label, "Waiting for the next run (YNAB request limit).")
+        recorder.deferred(
+            label,
+            "Waiting for the next run (YNAB request limit).",
+            {"message_id": "ynab.sync.deferred.rateLimit", "params": {}},
+            {
+                "message_id": "ynab.sync.item.categoryMonth"
+                if it.cid in names
+                else "ynab.sync.item.genericCategoryMonth",
+                "params": {"name": names[it.cid], "month": it.month}
+                if it.cid in names
+                else {"month": it.month},
+            },
+        )
     for it, why in rejected:
         _file_assigned(it, names, conflicts.FAILED, f"YNAB did not accept it: {why}")
     tally["sent"] += len(sent)
@@ -167,7 +179,7 @@ def _file_assigned(it, names: dict, kind: str, reason: str, fresh: bool = False)
 def _execute(st: dict, tally: Counter) -> None:
     """One run's work; raises on anything that stops it (the caller records the failure)."""
     client = YnabClient(st["plan_id"], Budget(sync_state.REQUEST_CAP))
-    recorder.phase("reading YNAB")
+    recorder.phase("reading YNAB", "ynab.phase.reading")
     try:
         _reconcile(st, tally, client)
     finally:
@@ -186,7 +198,7 @@ def _reconcile(st: dict, tally: Counter, client: YnabClient) -> None:
     base = Baselines(st["plan_id"])
     if first:
         base.seed_assigned({k: v for k, v in change.assigned.items() if v})
-    recorder.phase("reconciling categories")
+    recorder.phase("reconciling categories", "ynab.phase.categories")
     cat_plan = context.category_plan(meta, mirror, base.assigned)
     try:
         resumed = category_sync.reconcile(
@@ -200,7 +212,7 @@ def _reconcile(st: dict, tally: Counter, client: YnabClient) -> None:
         sync_state.save_meta(meta)
         raise
     ctx = context.build(st, meta, mirror, base.assigned, base.cats, base.declined)
-    recorder.phase("reconciling transactions")
+    recorder.phase("reconciling transactions", "ynab.phase.transactions")
     scan = units.audit_touched(st["audit_cursor"], upto) | set(st["pending"]) | set(st["held"])
     scan |= {c["onw_txn_id"] for c in conflicts.listing() if c.get("onw_txn_id")}
     change.touched |= set(st["held_ynab"])
@@ -211,7 +223,7 @@ def _reconcile(st: dict, tally: Counter, client: YnabClient) -> None:
         )
         st["held"], st["held_ynab"] = sorted(held["onw"]), sorted(held["ynab"])
         tally["deferred"] += len(st["pending"])
-        recorder.phase("reconciling Assigned")
+        recorder.phase("reconciling Assigned", "ynab.phase.assigned")
         _assigned_phase(ctx, client, base, change, tally, first, st, fresh)
         _compared(base, fresh)
         starts.review(ctx, st)
@@ -254,6 +266,7 @@ def store_record(
     outcome: str,
     requests: int,
     run_id: str | None = None,
+    outcome_message: dict | None = None,
 ) -> str | None:
     """Close (or create) the run's record. Never raises: the sync's own result stands without it."""
     try:
@@ -263,6 +276,8 @@ def store_record(
             **rec.snapshot(),
             "requests_used": requests,
             "outcome": outcome,
+            "outcome_message": outcome_message,
+            "phase_message": {"message_id": "ynab.phase.done", "params": {}},
             "error": error,
         }
         status = "done" if error is None else "failed"
@@ -318,7 +333,23 @@ def _locked_run(trigger: str, run_id: str | None = None) -> None:
         audit_context.clear_audit_scope(token)
     open_items = len(conflicts.listing())
     summary = _summary(tally, open_items) if error is None else "Failed"
-    stored = store_record(st, rec, trigger, started, error, summary, tally["requests"], run_id)
+    summary_message = (
+        {
+            "message_id": "ynab.summary.complete",
+            "params": {
+                "sent": tally["sent"],
+                "pulled": tally["pulled"],
+                "categories": tally["categories"],
+                "review": open_items,
+                "deferred": tally["deferred"],
+            },
+        }
+        if error is None
+        else {"message_id": "ynab.summary.failed", "params": {}}
+    )
+    stored = store_record(
+        st, rec, trigger, started, error, summary, tally["requests"], run_id, summary_message
+    )
     st["last_run"] = {
         "trigger": trigger,
         "started_at": sync_state.iso(started),
@@ -330,6 +361,7 @@ def _locked_run(trigger: str, run_id: str | None = None) -> None:
         "pulled": tally["pulled"],
         "deferred": tally["deferred"],
         "summary": summary,
+        "summary_message": summary_message,
         "run_id": stored,
     }
     sync_state.schedule_next(st, started)

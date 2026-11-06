@@ -69,7 +69,14 @@ def ensure_skill_creator_installed() -> bool:
             return False
 
         if existing is None:
-            store.create({**starter, "author": "builtin", "enabled": False})
+            store.create(
+                {
+                    **starter,
+                    "author": "builtin",
+                    "enabled": False,
+                    "_starter_source": SKILL_CREATOR_ID,
+                }
+            )
             logger.info("seeded the skill-creator meta-skill (disabled until bundle commit)")
         else:
             store.update_skill(SKILL_CREATOR_ID, {**refresh, "enabled": False})

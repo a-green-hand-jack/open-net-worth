@@ -9,6 +9,8 @@ import type { AssetCategory, AssetLoan, OwnedAsset } from '../../../types/assets
 import { setBaseCurrency } from '../../../utils/format'
 import { fmt } from './assetsData'
 import { AssetSections } from './sections'
+import { IntlProvider } from 'react-intl'
+import zh from '../../../i18n/zh-CN.json'
 
 setBaseCurrency('SGD')
 afterEach(cleanup)
@@ -261,6 +263,24 @@ describe('AssetSections — Purchase', () => {
 })
 
 describe('AssetSections — Details', () => {
+  it('shows historical guided labels in Chinese and leaves custom labels unchanged', () => {
+    const a = asset({
+      category: 'vehicle',
+      facts: [
+        ['pLaTe NUMBER', 'TEST-1'],
+        ['自定义', '原文'],
+      ],
+    })
+    render(
+      <IntlProvider locale="zh-CN" defaultLocale="en" messages={zh}>
+        <AssetSections a={a} cats={CATS} loans={[]} onNav={vi.fn()} onEdit={vi.fn()} />
+      </IntlProvider>,
+    )
+    expect(rows(group('详情'))).toEqual([
+      ['车牌号', 'TEST-1'],
+      ['自定义', '原文'],
+    ])
+  })
   it('nothing filled: no Details group, one chip per thing the category asks', () => {
     renderRail({ category: 'vehicle' })
     expect(titles()).not.toContain('Details')

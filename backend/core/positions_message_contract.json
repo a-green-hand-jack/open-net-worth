@@ -1,0 +1,17 @@
+{
+  "positions.error.costCurrency": [],
+  "positions.error.unvestedGrant": [],
+  "positions.error.quantityNumber": [],
+  "positions.error.quantityNonnegative": [],
+  "positions.error.unknownInstrument": [],
+  "positions.error.duplicateHolding": ["symbol", "position", "quantity"],
+  "positions.error.grantManaged": ["grant"],
+  "positions.error.figuresDerived": [],
+  "positions.error.vestingManaged": [],
+  "positions.error.partlySold": [],
+  "positions.error.grantLinked": [],
+  "positions.error.notFound": [],
+  "positions.error.unsupportedFields": ["fields", "supported"],
+  "positions.error.accountNotFound": [],
+  "positions.error.moveDuplicate": ["account", "position"]
+}

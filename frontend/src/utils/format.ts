@@ -1,3 +1,4 @@
+import type { IntlShape } from 'react-intl'
 /**
  * The maskable-money convention. Any element carrying this class masks to `***`
  * under `body.hide-amounts` (privacy mode) via the generic `body.hide-amounts
@@ -41,20 +42,46 @@ const NUMBER_LOCALES: Record<NumberFormat, string> = {
 let _dateLocale: string | undefined
 let _dateFormat: DateFormat | undefined
 let _numberLocale: string | undefined
+let _interfaceLocale: string | undefined
+let _formatRevision = 0
+const _formatListeners = new Set<() => void>()
+export const getFormatRevision = (): number => _formatRevision
+export function subscribeDisplayFormats(listener: () => void): () => void {
+  _formatListeners.add(listener)
+  return () => _formatListeners.delete(listener)
+}
 
 export function setDisplayFormats(prefs: {
   date_format?: string | null
   number_format?: string | null
 }): void {
+  const beforeDate = _dateFormat
+  const beforeNumber = _numberLocale
   const d = prefs.date_format as DateFormat | null | undefined
   const n = prefs.number_format as NumberFormat | null | undefined
   _dateLocale = d && DATE_LOCALES[d] ? DATE_LOCALES[d] : undefined
   _dateFormat = d && DATE_LOCALES[d] ? d : undefined
   _numberLocale = n && NUMBER_LOCALES[n] ? NUMBER_LOCALES[n] : undefined
+  if (_dateFormat !== beforeDate || _numberLocale !== beforeNumber) {
+    _formatRevision += 1
+    _formatListeners.forEach((listener) => listener())
+  }
+}
+
+/** Textual months follow the interface language independently of numeric date order. */
+export function setInterfaceLocale(locale: string | undefined): void {
+  if (_interfaceLocale === locale) return
+  _interfaceLocale = locale
+  _formatRevision += 1
+  _formatListeners.forEach((listener) => listener())
 }
 
 /** The locale numbers and money are formatted in. `undefined` = the browser's. */
 export const getNumberLocale = (): string | undefined => _numberLocale
+/** A fixed-precision display number, respecting the profile decimal separator. */
+export function fFixed(value: number, digits: number): string {
+  return value.toLocaleString(getNumberLocale(), { minimumFractionDigits: digits, maximumFractionDigits: digits, useGrouping: false })
+}
 /** The locale dates are formatted in. `undefined` = the browser's. */
 export const getDateLocale = (): string | undefined => _dateLocale
 /** The saved numeric-date preference. `undefined` = follow the browser. */
@@ -103,13 +130,30 @@ export function parseDate(value: string | Date): Date | null {
   return Number.isNaN(d.getTime()) ? null : d
 }
 
-// A spelled-out date needs a locale that spells English month names; `iso` (sv-SE) would
-// print Swedish ones, so it only governs the numeric style.
-const textLocale = (): string | undefined =>
-  _dateLocale === DATE_LOCALES.iso ? 'en-GB' : _dateLocale
-
-// en-GB abbreviates September as "Sept"; every other month is three letters, so keep it uniform.
+// en-GB abbreviates September as "Sept"; keep the historic three-letter form.
 const spellMonth = (text: string): string => text.replace(/\bSept\b/, 'Sep')
+
+function spelledDate(d: Date, style: 'short' | 'long', showYear: boolean, includeDay: boolean, locale?: string): string {
+  const language = locale ?? _interfaceLocale
+  const options: Intl.DateTimeFormatOptions = {
+    month: style,
+    ...(includeDay ? { day: 'numeric' } : {}),
+    ...(showYear ? { year: 'numeric' } : {}),
+  }
+  if (!language) {
+    const legacy = _dateLocale === DATE_LOCALES.iso ? 'en-GB' : _dateLocale
+    return spellMonth(d.toLocaleDateString(legacy, options))
+  }
+  const formatter = new Intl.DateTimeFormat(language, options)
+  if (!_dateFormat) return spellMonth(formatter.format(d))
+  const parts = formatter.formatToParts(d)
+  const nativeOrder = parts.filter((part) => ['year', 'month', 'day'].includes(part.type)).map((part) => part.type)
+  const order = (_dateFormat === 'dmy' ? ['day', 'month', 'year'] : _dateFormat === 'mdy' ? ['month', 'day', 'year'] : ['year', 'month', 'day'])
+    .filter((part) => part !== 'day' || includeDay).filter((part) => part !== 'year' || showYear)
+  if (nativeOrder.join(',') === order.join(',')) return spellMonth(formatter.format(d))
+  const part = (type: string) => new Intl.DateTimeFormat(language, { [type]: type === 'month' ? style : 'numeric' }).format(d)
+  return spellMonth(new Intl.ListFormat(language, { style: 'narrow', type: 'unit' }).format(order.map(part)))
+}
 
 /** The ONE way to write a calendar date for display. Follows the user's Date-format
  *  preference and never shows a year the reader already knows (see `YearMode`).
@@ -118,6 +162,7 @@ export function fDate(
   value: string | Date,
   style: DateStyle = 'short',
   year: YearMode = style === 'numeric' ? 'always' : 'auto',
+  interfaceLocale?: string,
 ): string {
   const d = parseDate(value)
   if (!d) return typeof value === 'string' ? value : ''
@@ -126,13 +171,17 @@ export function fDate(
   const y: Intl.DateTimeFormatOptions = showYear ? { year: 'numeric' } : {}
   if (style === 'numeric')
     return d.toLocaleDateString(_dateLocale, { day: '2-digit', month: '2-digit', ...y })
-  return spellMonth(
-    d.toLocaleDateString(textLocale(), {
-      day: 'numeric',
-      month: style === 'long' ? 'long' : 'short',
-      ...y,
-    }),
-  )
+  return spelledDate(d, style, showYear, true, interfaceLocale)
+}
+
+/** A month label in the interface language; accepts a YYYY-MM key to avoid timezone shifts. */
+export function fLocalizedMonth(value: string, locale: string, style: 'short' | 'long' = 'long', year: YearMode = 'always'): string {
+  const match = /^(\d{4})-(\d{2})$/.exec(value)
+  if (!match) return value
+  const y = Number(match[1]), m = Number(match[2])
+  if (m < 1 || m > 12) return value
+  const showYear = year === 'always' || (year === 'auto' && y !== new Date().getFullYear())
+  return new Intl.DateTimeFormat(locale, { month: style, ...(showYear ? { year: 'numeric' } : {}), timeZone: 'UTC' }).format(new Date(Date.UTC(y, m - 1, 1)))
 }
 
 /** "Oct 2026" / "October" from a Date or a "YYYY-MM" key — a month with no day. */
@@ -140,17 +189,13 @@ export function fMonth(
   value: string | Date,
   style: Exclude<DateStyle, 'numeric'> = 'short',
   year: YearMode = 'auto',
+  interfaceLocale?: string,
 ): string {
   const d = parseDate(/^\d{4}-\d{2}$/.test(String(value)) ? `${value}-01` : value)
   if (!d) return typeof value === 'string' ? value : ''
   const showYear =
     year === 'always' || (year === 'auto' && d.getFullYear() !== new Date().getFullYear())
-  return spellMonth(
-    d.toLocaleDateString(textLocale(), {
-      month: style === 'long' ? 'long' : 'short',
-      ...(showYear ? { year: 'numeric' } : {}),
-    }),
-  )
+  return spelledDate(d, style, showYear, false, interfaceLocale)
 }
 
 /** A date plus its clock time ("6 Oct • 14:05"). A date-only value has no time to show. */
@@ -245,7 +290,7 @@ export function fCurrency(
     return fmt.format(value)
   } catch {
     return (
-      (n < 0 ? '-' : '') + Math.abs(n).toFixed(opts?.maximumFractionDigits ?? 2) + ' ' + currency
+      (n < 0 ? '-' : '') + fFixed(Math.abs(n), opts?.maximumFractionDigits ?? 2) + ' ' + currency
     )
   }
 }
@@ -386,7 +431,7 @@ export function fAmountNative(n: number, currency?: string): string {
       maximumFractionDigits: opts.maximumFractionDigits,
     })
   } catch {
-    return n.toFixed(2)
+    return fFixed(n, 2)
   }
 }
 
@@ -415,7 +460,15 @@ export function fPct(
   if (n == null || isNaN(n)) return '—'
   const value = opts.fraction ? n * 100 : n
   const signPrefix = opts.sign && value >= 0 ? '+' : ''
-  return signPrefix + value.toFixed(2) + '%'
+  return (
+    signPrefix +
+    value.toLocaleString(getNumberLocale(), {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+      useGrouping: false,
+    }) +
+    '%'
+  )
 }
 
 /** The `maxFractionDigits` a price or per-unit cost gets for its asset class: 2 for anything known
@@ -661,17 +714,24 @@ export function newsTime(iso: string): string {
  * (Scheduled section's next-run time) — `timeAgo` above is PAST-relative ("3h ago") and
  * reads wrong for a time that hasn't happened yet.
  */
-export function fScheduleWhen(iso: string): string {
+export function fScheduleWhen(iso: string, intl?: IntlShape): string {
   const d = new Date(iso)
-  if (isNaN(d.getTime())) return iso
+  if (Number.isNaN(d.getTime())) return iso
   const time = d.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })
   const sameDay = (a: Date, b: Date) => a.toDateString() === b.toDateString()
   const now = new Date()
-  if (sameDay(d, now)) return `Today at ${time}`
   const tomorrow = new Date(now)
   tomorrow.setDate(now.getDate() + 1)
-  if (sameDay(d, tomorrow)) return `Tomorrow at ${time}`
-  return `${d.toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short' })} at ${time}`
+  const day = sameDay(d, now)
+    ? (intl ? intl.formatMessage({ id: 'schedule.today', defaultMessage: 'Today' }) : 'Today')
+    : sameDay(d, tomorrow)
+      ? (intl ? intl.formatMessage({ id: 'schedule.tomorrow', defaultMessage: 'Tomorrow' }) : 'Tomorrow')
+      : (() => {
+          const date = fDate(d, 'short', 'auto')
+          const weekday = d.toLocaleDateString(_interfaceLocale, { weekday: 'short' })
+          return intl ? intl.formatMessage({ id: 'schedule.weekdayDate', defaultMessage: '{weekday}, {date}' }, { weekday, date }) : `${weekday}, ${date}`
+        })()
+  return intl ? intl.formatMessage({ id: 'schedule.at', defaultMessage: '{day} at {time}' }, { day, time }) : `${day} at ${time}`
 }
 
 /**
@@ -703,5 +763,5 @@ export function countryFlag(code: string | null | undefined): string {
  * which rounds to an integer. */
 export function fQty(n: number | string | null | undefined): string {
   if (n == null || n === '') return '—'
-  return Number(n).toLocaleString(undefined, { maximumFractionDigits: 8 })
+  return Number(n).toLocaleString(_numberLocale, { maximumFractionDigits: 8 })
 }

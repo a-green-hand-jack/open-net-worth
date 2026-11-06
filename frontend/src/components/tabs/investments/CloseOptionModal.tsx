@@ -1,4 +1,6 @@
+import { getNumberLocale } from '../../../utils/format'
 import { useEffect, useState } from 'react'
+import { useAppIntl } from '../../../i18n/useAppIntl'
 import {
   Modal,
   FormField,
@@ -35,6 +37,7 @@ function toLocalISODate(): string {
 }
 
 export function CloseOptionModal({ position, onClose, onDone }: Props) {
+  const { formatMessage } = useAppIntl()
   const [accounts, setAccounts] = useState<AccountLite[]>([])
   const [closedAt, setClosedAt] = useState(toLocalISODate())
   const [pricePerShare, setPricePerShare] = useState('')
@@ -49,16 +52,45 @@ export function CloseOptionModal({ position, onClose, onDone }: Props) {
   }, [])
 
   const isShort = position.side === 'short'
-  const contractLine = `${isShort ? '−' : '+'}${position.contracts} ${position.underlying_symbol} ${position.option_type} @ ${position.strike.toLocaleString()} • exp ${fDate(position.expiry, 'short', 'always')}`
+  const optionType =
+    position.option_type === 'CALL'
+      ? formatMessage({ id: 'closeOption.call', defaultMessage: 'CALL' })
+      : position.option_type === 'PUT'
+        ? formatMessage({ id: 'closeOption.put', defaultMessage: 'PUT' })
+        : position.option_type
+  const contractLine = formatMessage(
+    {
+      id: 'closeOption.contract',
+      defaultMessage: '{side}{count} {symbol} {type} @ {strike} • exp {expiry}',
+    },
+    {
+      side: isShort ? '−' : '+',
+      count: position.contracts,
+      symbol: position.underlying_symbol,
+      type: optionType,
+      strike: position.strike.toLocaleString(getNumberLocale()),
+      expiry: fDate(position.expiry, 'short', 'always'),
+    },
+  )
 
   async function submit() {
     const pps = pricePerShare === '' ? undefined : Number(pricePerShare)
     if (pps !== undefined && (!Number.isFinite(pps) || pps < 0)) {
-      setError('Close price per share cannot be negative.')
+      setError(
+        formatMessage({
+          id: 'closeOption.ClosePricePerShareCannotBeNegative',
+          defaultMessage: 'Close price per share cannot be negative.',
+        }),
+      )
       return
     }
     if (pps !== undefined && pps > 0 && !walletId) {
-      setError('Pick the wallet the cash leg should hit, or clear the close price.')
+      setError(
+        formatMessage({
+          id: 'closeOption.PickTheWalletTheCashLegShouldHitOrClearTheClosePrice',
+          defaultMessage: 'Pick the wallet the cash leg should hit, or clear the close price.',
+        }),
+      )
       return
     }
     setSubmitting(true)
@@ -71,7 +103,14 @@ export function CloseOptionModal({ position, onClose, onDone }: Props) {
       })
       onDone()
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Could not close the option.')
+      setError(
+        e instanceof Error
+          ? e.message
+          : formatMessage({
+              id: 'closeOption.CouldNotCloseTheOption',
+              defaultMessage: 'Could not close the option.',
+            }),
+      )
       setSubmitting(false)
     }
   }
@@ -79,20 +118,29 @@ export function CloseOptionModal({ position, onClose, onDone }: Props) {
   const footer = (
     <Cluster gap="--space-3" justify="between">
       <Button variant="ghost" onClick={onClose} disabled={submitting}>
-        Cancel
+        {formatMessage({ id: 'closeOption.Cancel', defaultMessage: 'Cancel' })}
       </Button>
       <Button variant="primary" onClick={() => void submit()} loading={submitting}>
-        Close position
+        {formatMessage({ id: 'closeOption.ClosePosition', defaultMessage: 'Close position' })}
       </Button>
     </Cluster>
   )
 
   return (
-    <Modal open onClose={onClose} title="Close option" size="md" footer={footer}>
+    <Modal
+      open
+      onClose={onClose}
+      title={formatMessage({ id: 'closeOption.CloseOption', defaultMessage: 'Close option' })}
+      size="md"
+      footer={footer}
+    >
       <Stack gap="--space-4">
         <p className="opt-close-line">{contractLine}</p>
 
-        <FormField label="Close date" htmlFor="opt-close-date">
+        <FormField
+          label={formatMessage({ id: 'closeOption.CloseDate', defaultMessage: 'Close date' })}
+          htmlFor="opt-close-date"
+        >
           <TextField
             id="opt-close-date"
             type="date"
@@ -103,12 +151,30 @@ export function CloseOptionModal({ position, onClose, onDone }: Props) {
         </FormField>
 
         <FormField
-          label={isShort ? 'Buyback price / share' : 'Sale price / share'}
+          label={
+            isShort
+              ? formatMessage({
+                  id: 'closeOption.BuybackPriceShare',
+                  defaultMessage: 'Buyback price / share',
+                })
+              : formatMessage({
+                  id: 'closeOption.SalePriceShare',
+                  defaultMessage: 'Sale price / share',
+                })
+          }
           htmlFor="opt-close-pps"
           help={
             isShort
-              ? 'Optional: buy-to-close cost per share — books an expense from the wallet below.'
-              : 'Optional: sell-to-close proceeds per share — books income to the wallet below.'
+              ? formatMessage({
+                  id: 'closeOption.OptionalBuyToCloseCostPerShareBooksAnExpenseFromTheWalletBelow',
+                  defaultMessage:
+                    'Optional: buy-to-close cost per share — books an expense from the wallet below.',
+                })
+              : formatMessage({
+                  id: 'closeOption.OptionalSellToCloseProceedsPerShareBooksIncomeToTheWalletBelow',
+                  defaultMessage:
+                    'Optional: sell-to-close proceeds per share — books income to the wallet below.',
+                })
           }
         >
           <NumberField
@@ -120,13 +186,25 @@ export function CloseOptionModal({ position, onClose, onDone }: Props) {
           />
         </FormField>
 
-        <FormField label="Book cash leg to" htmlFor="opt-close-wallet">
+        <FormField
+          label={formatMessage({
+            id: 'closeOption.BookCashLegTo',
+            defaultMessage: 'Book cash leg to',
+          })}
+          htmlFor="opt-close-wallet"
+        >
           <Select
             id="opt-close-wallet"
             value={walletId}
             onChange={(e) => setWalletId(e.target.value)}
             options={[
-              { value: '', label: "Don't book a cash leg" },
+              {
+                value: '',
+                label: formatMessage({
+                  id: 'closeOption.DonTBookACashLeg',
+                  defaultMessage: "Don't book a cash leg",
+                }),
+              },
               ...accounts.map((a) => ({ value: a.id, label: a.name })),
             ]}
           />

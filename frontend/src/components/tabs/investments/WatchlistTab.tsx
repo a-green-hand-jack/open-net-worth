@@ -4,6 +4,7 @@
 // members are managed on Intel (or by asking Lucius).
 
 import { useMemo, useState } from 'react'
+import { useAppIntl } from '../../../i18n/useAppIntl'
 import { Button, Cluster, TabSkeleton, EmptyState, ErrorState } from '../../ui'
 import { LuciusCta } from '../../intro/LuciusCta'
 import { ChartLine, Columns3, Eye } from '../../../ui/icons'
@@ -61,6 +62,7 @@ const WATCHLIST_MESSAGE =
   'add them. Ask me one thing at a time.'
 
 export function WatchlistTab({ onNavigate, onAskLucius }: Props) {
+  const { formatMessage } = useAppIntl()
   const { board, loading, error, refresh } = useWatchlistBoard()
   // useNavigate, not useAssetNav(): Investments renders outside <AssetNavProvider>. Same
   // destination openAsset() picks for a ticker (the quote page resolves it once mounted).
@@ -137,12 +139,27 @@ export function WatchlistTab({ onNavigate, onAskLucius }: Props) {
       search: { from: 'investments', label: r.name },
     })
   if (loading)
-    return <TabSkeleton variant="holdings" label="Loading your watchlists…" header={false} />
+    return (
+      <TabSkeleton
+        variant="holdings"
+        label={formatMessage({
+          id: 'watchlist.LoadingYourWatchlists',
+          defaultMessage: 'Loading your watchlists…',
+        })}
+        header={false}
+      />
+    )
   if (error)
     return (
       <ErrorState
-        title="Couldn't load your watchlists"
-        message="The quote board didn't answer. Check your connection and try again."
+        title={formatMessage({
+          id: 'watchlist.CouldnTLoadYourWatchlists',
+          defaultMessage: "Couldn't load your watchlists",
+        })}
+        message={formatMessage({
+          id: 'watchlist.TheQuoteBoardDidnTAnswerCheckYourConnectionAndTryAgain',
+          defaultMessage: "The quote board didn't answer. Check your connection and try again.",
+        })}
         onRetry={() => void refresh()}
       />
     )
@@ -151,17 +168,27 @@ export function WatchlistTab({ onNavigate, onAskLucius }: Props) {
       <EmptyState
         fill
         icon={<Eye size={28} strokeWidth={1.5} aria-hidden="true" />}
-        title="No watchlists yet"
-        body="Create a watchlist on Intel and its tickers show up here with live quotes."
+        title={formatMessage({
+          id: 'watchlist.NoWatchlistsYet',
+          defaultMessage: 'No watchlists yet',
+        })}
+        body={formatMessage({
+          id: 'watchlist.CreateAWatchlistOnIntelAndItsTickersShowUpHereWithLiveQuotes',
+          defaultMessage:
+            'Create a watchlist on Intel and its tickers show up here with live quotes.',
+        })}
         action={
           <Cluster gap="--space-3" justify="center">
             {onNavigate && (
               <Button variant="primary" size="sm" onClick={() => onNavigate('intel')}>
-                Go to Intel
+                {formatMessage({ id: 'watchlist.GoToIntel', defaultMessage: 'Go to Intel' })}
               </Button>
             )}
             <LuciusCta
-              label="Create with Lucius"
+              label={formatMessage({
+                id: 'watchlist.CreateWithLucius',
+                defaultMessage: 'Create with Lucius',
+              })}
               message={WATCHLIST_MESSAGE}
               onAskLucius={onAskLucius}
             />
@@ -190,8 +217,18 @@ export function WatchlistTab({ onNavigate, onAskLucius }: Props) {
             </svg>
             <input
               className="mk-search"
-              aria-label="Search watchlist"
-              placeholder={isMobile ? 'Search…' : 'Search this watchlist…'}
+              aria-label={formatMessage({
+                id: 'watchlist.SearchWatchlist',
+                defaultMessage: 'Search watchlist',
+              })}
+              placeholder={
+                isMobile
+                  ? formatMessage({ id: 'watchlist.Search', defaultMessage: 'Search…' })
+                  : formatMessage({
+                      id: 'watchlist.SearchThisWatchlist',
+                      defaultMessage: 'Search this watchlist…',
+                    })
+              }
               value={search}
               onChange={(e) => setSearch(e.target.value)}
             />
@@ -200,30 +237,49 @@ export function WatchlistTab({ onNavigate, onAskLucius }: Props) {
             type="button"
             className={`mk-wtool${showSpark ? ' on' : ''}`}
             aria-pressed={showSpark}
-            title="Sparkline charts"
+            title={formatMessage({
+              id: 'watchlist.SparklineCharts',
+              defaultMessage: 'Sparkline charts',
+            })}
             onClick={toggleSpark}
           >
             <ChartLine size={15} strokeWidth={1.7} aria-hidden="true" />
-            {!isMobile && <span>Sparklines</span>}
+            {!isMobile && (
+              <span>
+                {formatMessage({ id: 'watchlist.Sparklines', defaultMessage: 'Sparklines' })}
+              </span>
+            )}
           </button>
           {density === 'table' && (
             <button
               type="button"
               className="mk-wtool"
-              title="Manage columns"
+              title={formatMessage({
+                id: 'watchlist.ManageColumns',
+                defaultMessage: 'Manage columns',
+              })}
               onClick={() => setColsOpen(true)}
             >
               <Columns3 size={15} strokeWidth={1.7} aria-hidden="true" />
-              {!isMobile && <span>Columns</span>}
+              {!isMobile && (
+                <span>{formatMessage({ id: 'watchlist.Columns', defaultMessage: 'Columns' })}</span>
+              )}
             </button>
           )}
-          <div className="mk-density" role="radiogroup" aria-label="Watchlist density">
+          <div
+            className="mk-density"
+            role="radiogroup"
+            aria-label={formatMessage({
+              id: 'watchlist.WatchlistDensity',
+              defaultMessage: 'Watchlist density',
+            })}
+          >
             <button
               type="button"
               role="radio"
               aria-checked={density === 'cards'}
-              aria-label="Card view"
-              title="Card view"
+              aria-label={formatMessage({ id: 'watchlist.CardView', defaultMessage: 'Card view' })}
+              title={formatMessage({ id: 'watchlist.CardView', defaultMessage: 'Card view' })}
               className={density === 'cards' ? 'on' : ''}
               onClick={() => setDensity('cards')}
             >
@@ -244,8 +300,11 @@ export function WatchlistTab({ onNavigate, onAskLucius }: Props) {
               type="button"
               role="radio"
               aria-checked={density === 'table'}
-              aria-label="Table view"
-              title="Table view"
+              aria-label={formatMessage({
+                id: 'watchlist.TableView',
+                defaultMessage: 'Table view',
+              })}
+              title={formatMessage({ id: 'watchlist.TableView', defaultMessage: 'Table view' })}
               className={density === 'table' ? 'on' : ''}
               onClick={() => setDensity('table')}
             >
@@ -267,7 +326,11 @@ export function WatchlistTab({ onNavigate, onAskLucius }: Props) {
         </div>
 
         <div className="intel-feed-bar">
-          <div className="mk-chips" role="tablist" aria-label="Watchlists">
+          <div
+            className="mk-chips"
+            role="tablist"
+            aria-label={formatMessage({ id: 'watchlist.Watchlists', defaultMessage: 'Watchlists' })}
+          >
             {lists.map((l) => (
               <button
                 key={l.id}
@@ -287,7 +350,15 @@ export function WatchlistTab({ onNavigate, onAskLucius }: Props) {
 
       {visible.length === 0 ? (
         <div className="mk-empty-filter">
-          {search ? 'No tickers match your search.' : 'This watchlist has no tickers yet.'}
+          {search
+            ? formatMessage({
+                id: 'watchlist.NoTickersMatchYourSearch',
+                defaultMessage: 'No tickers match your search.',
+              })
+            : formatMessage({
+                id: 'watchlist.ThisWatchlistHasNoTickersYet',
+                defaultMessage: 'This watchlist has no tickers yet.',
+              })}
         </div>
       ) : density === 'cards' ? (
         <WatchCards

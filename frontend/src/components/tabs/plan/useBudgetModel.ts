@@ -8,6 +8,8 @@ import { useUndoPill } from './useUndoPill'
 import { authFetch } from '../../../api/client'
 import { useBudget, monthLabel as serverMonthLabel, nextMonth } from '../../../hooks/useBudget'
 import type { BudgetCategoryRow, BudgetGroup as ServerGroup } from '../../../hooks/useBudget'
+import { useAppIntl } from '../../../i18n/useAppIntl'
+import type { IntlShape } from 'react-intl'
 
 // ── Local types: PD types extended with 'custom' cadence (by_date targets) ───
 export type LocalCat = Omit<PD.BudgetCategory, 'cad' | 'everyUnit'> & {
@@ -77,14 +79,66 @@ const HISTORY_AUTO_MODES: Record<string, string> = {
   // `auto_assign_preview`) — it just never had a frontend entry point.
   'Average Spent': 'average_spent',
 }
-const AUTO_MSGS: Record<string, string> = {
-  Underfunded: 'Funded all targets',
-  'Assigned Last Month': "Matched last month's assignments",
-  'Spent Last Month': "Assigned last month's spending",
-  'Average Assigned': 'Assigned your monthly average',
-  'Average Spent': 'Assigned your average spending',
-  'Reset Available Amounts': "Reset every envelope's available amount to zero",
-  'Reset Assigned Amounts': 'Released all assignments to Ready to Assign',
+function autoMessage(intl: IntlShape, key: string): string {
+  const { formatMessage } = intl
+  switch (key) {
+    case 'Underfunded':
+      return formatMessage({ id: 'plan.model.autoFunded', defaultMessage: 'Funded all targets' })
+    case 'Assigned Last Month':
+      return formatMessage({
+        id: 'plan.model.autoAssignedLast',
+        defaultMessage: "Matched last month's assignments",
+      })
+    case 'Spent Last Month':
+      return formatMessage({
+        id: 'plan.model.autoSpentLast',
+        defaultMessage: "Assigned last month's spending",
+      })
+    case 'Average Assigned':
+      return formatMessage({
+        id: 'plan.model.autoAverageAssigned',
+        defaultMessage: 'Assigned your monthly average',
+      })
+    case 'Average Spent':
+      return formatMessage({
+        id: 'plan.model.autoAverageSpent',
+        defaultMessage: 'Assigned your average spending',
+      })
+    case 'Reset Available Amounts':
+      return formatMessage({
+        id: 'plan.model.autoResetAvailable',
+        defaultMessage: "Reset every envelope's available amount to zero",
+      })
+    case 'Reset Assigned Amounts':
+      return formatMessage({
+        id: 'plan.model.autoResetAssigned',
+        defaultMessage: 'Released all assignments to Ready to Assign',
+      })
+    default:
+      return formatMessage({ id: 'plan.model.autoApplied', defaultMessage: 'Applied' })
+  }
+}
+
+function autoAction(intl: IntlShape, key: string): string {
+  const { formatMessage } = intl
+  switch (key) {
+    case 'Assigned Last Month':
+      return formatMessage({
+        id: 'plan.model.actionAssignedLast',
+        defaultMessage: 'Assigned Last Month',
+      })
+    case 'Spent Last Month':
+      return formatMessage({ id: 'plan.model.actionSpentLast', defaultMessage: 'Spent Last Month' })
+    case 'Average Assigned':
+      return formatMessage({
+        id: 'plan.model.actionAverageAssigned',
+        defaultMessage: 'Average Assigned',
+      })
+    case 'Average Spent':
+      return formatMessage({ id: 'plan.model.actionAverageSpent', defaultMessage: 'Average Spent' })
+    default:
+      return key
+  }
 }
 
 // ── The identity's envelope-side term, per assignment (ADR 2026-09-09) ────────────────────
@@ -215,7 +269,7 @@ export function stableColor(key: string): string {
 }
 
 // A write's server rejection surfaces its real {detail} rather than a generic message.
-function errMsg(err: unknown, fallback = 'Something went wrong'): string {
+function errMsg(err: unknown, fallback: string): string {
   return err instanceof Error && err.message ? err.message : fallback
 }
 
@@ -404,6 +458,8 @@ export function recompute(gs: LocalGroup[]): LocalGroup[] {
 
 // ── Hook ──────────────────────────────────────────────────────────────────────
 export function useBudgetModel() {
+  const intl = useAppIntl()
+  const { formatMessage } = intl
   const bud = useBudget()
   const {
     month,
@@ -482,23 +538,29 @@ export function useBudgetModel() {
   // A raw POST /api/planning/apply — used only where the caller needs a month OTHER than the
   // hook's current one (the delete-envelope undo replays `zeroed_assignments` across every
   // month it touched, not just the current one; `assign()` above is pinned to `month`).
-  const applyChange = useCallback(async (change: Record<string, unknown>): Promise<void> => {
-    const r = await authFetch('/api/planning/apply', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(change),
-    })
-    if (!r.ok) {
-      let detail = `Request failed (${r.status})`
-      try {
-        const body = await r.json()
-        if (body?.detail) detail = String(body.detail)
-      } catch {
-        /* non-JSON error body */
+  const applyChange = useCallback(
+    async (change: Record<string, unknown>): Promise<void> => {
+      const r = await authFetch('/api/planning/apply', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(change),
+      })
+      if (!r.ok) {
+        let detail = formatMessage(
+          { id: 'plan.model.requestFailed', defaultMessage: 'Request failed ({status})' },
+          { status: r.status },
+        )
+        try {
+          const body = await r.json()
+          if (body?.detail) detail = String(body.detail)
+        } catch {
+          /* non-JSON error body */
+        }
+        throw new Error(detail)
       }
-      throw new Error(detail)
-    }
-  }, [])
+    },
+    [formatMessage],
+  )
 
   // The DERIVED "Uncategorized" group (None-category expense activity) is server-synthesized,
   // never a stored category — it carries no real key, so it's excluded from the editable
@@ -575,16 +637,32 @@ export function useBudgetModel() {
       assign(key, newValue)
         .then(() =>
           captureUndo(
-            delta > 0 ? `Assigned ${PD.fSmart(delta)}` : `Released ${PD.fSmart(-delta)}`,
+            delta > 0
+              ? formatMessage(
+                  { id: 'plan.model.assignedUndo', defaultMessage: 'Assigned {amount}' },
+                  { amount: PD.fSmart(delta) },
+                )
+              : formatMessage(
+                  { id: 'plan.model.releasedUndo', defaultMessage: 'Released {amount}' },
+                  { amount: PD.fSmart(-delta) },
+                ),
             () => assign(key, prevAssigned),
           ),
         )
         .catch((err) => {
           refresh()
-          toast?.(errMsg(err))
+          toast?.(
+            errMsg(
+              err,
+              formatMessage({
+                id: 'plan.model.genericError',
+                defaultMessage: 'Something went wrong',
+              }),
+            ),
+          )
         })
     },
-    [assign, refresh, captureUndo, applyOptimisticTerms],
+    [assign, refresh, captureUndo, applyOptimisticTerms, formatMessage],
   )
 
   // ── Auto-assign preview (handoff delta #10) ── EVERY toolbar mode previews before applying:
@@ -657,7 +735,7 @@ export function useBudgetModel() {
         ),
       )
       applyOptimisticTerms(prev.steps.map((s) => s.delta))
-      toast(AUTO_MSGS[prev.label] ?? 'Applied')
+      toast(autoMessage(intl, prev.label))
       const serverMode = HISTORY_AUTO_MODES[prev.label]
       const forMonth = month
       void (async () => {
@@ -668,17 +746,31 @@ export function useBudgetModel() {
             for (const s of prev.steps) await assign(s.key, s.next)
           }
           refresh()
-          captureUndo(`Auto-assign • ${PD.fSmart(Math.abs(prev.total))}`, async () => {
-            for (const s of prev.steps) await assign(s.key, s.cur)
-            refresh()
-          })
+          captureUndo(
+            formatMessage(
+              { id: 'plan.model.autoUndo', defaultMessage: 'Auto-assign • {amount}' },
+              { amount: PD.fSmart(Math.abs(prev.total)) },
+            ),
+            async () => {
+              for (const s of prev.steps) await assign(s.key, s.cur)
+              refresh()
+            },
+          )
         } catch (err) {
           refresh()
-          toast(errMsg(err))
+          toast(
+            errMsg(
+              err,
+              formatMessage({
+                id: 'plan.model.genericError',
+                defaultMessage: 'Something went wrong',
+              }),
+            ),
+          )
         }
       })()
     },
-    [assign, refresh, captureUndo, applyChange, month, applyOptimisticTerms],
+    [assign, refresh, captureUndo, applyChange, month, applyOptimisticTerms, intl, formatMessage],
   )
 
   const moneyOp = useCallback(
@@ -698,7 +790,15 @@ export function useBudgetModel() {
             // that names the price: lead with what left Ready to Assign, not with the reassuring
             // half. Deliberately NOT a confirm dialog — an extra click on every cover would cost
             // more than the sentence does.
-            say('−' + PD.fSmart(amt) + ' from Ready to Assign — ' + c.label + ' is covered')
+            say(
+              formatMessage(
+                {
+                  id: 'plan.model.covered',
+                  defaultMessage: '−{amount} from Ready to Assign — {name} is covered',
+                },
+                { amount: PD.fSmart(amt), name: c.label },
+              ),
+            )
           }
           break
         }
@@ -706,7 +806,12 @@ export function useBudgetModel() {
           const amt = c.needed
           if (amt > 0.005) {
             assignTo(key, A + amt, toast)
-            say('Funded ' + c.label + ' • ' + PD.fSmart(amt))
+            say(
+              formatMessage(
+                { id: 'plan.model.funded', defaultMessage: 'Funded {name} • {amount}' },
+                { name: c.label, amount: PD.fSmart(amt) },
+              ),
+            )
           }
           break
         }
@@ -714,7 +819,15 @@ export function useBudgetModel() {
           const ex = c.available - (c.target || 0)
           if (ex > 0.005) {
             assignTo(key, A - ex, toast)
-            say('Moved ' + PD.fSmart(ex) + ' from ' + c.label + ' to Ready to Assign')
+            say(
+              formatMessage(
+                {
+                  id: 'plan.model.movedToRta',
+                  defaultMessage: 'Moved {amount} from {name} to Ready to Assign',
+                },
+                { amount: PD.fSmart(ex), name: c.label },
+              ),
+            )
           }
           break
         }
@@ -724,21 +837,42 @@ export function useBudgetModel() {
           const amt = PD.envelopeUnderfunded(PD.targetProgress(c).toGo, c.available)
           if (amt > 0.005) {
             assignTo(key, A + amt, toast)
-            say('Assigned ' + PD.fSmart(amt) + ' to ' + c.label)
+            say(
+              formatMessage(
+                { id: 'plan.model.assignedTo', defaultMessage: 'Assigned {amount} to {name}' },
+                { amount: PD.fSmart(amt), name: c.label },
+              ),
+            )
           }
           break
         }
         case 'Reset Available Amount': {
           if (Math.abs(c.available) > 0.005) {
             assignTo(key, A - c.available, toast)
-            say('Reset ' + c.label + ' available to ' + PD.fBase(0))
+            say(
+              formatMessage(
+                {
+                  id: 'plan.model.resetAvailable',
+                  defaultMessage: 'Reset {name} available to {amount}',
+                },
+                { name: c.label, amount: PD.fBase(0) },
+              ),
+            )
           }
           break
         }
         case 'Reset Assigned Amount': {
           if (Math.abs(A) > 0.005) {
             assignTo(key, 0, toast)
-            say('Reset ' + c.label + ' assigned to ' + PD.fBase(0))
+            say(
+              formatMessage(
+                {
+                  id: 'plan.model.resetAssigned',
+                  defaultMessage: 'Reset {name} assigned to {amount}',
+                },
+                { name: c.label, amount: PD.fBase(0) },
+              ),
+            )
           }
           break
         }
@@ -755,14 +889,27 @@ export function useBudgetModel() {
             const { steps } = await autoAssignPreview(month, mode)
             const step = steps.find((s) => s.envelope_id === key)
             assignTo(key, step?.new_assigned ?? amount ?? A, toast)
-            say(kind + ' for ' + c.label)
+            say(
+              formatMessage(
+                { id: 'plan.model.autoFor', defaultMessage: '{action} for {name}' },
+                { action: autoAction(intl, kind), name: c.label },
+              ),
+            )
           } catch (err) {
-            toast?.(errMsg(err, 'Failed to preview auto-assign'))
+            toast?.(
+              errMsg(
+                err,
+                formatMessage({
+                  id: 'plan.budgetAuto.previewFailed',
+                  defaultMessage: 'Failed to preview auto-assign',
+                }),
+              ),
+            )
           }
         }
       }
     },
-    [assignTo, month, autoAssignPreview],
+    [assignTo, month, autoAssignPreview, formatMessage, intl],
   )
 
   // Envelope↔envelope move money (owner-approved feature B4), extended for handoff delta #9:
@@ -808,10 +955,28 @@ export function useBudgetModel() {
       // the other leg moves the headline on its own.
       applyOptimisticTerms([...(from ? [-amt] : []), ...(to ? [amt] : [])])
       const toastMsg = toIsRta
-        ? `Moved ${PD.fSmart(amt)} from ${from!.label} to Ready to Assign`
+        ? formatMessage(
+            {
+              id: 'plan.model.movedToRta',
+              defaultMessage: 'Moved {amount} from {name} to Ready to Assign',
+            },
+            { amount: PD.fSmart(amt), name: from!.label },
+          )
         : fromIsRta
-          ? `Assigned ${PD.fSmart(amt)} from Ready to Assign to ${to!.label}`
-          : `Moved ${PD.fSmart(amt)} from ${from!.label} to ${to!.label}`
+          ? formatMessage(
+              {
+                id: 'plan.model.assignedFromRta',
+                defaultMessage: 'Assigned {amount} from Ready to Assign to {name}',
+              },
+              { amount: PD.fSmart(amt), name: to!.label },
+            )
+          : formatMessage(
+              {
+                id: 'plan.model.movedBetween',
+                defaultMessage: 'Moved {amount} from {from} to {to}',
+              },
+              { amount: PD.fSmart(amt), from: from!.label, to: to!.label },
+            )
       toast(toastMsg)
       // FEB-01: capture-THEN-confirm — arming the pill before the server responds meant a
       // REFUSED move (e.g. releasing more than is assigned) still left a "working" undo whose
@@ -819,13 +984,29 @@ export function useBudgetModel() {
       // user never asked for. Only the server's OK arms the inverse; a refusal reverts via
       // refresh() and offers no undo for a write that never landed.
       serverMove(fromKey, toKey, amt)
-        .then(() => captureUndo(`Moved ${PD.fSmart(amt)}`, () => serverMove(toKey, fromKey, amt)))
+        .then(() =>
+          captureUndo(
+            formatMessage(
+              { id: 'plan.model.movedUndo', defaultMessage: 'Moved {amount}' },
+              { amount: PD.fSmart(amt) },
+            ),
+            () => serverMove(toKey, fromKey, amt),
+          ),
+        )
         .catch((err) => {
           refresh()
-          toast(errMsg(err))
+          toast(
+            errMsg(
+              err,
+              formatMessage({
+                id: 'plan.model.genericError',
+                defaultMessage: 'Something went wrong',
+              }),
+            ),
+          )
         })
     },
-    [serverMove, refresh, captureUndo, applyOptimisticTerms],
+    [serverMove, refresh, captureUndo, applyOptimisticTerms, formatMessage],
   )
 
   // ── Target CRUD ───────────────────────────────────────────────────────────
@@ -876,7 +1057,7 @@ export function useBudgetModel() {
           })),
         ),
       )
-      toast('Target saved')
+      toast(formatMessage({ id: 'plan.model.targetSaved', defaultMessage: 'Target saved' }))
       const type = t.cad === 'custom' ? 'by_date' : (t.cad as 'weekly' | 'monthly' | 'yearly' | '')
       const date = t.cad === 'custom' ? t.due : t.cad === 'yearly' ? t.yDue : undefined
       serverSetTarget(
@@ -890,10 +1071,18 @@ export function useBudgetModel() {
         t.cad === 'monthly' ? t.dueDay : undefined,
       ).catch((err) => {
         refresh()
-        toast(errMsg(err))
+        toast(
+          errMsg(
+            err,
+            formatMessage({
+              id: 'plan.model.genericError',
+              defaultMessage: 'Something went wrong',
+            }),
+          ),
+        )
       })
     },
-    [serverSetTarget, refresh],
+    [serverSetTarget, refresh, formatMessage],
   )
 
   // Snooze (or un-snooze) a category's target for the current month — persists snooze_until
@@ -903,7 +1092,9 @@ export function useBudgetModel() {
       const type = cat.cad === 'custom' ? 'by_date' : (cat.cad ?? '')
       const amount = cat.tamt ?? cat.target ?? 0
       if (!type || amount <= 0) {
-        toast('Set a target first')
+        toast(
+          formatMessage({ id: 'plan.model.setTargetFirst', defaultMessage: 'Set a target first' }),
+        )
         return
       }
       setModel((gs) =>
@@ -912,7 +1103,20 @@ export function useBudgetModel() {
           cats: g.cats.map((c) => (c.key === cat.key ? { ...c, snoozed: snooze } : c)),
         })),
       )
-      toast(snooze ? cat.label + ' target snoozed this month' : cat.label + ' target un-snoozed')
+      toast(
+        snooze
+          ? formatMessage(
+              {
+                id: 'plan.model.targetSnoozed',
+                defaultMessage: '{name} target snoozed this month',
+              },
+              { name: cat.label },
+            )
+          : formatMessage(
+              { id: 'plan.model.targetUnsnoozed', defaultMessage: '{name} target un-snoozed' },
+              { name: cat.label },
+            ),
+      )
       serverSetTarget(
         cat.key,
         type as 'weekly' | 'monthly' | 'yearly' | 'by_date',
@@ -922,10 +1126,18 @@ export function useBudgetModel() {
         cat.tt === 'set_aside',
       ).catch((err) => {
         refresh()
-        toast(errMsg(err))
+        toast(
+          errMsg(
+            err,
+            formatMessage({
+              id: 'plan.model.genericError',
+              defaultMessage: 'Something went wrong',
+            }),
+          ),
+        )
       })
     },
-    [serverSetTarget, refresh, month],
+    [serverSetTarget, refresh, month, formatMessage],
   )
 
   const removeTarget = useCallback(
@@ -951,13 +1163,21 @@ export function useBudgetModel() {
           })),
         ),
       )
-      toast('Target removed')
+      toast(formatMessage({ id: 'plan.model.targetRemoved', defaultMessage: 'Target removed' }))
       serverSetTarget(key, '', 0).catch((err) => {
         refresh()
-        toast(errMsg(err))
+        toast(
+          errMsg(
+            err,
+            formatMessage({
+              id: 'plan.model.genericError',
+              defaultMessage: 'Something went wrong',
+            }),
+          ),
+        )
       })
     },
-    [serverSetTarget, refresh],
+    [serverSetTarget, refresh, formatMessage],
   )
 
   // ── Envelope create (RFC envelope⊥category full split; handoff item 4 — the New-envelope
@@ -1013,20 +1233,42 @@ export function useBudgetModel() {
           const env = await serverCreateEnvelope(label, gid, color)
           for (const key of categoryIds) await serverAddCategoryToEnvelope(env.id, key)
           const labels = categoryIds.map(
-            (k) => categories.find((c) => c.id === k)?.label ?? 'Uncategorized',
+            (k) =>
+              categories.find((c) => c.id === k)?.label ??
+              formatMessage({ id: 'plan.uncategorized', defaultMessage: 'Uncategorized' }),
           )
           toast?.(
             labels.length
-              ? `Envelope “${label}” created — funds ${labels.join(', ')}`
-              : `Envelope “${label}” created — link categories from its ⋯ menu`,
+              ? formatMessage(
+                  {
+                    id: 'plan.model.envelopeCreatedWithCategories',
+                    defaultMessage: 'Envelope “{name}” created — funds {categories}',
+                  },
+                  { name: label, categories: labels.join(', ') },
+                )
+              : formatMessage(
+                  {
+                    id: 'plan.model.envelopeCreated',
+                    defaultMessage: 'Envelope “{name}” created — link categories from its ⋯ menu',
+                  },
+                  { name: label },
+                ),
           )
         } catch (err) {
           refresh()
-          toast?.(errMsg(err))
+          toast?.(
+            errMsg(
+              err,
+              formatMessage({
+                id: 'plan.model.genericError',
+                defaultMessage: 'Something went wrong',
+              }),
+            ),
+          )
         }
       })()
     },
-    [serverCreateEnvelope, serverAddCategoryToEnvelope, refresh, categories],
+    [serverCreateEnvelope, serverAddCategoryToEnvelope, refresh, categories, formatMessage],
   )
 
   // Row dot recolor (handoff item 5 — envelope owns its colour): PATCHes the ENVELOPE, not the
@@ -1041,13 +1283,21 @@ export function useBudgetModel() {
           cats: g.cats.map((c) => (c.envelopeId === envelopeId ? { ...c, color } : c)),
         })),
       )
-      toast('Color updated')
+      toast(formatMessage({ id: 'plan.model.colorUpdated', defaultMessage: 'Color updated' }))
       serverSetEnvelopeColor(envelopeId, color).catch((err) => {
         refresh()
-        toast(errMsg(err, 'Failed to update color'))
+        toast(
+          errMsg(
+            err,
+            formatMessage({
+              id: 'plan.model.colorFailed',
+              defaultMessage: 'Failed to update color',
+            }),
+          ),
+        )
       })
     },
-    [serverSetEnvelopeColor, refresh],
+    [serverSetEnvelopeColor, refresh, formatMessage],
   )
 
   // ── Envelope lifecycle: delete (ADR 2026-09-26-deleting-an-envelope-deletes-it) ───────────
@@ -1064,7 +1314,10 @@ export function useBudgetModel() {
       return serverDeleteEnvelope(envelopeId, month)
         .then((result) => {
           toast(
-            `Envelope “${envelopeName}” deleted` +
+            formatMessage(
+              { id: 'plan.model.envelopeDeleted', defaultMessage: 'Envelope “{name}” deleted' },
+              { name: envelopeName },
+            ) +
               // Deleting an envelope drops its row out of `held_in_envelopes`, releasing a
               // positive balance to Ready to Assign. A hole does NOT die with the envelope
               // (ADR 2026-09-10): the detached categories are unlinked, and unlinked cash
@@ -1072,23 +1325,49 @@ export function useBudgetModel() {
               // roll — so Ready to Assign is not charged now. Same fact the confirmation
               // modal states before the click (`DeleteEnvelopeModal`).
               (result.delta_rta > 0.005
-                ? ` — ${PD.fSmart(result.delta_rta)} returned to Ready to Assign`
+                ? formatMessage(
+                    {
+                      id: 'plan.model.returned',
+                      defaultMessage: ' — {amount} returned to Ready to Assign',
+                    },
+                    { amount: PD.fSmart(result.delta_rta) },
+                  )
                 : result.available < -0.005
-                  ? ` — its ${PD.fSmart(-result.available)} overspend is still held until month-end`
+                  ? formatMessage(
+                      {
+                        id: 'plan.model.overspendHeld',
+                        defaultMessage: ' — its {amount} overspend is still held until month-end',
+                      },
+                      { amount: PD.fSmart(-result.available) },
+                    )
                   : ''),
           )
-          captureUndo('Envelope deleted', async () => {
-            await serverUndoDeleteEnvelope(result.undo_token)
-            refresh()
-          })
+          captureUndo(
+            formatMessage({
+              id: 'plan.model.envelopeDeletedUndo',
+              defaultMessage: 'Envelope deleted',
+            }),
+            async () => {
+              await serverUndoDeleteEnvelope(result.undo_token)
+              refresh()
+            },
+          )
           return result
         })
         .catch((err) => {
-          toast(errMsg(err, 'Failed to delete envelope'))
+          toast(
+            errMsg(
+              err,
+              formatMessage({
+                id: 'plan.model.deleteFailed',
+                defaultMessage: 'Failed to delete envelope',
+              }),
+            ),
+          )
           throw err
         })
     },
-    [serverDeleteEnvelope, serverUndoDeleteEnvelope, refresh, captureUndo, month],
+    [serverDeleteEnvelope, serverUndoDeleteEnvelope, refresh, captureUndo, month, formatMessage],
   )
 
   // ── Category CRUD ─────────────────────────────────────────────────────────
@@ -1099,10 +1378,18 @@ export function useBudgetModel() {
       )
       serverRenameCategory(key, label).catch((err) => {
         refresh()
-        toast?.(errMsg(err))
+        toast?.(
+          errMsg(
+            err,
+            formatMessage({
+              id: 'plan.model.genericError',
+              defaultMessage: 'Something went wrong',
+            }),
+          ),
+        )
       })
     },
-    [serverRenameCategory, refresh],
+    [serverRenameCategory, refresh, formatMessage],
   )
 
   // Optimistic remove → server delete. On a 409 (the category is referenced by transactions
@@ -1121,16 +1408,30 @@ export function useBudgetModel() {
       )
       toast?.(
         reassignLabel
-          ? 'Category deleted — activity moved to ' + reassignLabel
-          : 'Category deleted',
+          ? formatMessage(
+              {
+                id: 'plan.model.categoryDeletedMoved',
+                defaultMessage: 'Category deleted — activity moved to {name}',
+              },
+              { name: reassignLabel },
+            )
+          : formatMessage({ id: 'plan.model.categoryDeleted', defaultMessage: 'Category deleted' }),
       )
       return serverDeleteCategory(key, !!reassignToKey, reassignToKey).catch((err) => {
         refresh()
-        toast?.(errMsg(err))
+        toast?.(
+          errMsg(
+            err,
+            formatMessage({
+              id: 'plan.model.genericError',
+              defaultMessage: 'Something went wrong',
+            }),
+          ),
+        )
         throw err
       })
     },
-    [serverDeleteCategory, refresh],
+    [serverDeleteCategory, refresh, formatMessage],
   )
 
   // ── Envelope lifecycle (P4 — merge/split/rename) ──────────────────────────────
@@ -1139,10 +1440,22 @@ export function useBudgetModel() {
   const renameEnvelope = useCallback(
     (envelopeId: string, name: string, toast: (msg: string) => void) => {
       serverRenameEnvelope(envelopeId, name)
-        .then(() => toast('Envelope renamed'))
-        .catch((err) => toast(errMsg(err, 'Failed to rename envelope')))
+        .then(() =>
+          toast(formatMessage({ id: 'plan.model.renamed', defaultMessage: 'Envelope renamed' })),
+        )
+        .catch((err) =>
+          toast(
+            errMsg(
+              err,
+              formatMessage({
+                id: 'plan.model.renameFailed',
+                defaultMessage: 'Failed to rename envelope',
+              }),
+            ),
+          ),
+        )
     },
-    [serverRenameEnvelope],
+    [serverRenameEnvelope, formatMessage],
   )
 
   const mergeEnvelope = useCallback(
@@ -1154,10 +1467,27 @@ export function useBudgetModel() {
       toast: (msg: string) => void,
     ) => {
       serverMergeEnvelope(sourceEnvelopeId, targetEnvelopeId)
-        .then(() => toast(`Merged ${sourceName} into ${targetName}`))
-        .catch((err) => toast(errMsg(err, 'Failed to merge envelopes')))
+        .then(() =>
+          toast(
+            formatMessage(
+              { id: 'plan.model.merged', defaultMessage: 'Merged {source} into {target}' },
+              { source: sourceName, target: targetName },
+            ),
+          ),
+        )
+        .catch((err) =>
+          toast(
+            errMsg(
+              err,
+              formatMessage({
+                id: 'plan.model.mergeFailed',
+                defaultMessage: 'Failed to merge envelopes',
+              }),
+            ),
+          ),
+        )
     },
-    [serverMergeEnvelope],
+    [serverMergeEnvelope, formatMessage],
   )
 
   // Unlink (handoff item 1 — copy CHANGED: no longer "split into its own envelope", since
@@ -1178,15 +1508,36 @@ export function useBudgetModel() {
           // dormant unlinked category (an annual bill, say) can vanish from view entirely; point
           // at the two real re-link paths instead of promising a row that may not exist.
           toast(
-            `${categoryLabel} unlinked from ${envelopeName} — link it again via any envelope's Add categories…, or from Manage categories`,
+            formatMessage(
+              {
+                id: 'plan.model.unlinked',
+                defaultMessage:
+                  "{category} unlinked from {envelope} — link it again via any envelope's Add categories…, or from Manage categories",
+              },
+              { category: categoryLabel, envelope: envelopeName },
+            ),
           )
-          captureUndo(`${categoryLabel} unlinked`, () =>
-            serverAddCategoryToEnvelope(envelopeId, categoryId),
+          captureUndo(
+            formatMessage(
+              { id: 'plan.model.unlinkedUndo', defaultMessage: '{category} unlinked' },
+              { category: categoryLabel },
+            ),
+            () => serverAddCategoryToEnvelope(envelopeId, categoryId),
           )
         })
-        .catch((err) => toast(errMsg(err, 'Failed to remove category')))
+        .catch((err) =>
+          toast(
+            errMsg(
+              err,
+              formatMessage({
+                id: 'plan.model.unlinkFailed',
+                defaultMessage: 'Failed to remove category',
+              }),
+            ),
+          ),
+        )
     },
-    [serverSplitCategory, serverAddCategoryToEnvelope, captureUndo],
+    [serverSplitCategory, serverAddCategoryToEnvelope, captureUndo, formatMessage],
   )
 
   // "Add categories…" — the envelope-side direction (owner, 2026-07-03): stand on an
@@ -1207,22 +1558,51 @@ export function useBudgetModel() {
       return serverAddCategories(targetEnvelopeId, picks)
         .then(() => {
           toast(
-            `Added ${picks.length} ${picks.length === 1 ? 'category' : 'categories'} to ${targetName}`,
+            formatMessage(
+              {
+                id: 'plan.model.categoriesAdded',
+                defaultMessage:
+                  'Added {count, plural, one {# category} other {# categories}} to {target}',
+              },
+              { count: picks.length, target: targetName },
+            ),
           )
           if (!picks.some((p) => p.soleMember)) {
-            captureUndo('Categories added', async () => {
-              for (const p of picks) {
-                await serverSplitCategory(targetEnvelopeId, p.categoryId)
-                // One that came from outside every envelope goes back there: nothing to re-link.
-                if (p.sourceEnvelopeId)
-                  await serverAddCategoryToEnvelope(p.sourceEnvelopeId, p.categoryId)
-              }
-            })
+            captureUndo(
+              formatMessage({
+                id: 'plan.model.categoriesAddedUndo',
+                defaultMessage: 'Categories added',
+              }),
+              async () => {
+                for (const p of picks) {
+                  await serverSplitCategory(targetEnvelopeId, p.categoryId)
+                  // One that came from outside every envelope goes back there: nothing to re-link.
+                  if (p.sourceEnvelopeId)
+                    await serverAddCategoryToEnvelope(p.sourceEnvelopeId, p.categoryId)
+                }
+              },
+            )
           }
         })
-        .catch((err) => toast(errMsg(err, 'Failed to add categories')))
+        .catch((err) =>
+          toast(
+            errMsg(
+              err,
+              formatMessage({
+                id: 'plan.model.addCategoriesFailed',
+                defaultMessage: 'Failed to add categories',
+              }),
+            ),
+          ),
+        )
     },
-    [serverAddCategories, serverSplitCategory, serverAddCategoryToEnvelope, captureUndo],
+    [
+      serverAddCategories,
+      serverSplitCategory,
+      serverAddCategoryToEnvelope,
+      captureUndo,
+      formatMessage,
+    ],
   )
 
   // "Add to envelope…" from the Unbudgeted surface — a single category with NO envelope yet,
@@ -1239,14 +1619,33 @@ export function useBudgetModel() {
       return serverAddCategoryToEnvelope(targetEnvelopeId, categoryId)
         .then(() => {
           // CONF-7 — prototype copy (budget.jsx:1269).
-          toast(`${categoryLabel} now draws from ${targetName}`)
-          captureUndo(`${categoryLabel} linked`, () =>
-            serverSplitCategory(targetEnvelopeId, categoryId),
+          toast(
+            formatMessage(
+              { id: 'plan.model.linked', defaultMessage: '{category} now draws from {target}' },
+              { category: categoryLabel, target: targetName },
+            ),
+          )
+          captureUndo(
+            formatMessage(
+              { id: 'plan.model.linkedUndo', defaultMessage: '{category} linked' },
+              { category: categoryLabel },
+            ),
+            () => serverSplitCategory(targetEnvelopeId, categoryId),
           )
         })
-        .catch((err) => toast(errMsg(err, 'Failed to add to envelope')))
+        .catch((err) =>
+          toast(
+            errMsg(
+              err,
+              formatMessage({
+                id: 'plan.model.linkFailed',
+                defaultMessage: 'Failed to add to envelope',
+              }),
+            ),
+          ),
+        )
     },
-    [serverAddCategoryToEnvelope, serverSplitCategory, captureUndo],
+    [serverAddCategoryToEnvelope, serverSplitCategory, captureUndo, formatMessage],
   )
 
   // Hide/unhide is a CATEGORY flag server-side (`/api/categories/{key}/hide`) — every call
@@ -1267,10 +1666,18 @@ export function useBudgetModel() {
       const req = c.hidden ? serverUnhideCategory(catKey) : serverHideCategory(catKey)
       req.catch((err) => {
         refresh()
-        toast?.(errMsg(err))
+        toast?.(
+          errMsg(
+            err,
+            formatMessage({
+              id: 'plan.model.genericError',
+              defaultMessage: 'Something went wrong',
+            }),
+          ),
+        )
       })
     },
-    [serverHideCategory, serverUnhideCategory, refresh],
+    [serverHideCategory, serverUnhideCategory, refresh, formatMessage],
   )
 
   const unhideGroup = useCallback(
@@ -1290,11 +1697,19 @@ export function useBudgetModel() {
           .map((c) => c.categoryIds[0]!)
         Promise.all(catKeys.map((k) => serverUnhideCategory(k))).catch((err) => {
           refresh()
-          toast?.(errMsg(err))
+          toast?.(
+            errMsg(
+              err,
+              formatMessage({
+                id: 'plan.model.genericError',
+                defaultMessage: 'Something went wrong',
+              }),
+            ),
+          )
         })
       }
     },
-    [model, serverUnhideCategory, refresh],
+    [model, serverUnhideCategory, refresh, formatMessage],
   )
 
   const unhideOneFromGroup = useCallback(
@@ -1310,10 +1725,18 @@ export function useBudgetModel() {
       if (catKey)
         serverUnhideCategory(catKey).catch((err) => {
           refresh()
-          toast?.(errMsg(err))
+          toast?.(
+            errMsg(
+              err,
+              formatMessage({
+                id: 'plan.model.genericError',
+                defaultMessage: 'Something went wrong',
+              }),
+            ),
+          )
         })
     },
-    [serverUnhideCategory, refresh],
+    [serverUnhideCategory, refresh, formatMessage],
   )
 
   const unhideAll = useCallback(
@@ -1328,13 +1751,26 @@ export function useBudgetModel() {
           cats: g.cats.map((c) => ({ ...c, hidden: false })),
         })),
       )
-      toast('All hidden envelopes restored') // CONF-7 — prototype copy (budget.jsx:1174), post-rename
+      toast(
+        formatMessage({
+          id: 'plan.model.restored',
+          defaultMessage: 'All hidden envelopes restored',
+        }),
+      )
       Promise.all(hiddenCatKeys.map((k) => serverUnhideCategory(k))).catch((err) => {
         refresh()
-        toast(errMsg(err))
+        toast(
+          errMsg(
+            err,
+            formatMessage({
+              id: 'plan.model.genericError',
+              defaultMessage: 'Something went wrong',
+            }),
+          ),
+        )
       })
     },
-    [serverUnhideCategory, refresh],
+    [serverUnhideCategory, refresh, formatMessage],
   )
 
   // ── Group CRUD ────────────────────────────────────────────────────────────
@@ -1353,13 +1789,26 @@ export function useBudgetModel() {
           ...gs,
         ]),
       )
-      toast('Group “' + name + '” added')
+      toast(
+        formatMessage(
+          { id: 'plan.model.groupAdded', defaultMessage: 'Group “{name}” added' },
+          { name },
+        ),
+      )
       createGroup(name).catch((err) => {
         refresh()
-        toast(errMsg(err))
+        toast(
+          errMsg(
+            err,
+            formatMessage({
+              id: 'plan.model.genericError',
+              defaultMessage: 'Something went wrong',
+            }),
+          ),
+        )
       })
     },
-    [createGroup, refresh],
+    [createGroup, refresh, formatMessage],
   )
 
   const renameGroup = useCallback(
@@ -1367,10 +1816,18 @@ export function useBudgetModel() {
       setModel((gs) => gs.map((g) => (g.id === gid ? { ...g, name } : g)))
       serverRenameGroup(gid, name).catch((err) => {
         refresh()
-        toast?.(errMsg(err))
+        toast?.(
+          errMsg(
+            err,
+            formatMessage({
+              id: 'plan.model.genericError',
+              defaultMessage: 'Something went wrong',
+            }),
+          ),
+        )
       })
     },
-    [serverRenameGroup, refresh],
+    [serverRenameGroup, refresh, formatMessage],
   )
 
   const hideGroup = useCallback(
@@ -1387,33 +1844,72 @@ export function useBudgetModel() {
         backed.length === 0 &&
         g.cats.every((c) => c.categoryIds.length === 0)
       ) {
-        toast(`"${g.name}" has no categories yet — link one before hiding the group`)
+        toast(
+          formatMessage(
+            {
+              id: 'plan.model.groupEmpty',
+              defaultMessage: '"{name}" has no categories yet — link one before hiding the group',
+            },
+            { name: g.name },
+          ),
+        )
         return
       }
       setModel((gs) => gs.map((x) => (x.id === gid ? { ...x, hidden: true } : x)))
-      toast('Group “' + g.name + '” hidden')
+      toast(
+        formatMessage(
+          { id: 'plan.model.groupHidden', defaultMessage: 'Group “{name}” hidden' },
+          { name: g.name },
+        ),
+      )
       // Persist by hiding every visible, category-backed member server-side (the agreed
       // semantics for group-hide — the group reappears on unhide via unhideGroup). `c.key` is
       // the envelope id (docs/adr/2026-07-05-envelope-id-native.md) — the hide endpoint needs
       // the row's PRIMARY category key, which `backed`'s own filter guarantees exists.
       Promise.all(backed.map((c) => serverHideCategory(c.categoryIds[0]!))).catch((err) => {
         refresh()
-        toast(errMsg(err))
+        toast(
+          errMsg(
+            err,
+            formatMessage({
+              id: 'plan.model.genericError',
+              defaultMessage: 'Something went wrong',
+            }),
+          ),
+        )
       })
     },
-    [model, serverHideCategory, refresh],
+    [model, serverHideCategory, refresh, formatMessage],
   )
 
   const deleteGroupConfirmed = useCallback(
     (gid: string, targetLabel: string | null, toast: (msg: string) => void) => {
       setModel((gs) => recompute(gs.filter((g) => g.id !== gid)))
-      toast(targetLabel ? 'Group deleted — activity moved to ' + targetLabel : 'Group deleted')
+      toast(
+        targetLabel
+          ? formatMessage(
+              {
+                id: 'plan.model.groupDeletedMoved',
+                defaultMessage: 'Group deleted — activity moved to {target}',
+              },
+              { target: targetLabel },
+            )
+          : formatMessage({ id: 'plan.model.groupDeleted', defaultMessage: 'Group deleted' }),
+      )
       serverDeleteGroup(gid).catch((err) => {
         refresh()
-        toast(errMsg(err))
+        toast(
+          errMsg(
+            err,
+            formatMessage({
+              id: 'plan.model.genericError',
+              defaultMessage: 'Something went wrong',
+            }),
+          ),
+        )
       })
     },
-    [serverDeleteGroup, refresh],
+    [serverDeleteGroup, refresh, formatMessage],
   )
 
   const toggleCollapse = useCallback(
@@ -1454,10 +1950,18 @@ export function useBudgetModel() {
       })
       serverMoveCategory(key, toGid, at).catch((err) => {
         refresh()
-        toast?.(errMsg(err))
+        toast?.(
+          errMsg(
+            err,
+            formatMessage({
+              id: 'plan.model.genericError',
+              defaultMessage: 'Something went wrong',
+            }),
+          ),
+        )
       })
     },
-    [serverMoveCategory, refresh],
+    [serverMoveCategory, refresh, formatMessage],
   )
 
   const dropCatOnRow = useCallback(
@@ -1503,17 +2007,33 @@ export function useBudgetModel() {
           const { groupId, keys } = pendingOrder
           serverReorderCategories(groupId, keys).catch((err) => {
             refresh()
-            toast?.(errMsg(err))
+            toast?.(
+              errMsg(
+                err,
+                formatMessage({
+                  id: 'plan.model.genericError',
+                  defaultMessage: 'Something went wrong',
+                }),
+              ),
+            )
           })
         }
       } else if (pendingOrder) {
         serverMoveCategory(drag.key, targetGid, pendingOrder.index).catch((err) => {
           refresh()
-          toast?.(errMsg(err))
+          toast?.(
+            errMsg(
+              err,
+              formatMessage({
+                id: 'plan.model.genericError',
+                defaultMessage: 'Something went wrong',
+              }),
+            ),
+          )
         })
       }
     },
-    [serverMoveCategory, serverReorderCategories, refresh],
+    [serverMoveCategory, serverReorderCategories, refresh, formatMessage],
   )
 
   const reorderGroupBefore = useCallback(
@@ -1532,10 +2052,18 @@ export function useBudgetModel() {
       if (newOrder.length)
         serverReorderGroups(newOrder).catch((err) => {
           refresh()
-          toast?.(errMsg(err))
+          toast?.(
+            errMsg(
+              err,
+              formatMessage({
+                id: 'plan.model.genericError',
+                defaultMessage: 'Something went wrong',
+              }),
+            ),
+          )
         })
     },
-    [serverReorderGroups, refresh],
+    [serverReorderGroups, refresh, formatMessage],
   )
 
   // FEB-08: an undo pill's inverse always correctly targets the MONTH it was captured in, but

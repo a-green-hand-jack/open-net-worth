@@ -4,7 +4,7 @@ import { mkdtemp, mkdir, writeFile, symlink, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { execFileSync } from 'node:child_process';
-import { BookInUseError, parseStartupError, parseReady, childEnvironment, runtimePath, bundledRuntime } from '../src/main/runtime';
+import { BookInUseError, DatabaseAheadError, parseStartupError, parseReady, childEnvironment, runtimePath, bundledRuntime } from '../src/main/runtime';
 
 test('startup failure identifies an owned busy book and rejects foreign or invalid responses', () => {
   const error = { type: 'startup_error', protocol: 1, instance_id: 'owned', version: '0.1.0', code: 'book_in_use', port: 8097 };
@@ -14,6 +14,13 @@ test('startup failure identifies an owned busy book and rejects foreign or inval
   for (const patch of [{ instance_id: 'foreign' }, { version: 'other' }, { protocol: 2 }, { code: 'unknown' }, { port: '8097' }, { port: -1 }]) {
     assert.throws(() => parseStartupError(JSON.stringify({ ...error, ...patch }), 'owned', '0.1.0'));
   }
+});
+
+test('database ahead has a distinct owned startup code and cannot carry a port', () => {
+  const error = { type: 'startup_error', protocol: 1, instance_id: 'owned', version: '0.1.0', code: 'database_ahead', port: null };
+  assert.ok(parseStartupError(JSON.stringify(error), 'owned', '0.1.0') instanceof DatabaseAheadError);
+  assert.throws(() => parseStartupError(JSON.stringify({ ...error, port: 8097 }), 'owned', '0.1.0'));
+  assert.throws(() => parseStartupError(JSON.stringify({ ...error, instance_id: 'other' }), 'owned', '0.1.0'));
 });
 
 test('readiness rejects another backend identity and invalid ports', () => {

@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { groupByAge } from './ConversationMenu'
+import { createIntl } from 'react-intl'
+import { groupByAge, shortWhen } from './ConversationMenu'
 import type { ConversationMeta } from '../../hooks/useConversations'
 
 // "Yesterday" is how people recall a conversation. Six identically-shaped rows each
@@ -55,4 +56,14 @@ describe('groupByAge', () => {
   it('returns nothing for an empty list', () => {
     expect(groupByAge([])).toEqual([])
   })
+})
+
+
+it('localizes yesterday for automation runs without changing chat rows', () => {
+  const yesterday = new Date()
+  yesterday.setDate(yesterday.getDate() - 1)
+  const run = conv({ source: 'automation', createdAt: yesterday.toISOString() })
+  const intl = createIntl({ locale: 'zh-CN', messages: { 'chat.age.yesterdayTime': '昨天 {time}' } })
+  expect(shortWhen(run, intl)).toMatch(/^昨天 /)
+  expect(shortWhen(conv({}), intl)).toBe('')
 })

@@ -56,6 +56,7 @@ export interface Automation {
   created_at: string
   updated_at: string
   provenance: Record<string, unknown>
+  template_source?: { name?: string; description?: string; instructions?: string }
   stats: Record<string, unknown>
 }
 
@@ -84,7 +85,9 @@ export interface AutomationRun {
   started_at: string
   finished_at: string | null
   summary: string
+  summary_message?: { id: string; params: Record<string, unknown> } | null
   error: string | null
+  error_message?: { id: string; params: Record<string, unknown> } | null
   steps: AutomationRunStep[]
   // The checklist the run declared for itself (set_run_plan), in its own words. The card
   // shows this when it exists; `steps` is the tool-by-tool trail behind it.
@@ -151,6 +154,7 @@ export interface ScheduledActivityItem {
 export interface FailedActivityItem extends ActiveActivityItem {
   status: 'failed'
   error?: string | null
+  error_message?: { id: string; params: Record<string, unknown> } | null
 }
 
 export interface AutomationActivity {
@@ -178,6 +182,7 @@ export interface AutomationOptionsResponse {
 export interface AutomationDraft {
   name: string
   description?: string
+  template_source?: { name?: string; description?: string; instructions?: string }
   instructions: string
   trigger: AutomationTrigger
   /** Only `{kind: "lucius"}` validates server-side (see `services/automations/service.py`);
@@ -194,16 +199,36 @@ export interface AutomationDraft {
   max_runs?: number | null
 }
 
+export class AutomationRequestError extends Error {
+  messageId?: string
+  messageParams?: Record<string, string | number>
+
+  constructor(message: string, messageId?: string, messageParams?: Record<string, string | number>) {
+    super(message)
+    this.messageId = messageId
+    this.messageParams = messageParams
+  }
+}
+
 async function asJson<T>(response: Response): Promise<T> {
   if (!response.ok) {
     let message: string
+    let messageId: string | undefined
+    let messageParams: Record<string, string | number> | undefined
     try {
-      const body = (await response.json()) as { detail?: string; message?: string }
+      const body = (await response.json()) as { detail?: string; message?: string; message_id?: unknown; message_params?: unknown }
       message = body.detail || body.message || ''
+      if (typeof body.message_id === 'string' && body.message_params && typeof body.message_params === 'object' && !Array.isArray(body.message_params)) {
+        const values = body.message_params as Record<string, unknown>
+        if (Object.values(values).every((v) => typeof v === 'string' || (typeof v === 'number' && Number.isFinite(v)))) {
+          messageId = body.message_id
+          messageParams = values as Record<string, string | number>
+        }
+      }
     } catch {
       message = await response.text().catch(() => '')
     }
-    throw new Error(message || `Request failed (${response.status})`)
+    throw new AutomationRequestError(message || `Request failed (${response.status})`, messageId, messageParams)
   }
   if (response.status === 204) return undefined as T
   return response.json() as Promise<T>

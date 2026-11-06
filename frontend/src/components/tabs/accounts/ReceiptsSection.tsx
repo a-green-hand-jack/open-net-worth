@@ -3,6 +3,7 @@
 // receipts-in-drawer UI spec. Renders inside TxnDetail.tsx's ViewBody, between the detail
 // rows and Provenance.
 import { Fragment, useRef, useState } from 'react'
+import { useAppIntl } from '../../../i18n/useAppIntl'
 import { Button } from '../../ui/Button'
 import { fmtDay } from './TxnDetail'
 import { ReceiptViewer } from './ReceiptViewer'
@@ -37,6 +38,7 @@ function ReceiptThumb({ receipt, onClick }: { receipt: ReceiptEntry; onClick: ()
 }
 
 export function ReceiptsSection({ txnId }: { txnId: string }) {
+  const { formatMessage } = useAppIntl()
   const { status, receipts, upload, unlink, refresh } = useTransactionReceipts(txnId)
   const fileInputRef = useRef<HTMLInputElement>(null)
   // Holds whichever files still need (re)attaching — the full picked batch on first attempt,
@@ -97,10 +99,10 @@ export function ReceiptsSection({ txnId }: { txnId: string }) {
       onClick={() => fileInputRef.current?.click()}
     >
       {attaching ? (
-        'Attaching…'
+        formatMessage({ id: 'accounts.receipt.attaching', defaultMessage: "Attaching…" })
       ) : (
         <>
-          <Plus size={13} aria-hidden="true" /> Attach receipt
+          <Plus size={13} aria-hidden="true" /> {formatMessage({ id: 'accounts.receipt.attach', defaultMessage: "Attach receipt" })}
         </>
       )}
     </button>
@@ -109,7 +111,7 @@ export function ReceiptsSection({ txnId }: { txnId: string }) {
   return (
     <>
       <div className="acct-detail-sec">
-        {receipts.length ? `Receipts (${receipts.length})` : 'Receipts'}
+        {receipts.length ? formatMessage({ id: 'accounts.receipt.count', defaultMessage: 'Receipts ({count})' }, { count: receipts.length }) : formatMessage({ id: 'accounts.receipt.receipts', defaultMessage: "Receipts" })}
       </div>
 
       <input
@@ -138,26 +140,26 @@ export function ReceiptsSection({ txnId }: { txnId: string }) {
 
       {status === 'error' && (
         <div className="acct-detail-receipts-empty">
-          <span className="acct-detail-receipt-err">Couldn't load receipts.</span>
+          <span className="acct-detail-receipt-err">{formatMessage({ id: 'accounts.receipt.loadFailed', defaultMessage: "Couldn't load receipts." })}</span>
           <Button size="sm" variant="secondary" onClick={refresh}>
-            Retry
+            {formatMessage({ id: 'accounts.receipt.retry', defaultMessage: "Retry" })}
           </Button>
         </div>
       )}
 
       {status === 'ok' && receipts.length === 0 && (
         <div className="acct-detail-receipts-empty">
-          <span>No receipts attached yet.</span>
+          <span>{formatMessage({ id: 'accounts.receipt.none', defaultMessage: "No receipts attached yet." })}</span>
           {attachButton}
           {failedCount > 0 && (
             <>
               <span className="acct-detail-receipt-err">
                 {failedCount === 1
-                  ? "Couldn't attach that file — try again."
-                  : `Couldn't attach ${failedCount} file(s) — try again.`}
+                  ? formatMessage({ id: 'accounts.receipt.attachFailedOne', defaultMessage: "Couldn't attach that file — try again." })
+                  : formatMessage({ id: 'accounts.receipt.attachFailedMany', defaultMessage: "Couldn't attach {count} file(s) — try again." }, { count: failedCount })}
               </span>
               <Button size="sm" variant="secondary" onClick={retryAttach}>
-                Retry
+                {formatMessage({ id: 'accounts.receipt.retry', defaultMessage: "Retry" })}
               </Button>
             </>
           )}
@@ -187,7 +189,7 @@ export function ReceiptsSection({ txnId }: { txnId: string }) {
                       loading={unlinkBusy}
                       onClick={() => doUnlink(r.receiptId)}
                     >
-                      Confirm
+                      {formatMessage({ id: 'accounts.receipt.confirm', defaultMessage: "Confirm" })}
                     </Button>
                     <Button
                       size="sm"
@@ -198,18 +200,18 @@ export function ReceiptsSection({ txnId }: { txnId: string }) {
                         setUnlinkError(false)
                       }}
                     >
-                      Cancel
+                      {formatMessage({ id: 'accounts.receipt.cancel', defaultMessage: "Cancel" })}
                     </Button>
                   </span>
                 ) : (
                   <Button size="sm" variant="ghost" onClick={() => setArmedId(r.receiptId)}>
-                    Remove
+                    {formatMessage({ id: 'accounts.receipt.remove', defaultMessage: "Remove" })}
                   </Button>
                 )}
               </div>
               {armedId === r.receiptId && unlinkError && (
                 <div className="acct-detail-receipt-err">
-                  Couldn't remove that receipt — try again.
+                  {formatMessage({ id: 'accounts.receipt.removeFailed', defaultMessage: "Couldn't remove that receipt — try again." })}
                 </div>
               )}
             </Fragment>
@@ -220,11 +222,11 @@ export function ReceiptsSection({ txnId }: { txnId: string }) {
               <>
                 <span className="acct-detail-receipt-err">
                   {failedCount === 1
-                    ? "Couldn't attach that file — try again."
-                    : `Couldn't attach ${failedCount} file(s) — try again.`}
+                    ? formatMessage({ id: 'accounts.receipt.attachFailedOne', defaultMessage: "Couldn't attach that file — try again." })
+                    : formatMessage({ id: 'accounts.receipt.attachFailedMany', defaultMessage: "Couldn't attach {count} file(s) — try again." }, { count: failedCount })}
                 </span>
                 <Button size="sm" variant="secondary" onClick={retryAttach}>
-                  Retry
+                  {formatMessage({ id: 'accounts.receipt.retry', defaultMessage: "Retry" })}
                 </Button>
               </>
             )}

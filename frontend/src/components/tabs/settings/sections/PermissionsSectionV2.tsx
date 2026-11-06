@@ -9,6 +9,9 @@
 // The mode (manual / auto / skip) only decides what Ask means. Reset puts a tool back to its
 // default and is offered only when the value differs from it.
 import { useState } from 'react'
+import type { IntlShape } from 'react-intl'
+import { useAppIntl } from '../../../../i18n/useAppIntl'
+import { toolPermissionDescription, toolPermissionTitle } from '../../../../i18n/toolDescriptions'
 import {
   LEVEL_LABELS,
   LEVEL_ORDER,
@@ -27,6 +30,18 @@ import { useCachedFetchState } from '../../../../state/queryCache'
 import { Badge, Btn, Empty, Panel, Select, useSectionBusy } from '../ds'
 import type { SectionProps } from '../ds'
 
+function levelLabel(intl: IntlShape, level: PermissionLevel): string {
+  const { formatMessage } = intl
+  switch (level) {
+    case 'always_allow':
+      return formatMessage({ id: 'settings.remaining.permAlways', defaultMessage: 'Always allow' })
+    case 'needs_approval':
+      return formatMessage({ id: 'settings.remaining.permAsk', defaultMessage: 'Ask' })
+    case 'blocked':
+      return formatMessage({ id: 'settings.remaining.permBlock', defaultMessage: 'Block' })
+  }
+}
+
 function isLevel(level: string): level is PermissionLevel {
   return level in LEVEL_LABELS
 }
@@ -37,9 +52,18 @@ function isChanged(row: ToolPermission): boolean {
   return !row.tool_exists || row.level !== row.default_level
 }
 
-function matches(row: ToolPermission, needle: string): boolean {
+function matches(row: ToolPermission, needle: string, intl: IntlShape): boolean {
   if (!needle) return true
-  return [toolTitle(row.tool), row.tool, row.description].join(' ').toLowerCase().includes(needle)
+  return [
+    toolTitle(row.tool),
+    toolPermissionTitle(row, intl, toolTitle(row.tool)),
+    row.tool,
+    row.description,
+    toolPermissionDescription(row, intl.locale),
+  ]
+    .join(' ')
+    .toLowerCase()
+    .includes(needle)
 }
 
 function PermissionRow({
@@ -51,37 +75,47 @@ function PermissionRow({
   onReset: (row: ToolPermission) => void
   onChange: (row: ToolPermission, level: PermissionLevel) => void
 }) {
-  const title = toolTitle(row.tool)
+  const intl = useAppIntl()
+  const { formatMessage } = intl
+  const title = toolPermissionTitle(row, intl, toolTitle(row.tool))
   const editable = row.tool_exists && isLevel(row.level)
   return (
     <div className="rd-permrow-v2" role="row">
       <div className="rd-permrow-tool-v2" title={row.tool}>
         {title}
         {row.description && row.tool_exists ? (
-          <div className="rd-permrow-desc">{row.description}</div>
+          <div className="rd-permrow-desc">{toolPermissionDescription(row, intl.locale)}</div>
         ) : null}
         {/* A rename retired this tool — the decision is inert but still real, so it is
             RENDERED rather than filtered out: a permission the user set and can no longer
             see is the failure this list exists to fix. */}
         {!row.tool_exists && (
-          <div className="rd-permrow-desc">No longer available — renamed or removed</div>
+          <div className="rd-permrow-desc">
+            {formatMessage({
+              id: 'settings.remaining.permUnavailable',
+              defaultMessage: 'No longer available — renamed or removed',
+            })}
+          </div>
         )}
       </div>
       <span>
         {editable ? (
           <Select
-            aria-label={`Permission for ${title}`}
+            aria-label={formatMessage(
+              { id: 'settings.remaining.permFor', defaultMessage: 'Permission for {title}' },
+              { title },
+            )}
             value={row.level}
             onChange={(e) => onChange(row, e.target.value as PermissionLevel)}
           >
             {LEVEL_ORDER.map((level) => (
               <option key={level} value={level}>
-                {LEVEL_LABELS[level]}
+                {levelLabel(intl, level)}
               </option>
             ))}
           </Select>
         ) : (
-          <Badge>{isLevel(row.level) ? LEVEL_LABELS[row.level] : row.level}</Badge>
+          <Badge>{isLevel(row.level) ? levelLabel(intl, row.level) : row.level}</Badge>
         )}
       </span>
       <span>
@@ -90,12 +124,20 @@ function PermissionRow({
             size="xs"
             variant="ghost"
             onClick={() => onReset(row)}
-            aria-label={`Reset ${title} to the default`}
+            aria-label={formatMessage(
+              {
+                id: 'settings.remaining.permResetFor',
+                defaultMessage: 'Reset {title} to the default',
+              },
+              { title },
+            )}
           >
-            Reset
+            {formatMessage({ id: 'settings.remaining.permReset', defaultMessage: 'Reset' })}
           </Btn>
         ) : (
-          <span className="rd-permrow-default">Default</span>
+          <span className="rd-permrow-default">
+            {formatMessage({ id: 'settings.remaining.permDefault', defaultMessage: 'Default' })}
+          </span>
         )}
       </span>
     </div>
@@ -103,6 +145,8 @@ function PermissionRow({
 }
 
 export function PermissionsSectionV2({ toast }: SectionProps) {
+  const intl = useAppIntl()
+  const { formatMessage } = intl
   const { data, initialLoading, refresh } = useCachedFetchState<ToolPermissionsResponse>(
     TOOL_PERMISSIONS_KEY,
     listToolPermissions,
@@ -116,7 +160,7 @@ export function PermissionsSectionV2({ toast }: SectionProps) {
   const all = (data?.permissions ?? []).filter((row) => row.connector_id === 'core')
   const changedCount = all.filter(isChanged).length
   const needle = query.trim().toLowerCase()
-  const shown = all.filter((row) => matches(row, needle) && (!changedOnly || isChanged(row)))
+  const shown = all.filter((row) => matches(row, needle, intl) && (!changedOnly || isChanged(row)))
 
   const reset = async (row: ToolPermission) => {
     try {
@@ -124,11 +168,19 @@ export function PermissionsSectionV2({ toast }: SectionProps) {
       void refresh()
       toast(
         level && isLevel(level)
-          ? `${toolTitle(row.tool)}: back to ${LEVEL_LABELS[level]} — takes effect on the next call`
-          : `${toolTitle(row.tool)}: removed`,
+          ? `${toolTitle(row.tool)}: back to ${levelLabel(intl, level)} — takes effect on the next call`
+          : formatMessage(
+              { id: 'settings.remaining.permRemoved', defaultMessage: '{title}: removed' },
+              { title: toolPermissionTitle(row, intl, toolTitle(row.tool)) },
+            ),
       )
     } catch {
-      toast('Could not reset — try again')
+      toast(
+        formatMessage({
+          id: 'settings.remaining.permResetError',
+          defaultMessage: 'Could not reset — try again',
+        }),
+      )
     }
   }
 
@@ -136,26 +188,48 @@ export function PermissionsSectionV2({ toast }: SectionProps) {
     try {
       await setToolPermission({ tool: row.tool, level, connector_id: row.connector_id })
       void refresh()
-      toast(`${toolTitle(row.tool)}: ${LEVEL_LABELS[level]} — takes effect on the next call`)
+      toast(`${toolTitle(row.tool)}: ${levelLabel(intl, level)} — takes effect on the next call`)
     } catch {
-      toast('Could not change that — try again')
+      toast(
+        formatMessage({
+          id: 'settings.remaining.permChangeError',
+          defaultMessage: 'Could not change that — try again',
+        }),
+      )
     }
   }
 
   return (
     <Panel
-      title={<span>Tool permissions {all.length ? <Badge>{all.length}</Badge> : null}</span>}
-      sub="Lucius's built-in tools, and whether each runs, asks you first, or is blocked. In Auto mode a tool set to Ask is judged by the Auto judge; in Skip mode it runs. A connector's tools are set on its page in Connectors."
+      title={
+        <span>
+          {formatMessage({
+            id: 'settings.remaining.permTitle',
+            defaultMessage: 'Tool permissions',
+          })}{' '}
+          {all.length ? <Badge>{all.length}</Badge> : null}
+        </span>
+      }
+      sub={formatMessage({
+        id: 'settings.remaining.permSub',
+        defaultMessage:
+          "Lucius's built-in tools, and whether each runs, asks you first, or is blocked. In Auto mode a tool set to Ask is judged by the Auto judge; in Skip mode it runs. A connector's tools are set on its page in Connectors.",
+      })}
       actions={
         <Btn
           size="xs"
           variant="ghost"
           onClick={() => {
             void refresh()
-            toast('Refreshed')
+            toast(
+              formatMessage({
+                id: 'settings.remaining.permRefreshed',
+                defaultMessage: 'Refreshed',
+              }),
+            )
           }}
         >
-          Refresh
+          {formatMessage({ id: 'settings.remaining.permRefresh', defaultMessage: 'Refresh' })}
         </Btn>
       }
     >
@@ -164,8 +238,14 @@ export function PermissionsSectionV2({ toast }: SectionProps) {
           className="rd-input"
           type="search"
           value={query}
-          placeholder="Search tools…"
-          aria-label="Search tools"
+          placeholder={formatMessage({
+            id: 'settings.remaining.permSearchPlaceholder',
+            defaultMessage: 'Search tools…',
+          })}
+          aria-label={formatMessage({
+            id: 'settings.remaining.permSearch',
+            defaultMessage: 'Search tools',
+          })}
           onChange={(e) => setQuery(e.target.value)}
         />
         <Btn
@@ -174,14 +254,26 @@ export function PermissionsSectionV2({ toast }: SectionProps) {
           aria-pressed={changedOnly}
           onClick={() => setChangedOnly((on) => !on)}
         >
-          {changedOnly ? 'Showing changed' : `Changed (${changedCount})`}
+          {changedOnly
+            ? formatMessage({
+                id: 'settings.remaining.permShowing',
+                defaultMessage: 'Showing changed',
+              })
+            : formatMessage(
+                { id: 'settings.remaining.permCount', defaultMessage: 'Changed ({count})' },
+                { count: changedCount },
+              )}
         </Btn>
       </div>
       {shown.length ? (
         <>
           <div className="rd-permrow-v2 head" role="row">
-            <span>Tool</span>
-            <span>Value</span>
+            <span>
+              {formatMessage({ id: 'settings.remaining.permTool', defaultMessage: 'Tool' })}
+            </span>
+            <span>
+              {formatMessage({ id: 'settings.remaining.permValue', defaultMessage: 'Value' })}
+            </span>
             <span></span>
           </div>
           {shown.map((r) => (
@@ -195,13 +287,29 @@ export function PermissionsSectionV2({ toast }: SectionProps) {
         </>
       ) : (
         <Empty
-          title={initialLoading ? 'Loading tools…' : 'No tools match'}
+          title={
+            initialLoading
+              ? formatMessage({
+                  id: 'settings.remaining.permLoading',
+                  defaultMessage: 'Loading tools…',
+                })
+              : formatMessage({
+                  id: 'settings.remaining.permNoMatches',
+                  defaultMessage: 'No tools match',
+                })
+          }
           body={
             initialLoading
               ? undefined
               : changedOnly && !query
-                ? 'Nothing has been changed from its default.'
-                : 'Try another word — you can search by name or what it does.'
+                ? formatMessage({
+                    id: 'settings.remaining.permNoneChanged',
+                    defaultMessage: 'Nothing has been changed from its default.',
+                  })
+                : formatMessage({
+                    id: 'settings.remaining.permSearchHelp',
+                    defaultMessage: 'Try another word — you can search by name or what it does.',
+                  })
           }
         />
       )}

@@ -2,6 +2,7 @@
 // Cash flow and Outlook.
 
 import type { ReactNode } from 'react'
+import { useAppIntl } from '../../../i18n/useAppIntl'
 import { Button, Cluster, EmptyState } from '../../ui'
 import { LuciusCta } from '../../intro/LuciusCta'
 
@@ -20,6 +21,7 @@ export function PlanEmptyBook({
   onAddAccount: () => void
   onAskLucius?: (text: string) => void
 }) {
+  const { formatMessage } = useAppIntl()
   return (
     <EmptyState
       fill
@@ -29,9 +31,13 @@ export function PlanEmptyBook({
       action={
         <Cluster gap="--space-3" justify="center">
           <Button variant="primary" size="sm" onClick={onAddAccount}>
-            Add account
+            {formatMessage({ id: 'plan.addAccount', defaultMessage: 'Add account' })}
           </Button>
-          <LuciusCta label="Add with Lucius" message={ACCOUNTS_MESSAGE} onAskLucius={onAskLucius} />
+          <LuciusCta
+            label={formatMessage({ id: 'plan.addWithLucius', defaultMessage: 'Add with Lucius' })}
+            message={ACCOUNTS_MESSAGE}
+            onAskLucius={onAskLucius}
+          />
         </Cluster>
       }
     />

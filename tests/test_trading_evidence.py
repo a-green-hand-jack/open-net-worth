@@ -176,6 +176,11 @@ def test_evidence_missing_links_are_not_inferred_from_nearby_activity():
     evidence = get_evidence(run["id"], "order", submitted["id"])
     assert evidence["decision"] is None
     assert "Decision link not recorded" in evidence["missing_links"]
+    assert evidence["missing_link_messages"][0] == {
+        "id": "trading.notice.decision_missing",
+        "default_message": "Decision link not recorded",
+        "params": {},
+    }
     with pytest.raises(NotFoundError):
         get_evidence(foreign["id"], "order", submitted["id"])
 

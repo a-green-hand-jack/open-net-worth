@@ -1,3 +1,5 @@
+import { getNumberLocale } from '../../../utils/format'
+import { alertRequestError } from './alertErrors'
 // Price-alert model shared by the Manage view, the create/edit form and the modal that hosts
 // them — a faithful port of the "Price Alerts Redesign" prototype's constants and derivations.
 // Pure: no React, no DOM, no network (the fetch helpers at the bottom are the one seam).
@@ -79,7 +81,7 @@ export const CUSTOM_FEED_POLL_SECONDS = 90
 export const NEAR = 5
 
 export const fmt = (n: number | null | undefined): string =>
-  Number(n || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+  Number(n || 0).toLocaleString(getNumberLocale(), { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 
 /** Fold the stored 4-op vocabulary onto the 2-direction one the UI presents. */
 export const foldOp = (op: StoredOp): Op => (op === '<=' || op === '<' ? '<=' : '>=')
@@ -109,12 +111,12 @@ export function afterFireToCondition(after: AfterFire): {
 
 /** A row's primary line is the alert's own short name. Unnamed alerts fall back to their
  * condition rather than to a clause scraped out of the instruction text. */
-export function rowTitle(r: AlertRecord, ccy: string): string {
+export function rowTitle(r: AlertRecord, ccy: string, intl?: import('react-intl').IntlShape): string {
   const name = (r.name || '').trim()
   if (name) return name
   const op = foldOp(r.op)
-  if (r.kind === 'move') return `${op === '>=' ? 'Rises' : 'Falls'} ${fmt(r.value)}% in a day`
-  return `${op === '>=' ? 'Rises above ' : 'Falls below '}${ccy}${fmt(r.value)}`
+  if (r.kind === 'move') return intl ? intl.formatMessage({ id: 'intel.alert.rowMove', defaultMessage: '{direction} {value}% in a day' }, { direction: op === '>=' ? intl.formatMessage({ id: 'intel.alert.rowRises', defaultMessage: 'Rises' }) : intl.formatMessage({ id: 'intel.alert.rowFalls', defaultMessage: 'Falls' }), value: fmt(r.value) }) : `${op === '>=' ? 'Rises' : 'Falls'} ${fmt(r.value)}% in a day`
+  return intl ? intl.formatMessage({ id: 'intel.alert.rowPrice', defaultMessage: '{direction} {price}' }, { direction: op === '>=' ? intl.formatMessage({ id: 'intel.alert.risesAbove', defaultMessage: 'Rises above' }) : intl.formatMessage({ id: 'intel.alert.fallsBelow', defaultMessage: 'Falls below' }), price: `${ccy}${fmt(r.value)}` }) : `${op === '>=' ? 'Rises above ' : 'Falls below '}${ccy}${fmt(r.value)}`
 }
 
 /** The compact list chip: `≥ $182` for a level, `↑ 5%` for a day move (raw value, no padding). */
@@ -204,15 +206,15 @@ export async function listAlerts(ticker: string): Promise<AlertRecord[]> {
 
 export async function createAlert(body: Record<string, unknown>): Promise<void> {
   const res = await authFetch('/api/alerts', { method: 'POST', ...json(body) })
-  if (!res.ok) throw new Error('create alert failed')
+  if (!res.ok) throw await alertRequestError(res)
 }
 
 export async function patchAlert(id: string, body: Record<string, unknown>): Promise<void> {
   const res = await authFetch(`/api/alerts/${id}`, { method: 'PATCH', ...json(body) })
-  if (!res.ok) throw new Error('update alert failed')
+  if (!res.ok) throw await alertRequestError(res)
 }
 
 export async function deleteAlert(id: string): Promise<void> {
   const res = await authFetch(`/api/alerts/${id}`, { method: 'DELETE' })
-  if (!res.ok) throw new Error('delete alert failed')
+  if (!res.ok) throw await alertRequestError(res)
 }

@@ -1,6 +1,8 @@
 // @vitest-environment jsdom
 import { act, renderHook, waitFor } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { IntlProvider } from 'react-intl'
+import zh from '../i18n/zh-CN.json'
 import { clearQueryCache } from '../state/queryCache'
 import { useInbox, type InboxItem } from './useInbox'
 
@@ -31,6 +33,22 @@ describe('useInbox remount cache', () => {
   beforeEach(() => {
     clearQueryCache()
     authFetch.mockReset()
+  })
+
+  it('localizes application HTTP errors and retains external exceptions', async () => {
+    const wrapper = ({ children }: { children: React.ReactNode }) => (
+      <IntlProvider locale="zh-CN" messages={zh}>
+        {children}
+      </IntlProvider>
+    )
+    authFetch.mockResolvedValueOnce({ ok: false, status: 503 } as Response)
+    const failed = renderHook(() => useInbox(false), { wrapper })
+    await waitFor(() => expect(failed.result.current.error).toBe('无法加载收件箱（503）'))
+    failed.unmount()
+    clearQueryCache()
+    authFetch.mockRejectedValueOnce(new Error('external network reason'))
+    const external = renderHook(() => useInbox(false), { wrapper })
+    await waitFor(() => expect(external.result.current.error).toBe('external network reason'))
   })
 
   it('renders last-good items immediately after unmount while revalidating', async () => {

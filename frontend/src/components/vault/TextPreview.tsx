@@ -1,3 +1,4 @@
+import { useAppIntl } from '../../i18n/useAppIntl'
 import { useEffect, useState } from 'react'
 import { authFetch } from '../../api/client'
 import type { VaultItem } from '../../api/vault'
@@ -25,6 +26,7 @@ function decode(bytes: Uint8Array): string {
 }
 
 export function TextPreview({ item }: { item: VaultItem }) {
+  const vaultIntl = useAppIntl()
   const [shown, setShown] = useState<Shown>('loading')
   const url = item.file_url
   useEffect(() => {
@@ -47,7 +49,7 @@ export function TextPreview({ item }: { item: VaultItem }) {
   }, [url])
 
   if (shown === 'error')
-    return <NoPreview item={item} reason="Couldn't read it here — download it" />
+    return <NoPreview item={item} reason={vaultIntl.formatMessage({ id: 'vault.text.unreadable', defaultMessage: "Couldn't read it here — download it" })} />
   if (shown === 'loading')
     return (
       <div className="vault-preview vault-preview--text">
@@ -59,7 +61,7 @@ export function TextPreview({ item }: { item: VaultItem }) {
       <pre className="vault-text">{shown.text}</pre>
       {shown.cut && (
         <p className="vault-text-cut">
-          Showing the first {formatSize(LIMIT)} — download it for the rest.
+          {vaultIntl.formatMessage({ id: 'vault.text.truncated', defaultMessage: 'Showing the first {size} — download it for the rest.' }, { size: formatSize(LIMIT) })}
         </p>
       )}
     </div>

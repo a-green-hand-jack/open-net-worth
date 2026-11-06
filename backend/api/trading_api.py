@@ -13,6 +13,7 @@ from backend.models.trading import (
     WorkspaceCreate,
 )
 from backend.services import trading
+from backend.services.trading.common import error_notice
 
 
 class TradingRoute(APIRoute):
@@ -23,9 +24,12 @@ class TradingRoute(APIRoute):
             try:
                 return await handler(request)
             except OpenNetWorthError as exc:
-                raise HTTPException(
-                    to_http_status(exc), {"code": exc.code, "message": exc.message}
-                ) from exc
+                detail: dict[str, object] = {"code": exc.code, "message": exc.message}
+                localized = error_notice(exc, exc.message)
+                if localized:
+                    detail["message_id"] = localized["id"]
+                    detail["message_params"] = localized["params"]
+                raise HTTPException(to_http_status(exc), detail) from exc
 
         return mapped
 

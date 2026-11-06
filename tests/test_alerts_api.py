@@ -185,7 +185,10 @@ def test_patch_name(client):
 
 def test_move_value_out_of_range_422(client):
     body = {"ticker": "AAPL", "op": ">=", "value": 150, "kind": "move"}
-    assert client.post("/api/alerts", json=body).status_code == 422
+    response = client.post("/api/alerts", json=body)
+    assert response.status_code == 422
+    assert response.json()["message_id"] == "alert.error.moveRange"
+    assert response.json()["message_params"] == {"max": 100.0}
 
 
 def test_patch_kind_to_move_revalidates_value_422(client):
@@ -203,3 +206,16 @@ def test_bad_kind_422(client):
 def test_unknown_channel_422(client):
     body = {"ticker": "AAPL", "op": ">=", "value": 1, "channels": ["sms"]}
     assert client.post("/api/alerts", json=body).status_code == 422
+
+
+def test_alert_message_contract_covers_application_ids():
+    import json
+    import re
+    from pathlib import Path
+
+    root = Path(__file__).resolve().parents[1]
+    contract = json.loads((root / "backend/core/alert_message_contract.json").read_text())
+    source = (root / "backend/db/alert_store.py").read_text() + (
+        root / "backend/services/alerts.py"
+    ).read_text()
+    assert set(contract) == set(re.findall(r'"(alert\.error\.[a-zA-Z]+)"', source))

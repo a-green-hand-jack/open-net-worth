@@ -1,3 +1,4 @@
+import { message as t } from './native-messages';
 import { createHash } from 'node:crypto';
 import { spawn } from 'node:child_process';
 import { EventEmitter } from 'node:events';
@@ -29,7 +30,7 @@ export function linuxUpdatesSupported(packaged: boolean, platform: string, arch:
 // Only assets served from the releases repo's own download path are ever fetched.
 export function parseRelease(value: unknown): ReleaseInfo {
   const release = value as { tag_name?: unknown; draft?: unknown; prerelease?: unknown; assets?: unknown } | null;
-  if (!release || typeof release.tag_name !== 'string' || !parseVersion(release.tag_name) || release.draft === true || release.prerelease === true || !Array.isArray(release.assets)) throw new Error('The latest release is not a stable version.');
+  if (!release || typeof release.tag_name !== 'string' || !parseVersion(release.tag_name) || release.draft === true || release.prerelease === true || !Array.isArray(release.assets)) throw new Error(t("The latest release is not a stable version."));
   const assets = new Map<string, string>();
   for (const asset of release.assets as { name?: unknown; browser_download_url?: unknown }[]) {
     if (typeof asset?.name === 'string' && typeof asset.browser_download_url === 'string' && asset.browser_download_url.startsWith(DOWNLOAD_PREFIX)) assets.set(asset.name, asset.browser_download_url);
@@ -48,7 +49,7 @@ export function expectedChecksum(checksums: string, name: string): string {
 async function guarded(fetcher: Fetch, url: string, timeoutMs: number, headers?: Record<string, string>): Promise<Response> {
   const response = await fetcher(url, { signal: AbortSignal.timeout(timeoutMs), ...(headers ? { headers } : {}) });
   const final = new URL(response.url || url);
-  if (final.protocol !== 'https:' || final.hostname !== 'github.com' && final.hostname !== 'api.github.com' && !final.hostname.endsWith('.githubusercontent.com')) throw new Error('The update server redirected somewhere unexpected.');
+  if (final.protocol !== 'https:' || final.hostname !== 'github.com' && final.hostname !== 'api.github.com' && !final.hostname.endsWith('.githubusercontent.com')) throw new Error(t("The update server redirected somewhere unexpected."));
   if (!response.ok) throw new Error(`The update server answered ${response.status}.`);
   return response;
 }
@@ -56,13 +57,13 @@ async function guarded(fetcher: Fetch, url: string, timeoutMs: number, headers?:
 async function readText(fetcher: Fetch, url: string, headers?: Record<string, string>): Promise<string> {
   const response = await guarded(fetcher, url, REQUEST_TIMEOUT_MS, headers);
   const text = await response.text();
-  if (text.length > MAX_METADATA_BYTES) throw new Error('The update metadata is unexpectedly large.');
+  if (text.length > MAX_METADATA_BYTES) throw new Error(t("The update metadata is unexpectedly large."));
   return text;
 }
 
 export async function downloadVerified(fetcher: Fetch, url: string, destination: string, sha256: string): Promise<void> {
   const response = await guarded(fetcher, url, DOWNLOAD_TIMEOUT_MS);
-  if (!response.body) throw new Error('The update download was empty.');
+  if (!response.body) throw new Error(t("The update download was empty."));
   const hash = createHash('sha256');
   const file = await open(destination, 'wx', 0o700);
   let size = 0;
@@ -70,14 +71,14 @@ export async function downloadVerified(fetcher: Fetch, url: string, destination:
   try {
     for await (const chunk of response.body as unknown as AsyncIterable<Uint8Array>) {
       size += chunk.length;
-      if (size > MAX_APPIMAGE_BYTES) throw new Error('The update download is unexpectedly large.');
+      if (size > MAX_APPIMAGE_BYTES) throw new Error(t("The update download is unexpectedly large."));
       if (head.length < 4) head = Buffer.concat([head, chunk]).subarray(0, 4);
       hash.update(chunk);
       await file.write(chunk);
     }
   } finally { await file.close(); }
-  if (hash.digest('hex') !== sha256) throw new Error('The downloaded update does not match its published checksum.');
-  if (!head.equals(Buffer.from([0x7f, 0x45, 0x4c, 0x46]))) throw new Error('The downloaded update is not an AppImage.');
+  if (hash.digest('hex') !== sha256) throw new Error(t("The downloaded update does not match its published checksum."));
+  if (!head.equals(Buffer.from([0x7f, 0x45, 0x4c, 0x46]))) throw new Error(t("The downloaded update is not an AppImage."));
 }
 
 export async function canReplace(appImagePath: string): Promise<boolean> {
@@ -93,7 +94,7 @@ export async function fetchLatestVersion(fetcher: Fetch, current: string, feed =
 
 // The Markdown notes of one published release, for the What's new note shown after it installs.
 export async function fetchReleaseNotes(fetcher: Fetch, version: string): Promise<string> {
-  if (!parseVersion(version)) throw new Error('Not a release version.');
+  if (!parseVersion(version)) throw new Error(t("Not a release version."));
   const release = JSON.parse(await readText(fetcher, `https://api.github.com/repos/${UPDATE_REPO}/releases/tags/v${version}`, { Accept: 'application/vnd.github+json' })) as { body?: unknown } | null;
   return typeof release?.body === 'string' ? release.body : '';
 }

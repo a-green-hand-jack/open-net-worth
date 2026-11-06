@@ -1,3 +1,4 @@
+import type { IntlShape } from 'react-intl'
 // Pure "not happening" impact-line text builder (detail3.jsx's `Actions` component's inline
 // JSX, ported to a plain-text pure function so it's unit-testable) — the plain-language
 // consequence shown when an action is marked as not going to happen, keyed off its ROLE
@@ -13,6 +14,7 @@ export interface ImpactContext {
    *  resolves to a real, still-live source — null when the action carries no funding_id, or
    *  the source can't be found. */
   fundingAmountBase: number | null
+  intl?: IntlShape
 }
 
 function leadTime(days: number): string {
@@ -26,10 +28,89 @@ export function buildImpactLine({
   commitmentName,
   action,
   fundingAmountBase,
+  intl,
 }: ImpactContext): string {
   const role = actionRole(action)
   const dLeft = action.due_date ? daysUntil(action.due_date) : null
   const ahead = dLeft != null && dLeft > 0
+
+  if (intl && !intl.locale.startsWith('en')) {
+    const { formatMessage } = intl
+    if (role === 'inflow' && fundingAmountBase != null) {
+      const days = dLeft ?? 0
+      const time =
+        days >= 60
+          ? formatMessage(
+              { id: 'commitments.impact.monthCount', defaultMessage: '{count} months' },
+              { count: Math.round(days / 30) },
+            )
+          : days >= 25
+            ? formatMessage(
+                { id: 'commitments.impact.weekCount', defaultMessage: '{count} weeks' },
+                { count: Math.round(days / 7) },
+              )
+            : formatMessage(
+                {
+                  id: 'commitments.impact.dayCount',
+                  defaultMessage: '{count} {count, plural, one {day} other {days}}',
+                },
+                { count: days },
+              )
+      const lead = ahead
+        ? formatMessage(
+            { id: 'commitments.impact.lead', defaultMessage: ' ({time} before it was due)' },
+            { time },
+          )
+        : ''
+      return formatMessage(
+        {
+          id: 'commitments.impact.funding',
+          defaultMessage: "{amount} won't come in — pulled from {name}'s funding{lead}.",
+        },
+        { amount: fBase(fundingAmountBase), name: commitmentName, lead },
+      )
+    }
+    if (role === 'inflow') {
+      const amount =
+        action.amount != null
+          ? formatMessage(
+              { id: 'commitments.impact.ofAmount', defaultMessage: ' of {amount}' },
+              { amount: fCurrency(action.amount, action.currency) },
+            )
+          : ''
+      const when =
+        ahead && action.due_date
+          ? formatMessage(
+              { id: 'commitments.impact.aroundDate', defaultMessage: ' around {date}' },
+              { date: fmtDay(action.due_date) },
+            )
+          : ''
+      return formatMessage(
+        {
+          id: 'commitments.impact.inflow',
+          defaultMessage: "This inflow{amount} won't arrive — {name}'s cushion loses it{when}.",
+        },
+        { amount, name: commitmentName, when },
+      )
+    }
+    if (role === 'outflow')
+      return formatMessage(
+        {
+          id: 'commitments.impact.outflow',
+          defaultMessage:
+            "This payment won't go out — the installment it covers on {name} would fall into arrears.",
+        },
+        { name: commitmentName },
+      )
+    return formatMessage(
+      {
+        id: 'commitments.impact.prerequisite',
+        defaultMessage:
+          "This prerequisite won't be done — the {name} steps that depend on it are now at risk.",
+      },
+      { name: commitmentName },
+    )
+  }
 
   if (role === 'inflow') {
     if (fundingAmountBase != null) {
@@ -49,8 +130,37 @@ export function buildImpactLine({
 
 /** The short PRE-decision hint next to the "Not happening" button (before it's clicked) —
  *  distinct, shorter copy from `buildImpactLine`'s post-decision consequence sentence. */
-export function buildDidntHint(action: CommitmentAction, fundingAmountBase: number | null): string {
+export function buildDidntHint(
+  action: CommitmentAction,
+  fundingAmountBase: number | null,
+  intl?: IntlShape,
+): string {
   const role = actionRole(action)
+  if (intl && !intl.locale.startsWith('en')) {
+    const { formatMessage } = intl
+    if (role === 'inflow' && fundingAmountBase != null)
+      return formatMessage(
+        {
+          id: 'commitments.impact.hintFunding',
+          defaultMessage: 'pulls {amount} — re-runs the outlook & suggests a fix',
+        },
+        { amount: fBase(fundingAmountBase) },
+      )
+    if (role === 'inflow')
+      return formatMessage({
+        id: 'commitments.impact.hintInflow',
+        defaultMessage: 'this inflow drops — Lucius helps you rebuild it',
+      })
+    if (role === 'outflow')
+      return formatMessage({
+        id: 'commitments.impact.hintOutflow',
+        defaultMessage: 'flags the payment at-risk — Lucius helps you re-plan',
+      })
+    return formatMessage({
+      id: 'commitments.impact.hintStep',
+      defaultMessage: 'flags the step at-risk — Lucius helps you re-sequence',
+    })
+  }
   if (role === 'inflow' && fundingAmountBase != null) {
     return `pulls ${fBase(fundingAmountBase)} — re-runs the outlook & suggests a fix`
   }

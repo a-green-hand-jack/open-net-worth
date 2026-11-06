@@ -4,6 +4,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { clearQueryCache } from '../../../state/queryCache'
 import { takeSendIntent } from '../../../state/luciusSendIntent'
 import { OutlookSetupModal } from './OutlookSetupModal'
+import { IntlProvider } from 'react-intl'
+import messages from './zh-CN.messages.json'
+import commonMessages from '../../../i18n/zh-CN.json'
 
 const authFetch = vi.fn<typeof fetch>()
 vi.mock('../../../api/client', () => ({
@@ -36,6 +39,23 @@ beforeEach(() => {
 afterEach(cleanup)
 
 describe('OutlookSetupModal', () => {
+  it('renders the questions and count in Chinese', () => {
+    render(
+      <IntlProvider locale="zh-CN" messages={{ ...commonMessages, ...messages }}>
+        <OutlookSetupModal
+          suggestedSpending={0}
+          needsBirthDate
+          needsSpending
+          onSaved={() => {}}
+          onAskLucius={() => {}}
+        />
+      </IntlProvider>,
+    )
+    expect(screen.getByRole('dialog', { name: '您的资金够用吗？' })).toBeTruthy()
+    expect(screen.getByText('回答 2 个问题，即可了解您何时可以退休。')).toBeTruthy()
+    expect(screen.getByLabelText('您的出生日期')).toBeTruthy()
+  })
+
   it('is a dialog with no way to close it', () => {
     setup()
     const dialog = screen.getByRole('dialog', { name: 'Will your money last?' })

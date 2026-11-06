@@ -20,6 +20,7 @@ import { useEffect, useState } from 'react'
 import type { KeyboardEvent } from 'react'
 import { authFetch } from '../../api/client'
 import { Button, PasswordField, Stack, Text } from '../ui'
+import { useAppIntl } from '../../i18n/useAppIntl'
 
 export interface StepPasswordProps {
   onDone: () => void
@@ -55,14 +56,19 @@ export function StepPassword({ onDone, onAuthChanged }: StepPasswordProps) {
 }
 
 function PasswordAlreadySet({ onDone }: { onDone: () => void }) {
+  const intl = useAppIntl()
   return (
     <Stack gap="--space-7">
       <Text as="p" tone="muted" className="firstrun-lead">
-        This book already has a password. You can change it any time in Settings &rsaquo; Security.
+        {intl.formatMessage({
+          id: 'firstPassword.alreadySet',
+          defaultMessage:
+            'This book already has a password. You can change it any time in Settings › Security.',
+        })}
       </Text>
       <div className="firstrun-actions">
         <Button variant="primary" onClick={onDone} autoFocus>
-          Finish
+          {intl.formatMessage({ id: 'common.finish', defaultMessage: 'Finish' })}
         </Button>
       </div>
     </Stack>
@@ -70,6 +76,7 @@ function PasswordAlreadySet({ onDone }: { onDone: () => void }) {
 }
 
 function SetPasswordForm({ onDone, onAuthChanged }: StepPasswordProps) {
+  const intl = useAppIntl()
   const [password, setPassword] = useState('')
   const [confirm, setConfirm] = useState('')
   const [busy, setBusy] = useState(false)
@@ -83,7 +90,12 @@ function SetPasswordForm({ onDone, onAuthChanged }: StepPasswordProps) {
   // live on every keystroke rather than gated behind blur or a submit click. Once it disagrees,
   // Set & finish is unusable until it agrees again.
   const mismatch = confirm.length > 0 && password !== confirm
-  const mismatchError = mismatch ? 'Those two passwords do not match.' : null
+  const mismatchError = mismatch
+    ? intl.formatMessage({
+        id: 'firstPassword.mismatch',
+        defaultMessage: 'Those two passwords do not match.',
+      })
+    : null
   // An untyped confirm field is not a match — password !== '' is true, same as any other
   // disagreement. Typed-and-equal is the only state that may submit.
   const readyToSubmit = password.length > 0 && confirm.length > 0 && password === confirm
@@ -92,7 +104,12 @@ function SetPasswordForm({ onDone, onAuthChanged }: StepPasswordProps) {
     setError(null)
     // Kept exactly as typed, spaces included — but a password of only spaces is no password.
     if (!password.trim()) {
-      setError('A password can’t be only spaces.')
+      setError(
+        intl.formatMessage({
+          id: 'firstPassword.spaces',
+          defaultMessage: 'A password can’t be only spaces.',
+        }),
+      )
       return
     }
     if (password.length < MIN_LENGTH) {
@@ -109,7 +126,16 @@ function SetPasswordForm({ onDone, onAuthChanged }: StepPasswordProps) {
       })
       if (!res.ok) {
         const data = await res.json().catch(() => null)
-        setError(data?.detail || `Could not set password (${res.status}). Try again.`)
+        setError(
+          data?.detail ||
+            intl.formatMessage(
+              {
+                id: 'firstPassword.failed',
+                defaultMessage: 'Could not set password ({status}). Try again.',
+              },
+              { status: res.status },
+            ),
+        )
         return
       }
       onAuthChanged?.()
@@ -117,7 +143,12 @@ function SetPasswordForm({ onDone, onAuthChanged }: StepPasswordProps) {
       setConfirm('')
       onDone()
     } catch {
-      setError('Could not reach the server. Check it is running and try again.')
+      setError(
+        intl.formatMessage({
+          id: 'firstPassword.unreachable',
+          defaultMessage: 'Could not reach the server. Check it is running and try again.',
+        }),
+      )
     } finally {
       setBusy(false)
     }
@@ -133,14 +164,17 @@ function SetPasswordForm({ onDone, onAuthChanged }: StepPasswordProps) {
   return (
     <Stack gap="--space-7">
       <Text as="p" tone="muted" className="firstrun-lead">
-        Only needed if you expose this instance beyond this machine — a public URL, a reverse proxy,
-        another device on your network. Set one any time in Settings &rsaquo; Security.
+        {intl.formatMessage({
+          id: 'firstPassword.explanation',
+          defaultMessage:
+            'Only needed if you expose this instance beyond this machine — a public URL, a reverse proxy, another device on your network. Set one any time in Settings › Security.',
+        })}
       </Text>
 
       <div className="firstrun-rows firstrun-rows--password">
         <div className="firstrun-row">
           <label className="firstrun-row__label" htmlFor="fr-pw">
-            Password
+            {intl.formatMessage({ id: 'login.password', defaultMessage: 'Password' })}
           </label>
           <span className="firstrun-row__value">
             <PasswordField
@@ -155,7 +189,10 @@ function SetPasswordForm({ onDone, onAuthChanged }: StepPasswordProps) {
               }}
               onBlur={() => setTouchedPassword(true)}
               onKeyDown={onKeyDown}
-              placeholder="Leave blank to skip"
+              placeholder={intl.formatMessage({
+                id: 'firstPassword.blankToSkip',
+                defaultMessage: 'Leave blank to skip',
+              })}
             />
             <Text
               as="span"
@@ -164,14 +201,23 @@ function SetPasswordForm({ onDone, onAuthChanged }: StepPasswordProps) {
               className="firstrun-row__note"
             >
               {tooShort
-                ? `At least ${MIN_LENGTH} characters — ${MIN_LENGTH - password.length} more to go.`
-                : `${MIN_LENGTH} characters minimum`}
+                ? intl.formatMessage(
+                    {
+                      id: 'firstPassword.tooShort',
+                      defaultMessage: 'At least {minimum} characters — {remaining} more to go.',
+                    },
+                    { minimum: MIN_LENGTH, remaining: MIN_LENGTH - password.length },
+                  )
+                : intl.formatMessage(
+                    { id: 'firstPassword.minimum', defaultMessage: '{minimum} characters minimum' },
+                    { minimum: MIN_LENGTH },
+                  )}
             </Text>
           </span>
         </div>
         <div className="firstrun-row">
           <label className="firstrun-row__label" htmlFor="fr-pw2">
-            Confirm
+            {intl.formatMessage({ id: 'firstPassword.confirm', defaultMessage: 'Confirm' })}
           </label>
           <span className="firstrun-row__value">
             <PasswordField
@@ -184,7 +230,10 @@ function SetPasswordForm({ onDone, onAuthChanged }: StepPasswordProps) {
                 setError(null)
               }}
               onKeyDown={onKeyDown}
-              placeholder="Repeat the password above"
+              placeholder={intl.formatMessage({
+                id: 'firstPassword.repeat',
+                defaultMessage: 'Repeat the password above',
+              })}
             />
           </span>
         </div>
@@ -195,7 +244,7 @@ function SetPasswordForm({ onDone, onAuthChanged }: StepPasswordProps) {
           <span className="firstrun-actions__error">{error || mismatchError}</span>
         )}
         <Button variant="ghost" onClick={onDone} disabled={busy}>
-          Skip
+          {intl.formatMessage({ id: 'common.skip', defaultMessage: 'Skip' })}
         </Button>
         {/* Disabled until both fields are typed and agree — empty (Skip is the way past with
             nothing typed), a mismatch, and an as-yet-unconfirmed password (typed, confirm still
@@ -207,7 +256,7 @@ function SetPasswordForm({ onDone, onAuthChanged }: StepPasswordProps) {
           disabled={!readyToSubmit}
           onClick={() => void submit()}
         >
-          Set &amp; finish
+          {intl.formatMessage({ id: 'firstPassword.setFinish', defaultMessage: 'Set & finish' })}
         </Button>
       </div>
     </Stack>

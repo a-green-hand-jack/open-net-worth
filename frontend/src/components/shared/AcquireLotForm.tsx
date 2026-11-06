@@ -1,4 +1,7 @@
+import { getNumberLocale } from '../../utils/format'
 import { useEffect, useState } from 'react'
+import type { IntlShape } from 'react-intl'
+import { useAppIntl } from '../../i18n/useAppIntl'
 import type { Lot } from '../../types/portfolio'
 import { fAmountNative, fDate, getBaseCurrency } from '../../utils/format'
 import { authFetch } from '../../api/client'
@@ -23,6 +26,7 @@ import {
 } from '../ui'
 import type { ConfirmDialogData } from '../ui'
 import { toLocalISODate } from './DisposalForm'
+import { lotsMessage } from './lotsMessages'
 
 // `extends AccountLike` supplies the index signature `useAccounts<T>()`'s constraint demands.
 export interface AccountLite extends AccountLike {
@@ -48,20 +52,8 @@ interface Props {
   onClose: () => void
 }
 
-const KIND_OPTIONS = [
-  { value: 'buy', label: 'Buy' },
-  { value: 'drp', label: 'Dividend reinvest' },
-  { value: 'transfer_in', label: 'Transfer in' },
-  { value: 'grant', label: 'Grant' },
-  { value: 'opening', label: 'Opening balance' },
-]
-
 const NEW_ACCOUNT = '__new__'
 const EMPTY_ACCOUNTS: AccountLite[] = []
-
-function kindLabel(kind: string): string {
-  return KIND_OPTIONS.find((o) => o.value === kind)?.label || kind.replace(/_/g, ' ')
-}
 
 /** One sale a lot correction touched — returned by PATCH /api/lots/{id}. */
 interface SaleUpdate {
@@ -72,32 +64,59 @@ interface SaleUpdate {
   currency: string
 }
 
-function saleUpdateLine(sale: SaleUpdate): string {
+function saleUpdateLine(sale: SaleUpdate, intl: IntlShape): string {
+  const { formatMessage } = intl
   const when = fDate(sale.disposed_at, 'short', 'always')
   const money = (v: number | null) =>
     v == null
-      ? 'unknown'
+      ? formatMessage({ id: 'shared.acquire.unknown', defaultMessage: 'unknown' })
       : `${v >= 0 ? '+' : ''}${fAmountNative(v, sale.currency)} ${sale.currency}`
   const before = sale.realized_gain_before
   const after = sale.realized_gain_after
   const same = before != null && after != null ? Math.abs(before - after) < 0.005 : before === after
   return same
-    ? `Sale on ${when} re-dated — gain unchanged (${money(after)})`
-    : `Sale on ${when}: gain ${money(before)} → ${money(after)}`
+    ? formatMessage(
+        {
+          id: 'shared.acquire.saleRedated',
+          defaultMessage: 'Sale on {when} re-dated — gain unchanged ({gain})',
+        },
+        { when, gain: money(after) },
+      )
+    : formatMessage(
+        {
+          id: 'shared.acquire.saleGain',
+          defaultMessage: 'Sale on {when}: gain {before} → {after}',
+        },
+        { when, before: money(before), after: money(after) },
+      )
 }
 
 function isPartial(lot: Lot): boolean {
   return lot.remaining_qty + 1e-9 < lot.original_qty
 }
 
-function parseHttpError(data: unknown, status: number): string {
-  const body = data as { detail?: unknown; error?: string }
-  if (typeof body.detail === 'string') return body.detail
-  return body.error || `Could not save the lot (HTTP ${status}).`
+function parseHttpError(data: unknown, status: number, intl: IntlShape): string {
+  const { formatMessage } = intl
+  return lotsMessage(
+    data,
+    formatMessage(
+      { id: 'shared.acquire.saveHttp', defaultMessage: 'Could not save the lot (HTTP {status}).' },
+      { status },
+    ),
+    intl,
+  )
 }
 
-function isDuplicateConflict(status: number, message: string): boolean {
-  return status === 409 && /identical/i.test(message)
+function isDuplicateConflict(status: number, data: unknown): boolean {
+  if (status !== 409 || !data || typeof data !== 'object') return false
+  const body = data as { message_id?: unknown; message_params?: unknown }
+  return (
+    body.message_id === 'lots.error.identicalOpen' &&
+    !!body.message_params &&
+    typeof body.message_params === 'object' &&
+    !Array.isArray(body.message_params) &&
+    Object.keys(body.message_params).length === 0
+  )
 }
 
 function holdingAccounts(accounts: AccountLite[]): AccountLite[] {
@@ -135,6 +154,29 @@ export function AcquireLotForm({
   onDone,
   onClose,
 }: Props) {
+  const intl = useAppIntl()
+  const { formatMessage } = intl
+  const kindOptions = [
+    { value: 'buy', label: formatMessage({ id: 'shared.acquire.kind0', defaultMessage: 'Buy' }) },
+    {
+      value: 'drp',
+      label: formatMessage({ id: 'shared.acquire.kind1', defaultMessage: 'Dividend reinvest' }),
+    },
+    {
+      value: 'transfer_in',
+      label: formatMessage({ id: 'shared.acquire.kind2', defaultMessage: 'Transfer in' }),
+    },
+    {
+      value: 'grant',
+      label: formatMessage({ id: 'shared.acquire.kind3', defaultMessage: 'Grant' }),
+    },
+    {
+      value: 'opening',
+      label: formatMessage({ id: 'shared.acquire.kind4', defaultMessage: 'Opening balance' }),
+    },
+  ]
+  const kindLabel = (value: string) =>
+    kindOptions.find((option) => option.value === value)?.label || value.replace(/_/g, ' ')
   const editing = !!lot
   // A lot a sale has used is still correctable (2026-10-13 — it used to be frozen, so a user
   // couldn't date an opening lot they had sold). Its quantity can't go below what was sold.
@@ -349,7 +391,16 @@ export function AcquireLotForm({
     }
     if (!res.ok || !data.resolved || !data.instrument?.id) {
       setResolvedInstrumentId('')
-      setSymbolError(data.message || `Couldn't resolve '${query}' to a tradeable instrument.`)
+      setSymbolError(
+        data.message ||
+          formatMessage(
+            {
+              id: 'shared.acquire.resolve',
+              defaultMessage: 'Could not resolve {symbol} to a tradeable instrument.',
+            },
+            { symbol: query },
+          ),
+      )
       return null
     }
     setResolvedInstrumentId(data.instrument.id)
@@ -372,7 +423,7 @@ export function AcquireLotForm({
       }),
     })
     const data = (await res.json().catch(() => ({}))) as { id?: string; detail?: unknown }
-    if (!res.ok || !data.id) throw new Error(parseHttpError(data, res.status))
+    if (!res.ok || !data.id) throw new Error(parseHttpError(data, res.status, intl))
     invalidateQueryCache(ACCOUNTS_KEY)
     return data.id
   }
@@ -399,7 +450,7 @@ export function AcquireLotForm({
           body: JSON.stringify(body),
         })
         const data = await res.json().catch(() => ({}))
-        if (!res.ok) throw new Error(parseHttpError(data, res.status))
+        if (!res.ok) throw new Error(parseHttpError(data, res.status, intl))
         setSalesUpdated(Array.isArray(data.sales_updated) ? data.sales_updated : [])
         setResult('updated')
         notifyPortfolioChanged()
@@ -407,10 +458,22 @@ export function AcquireLotForm({
         return
       }
       if (qtyNum <= 0 || !acquiredAt || !accountChosen) {
-        throw new Error('Symbol, account, date, and quantity are required.')
+        throw new Error(
+          formatMessage({
+            id: 'shared.acquire.required',
+            defaultMessage: 'Symbol, account, date, and quantity are required.',
+          }),
+        )
       }
       const instId = resolvedInstrumentId || (await resolveSymbol(symbol))
-      if (!instId) throw new Error(symbolError || 'Choose a symbol.')
+      if (!instId)
+        throw new Error(
+          symbolError ||
+            formatMessage({
+              id: 'shared.acquire.chooseSymbol',
+              defaultMessage: 'Choose a symbol.',
+            }),
+        )
       const accountId = await ensureAccountId()
       const body: Record<string, unknown> = {
         account_id: accountId,
@@ -432,13 +495,23 @@ export function AcquireLotForm({
       })
       const data = await res.json().catch(() => ({}))
       if (!res.ok) {
-        const message = parseHttpError(data, res.status)
-        if (isDuplicateConflict(res.status, message)) {
+        const message = parseHttpError(data, res.status, intl)
+        if (isDuplicateConflict(res.status, data)) {
           setPendingDuplicate(true)
           setConfirm({
-            title: 'Identical lot already exists',
-            body: 'This looks identical to an open lot already on this holding. Add it anyway?',
-            confirmLabel: 'Add anyway',
+            title: formatMessage({
+              id: 'shared.acquire.duplicateTitle',
+              defaultMessage: 'Identical lot already exists',
+            }),
+            body: formatMessage({
+              id: 'shared.acquire.duplicateBody',
+              defaultMessage:
+                'This looks identical to an open lot already on this holding. Add it anyway?',
+            }),
+            confirmLabel: formatMessage({
+              id: 'shared.acquire.addAnyway',
+              defaultMessage: 'Add anyway',
+            }),
           })
           return
         }
@@ -448,7 +521,13 @@ export function AcquireLotForm({
       notifyPortfolioChanged()
       onDone()
     } catch (e) {
-      setError((e as Error).message || 'Could not save the lot.')
+      setError(
+        (e as Error).message ||
+          formatMessage({
+            id: 'shared.acquire.saveFailed',
+            defaultMessage: 'Could not save the lot.',
+          }),
+      )
     } finally {
       setSubmitting(false)
     }
@@ -457,9 +536,19 @@ export function AcquireLotForm({
   function askRemove() {
     if (!lot) return
     setConfirm({
-      title: 'Remove this lot?',
-      body: `This will permanently remove ${lot.original_qty} units acquired on ${lot.acquired_at}. Unrealized P&L and cost basis will update.`,
-      confirmLabel: 'Remove',
+      title: formatMessage({
+        id: 'shared.acquire.removeTitle',
+        defaultMessage: 'Remove this lot?',
+      }),
+      body: formatMessage(
+        {
+          id: 'shared.acquire.removeBody',
+          defaultMessage:
+            'This will permanently remove {quantity} units acquired on {date}. Unrealized P&L and cost basis will update.',
+        },
+        { quantity: lot.original_qty, date: lot.acquired_at },
+      ),
+      confirmLabel: formatMessage({ id: 'shared.acquire.remove', defaultMessage: 'Remove' }),
       danger: true,
       confirmDisabled: removing,
     })
@@ -472,32 +561,57 @@ export function AcquireLotForm({
     try {
       const res = await authFetch(`/api/lots/${lot.id}`, { method: 'DELETE' })
       const data = await res.json().catch(() => ({}))
-      if (!res.ok) throw new Error(parseHttpError(data, res.status))
+      if (!res.ok) throw new Error(parseHttpError(data, res.status, intl))
       setConfirm(null)
       setResult('removed')
       notifyPortfolioChanged()
       onDone()
     } catch (e) {
       setConfirm(null)
-      setError((e as Error).message || 'Could not remove the lot.')
+      setError(
+        (e as Error).message ||
+          formatMessage({
+            id: 'shared.acquire.removeFailed',
+            defaultMessage: 'Could not remove the lot.',
+          }),
+      )
     } finally {
       setRemoving(false)
     }
   }
 
-  const title = editing ? 'Edit lot' : lockSymbol ? 'Add lot' : 'Add holding'
+  const title = editing
+    ? formatMessage({ id: 'shared.acquire.edit', defaultMessage: 'Edit lot' })
+    : lockSymbol
+      ? formatMessage({ id: 'shared.acquire.add', defaultMessage: 'Add lot' })
+      : formatMessage({ id: 'shared.acquire.addHolding', defaultMessage: 'Add holding' })
   // After a save the lot prop is the pre-edit row — its old date would read as unchanged.
   const subtitle =
     lot && !result
       ? [
           kindLabel(lot.kind),
           sold
-            ? `${lot.remaining_qty.toLocaleString(undefined)} of ${lot.original_qty.toLocaleString(undefined)} left`
-            : `${lot.original_qty.toLocaleString(undefined)} units`,
-          lot.acquired_at ? fDate(lot.acquired_at, 'short', 'always') : 'date unknown',
+            ? formatMessage(
+                { id: 'shared.acquire.remaining', defaultMessage: '{remaining} of {total} left' },
+                {
+                  remaining: lot.remaining_qty.toLocaleString(getNumberLocale()),
+                  total: lot.original_qty.toLocaleString(getNumberLocale()),
+                },
+              )
+            : formatMessage(
+                { id: 'shared.acquire.units', defaultMessage: '{quantity} units' },
+                { quantity: lot.original_qty.toLocaleString(getNumberLocale()) },
+              ),
+          lot.acquired_at
+            ? fDate(lot.acquired_at, 'short', 'always')
+            : formatMessage({ id: 'shared.acquire.dateUnknown', defaultMessage: 'date unknown' }),
         ].join(' · ')
       : undefined
-  const primaryLabel = editing ? 'Save' : lockSymbol ? 'Add lot' : 'Add holding'
+  const primaryLabel = editing
+    ? formatMessage({ id: 'shared.acquire.save', defaultMessage: 'Save' })
+    : lockSymbol
+      ? formatMessage({ id: 'shared.acquire.add', defaultMessage: 'Add lot' })
+      : formatMessage({ id: 'shared.acquire.addHolding', defaultMessage: 'Add holding' })
 
   return (
     <>
@@ -512,14 +626,14 @@ export function AcquireLotForm({
             <Cluster justify="between">
               {editing && !sold ? (
                 <Button variant="danger" size="sm" onClick={askRemove} disabled={submitting}>
-                  Remove lot
+                  {formatMessage({ id: 'shared.acquire.removeLot', defaultMessage: 'Remove lot' })}
                 </Button>
               ) : (
                 <span />
               )}
               <Cluster>
                 <Button variant="secondary" onClick={onClose}>
-                  Cancel
+                  {formatMessage({ id: 'shared.acquire.cancel', defaultMessage: 'Cancel' })}
                 </Button>
                 <Button
                   variant="primary"
@@ -541,37 +655,60 @@ export function AcquireLotForm({
               <div className="disposal-result-title">
                 {result === 'added'
                   ? lockSymbol
-                    ? 'Lot added'
-                    : 'Holding added'
+                    ? formatMessage({ id: 'shared.acquire.added', defaultMessage: 'Lot added' })
+                    : formatMessage({
+                        id: 'shared.acquire.holdingAdded',
+                        defaultMessage: 'Holding added',
+                      })
                   : result === 'removed'
-                    ? 'Lot removed'
-                    : 'Lot updated'}
+                    ? formatMessage({ id: 'shared.acquire.removed', defaultMessage: 'Lot removed' })
+                    : formatMessage({
+                        id: 'shared.acquire.updated',
+                        defaultMessage: 'Lot updated',
+                      })}
               </div>
               {result === 'updated' && salesUpdated.length > 0 && (
                 <ul className="acquire-lot-sales-updated">
                   {salesUpdated.map((sale) => (
-                    <li key={sale.event_id}>{saleUpdateLine(sale)}</li>
+                    <li key={sale.event_id}>{saleUpdateLine(sale, intl)}</li>
                   ))}
                 </ul>
               )}
             </div>
             <button className="btn-primary" onClick={onClose}>
-              Done
+              {formatMessage({ id: 'shared.acquire.done', defaultMessage: 'Done' })}
             </button>
           </div>
         ) : (
           <>
             {sold && lot && (
               <div className="lots-frozen-notice">
-                {soldQty.toLocaleString(undefined)} of {lot.original_qty.toLocaleString(undefined)}{' '}
-                {lot.remaining_qty > 0 ? 'have been sold' : 'sold — none left'}. You can still
-                correct it: the sale keeps the shares it took, and a new date, cost or fees updates
-                that sale's holding period and gain. To remove this lot, undo the sale first.
+                {formatMessage(
+                  {
+                    id: 'shared.acquire.soldNotice',
+                    defaultMessage:
+                      "{sold} of {total} {state}. You can still correct it: the sale keeps the shares it took, and a new date, cost or fees updates that sale's holding period and gain. To remove this lot, undo the sale first.",
+                  },
+                  {
+                    sold: soldQty.toLocaleString(getNumberLocale()),
+                    total: lot.original_qty.toLocaleString(getNumberLocale()),
+                    state:
+                      lot.remaining_qty > 0
+                        ? formatMessage({
+                            id: 'shared.acquire.soldSome',
+                            defaultMessage: 'have been sold',
+                          })
+                        : formatMessage({
+                            id: 'shared.acquire.soldAll',
+                            defaultMessage: 'sold — none left',
+                          }),
+                  },
+                )}
               </div>
             )}
             <div className="disposal-grid acquire-lot-grid">
               <FormField
-                label="Symbol"
+                label={formatMessage({ id: 'shared.acquire.symbol', defaultMessage: 'Symbol' })}
                 required
                 htmlFor="acq-symbol"
                 error={symbolError ?? undefined}
@@ -580,7 +717,10 @@ export function AcquireLotForm({
                   id="acq-symbol"
                   value={symbol}
                   readOnly={symbolLocked}
-                  placeholder="e.g. AAPL"
+                  placeholder={formatMessage({
+                    id: 'shared.acquire.symbolPlaceholder',
+                    defaultMessage: 'e.g. AAPL',
+                  })}
                   onChange={(e) => {
                     setSymbol(e.target.value.toUpperCase())
                     setResolvedInstrumentId('')
@@ -592,16 +732,29 @@ export function AcquireLotForm({
                   }}
                 />
               </FormField>
-              <FormField label="Account" required htmlFor="acq-account">
+              <FormField
+                label={formatMessage({ id: 'shared.acquire.account', defaultMessage: 'Account' })}
+                required
+                htmlFor="acq-account"
+              >
                 {accountLocked ? (
                   <div>{lot?.account_name || accountName(lot?.account_id || '') || '—'}</div>
                 ) : (
                   <Select
                     id="acq-account"
-                    placeholder="Choose account…"
+                    placeholder={formatMessage({
+                      id: 'shared.acquire.accountChoose',
+                      defaultMessage: 'Choose account…',
+                    })}
                     options={[
                       ...holdOpts.map((a) => ({ value: a.id, label: a.name })),
-                      { value: NEW_ACCOUNT, label: '+ New account…' },
+                      {
+                        value: NEW_ACCOUNT,
+                        label: formatMessage({
+                          id: 'shared.acquire.newAccount',
+                          defaultMessage: '+ New account…',
+                        }),
+                      },
                     ]}
                     value={holdingAccountId}
                     onChange={(e) => {
@@ -613,23 +766,42 @@ export function AcquireLotForm({
                 {!accountLocked && newAccount && (
                   <TextField
                     id="acq-new-account"
-                    placeholder="Account name (e.g. IBKR)"
+                    placeholder={formatMessage({
+                      id: 'shared.acquire.accountPlaceholder',
+                      defaultMessage: 'Account name (e.g. IBKR)',
+                    })}
                     value={newAccountName}
                     onChange={(e) => setNewAccountName(e.target.value)}
-                    aria-label="New account name"
+                    aria-label={formatMessage({
+                      id: 'shared.acquire.accountName',
+                      defaultMessage: 'New account name',
+                    })}
                   />
                 )}
               </FormField>
               <FormField
-                label="Acquired date"
+                label={formatMessage({
+                  id: 'shared.acquire.date',
+                  defaultMessage: 'Acquired date',
+                })}
                 required={!dateUnknown}
                 htmlFor="acq-date"
                 help={
                   dateUnknown && !acquiredAt
-                    ? 'Unknown — set it if you know when you bought these.'
+                    ? formatMessage({
+                        id: 'shared.acquire.unknownDateHelp',
+                        defaultMessage: 'Unknown — set it if you know when you bought these.',
+                      })
                     : undefined
                 }
-                error={futureDate ? "That date hasn't happened yet." : undefined}
+                error={
+                  futureDate
+                    ? formatMessage({
+                        id: 'shared.acquire.futureDate',
+                        defaultMessage: "That date hasn't happened yet.",
+                      })
+                    : undefined
+                }
               >
                 <DateField
                   id="acq-date"
@@ -641,12 +813,19 @@ export function AcquireLotForm({
                 />
               </FormField>
               <FormField
-                label="Quantity"
+                label={formatMessage({ id: 'shared.acquire.quantity', defaultMessage: 'Quantity' })}
                 required
                 htmlFor="acq-qty"
                 error={
                   belowSold
-                    ? `Can't be less than the ${soldQty.toLocaleString(undefined)} already sold — edit the sale to sell fewer.`
+                    ? formatMessage(
+                        {
+                          id: 'shared.acquire.belowSold',
+                          defaultMessage:
+                            "Can't be less than the {quantity} already sold — edit the sale to sell fewer.",
+                        },
+                        { quantity: soldQty.toLocaleString(getNumberLocale()) },
+                      )
                     : undefined
                 }
               >
@@ -659,11 +838,18 @@ export function AcquireLotForm({
                 />
               </FormField>
               <FormField
-                label={`Unit cost${costCcy ? ` (${costCcy})` : ''}`}
+                label={formatMessage(
+                  { id: 'shared.acquire.unitCost', defaultMessage: 'Unit cost{currency}' },
+                  { currency: costCcy ? ` (${costCcy})` : '' },
+                )}
                 htmlFor="acq-cost"
                 help={
                   costNum == null && totalNum == null
-                    ? "Leave blank if cost basis is unknown — unrealized P&L won't be shown for this lot."
+                    ? formatMessage({
+                        id: 'shared.acquire.costUnknown',
+                        defaultMessage:
+                          "Leave blank if cost basis is unknown — unrealized P&L won't be shown for this lot.",
+                      })
                     : undefined
                 }
               >
@@ -676,9 +862,16 @@ export function AcquireLotForm({
                 />
               </FormField>
               <FormField
-                label={`Total spent${costCcy ? ` (${costCcy})` : ''}`}
+                label={formatMessage(
+                  { id: 'shared.acquire.totalSpent', defaultMessage: 'Total spent{currency}' },
+                  { currency: costCcy ? ` (${costCcy})` : '' },
+                )}
                 htmlFor="acq-total"
-                help="Gross purchase including fees — fills unit cost from quantity, or quantity from unit cost."
+                help={formatMessage({
+                  id: 'shared.acquire.totalHelp',
+                  defaultMessage:
+                    'Gross purchase including fees — fills unit cost from quantity, or quantity from unit cost.',
+                })}
               >
                 <NumberField
                   id="acq-total"
@@ -688,7 +881,13 @@ export function AcquireLotForm({
                   onChange={(e) => applyCostEdit('total', e.target.value)}
                 />
               </FormField>
-              <FormField label={`Fees${costCcy ? ` (${costCcy})` : ''}`} htmlFor="acq-fees">
+              <FormField
+                label={formatMessage(
+                  { id: 'shared.acquire.fees', defaultMessage: 'Fees{currency}' },
+                  { currency: costCcy ? ` (${costCcy})` : '' },
+                )}
+                htmlFor="acq-fees"
+              >
                 <NumberField
                   id="acq-fees"
                   min={0}
@@ -698,15 +897,22 @@ export function AcquireLotForm({
                   placeholder="0"
                 />
               </FormField>
-              <FormField label="Kind" htmlFor="acq-kind">
+              <FormField
+                label={formatMessage({ id: 'shared.acquire.kind', defaultMessage: 'Kind' })}
+                htmlFor="acq-kind"
+              >
                 <Select
                   id="acq-kind"
-                  options={KIND_OPTIONS}
+                  options={kindOptions}
                   value={kind}
                   onChange={(e) => setKind(e.target.value)}
                 />
               </FormField>
-              <FormField label="Note" htmlFor="acq-note" span="full">
+              <FormField
+                label={formatMessage({ id: 'shared.acquire.note', defaultMessage: 'Note' })}
+                htmlFor="acq-note"
+                span="full"
+              >
                 <TextArea
                   id="acq-note"
                   rows={2}
@@ -717,10 +923,16 @@ export function AcquireLotForm({
             </div>
 
             <label className="disposal-deposit acquire-lot-funding">
-              Deduct from
+              {formatMessage({ id: 'shared.acquire.deduct', defaultMessage: 'Deduct from' })}
               <Select
                 options={[
-                  { value: '', label: "Don't deduct from an account" },
+                  {
+                    value: '',
+                    label: formatMessage({
+                      id: 'shared.acquire.noDeduct',
+                      defaultMessage: "Don't deduct from an account",
+                    }),
+                  },
                   ...fundOpts.map((a) => ({ value: a.id, label: a.name })),
                 ]}
                 value={fundingAccountId}
@@ -731,20 +943,48 @@ export function AcquireLotForm({
               />
               {accountsError && (
                 <span className="disposal-deposit-hint muted">
-                  Could not load accounts. You can still save the lot without linking cash.
+                  {formatMessage({
+                    id: 'shared.acquire.accountsFailed',
+                    defaultMessage:
+                      'Could not load accounts. You can still save the lot without linking cash.',
+                  })}
                 </span>
               )}
               {fundingAccountId ? (
                 gross > 0 && (
                   <span className="disposal-deposit-hint muted">
                     {fundingBeforeStart
-                      ? `${fAmountNative(gross, costCcy)} is recorded against ${accountName(fundingAccountId)}, but this date is before its starting balance (${fDate(fundingStart, 'short', 'always')}), so its balance won't change. Move the starting balance earlier to count it.`
-                      : `${fAmountNative(gross, costCcy)} will be deducted from ${accountName(fundingAccountId)}.`}
+                      ? formatMessage(
+                          {
+                            id: 'shared.acquire.fundingBefore',
+                            defaultMessage:
+                              "{amount} is recorded against {account}, but this date is before its starting balance ({date}), so its balance won't change. Move the starting balance earlier to count it.",
+                          },
+                          {
+                            amount: fAmountNative(gross, costCcy),
+                            account: accountName(fundingAccountId),
+                            date: fDate(fundingStart, 'short', 'always'),
+                          },
+                        )
+                      : formatMessage(
+                          {
+                            id: 'shared.acquire.fundingAmount',
+                            defaultMessage: '{amount} will be deducted from {account}.',
+                          },
+                          {
+                            amount: fAmountNative(gross, costCcy),
+                            account: accountName(fundingAccountId),
+                          },
+                        )}
                   </span>
                 )
               ) : (
                 <span className="disposal-deposit-hint muted">
-                  Funding not linked — your cash balance won't change when you add this lot.
+                  {formatMessage({
+                    id: 'shared.acquire.fundingUnlinked',
+                    defaultMessage:
+                      "Funding not linked — your cash balance won't change when you add this lot.",
+                  })}
                 </span>
               )}
             </label>

@@ -2,20 +2,24 @@
 
 from backend.core.errors import NotFoundError, ValidationError
 from backend.db.trading_store import TradingStore
-from backend.services.trading.common import instant
+from backend.services.trading.common import instant, notice
 from backend.services.trading.market import available_observations, observation_record
 
 
 def _owned(kind, record_id, run_id):
     row = TradingStore(kind).required(record_id)
     if row.get("run_id") != run_id:
-        raise NotFoundError("Trading evidence not found")
+        raise NotFoundError(
+            "Trading evidence not found", message_id="trading.error.evidence_not_found"
+        )
     return row
 
 
 def get_evidence(run_id, kind, record_id):
     if kind not in {"order", "fill", "event"}:
-        raise ValidationError("Evidence kind must be order, fill or event")
+        raise ValidationError(
+            "Evidence kind must be order, fill or event", message_id="trading.error.evidence_kind"
+        )
     run = TradingStore("runs").required(run_id)
     selected = _owned(f"{kind}s", record_id, run_id)
     order = selected if kind == "order" else None
@@ -48,12 +52,20 @@ def get_evidence(run_id, kind, record_id):
     data = _decision_data(run, decision)
     missing = []
     if not decision:
-        missing.append("Decision link not recorded")
+        missing.append(notice("trading.notice.decision_missing", "Decision link not recorded"))
     if not data["recorded"]:
-        missing.append("Data available at this decision was not recorded")
+        missing.append(
+            notice(
+                "trading.notice.decision_data_missing",
+                "Data available at this decision was not recorded",
+            )
+        )
     if data.get("missing_observation_ids"):
         missing.append(
-            "Some recorded data references are no longer present in the retained market series"
+            notice(
+                "trading.notice.observations_missing",
+                "Some recorded data references are no longer present in the retained market series",
+            )
         )
     files = [artifact for row in linked for artifact in row["payload"].get("artifacts", [])]
     return {
@@ -66,7 +78,8 @@ def get_evidence(run_id, kind, record_id):
         "observations": data.pop("observations"),
         "data_context": data,
         "files": files,
-        "missing_links": missing,
+        "missing_links": [message["default_message"] for message in missing],
+        "missing_link_messages": missing,
     }
 
 
@@ -88,6 +101,9 @@ def _decision_data(run, decision):
         return {
             "recorded": False,
             "label": "Data context not recorded",
+            "label_message": notice(
+                "trading.notice.data_context_missing", "Data context not recorded"
+            ),
             "cutoff": None,
             "data_version": run["data_version"],
             "observations": [],
@@ -107,10 +123,17 @@ def _decision_data(run, decision):
         **context,
         "recorded": True,
         "label": "Data available at this decision",
+        "label_message": notice(
+            "trading.notice.data_context_available", "Data available at this decision"
+        ),
         "observations": rows[-500:],
         "total": len(rows),
         "missing_observation_ids": [
             record_id for record_id in recorded_ids or [] if record_id not in retained
         ],
         "usage": "Recorded availability context; exact consumption is shown by tool inputs/results.",
+        "usage_message": notice(
+            "trading.notice.data_context_usage",
+            "Recorded availability context; exact consumption is shown by tool inputs/results.",
+        ),
     }

@@ -15,6 +15,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import type { ChartEvent } from 'chart.js'
 import { fBase, fBaseCompact, fPct } from '../../../utils/format'
 import { OvChart, amountsHidden, kTick, resolveColor } from './charts'
+import { useAppIntl } from '../../../i18n/useAppIntl'
 
 export interface BreakdownRow {
   key: string
@@ -68,6 +69,7 @@ function BreakdownLegend({
   hiddenCount?: number
   select?: RowSelect
 }) {
+  const { formatMessage } = useAppIntl()
   return (
     <div className="ov-breakdown-list">
       {rows.map((r) => {
@@ -101,7 +103,14 @@ function BreakdownLegend({
           </div>
         )
       })}
-      {!!hiddenCount && hiddenCount > 0 && <div className="ov-more">+{hiddenCount} more</div>}
+      {!!hiddenCount && hiddenCount > 0 && (
+        <div className="ov-more">
+          {formatMessage(
+            { id: 'overview.more', defaultMessage: '+{count} more' },
+            { count: hiddenCount },
+          )}
+        </div>
+      )}
     </div>
   )
 }
@@ -196,6 +205,7 @@ function BreakdownDonut({
   total: number
   pick?: (index: number) => void
 }) {
+  const { formatMessage } = useAppIntl()
   const wrapRef = useRef<HTMLDivElement>(null)
   const [size, setSize] = useState(150)
   useEffect(() => {
@@ -258,7 +268,9 @@ function BreakdownDonut({
         style={{ fontSize: centerFontSize(size, valueText) }}
       >
         <span className="ov-breakdown-donut-value money">{valueText}</span>
-        <span className="ov-breakdown-donut-label">total</span>
+        <span className="ov-breakdown-donut-label">
+          {formatMessage({ id: 'overview.totalLower', defaultMessage: 'total' })}
+        </span>
       </div>
     </div>
   )

@@ -61,6 +61,7 @@ class CanonicalRow:
     # passthrough that keeps the rest reachable (Lucius's pass reads it) without inventing a
     # new named role per source. Empty on non-tabular tiers (no grid to key by).
     raw: dict[str, str] = field(default_factory=dict)
+    skip_message: dict | None = None
 
     def to_dict(self) -> dict:
         return asdict(self)

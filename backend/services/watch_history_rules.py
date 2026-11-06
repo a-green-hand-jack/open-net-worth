@@ -29,6 +29,12 @@ def _scored_move_findings(
         30 + min(40.0, abs(z) * 10),
         "high" if abs(z) >= Z_HIGH else "medium",
         f"{'Up' if up else 'Down'} {abs(d):.1f}% today — {times:.1f}× its usual daily move",
+        message_id="scored_move",
+        params={
+            "direction": "up" if up else "down",
+            "percent": f"{abs(d):.1f}",
+            "multiple": f"{times:.1f}",
+        },
     )
     kind = stats.get("move_kind")
     big["meta"] = {"z": z, "move_kind": kind, "residual": stats.get("residual")}
@@ -41,9 +47,35 @@ def _scored_move_findings(
         else "the market"
     )
     if kind == "company":
-        out.append(_finding("company_move", "warn", 26, "low", f"Company-specific — {bench_txt}"))
+        out.append(
+            _finding(
+                "company_move",
+                "warn",
+                26,
+                "low",
+                f"Company-specific — {bench_txt}",
+                message_id="company_move",
+                params={
+                    "comparison": bench_txt,
+                    "market": "known" if bench and bench.get("day_pct") is not None else "unknown",
+                },
+            )
+        )
     elif kind == "market":
-        out.append(_finding("market_move", "info", 24, "low", f"Mostly the market — {bench_txt}"))
+        out.append(
+            _finding(
+                "market_move",
+                "info",
+                24,
+                "low",
+                f"Mostly the market — {bench_txt}",
+                message_id="market_move",
+                params={
+                    "comparison": bench_txt,
+                    "market": "known" if bench and bench.get("day_pct") is not None else "unknown",
+                },
+            )
+        )
     elif kind == "sector" and sector:
         out.append(
             _finding(
@@ -52,6 +84,8 @@ def _scored_move_findings(
                 25,
                 "low",
                 f"Moving with its sector — {sector['symbol']} {sector['day_pct']:+.1f}%",
+                message_id="sector_move",
+                params={"symbol": sector["symbol"], "percent": f"{sector['day_pct']:+.1f}"},
             )
         )
     return out
@@ -65,7 +99,15 @@ def _history_findings(stats: dict | None, bench: dict | None) -> list[dict]:
     dd, thr = stats.get("drawdown_20d"), stats.get("drawdown_threshold")
     if dd is not None and thr is not None and dd <= thr:
         out.append(
-            _finding("drawdown", "bad", 18, "low", f"Down {abs(dd):.0f}% from its 20-day high")
+            _finding(
+                "drawdown",
+                "bad",
+                18,
+                "low",
+                f"Down {abs(dd):.0f}% from its 20-day high",
+                message_id="drawdown",
+                params={"percent": f"{abs(dd):.0f}"},
+            )
         )
     streak = stats.get("streak") or {}
     n = streak.get("days", 0)
@@ -78,6 +120,8 @@ def _history_findings(stats: dict | None, bench: dict | None) -> list[dict]:
                 10 + min(8, abs(n)),
                 "low",
                 f"{abs(n)} {word} days in a row ({streak['cum_pct']:+.1f}%)",
+                message_id="streak",
+                params={"days": abs(n), "direction": word, "percent": f"{streak['cum_pct']:+.1f}"},
             )
         )
     rel, mthr = stats.get("mom_1m_vs_bench"), stats.get("mom_threshold")
@@ -91,6 +135,14 @@ def _history_findings(stats: dict | None, bench: dict | None) -> list[dict]:
                 "low",
                 f"{'Up' if mom >= 0 else 'Down'} {abs(mom):.0f}% this month, {abs(rel):.0f} pts "
                 f"{'ahead of' if rel > 0 else 'behind'} {bench['symbol']}",
+                message_id="momentum",
+                params={
+                    "direction": "up" if mom >= 0 else "down",
+                    "percent": f"{abs(mom):.0f}",
+                    "gap": f"{abs(rel):.0f}",
+                    "relative": "ahead" if rel > 0 else "behind",
+                    "symbol": bench["symbol"],
+                },
             )
         )
     cross = stats.get("cross_200d")
@@ -105,6 +157,8 @@ def _history_findings(stats: dict | None, bench: dict | None) -> list[dict]:
                 14,
                 "low",
                 f"Crossed {'above' if up else 'below'} its 200-day average {when}",
+                message_id="crossed_200d",
+                params={"direction": "up" if up else "down", "days": days},
             )
         )
     return out

@@ -1,3 +1,4 @@
+import { useAppIntl } from '../../i18n/useAppIntl'
 import { useEffect, useState, type ComponentType } from 'react'
 import { Button } from '../ui'
 import {
@@ -147,17 +148,18 @@ interface Props {
 
 /** Chart-type picker, anchored to the toolbar's right edge. */
 export function ChartTypeMenu({ value, onChange, ohlcAvailable }: Props) {
+  const intl = useAppIntl()
   return (
     <ToolbarMenu
       className="asd-cht--right"
-      ariaLabel="Chart type"
+      ariaLabel={intl.formatMessage({ id: 'intel.chart.type', defaultMessage: 'Chart type' })}
       value={value}
       items={CHART_TYPE_DEFS.map((d) => ({
         value: d.value,
-        label: d.label,
+        label: intl.formatMessage({ id: 'intel.chart.typeOption', defaultMessage: '{type, select, line {Line} candle {Candle} baseline {Baseline} mountain {Mountain} other {Bar}}' }, { type: d.value }),
         Icon: d.Icon,
         disabled: d.needsOhlc && !ohlcAvailable,
-        disabledTitle: 'No OHLC data for this range',
+        disabledTitle: intl.formatMessage({ id: 'intel.chart.noOhlc', defaultMessage: 'No OHLC data for this range' }),
       }))}
       onPick={(v) => {
         storeChartType(v)

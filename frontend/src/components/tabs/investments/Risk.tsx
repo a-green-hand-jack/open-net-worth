@@ -2,6 +2,7 @@
 // Shows top 5 single-name concentrations with flag when a position exceeds the guideline.
 
 import { useState } from 'react'
+import { useAppIntl } from '../../../i18n/useAppIntl'
 import { fBase } from '../../../utils/format'
 import { Button, Badge } from '../../ui'
 
@@ -41,6 +42,7 @@ function Card({
 }
 
 export function Risk({ risk, guideline = 20, dropPct = 30, onSaveSettings }: Props) {
+  const { formatMessage } = useAppIntl()
   const [editing, setEditing] = useState(false)
   const [g, setG] = useState(guideline)
   const [dp, setDp] = useState(dropPct)
@@ -54,12 +56,25 @@ export function Risk({ risk, guideline = 20, dropPct = 30, onSaveSettings }: Pro
 
   if (editing) {
     return (
-      <Card title="Risk settings">
+      <Card
+        title={formatMessage({
+          id: 'investmentRisk.RiskSettings',
+          defaultMessage: 'Risk settings',
+        })}
+      >
         <div className="mk-tgt-edit">
           <div className="mk-set-row">
             <span className="mk-set-lbl">
-              Single-name guideline
-              <span className="mk-set-sub">Flag any holding above this share</span>
+              {formatMessage({
+                id: 'investmentRisk.SingleNameGuideline',
+                defaultMessage: 'Single-name guideline',
+              })}
+              <span className="mk-set-sub">
+                {formatMessage({
+                  id: 'investmentRisk.FlagAnyHoldingAboveThisShare',
+                  defaultMessage: 'Flag any holding above this share',
+                })}
+              </span>
             </span>
             <span className="mk-set-field">
               <input
@@ -79,8 +94,16 @@ export function Risk({ risk, guideline = 20, dropPct = 30, onSaveSettings }: Pro
           </div>
           <div className="mk-set-row">
             <span className="mk-set-lbl">
-              Stress scenario
-              <span className="mk-set-sub">Hypothetical price drop for the loss estimate</span>
+              {formatMessage({
+                id: 'investmentRisk.StressScenario',
+                defaultMessage: 'Stress scenario',
+              })}
+              <span className="mk-set-sub">
+                {formatMessage({
+                  id: 'investmentRisk.HypotheticalPriceDropForTheLossEstimate',
+                  defaultMessage: 'Hypothetical price drop for the loss estimate',
+                })}
+              </span>
             </span>
             <span className="mk-set-field">
               <input
@@ -108,10 +131,10 @@ export function Risk({ risk, guideline = 20, dropPct = 30, onSaveSettings }: Pro
               setEditing(false)
             }}
           >
-            Save
+            {formatMessage({ id: 'investmentRisk.Save', defaultMessage: 'Save' })}
           </Button>
           <Button variant="ghost" size="sm" onClick={() => setEditing(false)}>
-            Cancel
+            {formatMessage({ id: 'investmentRisk.Cancel', defaultMessage: 'Cancel' })}
           </Button>
         </div>
       </Card>
@@ -120,22 +143,33 @@ export function Risk({ risk, guideline = 20, dropPct = 30, onSaveSettings }: Pro
 
   return (
     <Card
-      title="Concentration & risk"
+      title={formatMessage({
+        id: 'investmentRisk.ConcentrationRisk',
+        defaultMessage: 'Concentration & risk',
+      })}
       meta={
         <span className="mk-risk-meta">
           {flagged ? (
             <Badge tone="warn">
-              {flagCount} flag{flagCount > 1 ? 's' : ''}
+              {formatMessage(
+                {
+                  id: 'investmentRisk.flags',
+                  defaultMessage: '{count, plural, one {# flag} other {# flags}}',
+                },
+                { count: flagCount },
+              )}
             </Badge>
           ) : (
-            <Badge tone="pos">OK</Badge>
+            <Badge tone="pos">
+              {formatMessage({ id: 'investmentRisk.Ok', defaultMessage: 'OK' })}
+            </Badge>
           )}
           <button
             className="mk-card-edit"
             style={{ marginLeft: 0 }}
             onClick={() => setEditing(true)}
           >
-            Adjust
+            {formatMessage({ id: 'investmentRisk.Adjust', defaultMessage: 'Adjust' })}
           </button>
         </span>
       }
@@ -166,8 +200,18 @@ export function Risk({ risk, guideline = 20, dropPct = 30, onSaveSettings }: Pro
         <div className="mk-stress">
           <span className="mk-stress-mark">⚠</span>
           <span>
-            Stress test • a {Math.round(dropPct)}% drop in {flagged.nm} ≈{' '}
-            <b className="mask">−{fBase(dropCost)}</b>
+            {formatMessage(
+              {
+                id: 'investmentRisk.stress',
+                defaultMessage: 'Stress test • a {drop}% drop in {name} ≈ <amount>{loss}</amount>',
+              },
+              {
+                drop: Math.round(dropPct),
+                name: flagged.nm,
+                loss: '−' + fBase(dropCost),
+                amount: (chunks) => <b className="mask">{chunks}</b>,
+              },
+            )}
           </span>
         </div>
       )}

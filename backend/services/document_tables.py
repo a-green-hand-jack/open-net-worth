@@ -141,7 +141,8 @@ def _read(content: bytes, fmt: str, sheet: str | None, offset: int) -> _Page:
         content, _ = decrypt_office(content, None, resend_hint="Download it to open it.")
     except ValueError as exc:
         raise ValidationError(
-            "this spreadsheet is password-protected — download it to open it"
+            "this spreadsheet is password-protected — download it to open it",
+            message_id="vault.error.sheetProtected",
         ) from exc
     if fmt == "xlsx":
         return _xlsx_page(content, sheet, offset)
@@ -156,20 +157,29 @@ def table(vid: str, sheet: str | None = None, offset: int = 0) -> dict:
     ``total_rows`` is exact for CSV and legacy .xls, and the sheet's own dimension for .xlsx
     (``None`` when it has none)."""
     if not 0 <= offset <= MAX_OFFSET:
-        raise ValidationError(f"offset must be between 0 and {MAX_OFFSET}")
+        raise ValidationError(
+            f"offset must be between 0 and {MAX_OFFSET}",
+            message_id="vault.error.offsetRange",
+            message_params={"max": str(MAX_OFFSET)},
+        )
     item = vault.get_item(vid)
     fmt = table_format(item)
     if fmt is None:
-        raise ValidationError("only a CSV or Excel file has a table preview")
+        raise ValidationError(
+            "only a CSV or Excel file has a table preview", message_id="vault.error.tableOnly"
+        )
     content = original_bytes(item)
     if not content:
-        raise NotFoundError("the file is missing")
+        raise NotFoundError("the file is missing", message_id="vault.error.fileMissing")
     try:
         sheets, name, raw, has_more, total = _read(content, fmt, sheet, offset)
     except ValidationError:
         raise
     except Exception as exc:
-        raise ValidationError("this spreadsheet can't be read — download it instead") from exc
+        raise ValidationError(
+            "this spreadsheet can't be read — download it instead",
+            message_id="vault.error.sheetUnreadable",
+        ) from exc
     cells = [[_cell(v) for v in row] for row in raw]
     while not has_more and cells and not any(cells[-1]):
         cells.pop()

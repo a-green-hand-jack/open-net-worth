@@ -4,7 +4,7 @@ import {
   deriveFromPreset,
   totalPremium,
   cspCollateral,
-  validateDraft,
+  validateDraftKey,
   draftToPayload,
   type OpenOptionDraft,
 } from './optionForm'
@@ -73,30 +73,36 @@ describe('premium & collateral math', () => {
   })
 })
 
-describe('validateDraft', () => {
+describe('validateDraftKey', () => {
   it('accepts a complete draft', () => {
-    expect(validateDraft(draft())).toBeNull()
+    expect(validateDraftKey(draft())).toBeNull()
   })
   it('requires underlying and account', () => {
-    expect(validateDraft(draft({ underlying_instrument_id: '' }))).toMatch(/underlying/i)
-    expect(validateDraft(draft({ account_id: '' }))).toMatch(/account/i)
+    expect(validateDraftKey(draft({ underlying_instrument_id: '' }))).toMatch(/underlying/i)
+    expect(validateDraftKey(draft({ account_id: '' }))).toMatch(/account/i)
   })
   it('rejects non-positive strike and contracts', () => {
-    expect(validateDraft(draft({ strike: '0' }))).toMatch(/strike/i)
-    expect(validateDraft(draft({ strike: 'abc' }))).toMatch(/strike/i)
-    expect(validateDraft(draft({ contracts: '0' }))).toMatch(/contracts/i)
+    expect(validateDraftKey(draft({ strike: '0' }))).toMatch(/strike/i)
+    expect(validateDraftKey(draft({ strike: 'abc' }))).toMatch(/strike/i)
+    expect(validateDraftKey(draft({ contracts: '0' }))).toMatch(/contracts/i)
   })
   it('requires expiry and a whole positive multiplier', () => {
-    expect(validateDraft(draft({ expiry: '' }))).toMatch(/expiry/i)
-    expect(validateDraft(draft({ multiplier: '2.5' }))).toMatch(/multiplier/i)
+    expect(validateDraftKey(draft({ expiry: '' }))).toMatch(/expiry/i)
+    expect(validateDraftKey(draft({ multiplier: '2.5' }))).toMatch(/multiplier/i)
   })
   it('rejects negative premium but allows zero', () => {
-    expect(validateDraft(draft({ premium_per_share: '-1' }))).toMatch(/premium/i)
-    expect(validateDraft(draft({ premium_per_share: '' }))).toBeNull()
+    expect(validateDraftKey(draft({ premium_per_share: '-1' }))).toMatch(/premium/i)
+    expect(validateDraftKey(draft({ premium_per_share: '' }))).toBeNull()
   })
 })
 
 describe('draftToPayload', () => {
+  it('sends an explicit preset without changing the stored strategy key', () => {
+    expect(draftToPayload(draft({ strategy_preset: 'covered_call' }))).toMatchObject({
+      strategy_tag: 'covered_call',
+      strategy_preset: 'covered_call',
+    })
+  })
   it('coerces numerics and keeps required fields', () => {
     const p = draftToPayload(draft())
     expect(p.strike).toBe(160)

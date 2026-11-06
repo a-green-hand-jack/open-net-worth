@@ -91,22 +91,38 @@ async def run_automation(
 ) -> dict:
     automation = AutomationStore().find_by_id(automation_id)
     if automation is None:
-        raise NotFoundError(f"automation {automation_id!r} not found")
+        raise NotFoundError(
+            f"automation {automation_id!r} not found",
+            message_id="automation.error.notFound",
+            message_params={"id": automation_id},
+        )
     if automation.get("execution", {}).get("kind") != "lucius":
-        raise ValidationError("automation execution must use Lucius")
+        raise ValidationError(
+            "automation execution must use Lucius", message_id="automation.error.executionLucius"
+        )
     trigger_data = dict(trigger) if isinstance(trigger, dict) else {"kind": str(trigger)}
     run_id = run_id or new_id("run")
     claimed, acquired = _claim_runtime(automation_id, run_id)
     if not claimed:
-        raise ConflictError(f"automation {automation_id!r} is already running")
+        raise ConflictError(
+            f"automation {automation_id!r} is already running",
+            message_id="automation.error.alreadyRunning",
+            message_params={"id": automation_id},
+        )
     latest = AutomationStore().find_persisted_by_id(automation_id)
     if latest is None or latest.get("status") == DELETING_STATUS:
         _rollback_runtime_claim(automation_id, run_id, acquired=acquired)
-        raise NotFoundError(f"automation {automation_id!r} not found")
+        raise NotFoundError(
+            f"automation {automation_id!r} not found",
+            message_id="automation.error.notFound",
+            message_params={"id": automation_id},
+        )
     automation = latest
     if automation.get("execution", {}).get("kind") != "lucius":
         _rollback_runtime_claim(automation_id, run_id, acquired=acquired)
-        raise ValidationError("automation execution must use Lucius")
+        raise ValidationError(
+            "automation execution must use Lucius", message_id="automation.error.executionLucius"
+        )
     draft = {
         "id": run_id,
         "automation_id": automation_id,
@@ -137,7 +153,11 @@ async def run_automation(
             run["id"],
             {"running"},
             "failed",
-            {"summary": "Execution failed", "error": str(exc)[:2000]},
+            {
+                "summary": "Execution failed",
+                "summary_message": {"id": "automations.run.executionFailed", "params": {}},
+                "error": str(exc)[:2000],
+            },
         )
         _finish_automation_once(automation, failed, "failed", dict(payload or {}))
         _release_runtime(automation_id, run["id"])
@@ -212,9 +232,13 @@ def _settle_cancelled_run(run_id: str) -> None:
 async def _execute_run(automation: dict, run: dict, payload: dict) -> None:
     run_store = AutomationRunStore()
     result: AutomationRunnerResult
+    generated_failure = False
     try:
         if automation.get("execution", {}).get("kind") != "lucius":
-            raise ValidationError("automation execution must use Lucius")
+            raise ValidationError(
+                "automation execution must use Lucius",
+                message_id="automation.error.executionLucius",
+            )
         request = request_for_run(automation, run, payload=payload)
 
         async def persist(event: dict) -> None:
@@ -223,6 +247,7 @@ async def _execute_run(automation: dict, run: dict, payload: dict) -> None:
 
         result = await run_with_automation_runner(request, persist)
     except Exception as exc:
+        generated_failure = True
         result = AutomationRunnerResult(
             status="failed",
             session_id=run.get("session_id") or "",
@@ -230,9 +255,10 @@ async def _execute_run(automation: dict, run: dict, payload: dict) -> None:
             error=str(exc)[:2000],
         )
     try:
-        updated, _ = run_store.transition(
-            run["id"], {"running"}, result.status, _result_patch(run, result, continuation=False)
-        )
+        patch = _result_patch(run, result, continuation=False)
+        if generated_failure:
+            patch["summary_message"] = {"id": "automations.run.executionFailed", "params": {}}
+        updated, _ = run_store.transition(run["id"], {"running"}, result.status, patch)
     except TransitionConflict:
         return
     if result.status != "waiting":
@@ -295,20 +321,34 @@ def automation_run_for_session(session_id: str) -> tuple[dict, dict] | None:
 def begin_automation_continuation(session_id: str) -> tuple[dict, dict]:
     owned = automation_run_for_session(session_id)
     if owned is None:
-        raise NotFoundError("automation conversation not found")
+        raise NotFoundError(
+            "automation conversation not found", message_id="automation.error.conversationMissing"
+        )
     automation, run = owned
     if run.get("status") == "running":
-        raise ConflictError("automation conversation is already processing a turn")
+        raise ConflictError(
+            "automation conversation is already processing a turn",
+            message_id="automation.error.conversationBusy",
+        )
     runtime = AutomationRuntimeStore().get_for_automation(automation["id"]) or {}
     if run.get("status") in _TERMINAL_STATUSES and runtime.get("running_run_id") == run["id"]:
-        raise ConflictError("the previous Automation turn is still finalizing")
+        raise ConflictError(
+            "the previous Automation turn is still finalizing",
+            message_id="automation.error.previousFinalizing",
+        )
     claimed, acquired = _claim_runtime(automation["id"], run["id"])
     if not claimed:
-        raise ConflictError(f"automation {automation['id']!r} is already running")
+        raise ConflictError(
+            f"automation {automation['id']!r} is already running",
+            message_id="automation.error.alreadyRunning",
+            message_params={"id": automation["id"]},
+        )
     latest = AutomationStore().find_persisted_by_id(automation["id"])
     if latest is None or latest.get("status") == DELETING_STATUS:
         _rollback_runtime_claim(automation["id"], run["id"], acquired=acquired)
-        raise NotFoundError("automation conversation not found")
+        raise NotFoundError(
+            "automation conversation not found", message_id="automation.error.conversationMissing"
+        )
     automation = latest
     try:
         started, _ = AutomationRunStore().transition(
@@ -319,7 +359,10 @@ def begin_automation_continuation(session_id: str) -> tuple[dict, dict]:
         )
     except TransitionConflict as exc:
         _rollback_runtime_claim(automation["id"], run["id"], acquired=acquired)
-        raise ConflictError("automation conversation is already processing a turn") from exc
+        raise ConflictError(
+            "automation conversation is already processing a turn",
+            message_id="automation.error.conversationBusy",
+        ) from exc
     except BaseException:
         _rollback_runtime_claim(automation["id"], run["id"], acquired=acquired)
         raise
@@ -379,6 +422,7 @@ def _result_patch(baseline: dict, result: AutomationRunnerResult, *, continuatio
         return patch
     if not patch.get("summary"):
         patch["summary"] = baseline.get("summary") or ""
+        patch["summary_message"] = baseline.get("summary_message")
     patch["steps"] = _merge_steps(list(baseline.get("steps") or []), list(result.steps or []))
     # The plan is a WHOLE-LIST value, not an append-only trail: the continuation re-seeds
     # it from the run row and the model restates it, so the latest version is the truth.
@@ -485,7 +529,8 @@ def assert_automation_delete_safe(automation_id: str) -> None:
         live_task = task is not None and not task.done()
         if live_task or run.get("status") == "running":
             raise ConflictError(
-                "automation is currently running; wait for the turn to finish before deleting it"
+                "automation is currently running; wait for the turn to finish before deleting it",
+                message_id="automation.error.runningDuringDelete",
             )
 
 
@@ -626,7 +671,19 @@ def recover_automation_runs(
                     run["id"],
                     {status},
                     "failed",
-                    {"error": reason, "summary": run.get("summary") or "Interrupted"},
+                    {
+                        "error": reason,
+                        "error_message": {
+                            "id": "automations.run.restartInterrupted"
+                            if status == "running"
+                            else "automations.run.approvalsLost",
+                            "params": {},
+                        },
+                        "summary": run.get("summary") or "Interrupted",
+                        "summary_message": run.get("summary_message")
+                        if run.get("summary")
+                        else {"id": "automations.run.interrupted", "params": {}},
+                    },
                 )
             except TransitionConflict:
                 continue

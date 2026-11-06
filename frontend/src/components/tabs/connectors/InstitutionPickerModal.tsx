@@ -1,3 +1,4 @@
+import { useAppIntl } from '../../../i18n/useAppIntl'
 import { useEffect, useState } from 'react'
 import { authFetch } from '../../../api/client'
 import { Stack, Cluster, Grid, Text, Badge } from '../../ui'
@@ -63,6 +64,7 @@ export function InstitutionPickerModal({
   const [query, setQuery] = useState('')
   const [result, setResult] = useState<SearchResult | null>(null)
   const [loading, setLoading] = useState(false)
+  const { formatMessage } = useAppIntl()
   const [error, setError] = useState<string | null>(null)
 
   // Reset on (re)open so the picker always starts clean.
@@ -84,12 +86,12 @@ export function InstitutionPickerModal({
       if (query.trim()) params.set('q', query.trim())
       const r = await authFetch(`/api/account-linking/institutions?${params.toString()}`)
       if (!r.ok) {
-        setError('Could not search institutions.')
+        setError(formatMessage({ id: 'connectors.institution.failed', defaultMessage: 'Could not search institutions.' }))
         return
       }
       setResult((await r.json()) as SearchResult)
     } catch {
-      setError('Could not search institutions.')
+      setError(formatMessage({ id: 'connectors.institution.failed', defaultMessage: 'Could not search institutions.' }))
     } finally {
       setLoading(false)
     }
@@ -104,17 +106,14 @@ export function InstitutionPickerModal({
 
   return (
     <Modal
-      title="Find your bank"
+      title={formatMessage({ id: 'connectors.findBank', defaultMessage: 'Find your bank' })}
       onClose={onClose}
       size="lg"
-      footer={<Btn onClick={onClose}>Close</Btn>}
+      footer={<Btn onClick={onClose}>{formatMessage({ id: 'connectors.close', defaultMessage: 'Close' })}</Btn>}
     >
       <Stack gap="--space-5">
         <Text size="sm" tone="faint">
-          Type your country (and optionally your bank's name) — we'll find the right provider to
-          link it and take you to its setup. Can't auto-sync your bank? Email can often log the same
-          activity straight from your bank's own notifications, or you can always import a
-          statement.
+          {formatMessage({ id: 'connectors.institution.intro', defaultMessage: "Type your country (and optionally your bank's name) — we'll find the right provider to link it and take you to its setup. Can't auto-sync your bank? Email can often log the same activity straight from your bank's own notifications, or you can always import a statement." })}
         </Text>
 
         {/* One row, three controls (see `.cn-linkrow`). The help is a CHILD OF THE ROW, not of
@@ -123,7 +122,7 @@ export function InstitutionPickerModal({
         <div className="cn-linkrow">
           <div className="rd-field">
             <span className="rd-label" id="link-country-label">
-              Country
+              {formatMessage({ id: 'connectors.gocardless.country', defaultMessage: 'Country' })}
             </span>
             <input
               id="link-country"
@@ -139,7 +138,7 @@ export function InstitutionPickerModal({
           </div>
           <div className="rd-field">
             <span className="rd-label" id="link-query-label">
-              Bank name (optional)
+              {formatMessage({ id: 'connectors.institution.bankName', defaultMessage: 'Bank name (optional)' })}
             </span>
             <input
               id="link-query"
@@ -152,10 +151,10 @@ export function InstitutionPickerModal({
             />
           </div>
           <span className="rd-help" id="link-country-help">
-            2-letter code, e.g. US, GB, DE
+            {formatMessage({ id: 'connectors.institution.countryHelp', defaultMessage: '2-letter code, e.g. US, GB, DE' })}
           </span>
           <Btn onClick={search} disabled={loading} aria-busy={loading || undefined}>
-            Search
+            {formatMessage({ id: 'connectors.institution.search', defaultMessage: 'Search' })}
           </Btn>
         </div>
 
@@ -171,7 +170,7 @@ export function InstitutionPickerModal({
             {result.institutions.length > 0 && (
               <Stack gap="--space-3">
                 <Text size="xs" tone="faint" className="conn-dir__group">
-                  Banks
+                  {formatMessage({ id: 'connectors.institution.banks', defaultMessage: 'Banks' })}
                 </Text>
                 <Grid min={240} gap="--space-3">
                   {result.institutions.map((inst) => (
@@ -186,7 +185,7 @@ export function InstitutionPickerModal({
                           <Text size="sm" weight={600}>
                             {inst.name}
                           </Text>
-                          <Badge tone="muted">via {inst.provider.replace(/_/g, ' ')}</Badge>
+                          <Badge tone="muted">{formatMessage({ id: 'connectors.institution.via', defaultMessage: 'via {provider}' }, { provider: inst.provider.replace(/_/g, ' ') })}</Badge>
                         </Cluster>
                         {inst.country && (
                           <Text size="xs" tone="faint">
@@ -203,14 +202,11 @@ export function InstitutionPickerModal({
             {/* Provider-level options (Plaid/SimpleFIN — bank chosen inside the hosted flow). */}
             <Stack gap="--space-3">
               <Text size="xs" tone="faint" className="conn-dir__group">
-                Connect via a provider
+                {formatMessage({ id: 'connectors.institution.providers', defaultMessage: 'Connect via a provider' })}
               </Text>
               {result.providers.length === 0 ? (
                 <Text size="sm" tone="faint">
-                  No auto-sync provider covers this country yet — but Email is a real option here,
-                  not just a fallback. Point Lucius at your bank or broker's own notification emails
-                  and it logs the same activity; for some institutions that's actually richer than a
-                  sync feed, not a lesser substitute for one.
+                  {formatMessage({ id: 'connectors.institution.none', defaultMessage: "No auto-sync provider covers this country yet — but Email is a real option here, not just a fallback. Point Lucius at your bank or broker's own notification emails and it logs the same activity; for some institutions that's actually richer than a sync feed, not a lesser substitute for one." })}
                 </Text>
               ) : (
                 <Grid min={240} gap="--space-3">
@@ -227,7 +223,7 @@ export function InstitutionPickerModal({
                             {p.name}
                           </Text>
                           <Badge tone="muted">{p.region}</Badge>
-                          {p.configured && <Badge tone="pos">Configured</Badge>}
+                          {p.configured && <Badge tone="pos">{formatMessage({ id: 'connectors.institution.configured', defaultMessage: 'Configured' })}</Badge>}
                         </Cluster>
                         <Text size="xs" tone="faint" className="conn-dir-card__desc">
                           {p.note}
@@ -242,8 +238,7 @@ export function InstitutionPickerModal({
             {/* The always-present manual-import fallback so the door never dead-ends. */}
             {result.manual_import && (
               <Text size="xs" tone="faint">
-                Don't see your bank? You can always import a statement (CSV / OFX / QIF) from
-                Settings → Data.
+                {formatMessage({ id: 'connectors.institution.manual', defaultMessage: "Don't see your bank? You can always import a statement (CSV / OFX / QIF) from Settings → Data." })}
               </Text>
             )}
           </Stack>

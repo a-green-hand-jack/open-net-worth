@@ -30,6 +30,17 @@ import {
 import type { PendingForget, RowActs } from './MemoryParts'
 import { SECTIONS, UNSORTED, groupFacts, matchesFilter, summaryOf, topicsOf } from './memoryGroups'
 import type { Topic } from './memoryGroups'
+import { defineMessages } from 'react-intl'
+import { useAppIntl } from '../../../i18n/useAppIntl'
+
+const sectionNames = defineMessages({
+  you: { id: 'memory.section.you', defaultMessage: 'You' },
+  money: { id: 'memory.section.money', defaultMessage: 'Money' },
+  plans: { id: 'memory.section.plans', defaultMessage: 'Plans' },
+  open_items: { id: 'memory.section.recent', defaultMessage: 'Recent' },
+  other: { id: 'memory.section.other', defaultMessage: 'Other' },
+  unsorted: { id: 'memory.section.older', defaultMessage: 'Older memories' },
+})
 
 /** The element the browser scrolls in: the Settings pane, the dialog's body, or the page. */
 function scrollParent(el: HTMLElement | null): HTMLElement | null {
@@ -42,10 +53,11 @@ function scrollParent(el: HTMLElement | null): HTMLElement | null {
 }
 
 function BackLink({ onClick }: { onClick: () => void }) {
+  const { formatMessage } = useAppIntl()
   return (
     <button type="button" className="rd-mem-back" onClick={onClick}>
       <ChevronLeft size={16} strokeWidth={1.8} aria-hidden="true" />
-      Memory
+      {formatMessage({ id: 'memory.title', defaultMessage: 'Memory' })}
     </button>
   )
 }
@@ -63,10 +75,17 @@ function TopicRow({
   onOpen: () => void
   onDelete: () => void
 }) {
+  const { formatMessage } = useAppIntl()
+  const name = topic.named
+    ? topic.name
+    : formatMessage({ id: 'memory.general', defaultMessage: 'General' })
   const acts: RowActs = {
-    editLabel: 'Edit ' + topic.name,
-    forgetLabel: 'Delete ' + topic.name,
-    word: 'Delete',
+    editLabel: formatMessage({ id: 'memory.editNamed', defaultMessage: 'Edit {name}' }, { name }),
+    forgetLabel: formatMessage(
+      { id: 'memory.deleteNamed', defaultMessage: 'Delete {name}' },
+      { name },
+    ),
+    word: formatMessage({ id: 'memory.delete', defaultMessage: 'Delete' }),
     onEdit: onOpen,
     onForget: onDelete,
   }
@@ -74,10 +93,15 @@ function TopicRow({
     <MemorySwipeRow acts={acts}>
       <div className="rd-mem-topic">
         <button type="button" className="rd-mem-topic-open" onClick={onOpen}>
-          <span className="rd-mem-topic-name">{topic.name}</span>
+          <span className="rd-mem-topic-name">{name}</span>
           <span className="rd-mem-topic-preview">{summary || topic.facts[0]?.content}</span>
           <span className="rd-mem-topic-date">
-            {topic.updated ? `Updated ${fDate(topic.updated)}` : ''}
+            {topic.updated
+              ? formatMessage(
+                  { id: 'memory.updated', defaultMessage: 'Updated {date}' },
+                  { date: fDate(topic.updated) },
+                )
+              : ''}
           </span>
         </button>
         <MemoryHoverActs acts={acts} className="rd-mem-topic-acts" size={16} />
@@ -108,6 +132,7 @@ export function MemoryBrowser({
   onTopicOpen?: (open: boolean) => void
   placeBack?: ((back: SectionBack | null) => void) | null
 }) {
+  const { formatMessage } = useAppIntl()
   const { facts, summaries, loading, forget, edit, instruct, deleteTopic } = useMemoryFacts(toast)
   // A topic's page is a history step, so Back (the gesture, the browser's, the app's) leaves it
   // for the list before it leaves the window or the page.
@@ -207,37 +232,61 @@ export function MemoryBrowser({
   // said twice; elsewhere the page carries its own link.
   useEffect(() => {
     if (!placeBack) return
-    placeBack(topicShown ? { label: 'Memory', onBack: closeTopic } : null)
+    placeBack(
+      topicShown
+        ? {
+            label: formatMessage({ id: 'memory.title', defaultMessage: 'Memory' }),
+            onBack: closeTopic,
+          }
+        : null,
+    )
     return () => placeBack(null)
-  }, [placeBack, topicShown, closeTopic])
+  }, [placeBack, topicShown, closeTopic, formatMessage])
   if (open && topic) {
     const summary = summaryOf(summaries, open.section, topic.key)
     return (
       <div className="rd-mem-detail" ref={top}>
         {placeBack ? null : <BackLink onClick={closeTopic} />}
         <div className="rd-mem-detail-head">
-          <div className="rd-mem-detail-title">{topic.name}</div>
+          <div className="rd-mem-detail-title">
+            {topic.named
+              ? topic.name
+              : formatMessage({ id: 'memory.general', defaultMessage: 'General' })}
+          </div>
           <Btn size="xs" variant="danger" onClick={() => askDelete(open.section, topic)}>
-            Delete
+            {formatMessage({ id: 'memory.delete', defaultMessage: 'Delete' })}
           </Btn>
         </div>
         <div className="rd-mem-field">
-          <div className="rd-mem-field-label">Last updated</div>
+          <div className="rd-mem-field-label">
+            {formatMessage({ id: 'memory.lastUpdated', defaultMessage: 'Last updated' })}
+          </div>
           <div>{topic.updated ? fDate(topic.updated) : '—'}</div>
         </div>
         {summary && (
           <div className="rd-mem-field">
-            <div className="rd-mem-field-label">Summary</div>
+            <div className="rd-mem-field-label">
+              {formatMessage({ id: 'memory.summary', defaultMessage: 'Summary' })}
+            </div>
             <div>{summary}</div>
           </div>
         )}
         <div className="rd-mem-field">
-          <div className="rd-mem-field-label">Details</div>
+          <div className="rd-mem-field-label">
+            {formatMessage({ id: 'memory.details', defaultMessage: 'Details' })}
+          </div>
           <MemoryBullets {...factList(topic.facts)} />
         </div>
         <MemoryAskBox
           disabled={disabled}
-          placeholder={`Tell Lucius what to change about ${topic.name}`}
+          placeholder={formatMessage(
+            { id: 'memory.tellChange', defaultMessage: 'Tell Lucius what to change about {name}' },
+            {
+              name: topic.named
+                ? topic.name
+                : formatMessage({ id: 'memory.general', defaultMessage: 'General' }),
+            },
+          )}
           onSubmit={(text) =>
             instruct(text, { section: open.section, topic: topic.named ? topic.name : undefined })
           }
@@ -255,7 +304,11 @@ export function MemoryBrowser({
     <div className="rd-mem-browser" ref={top}>
       {header}
       {loading ? (
-        <div className="rd-factlist" aria-busy="true" aria-label="Loading memories">
+        <div
+          className="rd-factlist"
+          aria-busy="true"
+          aria-label={formatMessage({ id: 'memory.loading', defaultMessage: 'Loading memories' })}
+        >
           {[0, 1, 2].map((i) => (
             <div className="rd-fact rd-fact-skel" key={i}>
               <span className="rd-set-skelbar" />
@@ -266,18 +319,42 @@ export function MemoryBrowser({
       ) : nothingShown ? (
         <div className="rd-mem-empty">
           {needle
-            ? `No memories match “${filter.trim()}”.`
-            : 'Nothing remembered yet. Tell Lucius something below, or he’ll pick things up as you talk.'}
+            ? formatMessage(
+                { id: 'memory.noMatch', defaultMessage: 'No memories match “{query}”.' },
+                { query: filter.trim() },
+              )
+            : formatMessage({
+                id: 'memory.empty',
+                defaultMessage:
+                  'Nothing remembered yet. Tell Lucius something below, or he’ll pick things up as you talk.',
+              })}
         </div>
       ) : (
         <>
           {sections.map((s) => {
+            const label = Object.hasOwn(sectionNames, s.key)
+              ? formatMessage(sectionNames[s.key as keyof typeof sectionNames])
+              : s.label
+            const note =
+              s.key === 'open_items'
+                ? formatMessage({
+                    id: 'memory.recentNote',
+                    defaultMessage:
+                      'Decided or in flight over the last two weeks, from your chats — every Lucius run, a Capture or an automation included, sees these and acts on them. Each lapses on its date or once it is done.',
+                  })
+                : s.key === 'unsorted'
+                  ? formatMessage({
+                      id: 'memory.olderNote',
+                      defaultMessage:
+                        'Saved before memory had sections. Lucius is moving them into the new format in the background — filing each under a section and topic, or out of memory if it belongs elsewhere. You can still edit or forget them.',
+                    })
+                  : s.note
             const list =
               s.key === UNSORTED.key ? shown.unsorted : (shown.bySection.get(s.key) ?? [])
             return (
-              <section className="rd-mem-sec" key={s.key} aria-label={s.label}>
-                <div className="rd-mem-sec-h">{s.label}</div>
-                {'note' in s && s.note ? <div className="rd-mem-sec-note">{s.note}</div> : null}
+              <section className="rd-mem-sec" key={s.key} aria-label={label}>
+                <div className="rd-mem-sec-h">{label}</div>
+                {note ? <div className="rd-mem-sec-note">{note}</div> : null}
                 {s.flat ? (
                   <MemoryFactRows {...factList(list)} />
                 ) : (

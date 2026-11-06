@@ -5,6 +5,8 @@
 // This pins the mapping against the REAL wire shape (a serialised PreviewResult dataclass).
 
 import { describe, it, expect } from 'vitest'
+import { createIntl } from 'react-intl'
+import messages from './zh-CN.messages.json'
 import { mapServerPreview, transferLine } from './importHelpers'
 
 // The exact server shape, as seen in the browser Network tab for a Northbank PDF upload.
@@ -240,4 +242,10 @@ describe('transferLine — an existing transfer names BOTH of its legs', () => {
   it('a non-transfer is still none of its business', () => {
     expect(transferLine({ kind: 'expense', account_id: 'a_sgd' }, accounts, {})).toBeNull()
   })
+})
+
+it('localizes transfer wording while retaining account names and direction', () => {
+  const intl = createIntl({ locale: 'zh-CN', messages })
+  const accounts = [{ id: 'a', name: 'Source' }, { id: 'b', name: 'Destination' }]
+  expect(transferLine({ kind: 'transfer', account_id: 'a', to_account_id: 'b' }, accounts, {}, { intl })).toBe('转账 • Source → Destination')
 })

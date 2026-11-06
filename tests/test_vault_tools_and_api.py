@@ -302,6 +302,11 @@ class TestApi:
             headers=XHR,
         )
         assert bad_year.status_code == 422
+        assert bad_year.json() == {
+            "detail": f"year must be between {vault.MIN_YEAR} and {vault.MAX_YEAR}",
+            "message_id": "vault.error.yearRange",
+            "message_params": {"min": str(vault.MIN_YEAR), "max": str(vault.MAX_YEAR)},
+        }
         assert client.delete("/api/vault/items/nonsense").status_code == 422
         assert client.delete("/api/vault/items/file-att_missing").status_code == 404
         assert client.put("/api/vault/artifacts/art_missing").status_code == 404

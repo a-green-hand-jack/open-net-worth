@@ -1,3 +1,4 @@
+import { useAppIntl } from '../../../../i18n/useAppIntl'
 // The terminal itself: xterm.js on a WebSocket to /api/terminal (api/terminal.py describes the
 // wire format). Loaded only when someone opens a terminal.
 import '@xterm/xterm/css/xterm.css'
@@ -8,23 +9,15 @@ import { Btn } from '../ds'
 
 type EndReason = 'ended' | 'sign-in-again'
 
-const CLOSE_NOTES: Record<number, string> = {
-  4401: 'Not signed in.',
-  4403: 'The connection was refused.',
-  4404: 'The terminal is not available.',
-  4408: 'Closed after 15 minutes without activity.',
-  4409: 'Another terminal is already open. Close it first.',
-  1009: 'That message was too large.',
-}
-
 function socketUrl(): string {
   const scheme = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
   return `${scheme}//${window.location.host}/api/terminal`
 }
 
 export function TerminalView({ onEnded }: { onEnded: (reason: EndReason) => void }) {
+  const { formatMessage } = useAppIntl()
   const host = useRef<HTMLDivElement>(null)
-  const [note, setNote] = useState<string | null>(null)
+  const [note, setNote] = useState<number | 'ended' | 'auth' | null>(null)
   const [signInAgain, setSignInAgain] = useState(false)
 
   useEffect(() => {
@@ -55,7 +48,7 @@ export function TerminalView({ onEnded }: { onEnded: (reason: EndReason) => void
     ws.onmessage = (event) => {
       if (typeof event.data === 'string') {
         const message = JSON.parse(event.data) as { type?: string }
-        if (message.type === 'exit') setNote('The session ended.')
+        if (message.type === 'exit') setNote('ended')
         return
       }
       term.write(new Uint8Array(event.data as ArrayBuffer))
@@ -63,10 +56,10 @@ export function TerminalView({ onEnded }: { onEnded: (reason: EndReason) => void
     ws.onclose = (event) => {
       if (event.reason === 'fresh_session_required') {
         setSignInAgain(true)
-        setNote('For your security the terminal asks for a recent sign-in.')
+        setNote('auth')
         return
       }
-      setNote((current) => current ?? CLOSE_NOTES[event.code] ?? 'The session ended.')
+      setNote((current) => current ?? event.code)
     }
     const data = term.onData((input) => send({ type: 'input', data: input }))
     const size = term.onResize(({ cols, rows }) => send({ type: 'resize', cols, rows }))
@@ -88,9 +81,51 @@ export function TerminalView({ onEnded }: { onEnded: (reason: EndReason) => void
       <div className="rd-term-screen" ref={host} />
       {note && (
         <div className="rd-term-note" role="status">
-          <span className="rd-help">{note}</span>
+          <span className="rd-help">
+            {note === 'auth'
+              ? formatMessage({
+                  id: 'settings.remaining.terminalAuth',
+                  defaultMessage: 'For your security the terminal asks for a recent sign-in.',
+                })
+              : note === 4401
+                ? formatMessage({
+                    id: 'settings.remaining.terminalClosed401',
+                    defaultMessage: 'Not signed in.',
+                  })
+                : note === 4403
+                  ? formatMessage({
+                      id: 'settings.remaining.terminalClosed403',
+                      defaultMessage: 'The connection was refused.',
+                    })
+                  : note === 4404
+                    ? formatMessage({
+                        id: 'settings.remaining.terminalClosed404',
+                        defaultMessage: 'The terminal is not available.',
+                      })
+                    : note === 4408
+                      ? formatMessage({
+                          id: 'settings.remaining.terminalClosed408',
+                          defaultMessage: 'Closed after 15 minutes without activity.',
+                        })
+                      : note === 4409
+                        ? formatMessage({
+                            id: 'settings.remaining.terminalClosed409',
+                            defaultMessage: 'Another terminal is already open. Close it first.',
+                          })
+                        : note === 1009
+                          ? formatMessage({
+                              id: 'settings.remaining.terminalClosed1009',
+                              defaultMessage: 'That message was too large.',
+                            })
+                          : formatMessage({
+                              id: 'settings.remaining.terminalEnded',
+                              defaultMessage: 'The session ended.',
+                            })}
+          </span>
           <Btn onClick={() => onEnded(signInAgain ? 'sign-in-again' : 'ended')}>
-            {signInAgain ? 'Continue' : 'Close'}
+            {signInAgain
+              ? formatMessage({ id: 'settings.remaining.continue', defaultMessage: 'Continue' })
+              : formatMessage({ id: 'settings.remaining.close', defaultMessage: 'Close' })}
           </Btn>
         </div>
       )}

@@ -20,6 +20,8 @@ import { ViewTabs } from './ViewTabs'
 import { DataInHero } from '../../dataIn/DataInHero'
 import { installOvTooltip } from './tooltip'
 import { useDashboardLayout } from './useDashboardLayout'
+import { useAppIntl } from '../../../i18n/useAppIntl'
+import { displayViewName } from './defaultNames'
 import { stickyTopbarOffset } from '../../../utils/stickyTopbarOffset'
 import './registry' // ensure every widget-group module registers before first render
 import './overview.css'
@@ -53,6 +55,7 @@ export function Overview({
   onRetry,
   onOpenRegister,
 }: Props) {
+  const intl = useAppIntl()
   const layout = useDashboardLayout()
   const [editing, setEditing] = useState(false)
   const [pickerOpen, setPickerOpen] = useState(false)
@@ -100,15 +103,30 @@ export function Overview({
     },
   ])
   useRegisterScreenPrompts(() => [
-    'Is my allocation balanced?',
-    "What's driving my net-worth growth?",
-    "Today's biggest movers?",
-    'Any concentration risk?',
+    intl.formatMessage({
+      id: 'overview.prompt.balanced',
+      defaultMessage: 'Is my allocation balanced?',
+    }),
+    intl.formatMessage({
+      id: 'overview.prompt.growth',
+      defaultMessage: "What's driving my net-worth growth?",
+    }),
+    intl.formatMessage({ id: 'overview.prompt.movers', defaultMessage: "Today's biggest movers?" }),
+    intl.formatMessage({
+      id: 'overview.prompt.concentration',
+      defaultMessage: 'Any concentration risk?',
+    }),
   ])
 
   const onAskLucius = onChatSuggest
   const onShareWithLucius = onChatSuggest
-    ? (label: string) => onChatSuggest(`Let's talk about my "${label}" widget.`)
+    ? (label: string) =>
+        onChatSuggest(
+          intl.formatMessage(
+            { id: 'overview.askWidget', defaultMessage: 'Let\'s talk about my "{label}" widget.' },
+            { label },
+          ),
+        )
     : undefined
   const onOpenAssetByLabel = onOpenAsset
     ? (label: string) => {
@@ -137,7 +155,13 @@ export function Overview({
       return (
         <Container size="wide">
           <div className="ov-page">
-            <TabSkeleton variant="dashboard" label="Loading your dashboard…" />
+            <TabSkeleton
+              variant="dashboard"
+              label={intl.formatMessage({
+                id: 'overview.loading',
+                defaultMessage: 'Loading your dashboard…',
+              })}
+            />
           </div>
         </Container>
       )
@@ -146,8 +170,15 @@ export function Overview({
       return (
         <Container size="wide">
           <ErrorState
-            title="Your dashboard couldn’t load"
-            message="Nothing is missing from your book. It couldn’t be read just now, so try again or ask Lucius what went wrong."
+            title={intl.formatMessage({
+              id: 'overview.loadErrorTitle',
+              defaultMessage: 'Your dashboard couldn’t load',
+            })}
+            message={intl.formatMessage({
+              id: 'overview.loadError',
+              defaultMessage:
+                'Nothing is missing from your book. It couldn’t be read just now, so try again or ask Lucius what went wrong.',
+            })}
             onRetry={onRetry}
           />
         </Container>
@@ -157,10 +188,19 @@ export function Overview({
     return (
       <Container size="wide">
         <DataInHero
-          title="Start with the account you use most"
-          body="Add an account to start your financial picture."
+          title={intl.formatMessage({
+            id: 'overview.emptyTitle',
+            defaultMessage: 'Start with the account you use most',
+          })}
+          body={intl.formatMessage({
+            id: 'overview.emptyBody',
+            defaultMessage: 'Add an account to start your financial picture.',
+          })}
           onAddAccount={() => onNavigate?.('accounts')}
-          luciusMessage="Help me set up my accounts"
+          luciusMessage={intl.formatMessage({
+            id: 'overview.askSetup',
+            defaultMessage: 'Help me set up my accounts',
+          })}
           onAskLucius={onChatSuggest}
         />
       </Container>
@@ -179,8 +219,11 @@ export function Overview({
         >
           <div className="ov-pagehead">
             <PageHeader
-              title="Dashboard"
-              subtitle="Your complete financial picture"
+              title={intl.formatMessage({ id: 'nav.dashboard', defaultMessage: 'Dashboard' })}
+              subtitle={intl.formatMessage({
+                id: 'overview.subtitle',
+                defaultMessage: 'Your complete financial picture',
+              })}
               actions={
                 editing ? (
                   <span className="ov-page-actions">
@@ -192,21 +235,30 @@ export function Overview({
                         onClick={resetChanges}
                         disabled={!layout.isDirty}
                       >
-                        Reset changes
+                        {intl.formatMessage({
+                          id: 'overview.resetChanges',
+                          defaultMessage: 'Reset changes',
+                        })}
                       </Button>
                       <Button size="sm" variant="secondary" onClick={() => setAddingSection(true)}>
-                        Add section
+                        {intl.formatMessage({
+                          id: 'overview.addSection',
+                          defaultMessage: 'Add section',
+                        })}
                       </Button>
                       <Button size="sm" variant="secondary" onClick={() => setPickerOpen(true)}>
-                        Add widget
+                        {intl.formatMessage({
+                          id: 'overview.addWidget',
+                          defaultMessage: 'Add widget',
+                        })}
                       </Button>
                     </span>
                     <span className="ov-page-actions__commit">
                       <Button size="sm" variant="ghost" onClick={cancelCustomize}>
-                        Cancel
+                        {intl.formatMessage({ id: 'common.cancel', defaultMessage: 'Cancel' })}
                       </Button>
                       <Button size="sm" variant="primary" onClick={saveCustomize}>
-                        Save
+                        {intl.formatMessage({ id: 'common.save', defaultMessage: 'Save' })}
                       </Button>
                     </span>
                   </span>
@@ -215,12 +267,20 @@ export function Overview({
                     size="sm"
                     variant="secondary"
                     className="ov-customize-button"
-                    aria-label="Customize overview"
+                    aria-label={intl.formatMessage({
+                      id: 'overview.customizeAria',
+                      defaultMessage: 'Customize overview',
+                    })}
                     onClick={enterCustomize}
                     data-tour="setup-dashboard"
                   >
                     <Pencil size={15} strokeWidth={1.8} aria-hidden="true" />
-                    <span className="ov-customize-label">Customize</span>
+                    <span className="ov-customize-label">
+                      {intl.formatMessage({
+                        id: 'overview.customize',
+                        defaultMessage: 'Customize',
+                      })}
+                    </span>
                   </Button>
                 )
               }
@@ -239,36 +299,59 @@ export function Overview({
           </div>
 
           {editing && (
-            <div className="ov-mobile-edit-dock mb-anchored" aria-label="Customize actions">
+            <div
+              className="ov-mobile-edit-dock mb-anchored"
+              aria-label={intl.formatMessage({
+                id: 'overview.customizeActions',
+                defaultMessage: 'Customize actions',
+              })}
+            >
               <Button size="sm" variant="ghost" onClick={resetChanges} disabled={!layout.isDirty}>
-                Reset all
+                {intl.formatMessage({ id: 'overview.resetAll', defaultMessage: 'Reset all' })}
               </Button>
               <Button size="sm" variant="secondary" onClick={cancelCustomize}>
-                Cancel
+                {intl.formatMessage({ id: 'common.cancel', defaultMessage: 'Cancel' })}
               </Button>
               <Button size="sm" variant="primary" onClick={saveCustomize}>
-                Save
+                {intl.formatMessage({ id: 'common.save', defaultMessage: 'Save' })}
               </Button>
             </div>
           )}
 
           {layout.error && (
             <Text as="p" size="xs" tone="bad">
-              {layout.error}
+              {layout.error === 'load'
+                ? intl.formatMessage({
+                    id: 'overview.layout.loadError',
+                    defaultMessage:
+                      'Could not load your dashboard layout — changes in this session will not be saved until you reload successfully.',
+                  })
+                : intl.formatMessage({
+                    id: 'overview.layout.saveError',
+                    defaultMessage:
+                      'Could not save your dashboard changes — they may not survive a reload.',
+                  })}
             </Text>
           )}
 
           {!layout.loading && !hasWidgets && (
             <div className="overview-empty">
               <Text as="h2" size="lg" weight={600}>
-                Build this view
+                {intl.formatMessage({
+                  id: 'overview.buildView',
+                  defaultMessage: 'Build this view',
+                })}
               </Text>
               <Text as="p" size="base" tone="muted">
-                Add the widgets you want to see, or let Lucius assemble a view for you.
+                {intl.formatMessage({
+                  id: 'overview.buildViewHelp',
+                  defaultMessage:
+                    'Add the widgets you want to see, or let Lucius assemble a view for you.',
+                })}
               </Text>
               <div className="overview-empty__actions">
                 <Button variant="primary" size="md" onClick={() => setPickerOpen(true)}>
-                  Add widget
+                  {intl.formatMessage({ id: 'overview.addWidget', defaultMessage: 'Add widget' })}
                 </Button>
                 {onAskLucius && (
                   <Button
@@ -278,11 +361,18 @@ export function Overview({
                     iconLeft={<Spark size={15} ariaHidden />}
                     onClick={() =>
                       onAskLucius(
-                        'Help me build my Overview dashboard — what widgets should I add?',
+                        intl.formatMessage({
+                          id: 'overview.askBuild',
+                          defaultMessage:
+                            'Help me build my Overview dashboard — what widgets should I add?',
+                        }),
                       )
                     }
                   >
-                    Build with Lucius
+                    {intl.formatMessage({
+                      id: 'overview.buildLucius',
+                      defaultMessage: 'Build with Lucius',
+                    })}
                   </Button>
                 )}
               </div>
@@ -317,24 +407,24 @@ export function Overview({
         <Modal
           open
           onClose={() => setAddingSection(false)}
-          title="Add section"
+          title={intl.formatMessage({ id: 'overview.addSection', defaultMessage: 'Add section' })}
           size="sm"
           className="ov-section-prompt"
           footer={
             <div className="ov-section-prompt-actions">
               <Button size="sm" variant="ghost" onClick={() => setAddingSection(false)}>
-                Cancel
+                {intl.formatMessage({ id: 'common.cancel', defaultMessage: 'Cancel' })}
               </Button>
               <Button
                 size="sm"
                 variant="primary"
                 onClick={() => {
-                  layout.addSection(sectionName || 'Section')
+                  layout.addSection(sectionName)
                   setSectionName('')
                   setAddingSection(false)
                 }}
               >
-                Add
+                {intl.formatMessage({ id: 'common.add', defaultMessage: 'Add' })}
               </Button>
             </div>
           }
@@ -342,12 +432,15 @@ export function Overview({
           <input
             className="ui-input"
             data-autofocus
-            placeholder="Section name"
+            placeholder={intl.formatMessage({
+              id: 'overview.sectionName',
+              defaultMessage: 'Section name',
+            })}
             value={sectionName}
             onChange={(e) => setSectionName(e.target.value)}
             onKeyDown={(e) => {
               if (e.key === 'Enter') {
-                layout.addSection(sectionName || 'Section')
+                layout.addSection(sectionName)
                 setSectionName('')
                 setAddingSection(false)
               }
@@ -359,18 +452,23 @@ export function Overview({
       {confirmDeleteViewId &&
         (() => {
           const v = layout.views.find((x) => x.viewId === confirmDeleteViewId)
-          const name = v?.name || 'this view'
+          const name = v
+            ? displayViewName(intl, v)
+            : intl.formatMessage({ id: 'overview.thisView', defaultMessage: 'this view' })
           return (
             <Modal
               open
               onClose={() => setConfirmDeleteViewId(null)}
-              title={`Delete "${name}"?`}
+              title={intl.formatMessage(
+                { id: 'overview.deleteTitle', defaultMessage: 'Delete "{name}"?' },
+                { name },
+              )}
               size="sm"
               className="ov-confirm"
               footer={
                 <div className="ov-confirm-actions">
                   <Button size="sm" variant="ghost" onClick={() => setConfirmDeleteViewId(null)}>
-                    Cancel
+                    {intl.formatMessage({ id: 'common.cancel', defaultMessage: 'Cancel' })}
                   </Button>
                   <Button
                     size="sm"
@@ -380,13 +478,20 @@ export function Overview({
                       setConfirmDeleteViewId(null)
                     }}
                   >
-                    Delete view
+                    {intl.formatMessage({
+                      id: 'overview.deleteView',
+                      defaultMessage: 'Delete view',
+                    })}
                   </Button>
                 </div>
               }
             >
               <Text as="p" size="sm" tone="muted">
-                This view and its layout will be removed. Your other views aren&rsquo;t affected.
+                {intl.formatMessage({
+                  id: 'overview.deleteWarning',
+                  defaultMessage:
+                    'This view and its layout will be removed. Your other views aren’t affected.',
+                })}
               </Text>
             </Modal>
           )

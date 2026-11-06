@@ -1,6 +1,9 @@
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { IntlProvider } from 'react-intl'
+import zh from '../../../i18n/zh-CN.json'
+import investmentZh from './zh-CN.messages.json'
 
 const setShowAllHistory = vi.fn()
 const useIncomeView = vi.fn()
@@ -49,6 +52,44 @@ describe('IncomeTab recent income', () => {
     vi.clearAllMocks()
   })
 
+  it('shows a localized income loading failure and retains retry', () => {
+    const retry = vi.fn()
+    useIncomeView.mockReturnValue({ ...baseView(), error: true, retry })
+    render(<IntlProvider locale="zh-CN" messages={{ ...zh, ...investmentZh }}><IncomeTab /></IntlProvider>)
+    expect(screen.getByText('无法加载收入数据。')).toBeTruthy()
+  })
+
+  it('translates generated income labels without changing holding names or amounts', () => {
+    const row = {
+      eventId: 'synthetic',
+      date: '2026-08-03',
+      symbol: 'ACME',
+      name: 'User holding',
+      kindLabel: 'Dividend',
+      kindKey: 'dividend',
+      symbolFallback: false,
+      amountBase: 125,
+      deliveryLabel: 'Cash',
+      reinvested: false,
+    }
+    useIncomeView.mockReturnValue({
+      ...baseView(),
+      cards: [{ labelKey: 'received12m', value: 'FX unavailable', fxUnavailable: true }],
+      historyRows: [row],
+      allHistoryRows: [row],
+      totalHistoryCount: 1,
+    })
+    render(
+      <IntlProvider locale="zh-CN" messages={zh}>
+        <IncomeTab />
+      </IntlProvider>,
+    )
+    expect(screen.getByText('股息')).toBeTruthy()
+    expect(screen.getByText('现金')).toBeTruthy()
+    expect(screen.getByText('User holding')).toBeTruthy()
+    expect(screen.getByText('汇率不可用')).toBeTruthy()
+  })
+
   it('renders dividend, interest, and distribution events with cash versus reinvested delivery', () => {
     const historyRows = [
       {
@@ -57,8 +98,11 @@ describe('IncomeTab recent income', () => {
         symbol: 'ONWAI',
         name: 'ONWAI Inc',
         kindLabel: 'Dividend',
+        kindKey: 'dividend',
+        symbolFallback: false,
         amountBase: 125,
         deliveryLabel: 'Cash',
+        reinvested: false,
       },
       {
         eventId: 'inc_2',
@@ -66,8 +110,11 @@ describe('IncomeTab recent income', () => {
         symbol: 'SSB',
         name: 'Singapore Savings Bond',
         kindLabel: 'Interest',
+        kindKey: 'interest',
+        symbolFallback: false,
         amountBase: 80,
         deliveryLabel: 'Cash',
+        reinvested: false,
       },
       {
         eventId: 'inc_1',
@@ -75,8 +122,11 @@ describe('IncomeTab recent income', () => {
         symbol: 'VWRA',
         name: 'Vanguard FTSE All-World',
         kindLabel: 'Distribution',
+        kindKey: 'distribution',
+        symbolFallback: false,
         amountBase: 42,
         deliveryLabel: 'Reinvested',
+        reinvested: true,
       },
     ]
     useIncomeView.mockReturnValue({
@@ -103,8 +153,11 @@ describe('IncomeTab recent income', () => {
       symbol: 'ONWAI',
       name: 'ONWAI Inc',
       kindLabel: 'Dividend',
+      kindKey: 'dividend',
+      symbolFallback: false,
       amountBase: 10 + index,
       deliveryLabel: 'Cash',
+      reinvested: false,
     }))
     let currentView = {
       ...baseView(),
@@ -135,11 +188,14 @@ describe('IncomeTab recent income', () => {
         symbol: 'QAHIST',
         name: 'QA holding',
         kindLabel: 'Interest',
+        kindKey: 'interest',
+        symbolFallback: false,
         amountBase: null,
         amountBaseAvailable: false,
         amountNative: 10,
         amountCurrency: 'USD',
         deliveryLabel: 'Cash',
+        reinvested: false,
       },
     ]
     useIncomeView.mockReturnValue({

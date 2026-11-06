@@ -8,9 +8,12 @@ every item carries its own ``file_url`` — so there is no second download path 
 
 from __future__ import annotations
 
-from typing import NoReturn, Optional
+import json
+from pathlib import Path
+from typing import Optional
 
 from fastapi import APIRouter, Form, HTTPException, Request, Response, UploadFile
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel, ConfigDict
 
 from backend.api._deps import _bearer_token
@@ -21,7 +24,29 @@ from backend.services import document_preview, vault, vault_changes
 router = APIRouter()
 
 
-def _http(exc: OpenNetWorthError) -> NoReturn:
+_ERROR_CONTRACT = json.loads(
+    (Path(__file__).resolve().parents[1] / "core" / "vault_error_contract.json").read_text()
+)
+
+
+def _http(exc: OpenNetWorthError):
+    message_id = exc.context.get("message_id")
+    params = exc.context.get("message_params", {})
+    if (
+        isinstance(message_id, str)
+        and message_id in _ERROR_CONTRACT
+        and isinstance(params, dict)
+        and set(params) == set(_ERROR_CONTRACT[message_id])
+        and all(isinstance(value, str) for value in params.values())
+    ):
+        return JSONResponse(
+            status_code=to_http_status(exc),
+            content={
+                "detail": exc.message or str(exc),
+                "message_id": message_id,
+                "message_params": params,
+            },
+        )
     raise HTTPException(to_http_status(exc), exc.message or str(exc)) from exc
 
 
@@ -40,7 +65,7 @@ def list_vault():
     try:
         items = vault.list_items()
     except OpenNetWorthError as exc:
-        _http(exc)
+        return _http(exc)
     return {"items": items, "counts": vault.counts(items)}
 
 
@@ -56,7 +81,14 @@ async def add_vault_file(
     _require_csrf(request)
     content = await file.read(_MAX_UPLOAD_BYTES + 1)  # never buffers past the cap
     if len(content) > _MAX_UPLOAD_BYTES:
-        raise HTTPException(413, "file too large")
+        return JSONResponse(
+            status_code=413,
+            content={
+                "detail": "file too large",
+                "message_id": "vault.error.fileTooLarge",
+                "message_params": {},
+            },
+        )
     try:
         item = vault_changes.add_file(
             file.filename or "",
@@ -67,7 +99,7 @@ async def add_vault_file(
             private=private,
         )
     except OpenNetWorthError as exc:
-        _http(exc)
+        return _http(exc)
     except ValueError as exc:  # the shared parser's "unsupported / unreadable file"
         raise HTTPException(415 if "Unsupported" in str(exc) else 422, str(exc)) from exc
     return {"item": item}
@@ -87,11 +119,18 @@ def update_vault_file(item_id: str, body: VaultFilePatch):
     (back to the file name) or the year."""
     changes = body.model_dump(exclude_unset=True)
     if changes.get("private", False) is None:
-        raise HTTPException(422, "private cannot be null")
+        return JSONResponse(
+            status_code=422,
+            content={
+                "detail": "private cannot be null",
+                "message_id": "vault.error.privateNull",
+                "message_params": {},
+            },
+        )
     try:
         return {"item": vault_changes.update_file(item_id, changes)}
     except OpenNetWorthError as exc:
-        _http(exc)
+        return _http(exc)
 
 
 @router.get("/api/vault/items/{item_id}")
@@ -101,7 +140,7 @@ def get_vault_item(item_id: str):
     try:
         return {"item": vault.get_item(item_id)}
     except OpenNetWorthError as exc:
-        _http(exc)
+        return _http(exc)
 
 
 @router.get("/api/vault/items/{item_id}/table")
@@ -113,7 +152,7 @@ def vault_item_table(item_id: str, sheet: Optional[str] = None, offset: int = 0)
     try:
         return document_tables.table(item_id, sheet, offset)
     except OpenNetWorthError as exc:
-        _http(exc)
+        return _http(exc)
 
 
 class VaultRename(BaseModel):
@@ -129,7 +168,7 @@ def rename_vault_item(item_id: str, body: VaultRename):
     try:
         return {"item": vault_changes.rename_item(item_id, body.title)}
     except OpenNetWorthError as exc:
-        _http(exc)
+        return _http(exc)
 
 
 class VaultNote(BaseModel):
@@ -144,7 +183,7 @@ def set_vault_item_note(item_id: str, body: VaultNote):
     try:
         return {"item": vault_changes.set_note(item_id, body.note)}
     except OpenNetWorthError as exc:
-        _http(exc)
+        return _http(exc)
 
 
 class VaultTags(BaseModel):
@@ -160,7 +199,7 @@ def set_vault_item_tags(item_id: str, body: VaultTags):
     try:
         return {"item": vault_changes.set_tags(item_id, body.tags)}
     except OpenNetWorthError as exc:
-        _http(exc)
+        return _http(exc)
 
 
 @router.delete("/api/vault/items/{item_id}")
@@ -173,7 +212,7 @@ def remove_vault_item(item_id: str, delete_file: bool = False):
             return vault_changes.delete_file(item_id)
         return vault_changes.remove_item(item_id)
     except OpenNetWorthError as exc:
-        _http(exc)
+        return _http(exc)
 
 
 @router.get("/api/vault/items/{item_id}/pages/{page}")
@@ -183,7 +222,7 @@ def vault_item_page(item_id: str, page: int):
     try:
         png, count = document_preview.page_image(item_id, page)
     except OpenNetWorthError as exc:
-        _http(exc)
+        return _http(exc)
     headers = {
         "X-Page-Count": str(count),
         "X-Content-Type-Options": "nosniff",
@@ -199,7 +238,7 @@ def vault_item_thumbnail(item_id: str):
     try:
         jpeg = document_preview.thumbnail(item_id)
     except OpenNetWorthError as exc:
-        _http(exc)
+        return _http(exc)
     headers = {
         "X-Content-Type-Options": "nosniff",
         "Cache-Control": "private, max-age=31536000, immutable",
@@ -213,7 +252,7 @@ def save_artifact_to_vault(artifact_id: str):
     try:
         return {"item": vault_changes.save_artifact(artifact_id)}
     except OpenNetWorthError as exc:
-        _http(exc)
+        return _http(exc)
 
 
 @router.delete("/api/vault/artifacts/{artifact_id}")
@@ -222,4 +261,4 @@ def remove_artifact_from_vault(artifact_id: str):
     try:
         return vault_changes.unsave_artifact(artifact_id)
     except OpenNetWorthError as exc:
-        _http(exc)
+        return _http(exc)

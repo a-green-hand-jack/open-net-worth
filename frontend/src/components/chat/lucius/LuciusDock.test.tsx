@@ -13,6 +13,8 @@ import { render, fireEvent, cleanup, act } from '@testing-library/react'
 import type { ReactNode } from 'react'
 import { LuciusDock } from './LuciusDock'
 import { DragRightClick } from './dragRightClick'
+import { IntlProvider } from 'react-intl'
+import zh from '../../../i18n/zh-CN.json'
 
 afterEach(() => cleanup())
 
@@ -448,6 +450,18 @@ describe('LuciusDock', () => {
     const { container } = render(<LuciusDock onExpand={vi.fn()} />)
     fireEvent.click(container.querySelector('button.lx-dock-pill') as HTMLButtonElement)
     expect(container.querySelector('button[aria-label="New conversation"]')).toBeNull()
+  })
+
+  it('localizes the new conversation action without changing existing messages', () => {
+    mockChatState.messages = [{ id: 'm1', role: 'user', text: 'New conversation' }]
+    const { container } = render(
+      <IntlProvider locale="zh-CN" defaultLocale="en" messages={zh}>
+        <LuciusDock onExpand={vi.fn()} />
+      </IntlProvider>,
+    )
+    fireEvent.click(container.querySelector('button.lx-dock-pill') as HTMLButtonElement)
+    expect(container.querySelector('button[aria-label="新对话"]')).not.toBeNull()
+    expect(mockChatState.messages[0]?.text).toBe('New conversation')
   })
 
   it('shows clear button when messages exist and calls createConversation on click', () => {

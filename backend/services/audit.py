@@ -391,6 +391,55 @@ def _added_by_name(create_ev: dict | None, disp_source: str) -> str:
     return label
 
 
+_ACTOR_MESSAGES = {
+    "agent": "audit.actor.agent",
+    "you": "audit.actor.you",
+    "lucius": "audit.actor.lucius",
+    "system": "audit.actor.system",
+    "automation": "audit.actor.automation",
+}
+_SOURCE_MESSAGES = {
+    "manual": "audit.source.manual",
+    "bank": "audit.source.bank",
+    "import": "audit.source.import",
+    "ai": "audit.source.ai",
+    "agent": "audit.source.agent",
+    "automation": "audit.source.automation",
+    "reconcile": "audit.source.reconcile",
+    "opening": "audit.source.opening",
+}
+
+
+def _actor_message(event: dict, actor_type: str) -> dict | None:
+    if actor_type == "agent" and (event.get("note") or "").strip():
+        return None
+    if actor_type in _ACTOR_MESSAGES:
+        return {"id": _ACTOR_MESSAGES[actor_type], "params": {}}
+    return None
+
+
+def _via_message(event: dict, actor_name: str) -> dict | None:
+    automation = (event.get("automation") or "").strip()
+    if automation and automation != actor_name:
+        return None
+    surface = (event.get("surface") or "").strip()
+    if surface.startswith("recurring:") and actor_name != "Schedule":
+        return {"id": "audit.via.schedule", "params": {}}
+    return None
+
+
+def _added_by_message(create_ev: dict | None, disp_source: str) -> dict | None:
+    event = create_ev or {}
+    surface = (event.get("surface") or "").strip()
+    if surface.startswith("agent:") and (event.get("note") or "").strip():
+        return None
+    if surface.startswith("recurring:"):
+        return {"id": "audit.via.schedule", "params": {}}
+    if disp_source in _SOURCE_MESSAGES:
+        return {"id": _SOURCE_MESSAGES[disp_source], "params": {}}
+    return None
+
+
 def _import_context(row: dict) -> dict | None:
     """Resolve a row's import provenance for DISPLAY: batch → its statement record →
     the original file. Read-only, best-effort — provenance display must never break the
@@ -488,9 +537,11 @@ def activity(txn_id: str) -> dict | None:
             "actorName": actor_name,
             "at": e.get("ts") or "",
         }
+        item["actorNameMessage"] = _actor_message(e, actor_type)
         via = _event_via(e, actor_name)
         if via:
             item["via"] = via
+            item["viaMessage"] = _via_message(e, actor_name)
             # The stable id behind a named automation — lets the client link the "via" back to
             # the scheduled task (display is the title; this is the durable reference).
             if e.get("automation_id"):
@@ -542,15 +593,19 @@ def activity(txn_id: str) -> dict | None:
     updated_at = (events[-1].get("ts") if events else "") or created_at
     added_by = _added_by_name(create_ev, disp_source)
     via = _event_via(create_ev or {}, added_by)
+    via_message = _via_message(create_ev or {}, added_by)
     # Only a statement-BACKED batch is a statement import — bulk AI fixes and legacy CSV
     # batches also stamp batch_id, and must not be relabeled.
     if import_ctx and import_ctx.get("statementBacked") and not via:
         via = "Statement import"
+        via_message = {"id": "audit.via.statement_import", "params": {}}
     return {
         "source": disp_source,
         "addedBy": added_by,
+        "addedByMessage": _added_by_message(create_ev, disp_source),
         # The automation/channel that initiated the create — drives "Added by … • via X".
         "via": via,
+        "viaMessage": via_message,
         "import": import_ctx,
         "automationId": (create_ev or {}).get("automation_id"),
         "createdAt": created_at,

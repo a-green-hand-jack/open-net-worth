@@ -32,6 +32,10 @@ def reconcile_usage(
             },
             conn=conn,
         )
-        store.update_by_id(run_id, {"usage_state": "settled", "last_agent_error": None}, conn=conn)
+        store.update_by_id(
+            run_id,
+            {"usage_state": "settled", "last_agent_error": None, "last_agent_error_message": None},
+            conn=conn,
+        )
         event(conn, run, "agent_usage_reconciled", {"receipt_id": receipt_id, "turn_id": turn_id})
     return {"run_id": run_id, **result, "usage_state": "settled"}

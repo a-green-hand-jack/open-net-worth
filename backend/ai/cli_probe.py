@@ -135,10 +135,18 @@ def _notify_broken(transport: str, version: str, detail: str) -> None:
             "type": "notification",
             "severity": "warning",
             "title": f"{label} {version} changed how tools work",
+            "title_message": {
+                "id": "inbox.server.cliTitle",
+                "params": {"label": label, "version": version},
+            },
             "summary": (
                 f"{label} {version} changed how tools work — Lucius can't use your book's tools "
                 "with it. Switch model in Settings or update Open Net Worth."
             ),
+            "summary_message": {
+                "id": "inbox.server.cliSummary",
+                "params": {"label": label, "version": version},
+            },
             "trigger": "cli_self_check",
         }
     )

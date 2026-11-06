@@ -570,7 +570,10 @@ def stage_generic(tool_name: str, args: dict) -> tuple[Optional[str], Optional[d
             logger.warning("confirm gate: %s preview failed: %s", tool_name, exc)
             return preview_failed_result(str(exc))
 
+    from backend.ai.tools.schema_enums import approval_marker
+
     change = {
+        **approval_marker(tool_name),
         "type": "tool_permission",
         "grant_tool": tool_name,
         "display": outcome,
@@ -839,8 +842,11 @@ def stage(tool_name: str, args: dict, change: dict) -> tuple[Optional[str], Opti
     # back on the set-level call so an "Always allow" lands in that Automation's own allowed
     # list rather than becoming a global permission. `None` here (no active turn bound the
     # ContextVar) rides through unchanged and the frontend simply omits the field.
+    from backend.ai.tools.schema_enums import approval_marker
+
     change = {
-        **change,
+        **{k: v for k, v in change.items() if k != "enum_schema_version"},
+        **approval_marker(tool_name),
         "tool_use_id": tool_use_id,
         "grant_tool": tool_name,
         "session_id": get_session_id(),

@@ -88,6 +88,9 @@ export interface TradingRun {
   initial_capital: Record<string, Amount>
   next_wake_at?: string
   last_agent_error?: string
+  last_agent_error_message?: TradingNotice | null
+  environment_error?: string | null
+  environment_error_message?: TradingNotice | null
   agent_session_id?: string
   last_agent_at?: string
 }
@@ -137,6 +140,8 @@ export interface TradingFill {
   timestamp: string
   instrument?: TradingInstrument
   side?: string
+  book_error?: string | null
+  book_error_message?: TradingNotice | null
 }
 export interface TradingEvent {
   sequence?: number
@@ -165,6 +170,11 @@ export interface Performance {
   unrealized_pnl?: Amount | null
   history?: { timestamp: string; equity: Amount | null }[]
 }
+export interface TradingNotice {
+  id: string
+  default_message: string
+  params: Record<string, string | number | boolean | null>
+}
 export interface TradingComparison {
   id: string
   name: string
@@ -172,6 +182,8 @@ export interface TradingComparison {
   comparable?: boolean
   reasons?: string[]
   limitations?: string[]
+  reason_messages?: TradingNotice[]
+  limitation_messages?: TradingNotice[]
   scenario?: {
     capital_by_currency: Record<string, Amount>
     base_currency: string
@@ -220,13 +232,16 @@ export interface DelegationCreate {
 export interface DelegationReview extends DelegationCreate {
   ready: boolean
   issues: string[]
+  issue_messages?: TradingNotice[]
+  review_notice?: string
+  review_notice_message?: TradingNotice
   executor?: { kind: string; label: string; capabilities?: Record<string, unknown> }
 }
 export interface DelegationResult {
   workspace: TradingWorkspace
   run: TradingRun
   started: boolean
-  activation_error?: { code: string; message: string }
+  activation_error?: { code: string; message: string; localized?: TradingNotice | null }
 }
 export interface MandateAmendment {
   id: string
@@ -253,6 +268,7 @@ export interface WorkspaceOverview {
     last_activity_at?: string | null
     next_wake_at?: string | null
     blocker?: string | null
+    blocker_message?: TradingNotice | null
     executor?: string | Record<string, unknown>
   }
   visibility?: Record<string, unknown>
@@ -305,9 +321,17 @@ export interface TradingEvidence {
   decision: TradingEvent | null
   events: TradingEvent[]
   observations: TradingObservation[]
-  data_context: { label: string; cutoff: string; data_version: string }
+  data_context: {
+    label: string
+    label_message?: TradingNotice
+    usage?: string
+    usage_message?: TradingNotice
+    cutoff: string
+    data_version: string
+  }
   files: Record<string, unknown>[]
   missing_links: string[]
+  missing_link_messages?: TradingNotice[]
 }
 export interface TradingFile {
   name: string

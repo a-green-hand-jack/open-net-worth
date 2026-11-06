@@ -64,7 +64,9 @@ def _line_ids(ctx: Context, top: str) -> list[str]:
     return [s["id"] for s in ctx.mirror.get(top, {}).get("subtransactions") or []]
 
 
-def _file(ctx: Context, unit: Unit, kind: str, reason: str) -> None:
+def _file(
+    ctx: Context, unit: Unit, kind: str, reason: str, reason_message: dict | None = None
+) -> None:
     onw, ynab = view(unit.onw, ctx.names), view(unit.ynab, ctx.names)
     shown = unit.onw or unit.ynab or unit.base
     title = (shown or {}).get("description") or "(no payee)"
@@ -78,6 +80,10 @@ def _file(ctx: Context, unit: Unit, kind: str, reason: str) -> None:
         entity="txn",
         onw_txn_id=unit.onw_id,
         date=(shown or {}).get("date"),
+        reason_message=reason_message,
+        title_message=None
+        if (shown or {}).get("description")
+        else {"message_id": "ynab.sync.title.noPayee", "params": {}},
     )
 
 
@@ -89,10 +95,22 @@ def _apply_pull(ctx: Context, unit: Unit, base: Baselines, tally: Counter) -> No
     try:
         now, row_id = pull.apply(unit.row, unit.rendered if unit.ynab is not None else None)
     except pull.LedgerChanged:
-        _file(ctx, unit, conflicts.CONFLICT, "Changed here while the sync was running.")
+        _file(
+            ctx,
+            unit,
+            conflicts.CONFLICT,
+            "Changed here while the sync was running.",
+            {"message_id": "ynab.sync.reason.changedDuringSync", "params": {}},
+        )
         return
     except OpenNetWorthError as exc:
-        _file(ctx, unit, conflicts.FAILED, f"The ledger refused YNAB's version: {exc.message}")
+        _file(
+            ctx,
+            unit,
+            conflicts.FAILED,
+            f"The ledger refused YNAB's version: {exc.message}",
+            {"message_id": "ynab.sync.reason.ledgerRefused", "params": {"reason": exc.message}},
+        )
         return
     if unit.onw_id and row_id != unit.onw_id:
         base.drop_txn(unit.onw_id)  # a deleted row booked back is a new row
@@ -161,6 +179,7 @@ def settle(
                 u,
                 conflicts.CONFLICT,
                 "Changed in both Open Net Worth and YNAB since the last sync.",
+                {"message_id": "ynab.sync.reason.bothChanged", "params": {}},
             )
         elif action == "pull" and direction == "to_ynab":
             held["ynab"].update(u.refs)
@@ -191,7 +210,16 @@ def _hold_removals(ctx: Context, all_units: list[Unit], open_items: dict) -> lis
     )
     for u in removals:
         if u.key not in open_items:
-            _file(ctx, u, conflicts.CONFLICT, reason)
+            _file(
+                ctx,
+                u,
+                conflicts.CONFLICT,
+                reason,
+                {
+                    "message_id": "ynab.sync.reason.manyDeleted",
+                    "params": {"count": str(len(removals)), "total": str(linked)},
+                },
+            )
     held = {id(u) for u in removals}
     return [u for u in all_units if id(u) not in held]
 
@@ -211,6 +239,10 @@ def _push_all(
                 u,
                 conflicts.CONFLICT,
                 f"{len(deletes)} deletions would be sent to YNAB at once; confirm each one.",
+                {
+                    "message_id": "ynab.sync.reason.manyDeletesToYnab",
+                    "params": {"count": str(len(deletes))},
+                },
             )
         deletes = []
     push.send_updates(ctx, client, updates, out)
@@ -219,10 +251,23 @@ def _push_all(
     for u, reason in out.unsupported:
         _file(ctx, u, conflicts.UNSUPPORTED, reason)
     for u, reason in out.failed:
-        _file(ctx, u, conflicts.FAILED, f"YNAB did not accept it: {reason}")
+        _file(
+            ctx,
+            u,
+            conflicts.FAILED,
+            f"YNAB did not accept it: {reason}",
+            {"message_id": "ynab.sync.reason.ynabRefused", "params": {"reason": reason}},
+        )
     tally["sent"] += len(out.sent)
     for u in out.deferred:
-        recorder.deferred(_title(u), "Waiting for the next run (YNAB request limit).")
+        recorder.deferred(
+            _title(u),
+            "Waiting for the next run (YNAB request limit).",
+            {"message_id": "ynab.sync.deferred.rateLimit", "params": {}},
+            None
+            if ((u.row or {}).get("description") or "").strip()
+            else {"message_id": "ynab.sync.title.noPayee", "params": {}},
+        )
     return [u.onw_id for u in out.deferred if u.onw_id]
 
 
@@ -234,7 +279,11 @@ def _recorded(ctx: Context, unit: Unit, out: push.Outcome, base: Baselines) -> N
         _record_sent(unit, out, base)
     except OpenNetWorthError as exc:
         _file(
-            ctx, unit, conflicts.FAILED, f"Sent to YNAB, but linking it here failed: {exc.message}"
+            ctx,
+            unit,
+            conflicts.FAILED,
+            f"Sent to YNAB, but linking it here failed: {exc.message}",
+            {"message_id": "ynab.sync.reason.linkFailed", "params": {"reason": exc.message}},
         )
 
 

@@ -1,3 +1,4 @@
+import { useAppIntl } from '../../../i18n/useAppIntl'
 // Chip.tsx — shared mention chip primitive.
 //
 // Ports the prototype's Chip / makeChip logic into a React component.
@@ -47,6 +48,7 @@ export function Chip({
   onRemove,
   onClick,
 }: ChipProps) {
+  const intl = useAppIntl()
   const { type, label } = mention
   const connectorLogo = useToolOwnerLogos(type === 'connector' ? [mention.ref] : [])(
     type === 'connector' ? mention.ref : '',
@@ -166,7 +168,11 @@ export function Chip({
       onClick={handleClick}
     >
       {/* "To •" prefix for the recipient agent chip */}
-      {isAgent && role === 'recipient' && <span className="chip-to">To</span>}
+      {isAgent && role === 'recipient' && (
+        <span className="chip-to">
+          {intl.formatMessage({ id: 'chip.to', defaultMessage: 'To' })}
+        </span>
+      )}
 
       {renderGlyph()}
 
@@ -190,7 +196,14 @@ export function Chip({
       )}
 
       {onRemove && (
-        <button className="chip-x" onClick={handleRemove} aria-label={'Remove ' + label}>
+        <button
+          className="chip-x"
+          onClick={handleRemove}
+          aria-label={intl.formatMessage(
+            { id: 'chip.remove', defaultMessage: 'Remove {label}' },
+            { label },
+          )}
+        >
           <X size={10} aria-hidden="true" />
         </button>
       )}

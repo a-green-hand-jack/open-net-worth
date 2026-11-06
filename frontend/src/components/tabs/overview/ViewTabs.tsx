@@ -14,6 +14,8 @@
 import { useState } from 'react'
 import type { DashboardView } from './types'
 import { X, Plus } from '../../../ui/icons'
+import { useAppIntl } from '../../../i18n/useAppIntl'
+import { displayViewName } from './defaultNames'
 
 export interface ViewTabsProps {
   views: DashboardView[]
@@ -36,14 +38,23 @@ export function ViewTabs({
   onReorder,
   editing,
 }: ViewTabsProps) {
+  const intl = useAppIntl()
   const [renamingId, setRenamingId] = useState<string | null>(null)
   const [draft, setDraft] = useState('')
   const [dragId, setDragId] = useState<string | null>(null)
 
   return (
-    <div className="ov-view-tabs" role="tablist" aria-label="Dashboard views">
+    <div
+      className="ov-view-tabs"
+      role="tablist"
+      aria-label={intl.formatMessage({
+        id: 'overview.viewTabs',
+        defaultMessage: 'Dashboard views',
+      })}
+    >
       {views.map((v, idx) => {
         const active = v.viewId === activeViewId
+        const name = displayViewName(intl, v)
         if (renamingId === v.viewId) {
           return (
             <input
@@ -53,7 +64,7 @@ export function ViewTabs({
               value={draft}
               onChange={(e) => setDraft(e.target.value)}
               onBlur={() => {
-                if (draft.trim()) onRename(v.viewId, draft.trim())
+                if (draft.trim() && draft.trim() !== name) onRename(v.viewId, draft.trim())
                 setRenamingId(null)
               }}
               onKeyDown={(e) => {
@@ -91,18 +102,28 @@ export function ViewTabs({
             onClick={() => onSelect(v.viewId)}
             onDoubleClick={() => {
               if (!editing) return
-              setDraft(v.name)
+              setDraft(name)
               setRenamingId(v.viewId)
             }}
-            title={active ? 'Double-click to rename • drag to reorder' : v.name}
+            title={
+              active
+                ? intl.formatMessage({
+                    id: 'overview.viewRenameHelp',
+                    defaultMessage: 'Double-click to rename • drag to reorder',
+                  })
+                : name
+            }
           >
-            {v.name}
+            {name}
             {active && views.length > 1 && idx !== 0 && (
               <span
                 className="ov-view-tab-close"
                 role="button"
                 tabIndex={0}
-                aria-label={`Delete view ${v.name}`}
+                aria-label={intl.formatMessage(
+                  { id: 'overview.deleteNamedView', defaultMessage: 'Delete view {name}' },
+                  { name },
+                )}
                 onClick={(e) => {
                   e.stopPropagation()
                   onRequestDelete(v.viewId)
@@ -125,8 +146,8 @@ export function ViewTabs({
         <button
           type="button"
           className="ov-view-tab ov-view-tab--add"
-          aria-label="Add view"
-          onClick={() => onAdd('New view')}
+          aria-label={intl.formatMessage({ id: 'overview.addView', defaultMessage: 'Add view' })}
+          onClick={() => onAdd('')}
         >
           <Plus size={14} aria-hidden="true" />
         </button>

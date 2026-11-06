@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { authFetch } from '../../api/client'
 import { CollapsibleSection, Button, Badge, EmptyState, Loading } from '../ui'
 import { fPct } from '../../utils/format'
+import { useAppIntl } from '../../i18n/useAppIntl'
 
 // Learned category suggestions (competitor gap #1, L1). For each UNCATEGORIZED
 // expense/income transaction, the backend (services/categorize.py) suggests a
@@ -33,13 +34,16 @@ interface Props {
 }
 
 export function CategorySuggestions({ categories }: Props) {
+  const { formatMessage } = useAppIntl()
   const [suggestions, setSuggestions] = useState<CategorySuggestion[]>([])
   const [loading, setLoading] = useState(false)
   const [loaded, setLoaded] = useState(false)
   // The suggested_category currently being applied (one apply in flight).
   const [busy, setBusy] = useState<string | null>(null)
 
-  const labelFor = (key: string) => categories.find((c) => c.id === key)?.label || 'Uncategorized'
+  const labelFor = (key: string) =>
+    categories.find((c) => c.id === key)?.label ||
+    formatMessage({ id: 'categorySuggestions.uncategorized', defaultMessage: 'Uncategorized' })
 
   function load() {
     setLoading(true)
@@ -99,7 +103,10 @@ export function CategorySuggestions({ categories }: Props) {
 
   return (
     <CollapsibleSection
-      title="Suggested categories"
+      title={formatMessage({
+        id: 'categorySuggestions.title',
+        defaultMessage: 'Suggested categories',
+      })}
       defaultOpen
       actions={count > 0 ? <Badge tone="neutral">{count}</Badge> : undefined}
     >
@@ -107,14 +114,24 @@ export function CategorySuggestions({ categories }: Props) {
         <Loading />
       ) : groups.length === 0 ? (
         <EmptyState
-          title="No category suggestions"
-          body="Uncategorized transactions get a suggestion once you've categorized that payee before."
+          title={formatMessage({
+            id: 'categorySuggestions.empty',
+            defaultMessage: 'No category suggestions',
+          })}
+          body={formatMessage({
+            id: 'categorySuggestions.emptyBody',
+            defaultMessage:
+              "Uncategorized transactions get a suggestion once you've categorized that payee before.",
+          })}
         />
       ) : (
         <div className="cat-suggest">
           <p className="cat-suggest__hint">
-            Categories learned from how you've labeled each payee before. Apply a whole group, then
-            refine on the Accounts register.
+            {formatMessage({
+              id: 'categorySuggestions.hint',
+              defaultMessage:
+                "Categories learned from how you've labeled each payee before. Apply a whole group, then refine on the Accounts register.",
+            })}
           </p>
           {groups.map((g) => (
             <div key={g.category} className="cat-suggest__group">
@@ -132,7 +149,15 @@ export function CategorySuggestions({ categories }: Props) {
                     )
                   }
                 >
-                  {busy === g.category ? 'Applying…' : `Apply to ${g.rows.length}`}
+                  {busy === g.category
+                    ? formatMessage({
+                        id: 'categorySuggestions.applying',
+                        defaultMessage: 'Applying…',
+                      })
+                    : formatMessage(
+                        { id: 'categorySuggestions.apply', defaultMessage: 'Apply to {count}' },
+                        { count: g.rows.length },
+                      )}
                 </Button>
               </div>
               <ul className="cat-suggest__rows">
@@ -145,7 +170,12 @@ export function CategorySuggestions({ categories }: Props) {
                   </li>
                 ))}
                 {g.rows.length > 6 && (
-                  <li className="cat-suggest__more">+{g.rows.length - 6} more</li>
+                  <li className="cat-suggest__more">
+                    {formatMessage(
+                      { id: 'categorySuggestions.more', defaultMessage: '+{count} more' },
+                      { count: g.rows.length - 6 },
+                    )}
+                  </li>
                 )}
               </ul>
             </div>

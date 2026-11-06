@@ -12,6 +12,7 @@
 // second toast stacking up beside it (owner, 2026-10-25).
 
 import { useEffect, useState } from 'react'
+import { useAppIntl } from '../../../i18n/useAppIntl'
 import { authFetch } from '../../../api/client'
 import { useDocumentVisible } from '../../../hooks/useImportProgress'
 import { X } from '../../../ui/icons'
@@ -30,6 +31,7 @@ const READING_MS = 5000
 const TERMINAL = new Set(['ready', 'failed', 'interrupted'])
 
 export function BackgroundStatementNotices({ onOpenAccounts }: { onOpenAccounts?: () => void }) {
+  const { formatMessage } = useAppIntl()
   const [tracked, setTracked] = useState(backgroundStatements)
   const [finished, setFinished] = useState<Finished[]>([])
   const [hiddenReading, setHiddenReading] = useState<string[]>([])
@@ -102,13 +104,13 @@ export function BackgroundStatementNotices({ onOpenAccounts }: { onOpenAccounts?
       {reading.map((r) => (
         <div key={r.id} className="bgst-note">
           <span className="bgst-text">
-            <span className="bgst-title">Reading in the background</span>
-            <span className="bgst-detail">{r.filename || 'your statement'}</span>
+            <span className="bgst-title">{formatMessage({ id: 'accounts.statementNotice.reading', defaultMessage: "Reading in the background" })}</span>
+            <span className="bgst-detail">{r.filename || formatMessage({ id: 'accounts.statementNotice.statement', defaultMessage: "your statement" })}</span>
           </span>
           <button
             type="button"
             className="bgst-x"
-            aria-label="Dismiss"
+            aria-label={formatMessage({ id: 'accounts.statementNotice.dismiss', defaultMessage: "Dismiss" })}
             onClick={() => setHiddenReading((ids) => [...ids, r.id])}
           >
             <X size={14} strokeWidth={2} aria-hidden="true" />
@@ -120,15 +122,15 @@ export function BackgroundStatementNotices({ onOpenAccounts }: { onOpenAccounts?
         // colour bar — the state is in the words.
         const title =
           f.status === 'ready'
-            ? 'Ready to review'
+            ? formatMessage({ id: 'accounts.statementNotice.ready', defaultMessage: "Ready to review" })
             : f.status === 'failed'
-              ? 'Couldn’t read'
-              : 'Reading stopped'
+              ? formatMessage({ id: 'accounts.statementNotice.failed', defaultMessage: "Couldn’t read" })
+              : formatMessage({ id: 'accounts.statementNotice.stopped', defaultMessage: "Reading stopped" })
         return (
           <div key={f.id} className="bgst-note">
             <span className="bgst-text">
               <span className="bgst-title">{title}</span>
-              <span className="bgst-detail">{f.filename || 'your statement'}</span>
+              <span className="bgst-detail">{f.filename || formatMessage({ id: 'accounts.statementNotice.statement', defaultMessage: "your statement" })}</span>
             </span>
             {f.status === 'ready' && (
               <button
@@ -145,13 +147,13 @@ export function BackgroundStatementNotices({ onOpenAccounts }: { onOpenAccounts?
                   dismiss(f.id)
                 }}
               >
-                Review
+                {formatMessage({ id: 'accounts.statementNotice.review', defaultMessage: "Review" })}
               </button>
             )}
             <button
               type="button"
               className="bgst-x"
-              aria-label="Dismiss"
+              aria-label={formatMessage({ id: 'accounts.statementNotice.dismiss', defaultMessage: "Dismiss" })}
               onClick={() => dismiss(f.id)}
             >
               <X size={14} strokeWidth={2} aria-hidden="true" />

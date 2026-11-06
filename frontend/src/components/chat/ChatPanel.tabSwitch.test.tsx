@@ -16,6 +16,8 @@ import { useEffect, useState } from 'react'
 import { render, act, cleanup, fireEvent, screen } from '@testing-library/react'
 import { ChatComposerProvider, useChatComposer } from '../../state/chatComposer'
 import type { MentionRef } from '../../types/mentions'
+import { IntlProvider } from 'react-intl'
+import zh from '../../i18n/zh-CN.json'
 
 // ── Mocks: everything ChatPanel needs that is not part of this seam ───────────
 
@@ -169,10 +171,35 @@ afterEach(() => {
   vi.clearAllMocks()
   suggestionsEnabled = false
   profileData = null
+  chatState.conversations = []
   vi.useRealTimers()
 })
 
 const AAPL: MentionRef = { type: 'holding', ref: 'pos_123', label: 'AAPL holding' }
+
+it('localizes the absent draft title without translating an existing title with the same words', () => {
+  const wrap = () => (
+    <IntlProvider locale="zh-CN" defaultLocale="en" messages={zh}>
+      <ChatComposerProvider>
+        <ChatPanel open onOpenChange={() => {}} autoFocusComposer={false} />
+      </ChatComposerProvider>
+    </IntlProvider>
+  )
+  const view = render(wrap())
+  expect(screen.getByText('新对话')).toBeTruthy()
+  chatState.conversations = [
+    {
+      id: 'conv-1',
+      title: 'New conversation',
+      messageCount: 1,
+      model: '',
+      createdAt: '2025-01-01T00:00:00Z',
+      updatedAt: '2025-01-01T00:00:00Z',
+    },
+  ]
+  view.rerender(wrap())
+  expect(screen.getByText('New conversation')).toBeTruthy()
+})
 
 describe('the home composer draft survives a tab switch', () => {
   it('text AND a mention chip typed on the Lucius tab are back after Accounts → Lucius', async () => {

@@ -1,3 +1,5 @@
+import { message as t } from './native-messages';
+
 const escape = (value: string): string => value.replace(/[&<>"']/g, character => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[character]!);
 
 export const ICON_COMPUTER = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="20" height="14" x="2" y="3" rx="2"/><path d="M8 21h8M12 17v4"/></svg>';
@@ -7,7 +9,7 @@ const CHEVRON = '<svg class="chev" viewBox="0 0 24 24" width="18" height="18" fi
 
 // Title, then what the choice does, then — for the current one — where your book is now.
 export function option(id: string, icon: string, title: string, desc: string, current: boolean, where = ''): string {
-  return `<button class="option${current ? ' is-current' : ''}" id="${id}" type="button" aria-label="${escape(title)}"><span class="icon">${icon}</span><span class="text"><span class="title">${escape(title)}</span><span class="desc">${escape(desc)}</span>${where ? `<span class="where">${escape(where)}</span>` : ''}</span>${current ? '<span class="tag">Current</span>' : CHEVRON}</button>`;
+  return `<button class="option${current ? ' is-current' : ''}" id="${id}" type="button" aria-label="${escape(title)}"><span class="icon">${icon}</span><span class="text"><span class="title">${escape(title)}</span><span class="desc">${escape(desc)}</span>${where ? `<span class="where">${escape(where)}</span>` : ''}</span>${current ? `<span class="tag">${escape(t('Current'))}</span>` : CHEVRON}</button>`;
 }
 
 // "~/Documents/My book" instead of "/Users/name/Documents/My book".

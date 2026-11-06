@@ -6,6 +6,8 @@ import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { render, cleanup, fireEvent, act } from '@testing-library/react'
+import { IntlProvider } from 'react-intl'
+import messages from '../zh-CN.messages.json'
 
 afterEach(() => {
   cleanup()
@@ -60,6 +62,11 @@ async function frames() {
 }
 
 describe('ScreenContextBar', () => {
+  it('explains screen sharing in Chinese', () => {
+    const view = render(<IntlProvider locale="zh-CN" messages={messages}><ScreenContextBar compact visibleIds={EMPTY_VISIBLE_IDS} /></IntlProvider>)
+    expect(view.getByRole('switch').getAttribute('aria-label')).toContain('停止共享此屏幕')
+    expect(view.getByRole('button', { name: '预览与 Lucius 共享的内容' })).toBeTruthy()
+  })
   it('renders the scope container', () => {
     const { container } = render(<ScreenContextBar visibleIds={EMPTY_VISIBLE_IDS} />)
     expect(container.querySelector('.lx-scope')).not.toBeNull()

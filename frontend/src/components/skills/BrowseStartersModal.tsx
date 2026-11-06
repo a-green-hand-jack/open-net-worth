@@ -1,3 +1,6 @@
+import { skillError } from './skillErrors'
+import { starterField } from './starterMessages'
+import { useAppIntl } from '../../i18n/useAppIntl'
 import { useEffect, useState } from 'react'
 import { Badge, Button, Cluster, ErrorState, Loading, Modal, Stack, Text } from '../ui'
 import { authFetch } from '../../api/client'
@@ -14,6 +17,8 @@ interface BrowseStartersModalProps {
  * "Add" → POST /api/skills/starters/{id} → {ok, skill, already?} → refresh + onAdded.
  */
 export function BrowseStartersModal({ onClose, onAdded }: BrowseStartersModalProps) {
+  const intl = useAppIntl()
+  const { formatMessage } = intl
   const [starters, setStarters] = useState<StarterSkill[]>([])
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState<string | null>(null)
@@ -33,14 +38,26 @@ export function BrowseStartersModal({ onClose, onAdded }: BrowseStartersModalPro
           const msg =
             typeof d?.detail === 'string'
               ? d.detail
-              : `Could not load starters (HTTP ${res.status})`
-          if (!cancelled) setLoadError(msg)
+              : formatMessage(
+                  {
+                    id: 'skills.starters.loadHttp',
+                    defaultMessage: 'Could not load starters (HTTP {status})',
+                  },
+                  { status: res.status },
+                )
+          if (!cancelled) setLoadError(skillError(intl, d, msg))
           return
         }
         const data: StarterSkill[] = await res.json()
         if (!cancelled) setStarters(data)
       } catch {
-        if (!cancelled) setLoadError('Could not reach the server.')
+        if (!cancelled)
+          setLoadError(
+            formatMessage({
+              id: 'skills.serverError',
+              defaultMessage: 'Could not reach the server.',
+            }),
+          )
       } finally {
         if (!cancelled) setLoading(false)
       }
@@ -49,7 +66,7 @@ export function BrowseStartersModal({ onClose, onAdded }: BrowseStartersModalPro
     return () => {
       cancelled = true
     }
-  }, [])
+  }, [formatMessage, intl])
 
   async function addStarter(starter: StarterSkill) {
     setAdding(starter.id)
@@ -61,15 +78,25 @@ export function BrowseStartersModal({ onClose, onAdded }: BrowseStartersModalPro
       if (!res.ok) {
         const d = await res.json().catch(() => null)
         const msg =
-          typeof d?.detail === 'string' ? d.detail : `Could not add starter (HTTP ${res.status})`
-        setAddError(msg)
+          typeof d?.detail === 'string'
+            ? d.detail
+            : formatMessage(
+                {
+                  id: 'skills.starters.addHttp',
+                  defaultMessage: 'Could not add starter (HTTP {status})',
+                },
+                { status: res.status },
+              )
+        setAddError(skillError(intl, d, msg))
         return
       }
       const d = await res.json()
       setAdded((prev) => new Set([...prev, starter.id]))
       onAdded(d.skill)
     } catch {
-      setAddError('Could not reach the server.')
+      setAddError(
+        formatMessage({ id: 'skills.serverError', defaultMessage: 'Could not reach the server.' }),
+      )
     } finally {
       setAdding(null)
     }
@@ -79,20 +106,23 @@ export function BrowseStartersModal({ onClose, onAdded }: BrowseStartersModalPro
     <Modal
       open
       size="md"
-      title="Browse starter skills"
+      title={formatMessage({ id: 'skills.menu.browse', defaultMessage: 'Browse starter skills' })}
       onClose={onClose}
       footer={
         <Cluster justify="end" gap="--space-2">
           <Button variant="ghost" onClick={onClose}>
-            Close
+            {formatMessage({ id: 'skills.close', defaultMessage: 'Close' })}
           </Button>
         </Cluster>
       }
     >
       <Stack gap="--space-4">
         <Text tone="muted" size="sm">
-          Add built-in starter skills to your library. These seed the most common routines — you can
-          customise them afterwards.
+          {formatMessage({
+            id: 'skills.starters.help',
+            defaultMessage:
+              'Add built-in starter skills to your library. These seed the most common routines — you can customise them afterwards.',
+          })}
         </Text>
 
         {addError && (
@@ -104,13 +134,21 @@ export function BrowseStartersModal({ onClose, onAdded }: BrowseStartersModalPro
         )}
 
         {loading ? (
-          <Loading label="Loading starters…" />
+          <Loading
+            label={formatMessage({
+              id: 'skills.starters.loading',
+              defaultMessage: 'Loading starters…',
+            })}
+          />
         ) : loadError ? (
           <ErrorState message={loadError} />
         ) : starters.length === 0 ? (
           <div style={{ padding: 'var(--space-6)', textAlign: 'center' }}>
             <Text tone="faint" size="sm">
-              You already have all available starter skills.
+              {formatMessage({
+                id: 'skills.starters.empty',
+                defaultMessage: 'You already have all available starter skills.',
+              })}
             </Text>
           </div>
         ) : (
@@ -142,23 +180,32 @@ function StarterRow({
   isAdding: boolean
   onAdd: () => void
 }) {
+  const { formatMessage, locale } = useAppIntl()
   return (
     <div className="starter-row">
       <div className="starter-row__info">
         <Stack gap="--space-1">
           <Text size="sm" weight={600}>
-            {starter.name}
+            {starterField(locale, 'name', starter.name, starter.id, starter.starter_source)}
           </Text>
           {starter.description && (
             <Text tone="muted" size="xs">
-              {starter.description}
+              {starterField(
+                locale,
+                'description',
+                starter.description,
+                starter.id,
+                starter.starter_source,
+              )}
             </Text>
           )}
         </Stack>
       </div>
       <div className="starter-row__action">
         {isAdded ? (
-          <Badge tone="muted">Added</Badge>
+          <Badge tone="muted">
+            {formatMessage({ id: 'skills.starters.added', defaultMessage: 'Added' })}
+          </Badge>
         ) : (
           <Button
             variant="secondary"
@@ -167,7 +214,7 @@ function StarterRow({
             disabled={isAdding}
             onClick={onAdd}
           >
-            Add
+            {formatMessage({ id: 'skills.starters.add', defaultMessage: 'Add' })}
           </Button>
         )}
       </div>

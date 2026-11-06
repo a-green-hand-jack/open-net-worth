@@ -1,3 +1,4 @@
+import { useAppIntl } from '../../../i18n/useAppIntl'
 import { desktopArtifactUrl } from '../../../platform/desktop'
 // ArtifactViewer — the full "open" experience for an artifact: header (preview/source toggle,
 // title, copy/download, expand, close) + body (sandboxed rendered iframe, or raw source).
@@ -70,6 +71,7 @@ function ArtifactFrame({
   artifact: MarkupArtifact
   frameSrc: string | null
 }) {
+  const intl = useAppIntl()
   const [loaded, setLoaded] = useState(false)
   return (
     <>
@@ -77,7 +79,10 @@ function ArtifactFrame({
         className="artifact-viewer-frame"
         sandbox={sandboxFor(artifact.artifactType)}
         src={desktopArtifactUrl(artifact.id, artifact.artifactType) ?? frameSrc ?? undefined}
-        title={artifact.title || 'Artifact'}
+        title={
+          artifact.title ||
+          intl.formatMessage({ id: 'artifactUi.artifact', defaultMessage: 'Artifact' })
+        }
         onLoad={() => setLoaded(true)}
       />
       {!loaded && <div className="artifact-viewer-frame-cover" aria-hidden="true" />}
@@ -94,6 +99,7 @@ function MarkupArtifactViewer({
   onClose: () => void
   expandState?: ArtifactExpandState
 }) {
+  const intl = useAppIntl()
   const { raw, frameSrc, failed, retry } = useArtifactContent(artifact.id, artifact.artifactType)
   const [view, setView] = useState<View>('preview')
   const [copyMenuOpen, setCopyMenuOpen] = useState(false)
@@ -181,19 +187,23 @@ function MarkupArtifactViewer({
             type="button"
             className="artifact-viewer-icon-btn"
             onClick={onClose}
-            aria-label="Close"
+            aria-label={intl.formatMessage({ id: 'artifactUi.close', defaultMessage: 'Close' })}
           >
             <X size={18} strokeWidth={1.6} />
           </button>
           <span className="artifact-viewer-title artifact-viewer-title--mobile">
-            {artifact.title || 'Artifact'}
+            {artifact.title ||
+              intl.formatMessage({ id: 'artifactUi.artifact', defaultMessage: 'Artifact' })}
           </span>
           <div className="artifact-viewer-mobile-menu-wrap">
             <button
               type="button"
               className="artifact-viewer-icon-btn"
               onClick={() => setMobileMenuOpen((o) => !o)}
-              aria-label="More options"
+              aria-label={intl.formatMessage({
+                id: 'artifactUi.more',
+                defaultMessage: 'More options',
+              })}
               aria-expanded={mobileMenuOpen}
             >
               <MoreHorizontal size={18} />
@@ -215,7 +225,7 @@ function MarkupArtifactViewer({
                     }}
                   >
                     <Eye size={14} strokeWidth={1.6} />
-                    Preview
+                    {intl.formatMessage({ id: 'artifactUi.preview', defaultMessage: 'Preview' })}
                     {view === 'preview' && (
                       <Check size={14} className="artifact-viewer-menu-check" />
                     )}
@@ -230,7 +240,7 @@ function MarkupArtifactViewer({
                     }}
                   >
                     <Code2 size={14} strokeWidth={1.6} />
-                    Code
+                    {intl.formatMessage({ id: 'artifactUi.code', defaultMessage: 'Code' })}
                     {view === 'source' && (
                       <Check size={14} className="artifact-viewer-menu-check" />
                     )}
@@ -238,11 +248,14 @@ function MarkupArtifactViewer({
                   <div className="artifact-viewer-menu-divider" />
                   <button type="button" role="menuitem" onClick={copy} disabled={!ready}>
                     <Copy size={14} strokeWidth={1.4} />
-                    Copy
+                    {intl.formatMessage({ id: 'artifactUi.copy', defaultMessage: 'Copy' })}
                   </button>
                   <button type="button" role="menuitem" onClick={download} disabled={!ready}>
                     <Download size={14} strokeWidth={1.4} />
-                    Save as {extLabel(artifact.artifactType)}
+                    {intl.formatMessage(
+                      { id: 'artifactUi.saveAs', defaultMessage: 'Save as {format}' },
+                      { format: extLabel(artifact.artifactType) },
+                    )}
                   </button>
                 </div>
               </>
@@ -251,14 +264,24 @@ function MarkupArtifactViewer({
         </div>
       ) : (
         <div className="artifact-viewer-head">
-          <div className="artifact-viewer-view-toggle" role="tablist" aria-label="Artifact view">
+          <div
+            className="artifact-viewer-view-toggle"
+            role="tablist"
+            aria-label={intl.formatMessage({
+              id: 'artifactUi.view',
+              defaultMessage: 'Artifact view',
+            })}
+          >
             <button
               type="button"
               className={view === 'preview' ? 'on' : ''}
               role="tab"
               aria-selected={view === 'preview'}
-              title="Preview"
-              aria-label="Preview"
+              title={intl.formatMessage({ id: 'artifactUi.preview', defaultMessage: 'Preview' })}
+              aria-label={intl.formatMessage({
+                id: 'artifactUi.preview',
+                defaultMessage: 'Preview',
+              })}
               onClick={() => setView('preview')}
             >
               <Eye size={15} strokeWidth={1.6} />
@@ -268,8 +291,11 @@ function MarkupArtifactViewer({
               className={view === 'source' ? 'on' : ''}
               role="tab"
               aria-selected={view === 'source'}
-              title="View source"
-              aria-label="View source"
+              title={intl.formatMessage({ id: 'artifactUi.source', defaultMessage: 'View source' })}
+              aria-label={intl.formatMessage({
+                id: 'artifactUi.source',
+                defaultMessage: 'View source',
+              })}
               onClick={() => setView('source')}
             >
               <Code2 size={15} strokeWidth={1.6} />
@@ -277,7 +303,10 @@ function MarkupArtifactViewer({
           </div>
 
           <div className="artifact-viewer-title">
-            <span className="artifact-viewer-title-t">{artifact.title || 'Artifact'}</span>
+            <span className="artifact-viewer-title-t">
+              {artifact.title ||
+                intl.formatMessage({ id: 'artifactUi.artifact', defaultMessage: 'Artifact' })}
+            </span>
             <span className="artifact-viewer-title-meta"> • {extLabel(artifact.artifactType)}</span>
           </div>
 
@@ -298,13 +327,18 @@ function MarkupArtifactViewer({
                   disabled={!ready}
                 >
                   <Copy size={13} strokeWidth={1.4} />
-                  {copied ? 'Copied' : 'Copy'}
+                  {copied
+                    ? intl.formatMessage({ id: 'artifactUi.copied', defaultMessage: 'Copied' })
+                    : intl.formatMessage({ id: 'artifactUi.copy', defaultMessage: 'Copy' })}
                 </button>
                 <button
                   type="button"
                   className="artifact-viewer-copy-caret"
                   onClick={() => setCopyMenuOpen((o) => !o)}
-                  aria-label="More options"
+                  aria-label={intl.formatMessage({
+                    id: 'artifactUi.more',
+                    defaultMessage: 'More options',
+                  })}
                   aria-expanded={copyMenuOpen}
                   disabled={!ready}
                 >
@@ -319,7 +353,10 @@ function MarkupArtifactViewer({
                   />
                   <div className="artifact-viewer-copy-menu" role="menu">
                     <button type="button" role="menuitem" onClick={download}>
-                      Download as {extLabel(artifact.artifactType)}
+                      {intl.formatMessage(
+                        { id: 'artifactUi.downloadAs', defaultMessage: 'Download as {format}' },
+                        { format: extLabel(artifact.artifactType) },
+                      )}
                     </button>
                   </div>
                 </>
@@ -330,8 +367,16 @@ function MarkupArtifactViewer({
                 type="button"
                 className="artifact-viewer-icon-btn"
                 onClick={expandState.onToggle}
-                aria-label={expandState.fullscreen ? 'Minimize' : 'Expand'}
-                title={expandState.fullscreen ? 'Minimize' : 'Expand'}
+                aria-label={
+                  expandState.fullscreen
+                    ? intl.formatMessage({ id: 'artifactUi.minimize', defaultMessage: 'Minimize' })
+                    : intl.formatMessage({ id: 'artifactUi.expand', defaultMessage: 'Expand' })
+                }
+                title={
+                  expandState.fullscreen
+                    ? intl.formatMessage({ id: 'artifactUi.minimize', defaultMessage: 'Minimize' })
+                    : intl.formatMessage({ id: 'artifactUi.expand', defaultMessage: 'Expand' })
+                }
               >
                 {expandState.fullscreen ? (
                   <Minimize2 size={15} strokeWidth={1.6} />
@@ -344,8 +389,8 @@ function MarkupArtifactViewer({
               type="button"
               className="artifact-viewer-icon-btn"
               onClick={onClose}
-              aria-label="Close"
-              title="Close"
+              aria-label={intl.formatMessage({ id: 'artifactUi.close', defaultMessage: 'Close' })}
+              title={intl.formatMessage({ id: 'artifactUi.close', defaultMessage: 'Close' })}
             >
               <X size={18} strokeWidth={1.6} />
             </button>
@@ -356,8 +401,14 @@ function MarkupArtifactViewer({
       <div className="artifact-viewer-body">
         {failed ? (
           <ErrorState
-            title="Could not load artifact"
-            message="The file may have been removed."
+            title={intl.formatMessage({
+              id: 'artifactUi.loadFailed',
+              defaultMessage: 'Could not load artifact',
+            })}
+            message={intl.formatMessage({
+              id: 'artifactUi.removed',
+              defaultMessage: 'The file may have been removed.',
+            })}
             onRetry={retry}
           />
         ) : !ready ? (

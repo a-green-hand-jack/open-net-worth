@@ -1,3 +1,4 @@
+import type { IntlShape } from 'react-intl'
 // Where one price alert goes when it fires. The alert SAVES its own channel ids (ADR
 // 2026-09-30-notification-channels-per-kind-and-per-alert) — nothing here follows another
 // setting. Settings' price-alert row is only the default a new alert starts from. The in-app
@@ -50,17 +51,17 @@ export function resolveRoute(ids: string[], r: AlertRouting | undefined): Route 
   return route
 }
 
-function comboLabel(ids: string[], r: AlertRouting | undefined): string {
-  if (!ids.length) return 'In-app only'
+function comboLabel(ids: string[], r: AlertRouting | undefined, intl?: IntlShape): string {
+  if (!ids.length) return intl?.formatMessage({ id: 'intel.route.appOnly', defaultMessage: 'In-app only' }) ?? 'In-app only'
   const { live, off } = resolveRoute(ids, r)
-  const names = [...live, ...off.map((n) => `${n} (off)`)]
-  return `In-app + ${joinNames(names)}`
+  const names = [...live, ...off.map((n) => intl?.formatMessage({ id: 'intel.route.off', defaultMessage: '{name} (off)' }, { name: n }) ?? `${n} (off)`)]
+  return intl?.formatMessage({ id: 'intel.route.appPlus', defaultMessage: 'In-app + {channels}' }, { channels: joinNames(names) }) ?? `In-app + ${joinNames(names)}`
 }
 
 /** Every combination of the channels that are set up (In-app only, + Telegram, + Email,
  * + Telegram + Email, …), plus the alert's saved set when it names a channel that is off —
  * so the form always shows exactly what is saved. */
-export function notifyOptions(r: AlertRouting | undefined, saved: string[]): NotifyOption[] {
+export function notifyOptions(r: AlertRouting | undefined, saved: string[], intl?: IntlShape): NotifyOption[] {
   const ready = (r?.channels ?? []).filter((c) => c.available).map((c) => c.id)
   const combos: string[][] = [[]]
   for (const id of ready) combos.push(...combos.map((c) => [...c, id]))
@@ -70,13 +71,13 @@ export function notifyOptions(r: AlertRouting | undefined, saved: string[]): Not
   if (!keys.includes(savedKey)) keys.push(savedKey)
   const opts: NotifyOption[] = keys.map((k) => ({
     value: k,
-    label: comboLabel(keyToChannels(k), r),
+    label: comboLabel(keyToChannels(k), r, intl),
   }))
   const missing = visibleChannels(r?.channels ?? [], saved).filter((c) => !c.available)
   if (missing.length) {
     opts.push({
       value: '__setup',
-      label: `${joinNames(missing.map((c) => c.label))}: set up in Connectors`,
+      label: intl?.formatMessage({ id: 'intel.route.setup', defaultMessage: '{channels}: set up in Connectors' }, { channels: joinNames(missing.map((c) => c.label)) }) ?? `${joinNames(missing.map((c) => c.label))}: set up in Connectors`,
       disabled: true,
     })
   }
@@ -84,22 +85,22 @@ export function notifyOptions(r: AlertRouting | undefined, saved: string[]): Not
 }
 
 /** One line for the field's help: what this choice does right now. */
-export function routeHelp(ids: string[], r: AlertRouting | undefined): string {
-  if (!ids.length) return 'Shows in Intel. Nothing is sent outside the app.'
+export function routeHelp(ids: string[], r: AlertRouting | undefined, intl?: IntlShape): string {
+  if (!ids.length) return intl?.formatMessage({ id: 'intel.route.onlyIntel', defaultMessage: 'Shows in Intel. Nothing is sent outside the app.' }) ?? 'Shows in Intel. Nothing is sent outside the app.'
   const { live, off } = resolveRoute(ids, r)
   const skipped = off.length
-    ? ` ${joinNames(off)} ${off.length > 1 ? 'are' : 'is'} off in Connectors, so it's skipped.`
+    ? (intl?.formatMessage({ id: 'intel.route.skipped', defaultMessage: " {channels} {count, plural, one {is} other {are}} off in Connectors, so it's skipped." }, { channels: joinNames(off), count: off.length }) ?? ` ${joinNames(off)} ${off.length > 1 ? 'are' : 'is'} off in Connectors, so it's skipped.`)
     : ''
-  if (!live.length) return `Only shows in Intel for now.${skipped}`
-  return `Shows in Intel and on ${joinNames(live)}.${skipped}`
+  if (!live.length) return intl?.formatMessage({ id: 'intel.route.currentlyIntel', defaultMessage: 'Only shows in Intel for now.{skipped}' }, { skipped }) ?? `Only shows in Intel for now.${skipped}`
+  return intl?.formatMessage({ id: 'intel.route.deliver', defaultMessage: 'Shows in Intel and on {channels}.{skipped}' }, { channels: joinNames(live), skipped }) ?? `Shows in Intel and on ${joinNames(live)}.${skipped}`
 }
 
 /** The alert row's summary of where it goes. */
-export function routeSummary(ids: string[], r: AlertRouting | undefined): string {
-  if (!ids.length) return 'In-app only'
+export function routeSummary(ids: string[], r: AlertRouting | undefined, intl?: IntlShape): string {
+  if (!ids.length) return intl?.formatMessage({ id: 'intel.route.appOnly', defaultMessage: 'In-app only' }) ?? 'In-app only'
   const { live } = resolveRoute(ids, r)
-  if (!live.length) return 'In-app only · channels off'
-  return `In-app + ${joinNames(live)}`
+  if (!live.length) return intl?.formatMessage({ id: 'intel.route.channelsOff', defaultMessage: 'In-app only · channels off' }) ?? 'In-app only · channels off'
+  return intl?.formatMessage({ id: 'intel.route.appPlus', defaultMessage: 'In-app + {channels}' }, { channels: joinNames(live) }) ?? `In-app + ${joinNames(live)}`
 }
 
 async function fetchRouting(): Promise<AlertRouting> {

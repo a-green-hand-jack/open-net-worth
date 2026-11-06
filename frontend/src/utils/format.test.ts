@@ -1,9 +1,16 @@
 import { describe, it, expect, vi, afterEach } from 'vitest'
+import { createIntl } from 'react-intl'
+import { fCompactCurrency, monthShort } from './commitments'
+import { reviewAmount } from '../components/tabs/accounts/transactionReview'
+import { grp } from '../components/tabs/accounts/format'
 import {
   toBase,
   setBaseCurrency,
   setDisplayFormats,
   fPct,
+  fFixed,
+  fScheduleWhen,
+  setInterfaceLocale,
   fBareAmount,
   fFig,
   FIG_ZERO,
@@ -19,11 +26,36 @@ import {
   timeAgo,
   fDate,
   fMonth,
+  fLocalizedMonth,
   fDateTime,
   parseNumericDate,
   getDateFormat,
   priceDigits,
 } from './format'
+
+describe('interface language and number preferences', () => {
+  it('formats shared quantities and amounts with the configured separators', () => {
+    setDisplayFormats({ number_format: 'dot' })
+    expect(fFixed(1234.56, 2)).toBe('1234,56')
+    expect(reviewAmount(1234.56, 'USD')).toBe('1.234,56')
+    expect(grp(1234.56, true)).toBe('1.234,56')
+    expect(fCompactCurrency(1250000, 'USD')).toContain('1,3')
+    setDisplayFormats({})
+  })
+
+  it('uses Chinese month names and relative schedule labels', () => {
+    setInterfaceLocale('zh-CN')
+    setDisplayFormats({ date_format: 'dmy' })
+    expect(monthShort('2026-11')).toBe('11月')
+    const intl = createIntl({ locale: 'zh-CN', messages: { 'schedule.today': '今天', 'schedule.tomorrow': '明天', 'schedule.at': '{day} {time}' } })
+    expect(fScheduleWhen(new Date().toISOString(), intl)).toMatch(/^今天 /)
+    const tomorrow = new Date()
+    tomorrow.setDate(tomorrow.getDate() + 1)
+    expect(fScheduleWhen(tomorrow.toISOString(), intl)).toMatch(/^明天 /)
+    setDisplayFormats({})
+    setInterfaceLocale(undefined)
+  })
+})
 
 describe('fBaseCompact — canonical compact base-currency formatter', () => {
   it('formats a comma-locale VND billion with the correct compact magnitude', () => {
@@ -410,6 +442,19 @@ describe('fDate — one date writer that follows the Date-format preference', ()
     expect(fDate('2020-07-20', 'long')).toBe('July 20, 2020')
   })
 
+  it('uses the interface language for text dates unless a date format is saved', () => {
+    setDisplayFormats({ date_format: null })
+    expect(fDate('2026-11-06', 'short', 'never', 'zh-CN')).toBe('11月6日')
+    expect(fMonth('2026-11', 'short', 'always', 'zh-CN')).toBe('2026年11月')
+    setDisplayFormats({ date_format: 'dmy' })
+    expect(fDate('2026-11-06', 'short', 'never', 'zh-CN')).toBe('6日11月')
+    setDisplayFormats({ date_format: 'mdy' })
+    expect(fDate('2026-11-06', 'short', 'never', 'zh-CN')).toBe('11月6日')
+    setDisplayFormats({ date_format: 'iso' })
+    expect(fDate('2026-11-06', 'numeric', 'always', 'zh-CN')).toBe('2026-11-06')
+    expect(fDate('2026-11-06', 'short', 'always', 'zh-CN')).toBe('2026年11月6日')
+  })
+
   it('reads a date-only value as the local calendar day, never shifted by UTC', () => {
     setDisplayFormats({ date_format: 'iso' })
     expect(fDate('2026-01-01', 'numeric')).toBe('2026-01-01')
@@ -437,6 +482,15 @@ describe('fDate — one date writer that follows the Date-format preference', ()
 
   it('returns an unreadable value untouched', () => {
     expect(fDate('not a date')).toBe('not a date')
+  })
+})
+
+describe('fLocalizedMonth', () => {
+  it('formats calendar months in the requested language and preserves invalid keys', () => {
+    expect(fLocalizedMonth('2025-01', 'en-US')).toBe('January 2025')
+    expect(fLocalizedMonth('2025-01', 'zh-CN')).toBe('2025年1月')
+    expect(fLocalizedMonth('2025-12', 'en-US', 'short', 'never')).toBe('Dec')
+    expect(fLocalizedMonth('2025-13', 'zh-CN')).toBe('2025-13')
   })
 })
 
@@ -492,4 +546,14 @@ describe('priceDigits — 2 decimals for a share, the adaptive precision for a c
     expect(priceDigits(undefined)).toBeUndefined()
     expect(priceDigits(null)).toBeUndefined()
   })
+})
+
+it('formats percentages with the number preference', () => {
+  setDisplayFormats({ number_format: 'dot' })
+  try {
+    expect(fPct(12.3)).toBe('12,30%')
+    expect(fPct(0.123, { fraction: true, sign: true })).toBe('+12,30%')
+  } finally {
+    setDisplayFormats({})
+  }
 })

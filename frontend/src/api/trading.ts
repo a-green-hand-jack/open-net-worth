@@ -23,6 +23,20 @@ import type {
 } from '../types/trading'
 
 export const tradingRoot = '/api/trading'
+export class TradingRequestError extends Error {
+  readonly messageId?: string
+  readonly messageParams: Record<string, string | number | boolean | null>
+  constructor(
+    message: string,
+    messageId?: string,
+    messageParams: Record<string, string | number | boolean | null> = {},
+  ) {
+    super(message)
+    this.name = 'TradingRequestError'
+    this.messageId = messageId
+    this.messageParams = messageParams
+  }
+}
 export async function tradingRequest<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await authFetch(`${tradingRoot}${path}`, {
     ...init,
@@ -32,8 +46,12 @@ export async function tradingRequest<T>(path: string, init?: RequestInit): Promi
     const detail = await response.json().catch(() => null)
     const problem = detail?.detail
     const message = typeof problem === 'string' ? problem : problem?.message
-    throw new Error(
+    throw new TradingRequestError(
       message || detail?.error || detail?.message || `Request failed (${response.status})`,
+      typeof problem?.message_id === 'string' ? problem.message_id : undefined,
+      problem?.message_params && typeof problem.message_params === 'object'
+        ? problem.message_params
+        : {},
     )
   }
   const result = await response.json()

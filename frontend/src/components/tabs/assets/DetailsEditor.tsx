@@ -12,6 +12,8 @@ import { joinFacts, splitFacts, type Fact, type GuidedFact } from './detailsFact
 import { EditorFooter, SaveError, useEditorSave } from './editorKit'
 import { Icons } from './icons'
 import { X } from '../../../ui/icons'
+import { useAppIntl } from '../../../i18n/useAppIntl'
+import { factLabel, factPlaceholder } from './factCopy'
 
 const FIELDS = ['maturity_date'] as const
 
@@ -21,11 +23,22 @@ type Update<T> = (update: (current: T) => T) => void
 
 /** Saving drops a detail missing its label or its value — so half of one is refused, beside
  *  the half that's missing, instead of vanishing. A row left wholly empty is simply dropped. */
-function halfFilled([label, value]: Fact): string | undefined {
+function halfFilled(
+  [label, value]: Fact,
+  formatMessage: ReturnType<typeof useAppIntl>['formatMessage'],
+): string | undefined {
   const hasLabel = label.trim() !== ''
   const hasValue = value.trim() !== ''
-  if (hasLabel && !hasValue) return 'Add a value, or remove this detail.'
-  if (!hasLabel && hasValue) return 'Add a label, or remove this detail.'
+  if (hasLabel && !hasValue)
+    return formatMessage({
+      id: 'assets.details.missingValue',
+      defaultMessage: 'Add a value, or remove this detail.',
+    })
+  if (!hasLabel && hasValue)
+    return formatMessage({
+      id: 'assets.details.missingLabel',
+      defaultMessage: 'Add a label, or remove this detail.',
+    })
   return undefined
 }
 
@@ -42,6 +55,7 @@ interface OtherDetailRowProps {
 }
 
 function OtherDetailRow({ row, error, focus, onSet, onRemove }: OtherDetailRowProps) {
+  const { formatMessage } = useAppIntl()
   const [label, value] = row
   const errorId = `${useId()}-error`
   const missingLabel = Boolean(error) && label.trim() === ''
@@ -50,20 +64,26 @@ function OtherDetailRow({ row, error, focus, onSet, onRemove }: OtherDetailRowPr
     <>
       <div>
         <TextField
-          aria-label="Detail label"
+          aria-label={formatMessage({
+            id: 'assets.details.labelAria',
+            defaultMessage: 'Detail label',
+          })}
           autoFocus={focus}
           value={label}
           maxLength={api.TEXT_CAPS.fact}
-          placeholder="Label"
+          placeholder={formatMessage({ id: 'assets.details.label', defaultMessage: 'Label' })}
           invalid={missingLabel}
           aria-describedby={missingLabel ? errorId : undefined}
           onChange={(e) => onSet(0, e.target.value)}
         />
         <TextField
-          aria-label="Detail value"
+          aria-label={formatMessage({
+            id: 'assets.details.valueAria',
+            defaultMessage: 'Detail value',
+          })}
           value={value}
           maxLength={api.TEXT_CAPS.fact}
-          placeholder="Value"
+          placeholder={formatMessage({ id: 'assets.details.value', defaultMessage: 'Value' })}
           invalid={missingValue}
           aria-describedby={missingValue ? errorId : undefined}
           onChange={(e) => onSet(1, e.target.value)}
@@ -71,7 +91,10 @@ function OtherDetailRow({ row, error, focus, onSet, onRemove }: OtherDetailRowPr
         <button
           type="button"
           className="as-fact-x"
-          aria-label="Remove this detail"
+          aria-label={formatMessage({
+            id: 'assets.details.remove',
+            defaultMessage: 'Remove this detail',
+          })}
           onClick={onRemove}
         >
           <X size={14} aria-hidden="true" />
@@ -99,6 +122,7 @@ interface OtherDetailsProps {
 }
 
 function OtherDetails({ rows, errors, focusRow, onChange, onAdd, onEdited }: OtherDetailsProps) {
+  const { formatMessage } = useAppIntl()
   const set = (i: number, side: 0 | 1, text: string) => {
     onChange((all) =>
       all.map((row, at) => (at === i ? ((side ? [row[0], text] : [text, row[1]]) as Fact) : row)),
@@ -112,7 +136,7 @@ function OtherDetails({ rows, errors, focusRow, onChange, onAdd, onEdited }: Oth
   return (
     <Stack gap="--space-3" className="as-details-other">
       <Text as="h4" size="sm" weight={600}>
-        Other details
+        {formatMessage({ id: 'assets.details.other', defaultMessage: 'Other details' })}
       </Text>
       {rows.length > 0 && (
         <div className="as-facts-ed">
@@ -135,7 +159,7 @@ function OtherDetails({ rows, errors, focusRow, onChange, onAdd, onEdited }: Oth
           iconLeft={Icons.plus!({ width: 13, height: 13 })}
           onClick={onAdd}
         >
-          Add a detail
+          {formatMessage({ id: 'assets.details.add', defaultMessage: 'Add a detail' })}
         </Button>
       </div>
     </Stack>
@@ -155,17 +179,18 @@ interface GuidedFieldsProps {
 
 /** The category's own prompts, then Insured — or, for a policy, when it matures. */
 function GuidedFields(props: GuidedFieldsProps) {
+  const intl = useAppIntl()
   const { guided, onGuided, policy } = props
   const id = useId()
   return (
     <div className="as-form">
-      {guided.map(({ prompt: [label, key, placeholder], value }, i) => (
-        <FormField key={key} label={label} htmlFor={`${id}-${key}`}>
+      {guided.map(({ prompt, value }, i) => (
+        <FormField key={prompt[1]} label={factLabel(intl, prompt)} htmlFor={`${id}-${prompt[1]}`}>
           <TextField
-            id={`${id}-${key}`}
+            id={`${id}-${prompt[1]}`}
             value={value}
             maxLength={api.TEXT_CAPS.fact}
-            placeholder={placeholder}
+            placeholder={factPlaceholder(intl, prompt)}
             onChange={(e) => {
               const typed = e.target.value
               onGuided((all) => all.map((g, at) => (at === i ? { ...g, value: typed } : g)))
@@ -174,7 +199,11 @@ function GuidedFields(props: GuidedFieldsProps) {
         </FormField>
       ))}
       {policy ? (
-        <FormField label="Matures on" htmlFor={`${id}-matures`} error={props.maturesError}>
+        <FormField
+          label={intl.formatMessage({ id: 'assets.details.matures', defaultMessage: 'Matures on' })}
+          htmlFor={`${id}-matures`}
+          error={props.maturesError}
+        >
           <DateField
             id={`${id}-matures`}
             invalid={!!props.maturesError}
@@ -186,7 +215,7 @@ function GuidedFields(props: GuidedFieldsProps) {
         <div className="full">
           <Switch
             id={`${id}-insured`}
-            label="Insured"
+            label={intl.formatMessage({ id: 'assets.details.insured', defaultMessage: 'Insured' })}
             checked={props.insured}
             onChange={(e) => props.onInsured(e.target.checked)}
           />
@@ -208,6 +237,7 @@ export interface DetailsEditorProps {
 const EMPTY_ROW: Fact = ['', '']
 
 export function DetailsEditor({ a, addDetail = false, onClose, onSaved }: DetailsEditorProps) {
+  const { formatMessage } = useAppIntl()
   const [initial] = useState(() => splitFacts(a.category, a.facts))
   const [guided, setGuided] = useState(initial.guided)
   const [other, setOther] = useState(() =>
@@ -220,13 +250,19 @@ export function DetailsEditor({ a, addDetail = false, onClose, onSaved }: Detail
   const { saving, save, check, errorFor, edited, dialogError } = useEditorSave()
 
   async function onSave() {
-    if (!check(Object.fromEntries(other.map((row, i) => [rowField(i), halfFilled(row)])))) return
+    if (
+      !check(
+        Object.fromEntries(other.map((row, i) => [rowField(i), halfFilled(row, formatMessage)])),
+      )
+    )
+      return
     const changes = {
-      facts: joinFacts(guided, other),
+      facts: joinFacts(guided, other, initial.other),
       insured,
       maturity_date: policy ? matures || null : a.maturity_date,
     }
-    if (await save(() => api.updateAsset(a.id, changes))) onSaved('Details saved.')
+    if (await save(() => api.updateAsset(a.id, changes)))
+      onSaved(formatMessage({ id: 'assets.details.saved', defaultMessage: 'Details saved.' }))
   }
 
   return (
@@ -234,11 +270,16 @@ export function DetailsEditor({ a, addDetail = false, onClose, onSaved }: Detail
       className="as-modal"
       open
       onClose={onClose}
-      title="Details"
+      title={formatMessage({ id: 'assets.details.title', defaultMessage: 'Details' })}
       subtitle={a.name}
       size="lg"
       footer={
-        <EditorFooter saving={saving} label="Save changes" onCancel={onClose} onSave={onSave} />
+        <EditorFooter
+          saving={saving}
+          label={formatMessage({ id: 'assets.details.save', defaultMessage: 'Save changes' })}
+          onCancel={onClose}
+          onSave={onSave}
+        />
       }
     >
       <Stack gap="--space-7">

@@ -1,6 +1,7 @@
+import { useAppIntl } from '../../i18n/useAppIntl'
 import { useEffect, useState } from 'react'
 import { authFetch } from '../../api/client'
-import { GRANT_RESOLVED_SUFFIX, grantTool, type GrantScope } from '../../api/toolPermissions'
+import { grantTool, type GrantScope } from '../../api/toolPermissions'
 import type { ProposedChange } from '../../types/chat'
 import {
   mcpConnectorId,
@@ -59,14 +60,16 @@ export function ProposedChangeDiff({ change }: { change: ProposedChange }) {
 // first tap did nothing — the mobile incident this fixes (2026-09-06). Reuses `.change-confirmed`,
 // the row the card already shows for "✓ Approved"/"✗ Dismissed", so no new className is needed.
 function RefusedRow() {
+  const intl = useAppIntl()
   return (
     <div className="change-confirmed" role="status" style={{ color: 'var(--muted)' }}>
-      Not run — can't be reused.
+      {intl.formatMessage({ id: 'chat.decision.refused', defaultMessage: "Not run — can't be reused." })}
     </div>
   )
 }
 
 export function ChangePreview({ change, onRespond, onResolvePendingToolUse, failure }: Props) {
+  const intl = useAppIntl()
   // Optimistic local response for instant feedback; the persisted `change.status`
   // (written via onRespond) is what survives a reload / conversation switch. Either
   // being set resolves the card and hides the Confirm/Dismiss buttons.
@@ -167,8 +170,8 @@ export function ChangePreview({ change, onRespond, onResolvePendingToolUse, fail
       // permissions that is not true.
       setGrantError(
         scope === 'always'
-          ? "Couldn't save the permanent permission — this call is approved, but you'll be asked again."
-          : "Couldn't save the session permission — this call is approved, but you'll be asked again.",
+          ? intl.formatMessage({ id: 'chat.decision.permanentFailed', defaultMessage: "Couldn't save the permanent permission — this call is approved, but you'll be asked again." })
+          : intl.formatMessage({ id: 'chat.decision.sessionFailed', defaultMessage: "Couldn't save the session permission — this call is approved, but you'll be asked again." }),
       )
     } finally {
       setGrantBusy(null)
@@ -213,7 +216,7 @@ export function ChangePreview({ change, onRespond, onResolvePendingToolUse, fail
       // allow IS an approval of the current call) — only the STANDING permission failed to
       // save, so we proceed and say so rather than silently pretending it stuck.
       setGrantError(
-        "Couldn't save the permanent permission — this call is approved, but you'll be asked again.",
+        intl.formatMessage({ id: 'chat.decision.permanentFailed', defaultMessage: "Couldn't save the permanent permission — this call is approved, but you'll be asked again." }),
       )
     } finally {
       setGrantBusy(null)
@@ -279,18 +282,18 @@ export function ChangePreview({ change, onRespond, onResolvePendingToolUse, fail
         responded === 'confirmed' ? (
           failure ? (
             <div className="change-confirmed change-confirmed--failed" role="status">
-              {`✗ ${isPermissionCard || isExternalMcpCard ? 'Approved' : 'Confirmed'}, but it failed: ${failure}`}
+              {isPermissionCard || isExternalMcpCard ? intl.formatMessage({ id: 'chat.decision.approvedFailed', defaultMessage: '✗ Approved, but it failed: {failure}' }, { failure }) : intl.formatMessage({ id: 'chat.decision.confirmedFailed', defaultMessage: '✗ Confirmed, but it failed: {failure}' }, { failure })}
             </div>
           ) : (
             <div className="change-confirmed">
               {isPermissionCard || isExternalMcpCard
-                ? `✓ Approved${grantedScope ? GRANT_RESOLVED_SUFFIX[grantedScope] : ''}`
-                : '✓ Confirmed'}
+                ? grantedScope === 'always' ? intl.formatMessage({ id: 'chat.decision.approvedAlwaysV1', defaultMessage: '✓ Approved • always' }) : intl.formatMessage({ id: 'chat.decision.approved', defaultMessage: '✓ Approved' })
+                : intl.formatMessage({ id: 'chat.decision.confirmed', defaultMessage: '✓ Confirmed' })}
             </div>
           )
         ) : (
           <div className="change-confirmed" style={{ color: 'var(--muted)' }}>
-            {isPermissionCard || isExternalMcpCard ? '✗ Denied' : '✗ Dismissed'}
+            {isPermissionCard || isExternalMcpCard ? intl.formatMessage({ id: 'chat.decision.denied', defaultMessage: '✗ Denied' }) : intl.formatMessage({ id: 'chat.decision.dismissed', defaultMessage: '✗ Dismissed' })}
           </div>
         )
       ) : isPermissionCard || isExternalMcpCard ? (
@@ -322,16 +325,16 @@ export function ChangePreview({ change, onRespond, onResolvePendingToolUse, fail
             className="change-confirm-btn change-grant-btn change-grant-btn--once"
             onClick={() => handleCodeAllow('once')}
           >
-            Allow once
+            {intl.formatMessage({ id: 'chat.permission.once', defaultMessage: 'Allow once' })}
           </button>
           <button
             className="change-confirm-btn change-grant-btn change-grant-btn--always"
             onClick={() => handleCodeAllow('always')}
           >
-            Always allow
+            {intl.formatMessage({ id: 'chat.permission.always', defaultMessage: 'Always allow' })}
           </button>
           <button className="change-discard-btn change-grant-btn--deny" onClick={handleCodeReject}>
-            Reject
+            {intl.formatMessage({ id: 'chat.decision.reject', defaultMessage: 'Reject' })}
           </button>
         </div>
       ) : (
@@ -340,7 +343,7 @@ export function ChangePreview({ change, onRespond, onResolvePendingToolUse, fail
         // it is a bug to surface, not a bare Confirm to fall back on.
         <div className="change-preview-actions">
           <span className="change-grant-error">
-            This change has no way to be applied — please report it.
+            {intl.formatMessage({ id: 'chat.decision.unapplicable', defaultMessage: 'This change has no way to be applied — please report it.' })}
           </span>
         </div>
       )}

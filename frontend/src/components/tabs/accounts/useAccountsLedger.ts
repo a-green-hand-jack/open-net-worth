@@ -168,7 +168,7 @@ export class AccountDeleteBlockedError extends Error {
 export interface BulkUpdateResult {
   updated: string[]
   not_found: string[]
-  skipped: Array<{ id: string; reason?: string }>
+  skipped: Array<{ id: string; reason?: string; reason_message?: { id: string; params?: Record<string, string | number> } }>
   count: number
 }
 
@@ -268,7 +268,7 @@ export function normalizeBulkResult(raw: unknown, ids: string[]): BulkUpdateResu
   const r = (raw ?? {}) as Partial<Record<keyof BulkUpdateResult, unknown>>
   const updated = Array.isArray(r.updated) ? (r.updated as string[]) : ids
   const skipped = Array.isArray(r.skipped)
-    ? (r.skipped as Array<{ id: string; reason?: string }>)
+    ? (r.skipped as Array<{ id: string; reason?: string; reason_message?: { id: string; params?: Record<string, string | number> } }>)
     : []
   return {
     updated,

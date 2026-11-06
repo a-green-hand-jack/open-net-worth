@@ -1,3 +1,6 @@
+import { fundMetric } from './fundMetrics'
+import { useAppIntl } from '../../i18n/useAppIntl'
+import { FormattedMessage } from './FormattedMessage'
 import { useEffect, useState } from 'react'
 import { authFetch } from '../../api/client'
 import { InfoPopover, Panel, Skeleton, Text } from '../ui'
@@ -33,30 +36,32 @@ function ScaleColsHead() {
       <span className="asd-scale-cols-spacer" />
       <span className="asd-scale-cols-track-spacer" />
       <div className="asd-scale-nums asd-scale-nums--head">
-        <span>Low</span>
-        <span>Mean</span>
-        <span>High</span>
-        <span>Ticker</span>
+        <span>{<FormattedMessage id="intel.static.low_aac53e41" defaultMessage={"Low"} />}</span>
+        <span>{<FormattedMessage id="intel.static.mean_d0ca408e" defaultMessage={"Mean"} />}</span>
+        <span>{<FormattedMessage id="intel.static.high_51374b6b" defaultMessage={"High"} />}</span>
+        <span>{<FormattedMessage id="intel.static.ticker_796f0da0" defaultMessage={"Ticker"} />}</span>
       </div>
     </div>
   )
 }
 
 function FundRow({ row }: { row: FundamentalsRow }) {
+  const intl = useAppIntl()
+  const metric = fundMetric(row.id, row.label, row.help, intl)
   const scaled = hasSectorScale(row)
   return (
     <div className="asd-scale-row">
       <div className="asd-scale-row-label">
-        <span>{row.label}</span>
-        {row.help ? <InfoPopover text={row.help} width={280} /> : null}
+        <span>{metric.label}</span>
+        {row.help ? <InfoPopover text={metric.help} width={280} /> : null}
       </div>
       <div
         className="asd-scale-track"
         role="img"
         aria-label={
           scaled
-            ? `${row.label} at ${row.position_pct}% of sector range`
-            : `${row.label} ${row.ticker_display}`
+            ? intl.formatMessage({ id: 'intel.fund.position', defaultMessage: '{label} at {percent}% of sector range' }, { label: metric.label, percent: row.position_pct })
+            : intl.formatMessage({ id: 'intel.fund.value', defaultMessage: '{label} {value}' }, { label: metric.label, value: row.ticker_display })
         }
       >
         {scaled ? (
@@ -76,19 +81,19 @@ function FundRow({ row }: { row: FundamentalsRow }) {
       </div>
       <div className="asd-scale-nums">
         <span className="asd-scale-num">
-          <span className="asd-scale-num-label">Low</span>
+          <span className="asd-scale-num-label">{<FormattedMessage id="intel.static.low_aac53e41" defaultMessage={"Low"} />}</span>
           {scaled ? row.sector_low_display || DASH : DASH}
         </span>
         <span className="asd-scale-num">
-          <span className="asd-scale-num-label">Mean</span>
+          <span className="asd-scale-num-label">{<FormattedMessage id="intel.static.mean_d0ca408e" defaultMessage={"Mean"} />}</span>
           {scaled ? row.sector_mean_display || DASH : DASH}
         </span>
         <span className="asd-scale-num">
-          <span className="asd-scale-num-label">High</span>
+          <span className="asd-scale-num-label">{<FormattedMessage id="intel.static.high_51374b6b" defaultMessage={"High"} />}</span>
           {scaled ? row.sector_high_display || DASH : DASH}
         </span>
         <span className="asd-scale-num asd-scale-num--ticker">
-          <span className="asd-scale-num-label">Ticker</span>
+          <span className="asd-scale-num-label">{<FormattedMessage id="intel.static.ticker_796f0da0" defaultMessage={"Ticker"} />}</span>
           {row.ticker_display || DASH}
         </span>
       </div>
@@ -124,11 +129,11 @@ function FundSection({
       </div>
       <div className="asd-scale-block">
         <div className="asd-scale-axis" aria-hidden="true">
-          <span>Sector low</span>
-          <span>Below mean</span>
-          <span>Mean</span>
-          <span>Above mean</span>
-          <span>Sector high</span>
+          <span>{<FormattedMessage id="intel.static.sector_low_5655c21b" defaultMessage={"Sector low"} />}</span>
+          <span>{<FormattedMessage id="intel.static.below_mean_13d1d029" defaultMessage={"Below mean"} />}</span>
+          <span>{<FormattedMessage id="intel.static.mean_d0ca408e" defaultMessage={"Mean"} />}</span>
+          <span>{<FormattedMessage id="intel.static.above_mean_ae507b8d" defaultMessage={"Above mean"} />}</span>
+          <span>{<FormattedMessage id="intel.static.sector_high_da75637d" defaultMessage={"Sector high"} />}</span>
         </div>
         <ScaleColsHead />
         {rows.map((row) => (
@@ -141,6 +146,7 @@ function FundSection({
 
 /** Analysis-tab FA snapshot — valuation + growth/health with sector scales + AI blurb. */
 export function FundamentalsSnapshot({ instrumentId }: Props) {
+  const intl = useAppIntl()
   const [data, setData] = useState<FundamentalsResponse | null>(null)
   const [loading, setLoading] = useState(true)
   const [narrating, setNarrating] = useState(false)
@@ -186,7 +192,7 @@ export function FundamentalsSnapshot({ instrumentId }: Props) {
     return (
       <Panel>
         <div className="asd-section-head">
-          <span className="asd-section-title">Fundamental Analysis</span>
+          <span className="asd-section-title">{<FormattedMessage id="intel.static.fundamental_analysis_b068d3a8" defaultMessage={"Fundamental Analysis"} />}</span>
         </div>
         <div className="asd-scale-block">
           {Array.from({ length: 4 }, (_, i) => (
@@ -205,9 +211,9 @@ export function FundamentalsSnapshot({ instrumentId }: Props) {
 
   return (
     <Panel>
-      <FundSection title="Fundamental Analysis" rows={valuation} sector={sector} />
+      <FundSection title={intl.formatMessage({ id: "intel.field.b068d3a8", defaultMessage: "Fundamental Analysis" })} rows={valuation} sector={sector} />
       <FundSection
-        title="Growth & Health"
+        title={intl.formatMessage({ id: "intel.field.725355e5", defaultMessage: "Growth & Health" })}
         rows={growth}
         sector={sector}
         spacer={valuation.length > 0}
@@ -217,22 +223,22 @@ export function FundamentalsSnapshot({ instrumentId }: Props) {
         {(data?.narrative || narrating) && (
           <div className="asd-pi-wrap">
             <div className="asd-pi-head">
-              <p className="asd-pi-label">Fundamental Analysis ✦</p>
+              <p className="asd-pi-label">{<FormattedMessage id="intel.static.fundamental_analysis_a8045f87" defaultMessage={"Fundamental Analysis ✦"} />}</p>
               {narrating && (
                 <span
                   className="asd-pi-updating"
                   role="status"
-                  aria-label="Fundamental Analysis narrative is generating"
+                  aria-label={intl.formatMessage({ id: "intel.field.76835f03", defaultMessage: "Fundamental Analysis narrative is generating" })}
                 >
                   <span className="ui-btn__spinner" aria-hidden="true" />
-                  Generating
+                  {<FormattedMessage id="intel.extra.fcbce60e" defaultMessage={"Generating"} />}
                 </span>
               )}
             </div>
             {data?.narrative ? (
               <p className="asd-pi-body">{data.narrative}</p>
             ) : (
-              <div className="asd-pi-body-skeleton" role="status" aria-label="Generating">
+              <div className="asd-pi-body-skeleton" role="status" aria-label={intl.formatMessage({ id: "intel.field.fcbce60e", defaultMessage: "Generating" })}>
                 <Skeleton height={13} width="92%" />
                 <Skeleton height={13} width="78%" />
               </div>
@@ -240,7 +246,7 @@ export function FundamentalsSnapshot({ instrumentId }: Props) {
           </div>
         )}
         <Text size="xs" tone="faint" className="asd-fund-caption">
-          Lean from multiples vs sector peers · via Yahoo · not personal advice.
+          {<FormattedMessage id="intel.extra.41c6b59d" defaultMessage={"Lean from multiples vs sector peers · via Yahoo · not personal advice."} />}
         </Text>
       </div>
     </Panel>

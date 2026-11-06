@@ -2,6 +2,8 @@ import { app, Notification } from 'electron';
 import { qaInactiveMode } from './window-chrome';
 import { BackendSupervisor } from './backend';
 import { Preferences } from './preferences';
+import { getDesktopLocale } from './desktop-locale';
+import { message as t } from './native-messages';
 
 export interface ActivityRow { id: string; read: boolean; title?: string; summary?: string; created_at?: string }
 // A push-worthy alert from the Intel stories (price alerts, crash watch, explained watch alerts,
@@ -31,14 +33,14 @@ export function notificationContent(fresh: Banner[]): NotificationContent[] {
     return rows.map(row => {
       const title = clip(row.title ?? '', 80);
       const summary = clip(row.summary ?? '', 180);
-      if (title) return { title, body: summary || 'Open Activity for details.', target: row.target };
-      return { title: APP, body: summary || 'You have new activity to review.', target: row.target };
+      if (title) return { title, body: summary || t('Open Activity for details.'), target: row.target };
+      return { title: APP, body: summary || t('You have new activity to review.'), target: row.target };
     });
   }
   const named = rows.slice(-MAX_INDIVIDUAL).reverse().map(row => clip(row.title ?? '', 60)).filter(Boolean);
   const more = rows.length - named.length;
-  const body = named.length ? `${named.join(' · ')}${more > 0 ? ` and ${more} more` : ''}` : 'Open Activity to review them.';
-  return [{ title: `${rows.length} new alerts`, body, target: rows.every(row => row.target === 'intel') ? 'intel' : 'activity' }];
+  const body = named.length ? (more > 0 ? t('{names} and {count} more', getDesktopLocale(), { names: named.join(' · '), count: more }) : named.join(' · ')) : t('Open Activity to review them.');
+  return [{ title: t('{count, plural, one {# new alert} other {# new alerts}}', getDesktopLocale(), { count: rows.length }), body, target: rows.every(row => row.target === 'intel') ? 'intel' : 'activity' }];
 }
 
 export interface BannerSelection { banners: Banner[]; delivered: string[] }
@@ -93,7 +95,7 @@ export class NativeNotifications {
   async drain(): Promise<void> { this.stop(); await this.polling?.catch(() => {}); }
 
   showReview(): void {
-    this.show({ title: APP, body: 'New documents are ready to review.' }, this.openDocuments);
+    this.show({ title: APP, body: t('New documents are ready to review.') }, this.openDocuments);
   }
 
   private poll(): Promise<void> {

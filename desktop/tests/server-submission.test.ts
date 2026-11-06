@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import type { BrowserWindow } from 'electron';
 import { ServerSubmission, type ServerSubmitContext } from '../src/main/server-submission';
+import { setDesktopLocale } from '../src/main/desktop-locale';
 
 const window = {} as BrowserWindow;
 function context(overrides: Partial<ServerSubmitContext> = {}): { context: ServerSubmitContext; events: string[] } {
@@ -53,6 +54,20 @@ test('a plain-HTTP LAN address asks "Connection not encrypted" and connects only
   const accepted = context();
   assert.equal(await submission.submit('http://192.168.1.20:8080', accepted.context), true);
   assert.deepEqual(accepted.events, ['validate:http://192.168.1.20:8080', 'ask:Connection not encrypted', 'connect:http://192.168.1.20:8080']);
+});
+
+test('the Chinese insecure connection warning keeps the risk and cancellation explicit', async () => {
+  setDesktopLocale('zh-CN');
+  try {
+    const declined = context({ ask: async (_parent, options) => {
+      assert.equal(options.title, '连接未加密');
+      assert.match(options.detail ?? '', /密码和账本数据将以未加密方式传输/);
+      assert.deepEqual(options.buttons, ['取消', '仍然连接']);
+      return 0;
+    } });
+    assert.equal(await new ServerSubmission().submit('http://192.168.1.20:8080', declined.context), false);
+    assert.deepEqual(declined.events, ['validate:http://192.168.1.20:8080']);
+  } finally { setDesktopLocale('en'); }
 });
 
 test('loopback HTTP is not warned about, and a running local book asks to switch first', async () => {

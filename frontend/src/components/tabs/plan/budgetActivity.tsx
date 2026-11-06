@@ -1,11 +1,12 @@
+import { fLocalizedMonth } from '../../../utils/format'
 // plan/budgetActivity.tsx — ActivityCell: the Activity figure → a fixed-position popover
 // listing the month's REAL transactions for this category (replaces the prototype's
 // synthesized txnsFor). Account + payee names are resolved from a once-cached lookup.
 import { useState, useRef, useEffect, useLayoutEffect } from 'react'
+import { useAppIntl } from '../../../i18n/useAppIntl'
 import { createPortal } from 'react-dom'
 import * as PD from './planData'
 import { authFetch } from '../../../api/client'
-import { monthLabel } from '../../../hooks/useBudget'
 import { fDate, getCurrencySymbol } from '../../../utils/format'
 import { Button, Skeleton } from '../../ui'
 import { X } from './icons'
@@ -131,17 +132,41 @@ function BdRow({ label, value, total }: { label: string; value: number; total?: 
   )
 }
 export function PaymentBreakdownBox({ b }: { b: PaymentBreakdown }) {
+  const { formatMessage } = useAppIntl()
   return (
     <div className="pl-actpop-bd">
       <div className="pl-actpop-bd-col">
-        <BdRow label="Spending" value={b.spending} />
-        <BdRow label="Returns" value={b.returns} />
-        <BdRow label="Total Spending" value={b.total_spending} total />
+        <BdRow
+          label={formatMessage({ id: 'plan.activitySpending', defaultMessage: 'Spending' })}
+          value={b.spending}
+        />
+        <BdRow
+          label={formatMessage({ id: 'plan.returns', defaultMessage: 'Returns' })}
+          value={b.returns}
+        />
+        <BdRow
+          label={formatMessage({ id: 'plan.totalSpending', defaultMessage: 'Total Spending' })}
+          value={b.total_spending}
+          total
+        />
       </div>
       <div className="pl-actpop-bd-col">
-        <BdRow label="Funded Spending" value={b.funded_spending} />
-        <BdRow label="Payments & Returns" value={b.payments_returns} />
-        <BdRow label="Total Activity" value={b.total_activity} total />
+        <BdRow
+          label={formatMessage({ id: 'plan.fundedSpending', defaultMessage: 'Funded Spending' })}
+          value={b.funded_spending}
+        />
+        <BdRow
+          label={formatMessage({
+            id: 'plan.paymentsReturns',
+            defaultMessage: 'Payments & Returns',
+          })}
+          value={b.payments_returns}
+        />
+        <BdRow
+          label={formatMessage({ id: 'plan.totalActivity', defaultMessage: 'Total Activity' })}
+          value={b.total_activity}
+          total
+        />
       </div>
     </div>
   )
@@ -160,6 +185,8 @@ export function ActivityCell({
    *  category(-ies)+month, reusing the SAME callback Outside-envelopes' own row buttons use. */
   onOpenRegister?: (filter: ActivityRegisterFilter) => void
 }) {
+  const { formatMessage, locale } = useAppIntl()
+  const displayMonth = fLocalizedMonth(month, locale)
   const [open, setOpen] = useState(false)
   const [rows, setRows] = useState<TxnRow[] | null>(null)
   const [failed, setFailed] = useState(false)
@@ -243,7 +270,10 @@ export function ActivityCell({
             date: (t.date as string) || '',
             payee:
               t.kind === 'transfer'
-                ? `Transfer : ${otherName || '—'}`
+                ? formatMessage(
+                    { id: 'plan.activity.transfer', defaultMessage: 'Transfer : {name}' },
+                    { name: otherName || '—' },
+                  )
                 : (t.payee_name as string) || '—',
             memo: (t.activity_memo as string) || '',
             // A payment-envelope row shows the CARD ACCOUNT'S OWN leg (YNAB sign: payment/return +,
@@ -264,7 +294,7 @@ export function ActivityCell({
     return () => {
       cancelled = true
     }
-  }, [open, activityQuery, c.isPaymentEnvelope])
+  }, [open, activityQuery, c.isPaymentEnvelope, formatMessage])
 
   useEffect(() => {
     if (!open) return
@@ -302,7 +332,7 @@ export function ActivityCell({
       <button
         ref={btnRef}
         className="pl-alink mask"
-        title="View transactions"
+        title={formatMessage({ id: 'plan.viewTransactions', defaultMessage: 'View transactions' })}
         onClick={(e) => {
           e.stopPropagation()
           // Every open starts in the loading state — a reopened row used to show its previous
@@ -349,12 +379,18 @@ export function ActivityCell({
             />
             <div className="pl-actpop-head">
               <div>
-                <div className="pl-actpop-title">Activity</div>
+                <div className="pl-actpop-title">
+                  {formatMessage({ id: 'plan.activity', defaultMessage: 'Activity' })}
+                </div>
                 <div className="pl-actpop-sub">
-                  <i style={{ background: c.color }} /> {c.label} • {monthLabel(month)}
+                  <i style={{ background: c.color }} /> {c.label} • {displayMonth}
                 </div>
               </div>
-              <button className="pl-actpop-x" onClick={() => setOpen(false)} aria-label="Close">
+              <button
+                className="pl-actpop-x"
+                onClick={() => setOpen(false)}
+                aria-label={formatMessage({ id: 'plan.close', defaultMessage: 'Close' })}
+              >
                 <X />
               </button>
             </div>
@@ -369,15 +405,25 @@ export function ActivityCell({
                 }
               >
                 <div className="pl-actpop-thead">
-                  {!c.isPaymentEnvelope && <span>Account</span>}
-                  <span>Date</span>
-                  <span>Payee</span>
-                  <span>Memo</span>
-                  <span className="r">Amount</span>
+                  {!c.isPaymentEnvelope && (
+                    <span>{formatMessage({ id: 'plan.account', defaultMessage: 'Account' })}</span>
+                  )}
+                  <span>{formatMessage({ id: 'plan.date', defaultMessage: 'Date' })}</span>
+                  <span>{formatMessage({ id: 'plan.payee', defaultMessage: 'Payee' })}</span>
+                  <span>{formatMessage({ id: 'plan.memo', defaultMessage: 'Memo' })}</span>
+                  <span className="r">
+                    {formatMessage({ id: 'plan.amount', defaultMessage: 'Amount' })}
+                  </span>
                 </div>
                 <div className="pl-actpop-rows">
                   {rows == null ? (
-                    <div role="status" aria-label="Loading transactions">
+                    <div
+                      role="status"
+                      aria-label={formatMessage({
+                        id: 'plan.loadingTransactions',
+                        defaultMessage: 'Loading transactions',
+                      })}
+                    >
                       {[0, 1, 2].map((i) => (
                         <div
                           key={i}
@@ -395,9 +441,19 @@ export function ActivityCell({
                       ))}
                     </div>
                   ) : failed ? (
-                    <div className="pl-actpop-loading">Couldn't load these transactions.</div>
+                    <div className="pl-actpop-loading">
+                      {formatMessage({
+                        id: 'plan.transactionLoadFailed',
+                        defaultMessage: "Couldn't load these transactions.",
+                      })}
+                    </div>
                   ) : rows.length === 0 ? (
-                    <div className="pl-actpop-loading">No transactions this month.</div>
+                    <div className="pl-actpop-loading">
+                      {formatMessage({
+                        id: 'plan.noTransactionsMonth',
+                        defaultMessage: 'No transactions this month.',
+                      })}
+                    </div>
                   ) : (
                     rows.map((t, i) => (
                       <div
@@ -423,7 +479,14 @@ export function ActivityCell({
                               }
                             : undefined
                         }
-                        title={onOpenTxn ? 'Open transaction' : undefined}
+                        title={
+                          onOpenTxn
+                            ? formatMessage({
+                                id: 'plan.activity.openTransaction',
+                                defaultMessage: 'Open transaction',
+                              })
+                            : undefined
+                        }
                       >
                         {!c.isPaymentEnvelope && <span title={t.account}>{t.account}</span>}
                         <span>{fDate(t.date, 'numeric')}</span>
@@ -444,16 +507,36 @@ export function ActivityCell({
             <div className="pl-actpop-foot">
               <span className="pl-actpop-total">
                 {rows == null
-                  ? 'Loading transactions…'
-                  : `${rows.length} transaction${rows.length === 1 ? '' : 's'}`}{' '}
-                • net <b className="mask">{fFig(c.activity).text}</b>
+                  ? formatMessage({
+                      id: 'plan.activity.loading',
+                      defaultMessage: 'Loading transactions…',
+                    })
+                  : formatMessage(
+                      {
+                        id: 'plan.activity.transactions',
+                        defaultMessage:
+                          '{count, plural, one {# transaction} other {# transactions}}',
+                      },
+                      { count: rows.length },
+                    )}{' '}
+                {formatMessage({ id: 'plan.activity.net', defaultMessage: '• net' })}{' '}
+                <b className="mask">{fFig(c.activity).text}</b>
                 {excludedCount > 0 && (
                   <span
                     className="pl-actpop-excluded"
-                    title="Dated before that account's tracked-balance start, or otherwise not on-budget — not counted toward Activity."
+                    title={formatMessage({
+                      id: 'plan.excludedTransaction',
+                      defaultMessage:
+                        "Dated before that account's tracked-balance start, or otherwise not on-budget — not counted toward Activity.",
+                    })}
                   >
-                    {' '}
-                    • {excludedCount} more this month didn't count
+                    {formatMessage(
+                      {
+                        id: 'plan.activity.excludedCount',
+                        defaultMessage: " • {count} more this month didn't count",
+                      },
+                      { count: excludedCount },
+                    )}
                   </span>
                 )}
               </span>
@@ -467,11 +550,11 @@ export function ActivityCell({
                       onOpenRegister(buildRegisterFilter(c, month))
                     }}
                   >
-                    Open in Accounts
+                    {formatMessage({ id: 'plan.openAccounts', defaultMessage: 'Open in Accounts' })}
                   </Button>
                 )}
                 <Button variant="primary" size="dense" onClick={() => setOpen(false)}>
-                  Close
+                  {formatMessage({ id: 'plan.close', defaultMessage: 'Close' })}
                 </Button>
               </span>
             </div>

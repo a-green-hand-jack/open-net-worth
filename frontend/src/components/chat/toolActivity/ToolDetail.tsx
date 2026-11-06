@@ -1,3 +1,4 @@
+import { useAppIntl } from '../../../i18n/useAppIntl'
 // The expanded view of one tool call: what was asked, and what came back.
 //
 // Two labelled boxes, JSON syntax-highlighted through Prism the same way
@@ -53,12 +54,13 @@ function sizeLabel(text: string): string {
 }
 
 function CopyButton({ text }: { text: string }) {
+  const intl = useAppIntl()
   const [copied, setCopied] = useState(false)
   return (
     <button
       type="button"
       className="msg-toolact__copy"
-      aria-label="Copy"
+      aria-label={intl.formatMessage({ id: 'chat.tool.copy', defaultMessage: 'Copy' })}
       onClick={() => {
         void navigator.clipboard?.writeText(text).then(() => {
           setCopied(true)
@@ -116,6 +118,7 @@ export function ToolDetail({
    *  an expanded failure does not look identical to an expanded success. */
   resultFailed?: boolean
 }) {
+  const intl = useAppIntl()
   if (loading) {
     return (
       <div className="msg-toolact__detail msg-toolact__detail--running">
@@ -131,10 +134,10 @@ export function ToolDetail({
   if (failedToLoad) {
     return (
       <div className="msg-toolact__detail">
-        <div className="msg-toolact__note">Couldn’t load the full result.</div>
+        <div className="msg-toolact__note">{intl.formatMessage({ id: 'chat.tool.loadFailed', defaultMessage: 'Couldn’t load the full result.' })}</div>
         {onRetry && (
           <button type="button" className="msg-toolact__retry" onClick={onRetry}>
-            Retry
+            {intl.formatMessage({ id: 'chat.tool.retry', defaultMessage: 'Retry' })}
           </button>
         )}
       </div>
@@ -143,18 +146,18 @@ export function ToolDetail({
   if (input === undefined && result === undefined) {
     return (
       <div className="msg-toolact__detail">
-        <div className="msg-toolact__note">No result data.</div>
+        <div className="msg-toolact__note">{intl.formatMessage({ id: 'chat.tool.noResult', defaultMessage: 'No result data.' })}</div>
       </div>
     )
   }
   return (
     <div className="msg-toolact__detail">
-      {input !== undefined && <Box title="Request" value={input} />}
+      {input !== undefined && <Box title={intl.formatMessage({ id: 'chat.tool.request', defaultMessage: 'Request' })} value={input} />}
       {/* The UNVERIFIED external-MCP fence is stripped for DISPLAY only (2026-08-22) — what
           the model received is byte-for-byte unchanged. */}
       {result !== undefined && (
         <Box
-          title={resultFailed ? 'Error' : 'Result'}
+          title={resultFailed ? intl.formatMessage({ id: 'chat.tool.error', defaultMessage: 'Error' }) : intl.formatMessage({ id: 'chat.tool.result', defaultMessage: 'Result' })}
           value={stripExternalMcpFence(result)}
           tone={resultFailed ? 'error' : undefined}
         />

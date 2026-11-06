@@ -1,3 +1,4 @@
+import { setDisplayFormats } from '../../../../utils/format'
 // @vitest-environment jsdom
 //
 // Every ledger fixture through the real ChangePreview: each card must show the facts silent
@@ -91,6 +92,13 @@ describe('ledger cards', () => {
     expect(fact('Transfer')?.textContent).toBe('Meridian Bank Checking → Meridian USD Wallet')
     expect(fact('Received')?.textContent).toBe('$369.50')
     expect(container.textContent).not.toMatch(/acc_/)
+  })
+
+  it('uses the profile decimal separator for the displayed exchange rate', () => {
+    setDisplayFormats({ number_format: 'dot' })
+    const { fact } = card('txn_create · foreign-currency')
+    expect(fact('In SGD')?.textContent).toContain('rate 1,3500')
+    setDisplayFormats({})
   })
 
   it('shows the base amount and historical rate for a foreign-currency leg', () => {

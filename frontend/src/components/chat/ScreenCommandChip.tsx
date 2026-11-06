@@ -5,6 +5,7 @@
 // SSE in sight. Routes resolve from this STATIC map keyed by the catalog's symbolic
 // route — never a model-supplied URL.
 import { useNavigate } from '@tanstack/react-router'
+import { useAppIntl } from '../../i18n/useAppIntl'
 import { dispatchScreenCommand } from '../../lucius/bus'
 import type { ScreenCommandInvocation } from '../../lucius/bus'
 import { ArrowRight } from '../../ui/icons'
@@ -26,6 +27,7 @@ export function ScreenCommandChip({
   command: ScreenCommandInvocation
   route?: string
 }) {
+  const intl = useAppIntl()
   const navigate = useNavigate()
   const target = ROUTES[route ?? '']
   if (!target) return null
@@ -45,7 +47,17 @@ export function ScreenCommandChip({
       <span className="screen-cmd-chip-glyph" aria-hidden="true">
         ✦
       </span>
-      {target.label}
+      {route === 'plan-outlook'
+        ? intl.formatMessage({ id: 'screenCommand.outlook', defaultMessage: 'View on Outlook' })
+        : route === 'automations'
+          ? intl.formatMessage({
+              id: 'screenCommand.automation',
+              defaultMessage: 'Review automation',
+            })
+          : intl.formatMessage({
+              id: 'screenCommand.connector',
+              defaultMessage: 'Set up connector',
+            })}
       <span className="screen-cmd-chip-arrow" aria-hidden="true">
         <ArrowRight size={12} />
       </span>

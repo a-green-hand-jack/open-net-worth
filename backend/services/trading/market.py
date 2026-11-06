@@ -96,21 +96,30 @@ def get_market_series(run_id, *, key=None, limit=500, offset=0):
 
 def ingest_observations(run_id, observations):
     if not observations or len(observations) > 2000:
-        raise ValidationError("Supply between 1 and 2000 observations")
+        raise ValidationError(
+            "Supply between 1 and 2000 observations", message_id="trading.error.observation_count"
+        )
     clean = [validated(Observation, row) for row in observations]
     with trading_transaction() as conn:
         run = TradingStore("runs").required(run_id, conn=conn)
         if run["mode"] == "backtest":
-            raise ConflictError("A backtest dataset is immutable")
+            raise ConflictError(
+                "A backtest dataset is immutable", message_id="trading.error.dataset_immutable"
+            )
         cutoff = instant(now())
         for row in clean:
             if (
                 instant(row["timestamp"]) > cutoff
                 or instant(row["available_at"] or row["timestamp"]) > cutoff
             ):
-                raise ValidationError("Current market feeds cannot publish future observations")
+                raise ValidationError(
+                    "Current market feeds cannot publish future observations",
+                    message_id="trading.error.future_observation",
+                )
             if row["instrument"]["currency"] not in run["fx_rates"]:
-                raise ValidationError("Missing quote currency FX rate")
+                raise ValidationError(
+                    "Missing quote currency FX rate", message_id="trading.error.quote_fx_missing"
+                )
         keyed = {
             (instrument_key(row["instrument"]), row["timestamp"]): row
             for row in run["observations"]
@@ -118,7 +127,10 @@ def ingest_observations(run_id, observations):
         for row in clean:
             key = instrument_key(row["instrument"]), row["timestamp"]
             if key in keyed and validated(Observation, keyed[key]) != row:
-                raise ConflictError("An observation timestamp cannot be silently rewritten")
+                raise ConflictError(
+                    "An observation timestamp cannot be silently rewritten",
+                    message_id="trading.error.observation_rewrite",
+                )
             keyed[key] = row
         retained = sorted(keyed.values(), key=lambda r: instant(r["timestamp"]))[-20000:]
         run = TradingStore("runs").update_by_id(

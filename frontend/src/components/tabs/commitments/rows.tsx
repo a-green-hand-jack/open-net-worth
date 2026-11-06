@@ -1,3 +1,4 @@
+import { useAppIntl } from '../../../i18n/useAppIntl'
 // Commitment list — ported verbatim from the design handoff's rows3.jsx: filter tabs
 // (Active / At risk / Goals / Completed) with live counts, a sort select, dual-currency rows,
 // and a contextual empty state per filter.
@@ -30,6 +31,7 @@ interface FilterEmptyProps {
 }
 
 function FilterEmpty({ filter, onClear }: FilterEmptyProps) {
+  const { formatMessage } = useAppIntl()
   const map: Record<
     CommitmentFilter,
     {
@@ -44,33 +46,63 @@ function FilterEmpty({ filter, onClear }: FilterEmptyProps) {
     risk: {
       Icon: CheckIcon,
       tone: 'good',
-      t: 'Nothing at risk',
-      d: 'Every active commitment is funded above your cash floor — no shortfalls in the current outlook.',
-      cta: 'View all active',
+      t: formatMessage({ id: 'commitments.rows.nothingAtRisk', defaultMessage: 'Nothing at risk' }),
+      d: formatMessage({
+        id: 'commitments.rows.riskDetail',
+        defaultMessage:
+          'Every active commitment is funded above your cash floor — no shortfalls in the current outlook.',
+      }),
+      cta: formatMessage({
+        id: 'commitments.rows.viewActiveAll',
+        defaultMessage: 'View all active',
+      }),
       target: 'all',
     },
     goals: {
       Icon: TargetIcon,
       tone: '',
-      t: 'No savings goals',
-      d: 'Goals track progress toward a target with regular contributions.',
-      cta: 'View all active',
+      t: formatMessage({ id: 'commitments.rows.noGoals', defaultMessage: 'No savings goals' }),
+      d: formatMessage({
+        id: 'commitments.rows.goalDetail',
+        defaultMessage: 'Goals track progress toward a target with regular contributions.',
+      }),
+      cta: formatMessage({
+        id: 'commitments.rows.viewActiveAll',
+        defaultMessage: 'View all active',
+      }),
       target: 'all',
     },
     done: {
       Icon: DocIcon,
       tone: '',
-      t: 'Nothing completed yet',
-      d: 'Commitments you finish or cancel are archived here — nothing has landed here so far.',
-      cta: 'View active',
+      t: formatMessage({
+        id: 'commitments.rows.nothingCompleted',
+        defaultMessage: 'Nothing completed yet',
+      }),
+      d: formatMessage({
+        id: 'commitments.rows.completedDetail',
+        defaultMessage:
+          'Commitments you finish or cancel are archived here — nothing has landed here so far.',
+      }),
+      cta: formatMessage({ id: 'commitments.rows.viewActive', defaultMessage: 'View active' }),
       target: 'all',
     },
     all: {
       Icon: DocIcon,
       tone: '',
-      t: 'No active commitments',
-      d: 'Every commitment is completed or cancelled. Check the archive or start a new one.',
-      cta: 'View completed',
+      t: formatMessage({
+        id: 'commitments.rows.noActive',
+        defaultMessage: 'No active commitments',
+      }),
+      d: formatMessage({
+        id: 'commitments.rows.noActiveDetail',
+        defaultMessage:
+          'Every commitment is completed or cancelled. Check the archive or start a new one.',
+      }),
+      cta: formatMessage({
+        id: 'commitments.rows.viewCompleted',
+        defaultMessage: 'View completed',
+      }),
       target: 'done',
     },
   }
@@ -100,28 +132,55 @@ function Row({
   fx: Record<string, number>
   onOpen: (id: string) => void
 }) {
+  const { formatMessage } = useAppIntl()
   const rs = riskState(c)
   const Icon = KIND_ICON[c.kind] || DocIcon
   const pct = paidPct(c)
   const remB = remainingBase(c, fx)
   const ni = nextInstallment(c)
   const base = getBaseCurrency()
-  let nextEl: ReactElement = <b>All paid</b>
-  if (c.status === 'cancelled') nextEl = <b>Cancelled</b>
+  const kinds: Record<string, string> = {
+    purchase: formatMessage({ id: 'commitments.kind.purchase', defaultMessage: 'Purchase' }),
+    loan_repayment: formatMessage({
+      id: 'commitments.kind.loanRepayment',
+      defaultMessage: 'Loan repayment',
+    }),
+    auto_pay: formatMessage({ id: 'commitments.kind.autoPay', defaultMessage: 'Auto-pay' }),
+    goal: formatMessage({ id: 'commitments.kind.goal', defaultMessage: 'Goal' }),
+  }
+  const statuses: Record<string, string> = {
+    active: formatMessage({ id: 'commitments.rows.active', defaultMessage: 'Active' }),
+    completed: formatMessage({ id: 'commitments.rows.completed', defaultMessage: 'Completed' }),
+    cancelled: formatMessage({ id: 'commitments.rows.cancelled', defaultMessage: 'Cancelled' }),
+  }
+  let nextEl: ReactElement = (
+    <b>{formatMessage({ id: 'commitments.rows.allPaid', defaultMessage: 'All paid' })}</b>
+  )
+  if (c.status === 'cancelled')
+    nextEl = (
+      <b>{formatMessage({ id: 'commitments.rows.cancelled', defaultMessage: 'Cancelled' })}</b>
+    )
   else if (ni) {
     const days = daysUntil(ni.due_date)
     const when =
       days < 0
-        ? `${-days}d overdue`
+        ? formatMessage(
+            { id: 'commitments.rows.overdueDays', defaultMessage: '{days}d overdue' },
+            { days: -days },
+          )
         : days === 0
-          ? 'today'
+          ? formatMessage({ id: 'commitments.rows.today', defaultMessage: 'today' })
           : days <= 14
-            ? `in ${days}d`
+            ? formatMessage(
+                { id: 'commitments.rows.inDays', defaultMessage: 'in {days}d' },
+                { days },
+              )
             : fmtDate(ni.due_date)
     const nextCls = days < 0 ? 'od' : days <= 14 ? 'soon' : ''
     nextEl = (
       <>
-        Next <b className={moneyClass()}>{fDual(ni.amount, c.currency, fx)}</b> •{' '}
+        {formatMessage({ id: 'commitments.rows.next', defaultMessage: 'Next' })}{' '}
+        <b className={moneyClass()}>{fDual(ni.amount, c.currency, fx)}</b> •{' '}
         <span className={nextCls}>{when}</span>
       </>
     )
@@ -139,7 +198,9 @@ function Row({
       className="c2-row"
       type="commitment"
       id={c.id}
-      label={c.name || '(unnamed)'}
+      label={
+        c.name || formatMessage({ id: 'commitments.rows.unnamed', defaultMessage: '(unnamed)' })
+      }
       item={c}
       toFields={(it) => ({
         name: it.name,
@@ -149,8 +210,8 @@ function Row({
         note: it.note,
         created_at: it.created_at,
       })}
-      search={`${c.name} ${KIND_LABELS[c.kind]} ${c.note}`}
-      sublabel={`${KIND_LABELS[c.kind]} • ${c.status}`}
+      search={`${c.name} ${KIND_LABELS[c.kind]} ${kinds[c.kind] || ''} ${c.note}`}
+      sublabel={`${kinds[c.kind] || KIND_LABELS[c.kind]} • ${statuses[c.status] || c.status}`}
       onClick={() => onOpen(c.id)}
     >
       <span className="c2-row-ic">
@@ -158,16 +219,19 @@ function Row({
       </span>
       <span className="c2-row-main">
         <span className="c2-row-name">
-          {c.name || '(unnamed)'}
+          {c.name || formatMessage({ id: 'commitments.rows.unnamed', defaultMessage: '(unnamed)' })}
           {c.currency !== base && <span className="c3-ccy">{c.currency}</span>}
         </span>
         <span className="c2-row-meta" style={{ display: 'block' }}>
-          {KIND_LABELS[c.kind]} • {nextEl}
+          {kinds[c.kind] || KIND_LABELS[c.kind]} • {nextEl}
         </span>
       </span>
       <span className="c2-row-prog">
         <span className="lbl">
-          {paidN} of {c.installments.length} paid
+          {formatMessage(
+            { id: 'commitments.rows.paidCount', defaultMessage: '{paid} of {total} paid' },
+            { paid: paidN, total: c.installments.length },
+          )}
         </span>
         <span className="c2-meter">
           <i className={c.kind === 'goal' ? 'goal' : ''} style={{ width: pct + '%' }} />
@@ -176,15 +240,30 @@ function Row({
       <span className="c2-row-chip">
         {rs === 'risk' && (
           <span className="c2-chip short">
-            Short {fDual(c.coverage?.shortfall_base ?? 0, base, fx)}
+            {formatMessage({ id: 'commitments.rows.short', defaultMessage: 'Short' })}{' '}
+            {fDual(c.coverage?.shortfall_base ?? 0, base, fx)}
           </span>
         )}
-        {rs === 'ok' && <span className="c2-chip ok">Funded</span>}
-        {rs === 'track' && <span className="c2-chip track">On track</span>}
-        {rs === 'behind' && <span className="c2-chip behind">Behind</span>}
+        {rs === 'ok' && (
+          <span className="c2-chip ok">
+            {formatMessage({ id: 'commitments.rows.funded', defaultMessage: 'Funded' })}
+          </span>
+        )}
+        {rs === 'track' && (
+          <span className="c2-chip track">
+            {formatMessage({ id: 'commitments.rows.onTrack', defaultMessage: 'On track' })}
+          </span>
+        )}
+        {rs === 'behind' && (
+          <span className="c2-chip behind">
+            {formatMessage({ id: 'commitments.rows.behind', defaultMessage: 'Behind' })}
+          </span>
+        )}
         {rs === 'off' && (
           <span className="c2-chip track">
-            {c.status === 'cancelled' ? 'Cancelled' : 'Completed'}
+            {c.status === 'cancelled'
+              ? formatMessage({ id: 'commitments.rows.cancelled', defaultMessage: 'Cancelled' })
+              : formatMessage({ id: 'commitments.rows.completed', defaultMessage: 'Completed' })}
           </span>
         )}
       </span>
@@ -194,8 +273,11 @@ function Row({
         </span>
         <span className="u" style={{ display: 'block' }}>
           {c.currency !== base
-            ? `${fDual(remainingTotal(c), c.currency, fx).split(' • ')[0]} left`
-            : 'left'}
+            ? formatMessage(
+                { id: 'commitments.rows.amountLeft', defaultMessage: '{amount} left' },
+                { amount: fDual(remainingTotal(c), c.currency, fx).split(' • ')[0] },
+              )
+            : formatMessage({ id: 'commitments.rows.left', defaultMessage: 'left' })}
         </span>
       </span>
       <span className="c2-row-chev">
@@ -231,6 +313,7 @@ export function CommitmentRows({
   setSort,
   onHeightChange,
 }: CommitmentRowsProps) {
+  const { formatMessage } = useAppIntl()
   const cardRef = useRef<HTMLDivElement>(null)
 
   // Measured with useLayoutEffect, not useEffect+ResizeObserver — a filter switch shrinks this
@@ -288,37 +371,74 @@ export function CommitmentRows({
     <section>
       <div className="c2-sec-head">
         <span className="c2-sec-title">
-          Commitments{' '}
+          {formatMessage({ id: 'commitments.rows.commitments', defaultMessage: 'Commitments' })}{' '}
           <span className="c2-sec-count">
-            {rows.length} of {list.length}
+            {formatMessage(
+              { id: 'commitments.rows.shownCount', defaultMessage: '{shown} of {total}' },
+              { shown: rows.length, total: list.length },
+            )}
           </span>
         </span>
         <div className="c2-sec-tools">
           <div className="c2-seg">
-            {seg('all', 'Active')}
-            {seg('risk', 'At risk', riskCount)}
-            {seg('goals', 'Goals')}
-            {seg('done', 'Completed', doneCount > 0 ? doneCount : null)}
+            {seg('all', formatMessage({ id: 'commitments.rows.active', defaultMessage: 'Active' }))}
+            {seg(
+              'risk',
+              formatMessage({ id: 'commitments.rows.atRisk', defaultMessage: 'At risk' }),
+              riskCount,
+            )}
+            {seg('goals', formatMessage({ id: 'commitments.rows.goals', defaultMessage: 'Goals' }))}
+            {seg(
+              'done',
+              formatMessage({ id: 'commitments.rows.completed', defaultMessage: 'Completed' }),
+              doneCount > 0 ? doneCount : null,
+            )}
           </div>
           <select
             className="c2-select c2-select--sort"
             value={sort}
             onChange={(e) => setSort(e.target.value as CommitmentSort)}
-            aria-label="Sort commitments"
+            aria-label={formatMessage({
+              id: 'commitments.rows.sort',
+              defaultMessage: 'Sort commitments',
+            })}
           >
-            <option value="next">Sort: Next payment</option>
-            <option value="risk">Sort: Most at risk</option>
-            <option value="remaining">Sort: Remaining</option>
+            <option value="next">
+              {formatMessage({
+                id: 'commitments.rows.sortNext',
+                defaultMessage: 'Sort: Next payment',
+              })}
+            </option>
+            <option value="risk">
+              {formatMessage({
+                id: 'commitments.rows.sortRisk',
+                defaultMessage: 'Sort: Most at risk',
+              })}
+            </option>
+            <option value="remaining">
+              {formatMessage({
+                id: 'commitments.rows.sortRemaining',
+                defaultMessage: 'Sort: Remaining',
+              })}
+            </option>
           </select>
         </div>
       </div>
       <div className="c2-card" style={{ marginTop: 10 }} ref={cardRef}>
         <div className="c2-thead" aria-hidden="true">
           <span />
-          <span>Commitment</span>
-          <span>Progress</span>
-          <span className="r">Status</span>
-          <span className="r">Remaining</span>
+          <span>
+            {formatMessage({ id: 'commitments.rows.commitment', defaultMessage: 'Commitment' })}
+          </span>
+          <span>
+            {formatMessage({ id: 'commitments.rows.progress', defaultMessage: 'Progress' })}
+          </span>
+          <span className="r">
+            {formatMessage({ id: 'commitments.rows.status', defaultMessage: 'Status' })}
+          </span>
+          <span className="r">
+            {formatMessage({ id: 'commitments.rows.remaining', defaultMessage: 'Remaining' })}
+          </span>
           <span />
         </div>
         {rows.length === 0 && (

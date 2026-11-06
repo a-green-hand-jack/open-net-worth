@@ -1,3 +1,4 @@
+import { FormattedMessage } from './FormattedMessage'
 import type { ReactNode } from 'react'
 import { Spark } from '../../lucius/identity'
 import { fTime } from '../../utils/format'
@@ -39,7 +40,7 @@ export function IntelCardHead({
           aria-label={ask.label}
           onClick={ask.onAsk}
         >
-          <span className="intel-brief-ask-label">Ask Lucius</span>
+          <span className="intel-brief-ask-label">{<FormattedMessage id="intel.static.ask_lucius_a599de56" defaultMessage={"Ask Lucius"} />}</span>
           <Spark className="intel-brief-ask-spark" size={13} filled ariaHidden="true" />
         </button>
       )}

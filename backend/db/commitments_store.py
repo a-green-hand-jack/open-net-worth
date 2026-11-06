@@ -78,6 +78,7 @@ from __future__ import annotations
 
 import re
 import uuid
+from datetime import date
 
 from backend.core.errors import ValidationError
 from backend.core.user_time import user_today
@@ -116,11 +117,41 @@ def _to_float(value, default: float | None = 0.0) -> float | None:
         return default
 
 
+def _installment_description_source(source: object, description: object) -> dict | None:
+    if not isinstance(source, dict) or set(source) != {"original", "moves"}:
+        return None
+    original, moves = source["original"], source["moves"]
+    if not isinstance(original, str) or not isinstance(moves, list) or not moves:
+        return None
+    text = original
+    for move in moves:
+        if not isinstance(move, dict) or set(move) != {"date", "rendered"}:
+            return None
+        when, rendered = move["date"], move["rendered"]
+        if (
+            not isinstance(when, str)
+            or not isinstance(rendered, str)
+            or not 1 <= len(rendered) <= 80
+        ):
+            return None
+        try:
+            if date.fromisoformat(when).isoformat() != when:
+                return None
+        except ValueError:
+            return None
+        text += (" · " if text else "") + "moved from " + rendered
+    return (
+        {"original": original, "moves": [dict(move) for move in moves]}
+        if text == description
+        else None
+    )
+
+
 def _make_installment(data: dict) -> dict:
     status = data.get("status")
     if status not in INSTALLMENT_STATUSES:
         status = "upcoming"
-    return {
+    installment = {
         "id": data.get("id") or f"inst-{uuid.uuid4().hex[:8]}",
         "label": data.get("label", ""),
         "description": data.get("description", ""),
@@ -129,6 +160,12 @@ def _make_installment(data: dict) -> dict:
         "status": status,
         "paid_txn_id": data.get("paid_txn_id") or None,
     }
+    source = _installment_description_source(
+        data.get("description_source"), installment["description"]
+    )
+    if source is not None:
+        installment["description_source"] = source
+    return installment
 
 
 def _make_funding_source(data: dict) -> dict:
@@ -160,6 +197,31 @@ def _make_funding_source(data: dict) -> dict:
     }
 
 
+def _action_label_source(source: object, label: object) -> dict | None:
+    """Keep only app-generated label metadata that matches the stored English label."""
+    if not isinstance(source, dict) or not isinstance(label, str):
+        return None
+    kind, name = source.get("kind"), source.get("label")
+    if not isinstance(name, str) or kind not in ("draw_down", "sell", "sell_units", "receive"):
+        return None
+    if kind == "sell_units":
+        count = source.get("count")
+        if (
+            set(source) != {"kind", "label", "count"}
+            or not isinstance(count, str)
+            or len(count) > 40
+            or not re.fullmatch(r"(?:\d+(?:\.\d+)?)(?:e[+-]?\d+)?", count)
+        ):
+            return None
+        expected = f"Sell {count} units — {name}"
+    else:
+        if set(source) != {"kind", "label"}:
+            return None
+        prefix = {"draw_down": "Draw down", "sell": "Sell", "receive": "Receive"}[kind]
+        expected = f"{prefix} {name}"
+    return dict(source) if label == expected else None
+
+
 def _make_action(data: dict) -> dict:
     """A dated task/event on a commitment that is NOT a payment — apply for a loan,
     sign a contract, confirm a transfer, review the plan, verify an auto-debit, a
@@ -167,7 +229,7 @@ def _make_action(data: dict) -> dict:
     status = data.get("status")
     if status not in ACTION_STATUSES:
         status = "pending"
-    return {
+    action = {
         "id": data.get("id") or f"act-{uuid.uuid4().hex[:8]}",
         "label": data.get("label", ""),
         "category": data.get("category", ""),
@@ -183,6 +245,10 @@ def _make_action(data: dict) -> dict:
         # this store never creates/deletes the Automation itself, only carries the link.
         "reminder_automation_id": data.get("reminder_automation_id") or None,
     }
+    source = _action_label_source(data.get("label_source"), action["label"])
+    if source is not None:
+        action["label_source"] = source
+    return action
 
 
 def _make_loan(data: dict | None) -> dict | None:
@@ -319,6 +385,16 @@ class CommitmentsStore(BookPayloadTableStore):
                     clean.pop("status")
                 if "id" in clean:  # id is immutable
                     clean.pop("id")
+                if "description" in clean and clean["description"] != inst.get("description"):
+                    inst.pop("description_source", None)
+                if "description_source" in clean:
+                    source = _installment_description_source(
+                        clean.pop("description_source"),
+                        clean.get("description", inst.get("description")),
+                    )
+                    inst.pop("description_source", None)
+                    if source is not None:
+                        clean["description_source"] = source
                 inst.update(clean)
                 patched = True
                 break
@@ -474,6 +550,15 @@ class CommitmentsStore(BookPayloadTableStore):
                 if "status" in clean and clean["status"] not in ACTION_STATUSES:
                     clean.pop("status")
                 clean.pop("id", None)
+                if "label" in clean and clean["label"] != a.get("label"):
+                    a.pop("label_source", None)
+                if "label_source" in clean:
+                    source = _action_label_source(
+                        clean.pop("label_source"), clean.get("label", a.get("label"))
+                    )
+                    a.pop("label_source", None)
+                    if source is not None:
+                        clean["label_source"] = source
                 a.update(clean)
                 patched = True
                 break

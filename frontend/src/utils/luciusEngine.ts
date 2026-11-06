@@ -1,3 +1,5 @@
+import { createIntl, type IntlShape } from 'react-intl'
+import { getNumberLocale } from './format'
 // luciusEngine.ts — pure-TS port of the Lucius suggestion engine from portfolio-lucius.jsx.
 // All global window.INV reads are replaced with explicit typed parameters (LuciusContext).
 // Nothing here touches React, the DOM, or the network.
@@ -49,6 +51,7 @@ export const CLASS_LABELS: Record<string, string> = {
 }
 
 export interface AlertSuggestion {
+  sourceKey?: 'trim' | 'profit' | 'protect' | 'decision' | 'early' | 'stretch' | 'entry' | 'momentum'
   op: AlertOp
   value: number
   why: string
@@ -86,6 +89,8 @@ export interface LuciusReviewResult {
   findings: LuciusFinding[]
 }
 
+const defaultIntl = createIntl({ locale: 'en' })
+
 // Currency symbol map
 const LX_CCY: Record<string, string> = { USD: '$', SGD: 'S$', EUR: '€', GBP: '£' }
 const lccy = (c: string): string => LX_CCY[c] ?? ''
@@ -109,7 +114,7 @@ export function lxRound(v: number): number {
 
 // Format a number for display — thousands separator above 1000
 export function lxFmt(v: number): string {
-  return v >= 1000 ? v.toLocaleString('en-US') : String(v)
+  return v.toLocaleString(getNumberLocale(), { maximumFractionDigits: 8 })
 }
 
 // Percent distance between value and price (absolute), rounded to integer
@@ -119,7 +124,7 @@ export function lxDist(value: number, price: number): number {
 
 // ---- suggestion engine ----
 
-export function luciusSuggestAlerts(asset: LuciusAsset, ctx: LuciusContext): AlertSuggestion[] {
+export function luciusSuggestAlerts(asset: LuciusAsset, ctx: LuciusContext, intl: IntlShape = defaultIntl): AlertSuggestion[] {
   // No live price yet → every level/distance math divides by zero (NaN% in the UI).
   if (!asset.price || asset.price <= 0) return []
   const H = ctx.holdingsBySymbol[asset.symbol.toUpperCase()] ?? null
@@ -130,7 +135,6 @@ export function luciusSuggestAlerts(asset: LuciusAsset, ctx: LuciusContext): Ale
   const existing = (asset.alerts ?? []).map((a) => Number(a.value))
   const tooClose = (v: number) => existing.some((e) => Math.abs(e - v) / price < 0.025)
   const out: AlertSuggestion[] = []
-  const unit = cls === 'crypto' ? 'units' : 'shares'
 
   if (H !== null) {
     const target = ctx.targets[cls] ?? 0
@@ -141,21 +145,26 @@ export function luciusSuggestAlerts(asset: LuciusAsset, ctx: LuciusContext): Ale
     const up = lxRound(price * (1 + band))
     if (over > 1.5) {
       const trimShares = H.qty != null ? Math.max(1, Math.round(H.qty * (over / H.weight))) : null
-      const clsLabel = ctx.classLabels[cls]?.toLowerCase() ?? cls
+      const originalClassLabel = ctx.classLabels[cls] ?? cls
+      const clsLabel = CLASS_LABELS[cls] === originalClassLabel
+        ? intl.formatMessage({ id: 'intel.assist.classLabel', defaultMessage: '{kind, select, equity {equities} crypto {crypto} commodity {commodities} bond {bonds} cash {cash} property {property} receivable {receivables} other {{label}}}' }, { kind: cls, label: originalClassLabel })
+        : originalClassLabel
       out.push({
-        name: 'Trim back to target',
+        sourceKey: 'trim',
+        name: intl.formatMessage({ id: 'intel.assist.suggestion.nameTrimBackToTarget', defaultMessage: "Trim back to target" }),
         op: 'above',
         value: up,
-        why: `At ${H.weight.toFixed(1)}% of your book, ${asset.symbol} is already over your ${target}% ${clsLabel} target.`,
-        note: `If it rises ~${lxDist(up, price)}% to ${ccy}${lxFmt(up)}, trim back toward ${target}%${trimShares != null ? ` (~${trimShares} ${unit})` : ''} rather than letting the position get bigger. Check first whether the move is news or momentum.`,
+        why: intl.formatMessage({ id: 'intel.assist.suggestion.trimWhy', defaultMessage: 'At {weight}% of your book, {symbol} is already over your {target}% {classLabel} target.' }, { weight: H.weight.toLocaleString(getNumberLocale(), { minimumFractionDigits: 1, maximumFractionDigits: 1 }), symbol: asset.symbol, target, classLabel: clsLabel }),
+        note: intl.formatMessage({ id: 'intel.assist.suggestion.trimNote', defaultMessage: 'If it rises ~{distance}% to {price}, trim back toward {target}%{hasUnits, select, yes { (~{quantity} {unit, select, crypto {units} other {shares}})} other {}} rather than letting the position get bigger. Check first whether the move is news or momentum.' }, { distance: lxDist(up, price), price: ccy + lxFmt(up), target, hasUnits: trimShares != null ? 'yes' : 'no', quantity: trimShares ?? 0, unit: cls }),
       })
     } else {
       out.push({
-        name: 'Take-profit zone',
+        sourceKey: 'profit',
+        name: intl.formatMessage({ id: 'intel.assist.suggestion.nameTakeProfitZone', defaultMessage: "Take-profit zone" }),
         op: 'above',
         value: up,
-        why: `${ccy}${lxFmt(up)} is ~${lxDist(up, price)}% above today — a level worth banking some profit.`,
-        note: `Review taking partial profit on ${asset.symbol}; confirm the move isn't a single-day spike before acting.`,
+        why: intl.formatMessage({ id: "intel.assist.suggestion.upWhy", defaultMessage: "{price} is ~{distance}% above today — a level worth banking some profit." }, { price: ccy + lxFmt(up), distance: lxDist(up, price) }),
+        note: intl.formatMessage({ id: "intel.assist.suggestion.upNote", defaultMessage: "Review taking partial profit on {symbol}; confirm the move isn't a single-day spike before acting." }, { symbol: asset.symbol }),
       })
     }
 
@@ -163,29 +172,32 @@ export function luciusSuggestAlerts(asset: LuciusAsset, ctx: LuciusContext): Ale
     if (H.plPct != null && H.plPct > 25) {
       const dn = lxRound(price * (1 - band))
       out.push({
-        name: 'Protect the gain',
+        sourceKey: 'protect',
+        name: intl.formatMessage({ id: 'intel.assist.suggestion.nameProtectTheGain', defaultMessage: "Protect the gain" }),
         op: 'below',
         value: dn,
-        why: `You're up ${H.plPct.toFixed(0)}% on ${asset.symbol} — this protects the gain (~${lxDist(dn, price)}% below today).`,
-        note: `If it falls to ${ccy}${lxFmt(dn)} and support breaks, consider a trailing stop or trimming to lock in profit.`,
+        why: intl.formatMessage({ id: "intel.assist.suggestion.protectWhy", defaultMessage: "You're up {gain}% on {symbol} — this protects the gain (~{distance}% below today)." }, { gain: H.plPct.toLocaleString(getNumberLocale(), { maximumFractionDigits: 0 }), symbol: asset.symbol, distance: lxDist(dn, price) }),
+        note: intl.formatMessage({ id: "intel.assist.suggestion.protectNote", defaultMessage: "If it falls to {price} and support breaks, consider a trailing stop or trimming to lock in profit." }, { price: ccy + lxFmt(dn) }),
       })
     } else if (H.plPct != null && H.plPct < -3) {
       const dn = lxRound(cost * 0.9)
       out.push({
-        name: 'Decision point',
+        sourceKey: 'decision',
+        name: intl.formatMessage({ id: 'intel.assist.suggestion.nameDecisionPoint', defaultMessage: "Decision point" }),
         op: 'below',
         value: dn,
-        why: `${asset.symbol} is down ${Math.abs(H.plPct).toFixed(0)}%; ~10% below your cost (${ccy}${lxFmt(dn)}) is a clear decision point.`,
-        note: `If it reaches ${ccy}${lxFmt(dn)}, decide whether the thesis still holds before averaging down or cutting.`,
+        why: intl.formatMessage({ id: "intel.assist.suggestion.decisionWhy", defaultMessage: "{symbol} is down {loss}%; ~10% below your cost ({price}) is a clear decision point." }, { symbol: asset.symbol, loss: Math.abs(H.plPct).toLocaleString(getNumberLocale(), { maximumFractionDigits: 0 }), price: ccy + lxFmt(dn) }),
+        note: intl.formatMessage({ id: "intel.assist.suggestion.decisionNote", defaultMessage: "If it reaches {price}, decide whether the thesis still holds before averaging down or cutting." }, { price: ccy + lxFmt(dn) }),
       })
     } else {
       const dn = lxRound(price * (1 - band))
       out.push({
-        name: 'Early warning',
+        sourceKey: 'early',
+        name: intl.formatMessage({ id: 'intel.assist.suggestion.nameEarlyWarning', defaultMessage: "Early warning" }),
         op: 'below',
         value: dn,
-        why: `${ccy}${lxFmt(dn)} is ~${lxDist(dn, price)}% below today — an early warning if it rolls over.`,
-        note: `If ${asset.symbol} drops to ${ccy}${lxFmt(dn)}, check for thesis-breaking news and decide to hold, add, or cut.`,
+        why: intl.formatMessage({ id: "intel.assist.suggestion.earlyWhy", defaultMessage: "{price} is ~{distance}% below today — an early warning if it rolls over." }, { price: ccy + lxFmt(dn), distance: lxDist(dn, price) }),
+        note: intl.formatMessage({ id: "intel.assist.suggestion.earlyNote", defaultMessage: "If {symbol} drops to {price}, check for thesis-breaking news and decide to hold, add, or cut." }, { symbol: asset.symbol, price: ccy + lxFmt(dn) }),
       })
     }
 
@@ -194,30 +206,33 @@ export function luciusSuggestAlerts(asset: LuciusAsset, ctx: LuciusContext): Ale
       const target = ctx.targets[cls] ?? 0
       const stretch = lxRound(price * (1 + band * 2))
       out.push({
-        name: 'Stretch target',
+        sourceKey: 'stretch',
+        name: intl.formatMessage({ id: 'intel.assist.suggestion.nameStretchTarget', defaultMessage: "Stretch target" }),
         op: 'above',
         value: stretch,
-        why: `A stretch target ~${lxDist(stretch, price)}% up — crypto can move fast and overshoot.`,
-        note: `If ${asset.symbol} spikes to ${ccy}${lxFmt(stretch)}, take meaningful profit and rebalance crypto back to your ${target}% target.`,
+        why: intl.formatMessage({ id: "intel.assist.suggestion.stretchWhy", defaultMessage: "A stretch target ~{distance}% up — crypto can move fast and overshoot." }, { distance: lxDist(stretch, price) }),
+        note: intl.formatMessage({ id: "intel.assist.suggestion.stretchNote", defaultMessage: "If {symbol} spikes to {price}, take meaningful profit and rebalance crypto back to your {target}% target." }, { symbol: asset.symbol, price: ccy + lxFmt(stretch), target }),
       })
     }
   } else {
     // not owned — entry levels
     const dn = lxRound(price * (1 - band))
     out.push({
-      name: 'Entry zone',
+      sourceKey: 'entry',
+        name: intl.formatMessage({ id: 'intel.assist.suggestion.nameEntryZone', defaultMessage: "Entry zone" }),
       op: 'below',
       value: dn,
-      why: `You don't own ${asset.symbol}. ${ccy}${lxFmt(dn)} (~${lxDist(dn, price)}% lower) would be a more attractive entry.`,
-      note: `If it dips to ${ccy}${lxFmt(dn)}, assess whether it's a buying opportunity or a broken setup before starting a position.`,
+      why: intl.formatMessage({ id: "intel.assist.suggestion.entryWhy", defaultMessage: "You don't own {symbol}. {price} (~{distance}% lower) would be a more attractive entry." }, { symbol: asset.symbol, price: ccy + lxFmt(dn), distance: lxDist(dn, price) }),
+      note: intl.formatMessage({ id: "intel.assist.suggestion.entryNote", defaultMessage: "If it dips to {price}, assess whether it's a buying opportunity or a broken setup before starting a position." }, { price: ccy + lxFmt(dn) }),
     })
     const up = lxRound(price * (1 + band * 0.7))
     out.push({
-      name: 'Momentum break',
+      sourceKey: 'momentum',
+        name: intl.formatMessage({ id: 'intel.assist.suggestion.nameMomentumBreak', defaultMessage: "Momentum break" }),
       op: 'above',
       value: up,
-      why: `A break above ${ccy}${lxFmt(up)} would confirm momentum if you're waiting to enter.`,
-      note: `On a confirmed break, consider a starter position sized against the rest of the book.`,
+      why: intl.formatMessage({ id: "intel.assist.suggestion.momentumWhy", defaultMessage: "A break above {price} would confirm momentum if you're waiting to enter." }, { price: ccy + lxFmt(up) }),
+      note: intl.formatMessage({ id: "intel.assist.suggestion.momentumNote", defaultMessage: "On a confirmed break, consider a starter position sized against the rest of the book." }, {}),
     })
   }
 
@@ -230,41 +245,42 @@ export function luciusDraftAlertInstruction(
   asset: LuciusAsset,
   row: { op: AlertOp; value?: number | string },
   owned: boolean,
+  intl: IntlShape = defaultIntl,
 ): string {
   const ccy = lccy(asset.ccy)
-  const val = row.value != null ? `${ccy}${lxFmt(Number(row.value))}` : 'this level'
+  const val = row.value != null ? `${ccy}${lxFmt(Number(row.value))}` : intl.formatMessage({ id: 'intel.assist.draft.level', defaultMessage: 'this level' })
   if (row.op === 'above') {
     return owned
-      ? `If ${asset.symbol} reaches ${val}, review taking partial profit — check whether the move is news-driven, and consider trimming toward your target weight.`
-      : `If ${asset.symbol} breaks ${val}, consider a starter position on confirmed momentum; size it against the rest of the book.`
+      ? intl.formatMessage({ id: "intel.assist.draft.aboveOwned", defaultMessage: "If {symbol} reaches {value}, review taking partial profit — check whether the move is news-driven, and consider trimming toward your target weight." }, { symbol: asset.symbol, value: val })
+      : intl.formatMessage({ id: "intel.assist.draft.aboveNew", defaultMessage: "If {symbol} breaks {value}, consider a starter position on confirmed momentum; size it against the rest of the book." }, { symbol: asset.symbol, value: val })
   }
   return owned
-    ? `If ${asset.symbol} falls to ${val}, reassess the thesis before holding through — decide whether to add, hold, or cut.`
-    : `If ${asset.symbol} dips to ${val}, assess whether it's an entry opportunity or a broken setup before buying.`
+    ? intl.formatMessage({ id: "intel.assist.draft.belowOwned", defaultMessage: "If {symbol} falls to {value}, reassess the thesis before holding through — decide whether to add, hold, or cut." }, { symbol: asset.symbol, value: val })
+    : intl.formatMessage({ id: "intel.assist.draft.belowNew", defaultMessage: "If {symbol} dips to {value}, assess whether it's an entry opportunity or a broken setup before buying." }, { symbol: asset.symbol, value: val })
 }
 
 // ---- topic instruction drafter ----
 
-export function luciusDraftTopicInstruction(label: string): string {
+export function luciusDraftTopicInstruction(label: string, intl: IntlShape = defaultIntl): string {
   const l = (label ?? '').toLowerCase()
   let mid =
-    'Flag anything material to my portfolio — holdings directly affected, sector or macro spillover, and clear risk-on/risk-off signals.'
+    intl.formatMessage({ id: "intel.assist.topic.general", defaultMessage: "Flag anything material to my portfolio — holdings directly affected, sector or macro spillover, and clear risk-on/risk-off signals." })
   if (/rate|fed|inflation|cpi|yield|fomc/.test(l))
     mid =
-      'Flag rate-path shifts and inflation surprises, and what they mean for my bond sleeve (TLT, SSB) and rate-sensitive equities.'
+      intl.formatMessage({ id: "intel.assist.topic.rates", defaultMessage: "Flag rate-path shifts and inflation surprises, and what they mean for my bond sleeve (TLT, SSB) and rate-sensitive equities." })
   else if (/oil|energy|opec|gas|crude/.test(l))
     mid =
-      'Flag supply or price shocks and the knock-on for inflation, energy names, and broad risk appetite.'
+      intl.formatMessage({ id: "intel.assist.topic.energy", defaultMessage: "Flag supply or price shocks and the knock-on for inflation, energy names, and broad risk appetite." })
   else if (/ai|chip|semi|nvidia|gpu|datacenter|data center/.test(l))
     mid =
-      'Flag demand, supply, and policy shifts, and the impact on my NVDA, MSFT, and ASML positions.'
+      intl.formatMessage({ id: "intel.assist.topic.ai", defaultMessage: "Flag demand, supply, and policy shifts, and the impact on my NVDA, MSFT, and ASML positions." })
   else if (/crypto|bitcoin|\bbtc\b|\beth\b|etf flow|stablecoin/.test(l))
     mid =
-      'Flag ETF flows, regulation, and liquidity shifts, and the impact on my BTC and ETH positions and overall crypto weight.'
+      intl.formatMessage({ id: "intel.assist.topic.crypto", defaultMessage: "Flag ETF flows, regulation, and liquidity shifts, and the impact on my BTC and ETH positions and overall crypto weight." })
   else if (/war|conflict|geopolit|sanction|tension|hormuz|tariff/.test(l))
     mid =
-      'Flag escalation or de-escalation: safe-haven gold bid, oil spikes, shipping disruption, and risk-off equity moves.'
-  return `Track developments on ${label}. ${mid} Summarise what changed, why it matters to my book, and any action worth considering.`
+      intl.formatMessage({ id: "intel.assist.topic.geopolitics", defaultMessage: "Flag escalation or de-escalation: safe-haven gold bid, oil spikes, shipping disruption, and risk-off equity moves." })
+  return intl.formatMessage({ id: 'intel.assist.topic.instruction', defaultMessage: 'Track developments on {label}. {details} Summarise what changed, why it matters to my book, and any action worth considering.' }, { label, details: mid })
 }
 
 // ---- list reviewer ----
@@ -272,6 +288,7 @@ export function luciusDraftTopicInstruction(label: string): string {
 export function luciusReviewList(
   list: { name: string; muted?: boolean; items: LuciusReviewItem[] },
   ctx: LuciusContext,
+  intl: IntlShape = defaultIntl,
 ): LuciusReviewResult {
   const findings: LuciusFinding[] = []
   const assets = list.items.filter((i) => i.kind === 'ticker')
@@ -281,8 +298,8 @@ export function luciusReviewList(
     findings.push({
       key: 'muted',
       sev: 'info',
-      title: 'This list is muted',
-      text: 'Nothing here will alert you until you unmute the list.',
+      title: intl.formatMessage({ id: "intel.assist.review.mutedTitle", defaultMessage: "This list is muted" }),
+      text: intl.formatMessage({ id: "intel.assist.review.mutedText", defaultMessage: "Nothing here will alert you until you unmute the list." }),
       noCta: true,
     })
   }
@@ -298,11 +315,11 @@ export function luciusReviewList(
         itemId,
         kind: 'asset',
         sev: 'gap',
-        title: `${a.symbol} has no price alerts`,
+        title: intl.formatMessage({ id: 'intel.assist.review.noPriceAlerts', defaultMessage: '{symbol} has no price alerts' }, { symbol: a.symbol ?? '' }),
         text: H
-          ? `You hold this but won't be notified on a meaningful move.`
-          : `You won't be notified on a meaningful move.`,
-        cta: 'Suggest alerts',
+          ? intl.formatMessage({ id: "intel.assist.review.ownedNoAlert", defaultMessage: "You hold this but won't be notified on a meaningful move." })
+          : intl.formatMessage({ id: "intel.assist.review.noAlert", defaultMessage: "You won't be notified on a meaningful move." }),
+        cta: intl.formatMessage({ id: "intel.assist.review.suggest", defaultMessage: "Suggest alerts" }),
       })
     } else if (H != null) {
       const target = ctx.targets[H.cls] ?? 0
@@ -312,9 +329,9 @@ export function luciusReviewList(
           itemId,
           kind: 'asset',
           sev: 'risk',
-          title: `${a.symbol} is overweight`,
-          text: `${H.weight.toFixed(1)}% of your book vs a ${target}% target — a trim alert would help.`,
-          cta: 'Add alert',
+          title: intl.formatMessage({ id: 'intel.assist.review.overweight', defaultMessage: '{symbol} is overweight' }, { symbol: a.symbol ?? '' }),
+          text: intl.formatMessage({ id: 'intel.assist.review.overweightText', defaultMessage: '{weight}% of your book vs a {target}% target — a trim alert would help.' }, { weight: H.weight.toLocaleString(getNumberLocale(), { minimumFractionDigits: 1, maximumFractionDigits: 1 }), target: target.toLocaleString(getNumberLocale()) }),
+          cta: intl.formatMessage({ id: "intel.assist.review.addAlert", defaultMessage: "Add alert" }),
         })
       }
     }
@@ -328,9 +345,9 @@ export function luciusReviewList(
         itemId,
         kind: 'topic',
         sev: 'gap',
-        title: `"${t.label}" needs instructions`,
-        text: 'Vague topics produce noisy alerts. Lucius can draft focused instructions.',
-        cta: 'Draft instructions',
+        title: intl.formatMessage({ id: 'intel.assist.review.topicTitle', defaultMessage: '“{label}” needs instructions' }, { label: t.label ?? '' }),
+        text: intl.formatMessage({ id: "intel.assist.review.topicText", defaultMessage: "Vague topics produce noisy alerts. Lucius can draft focused instructions." }),
+        cta: intl.formatMessage({ id: "intel.assist.review.draft", defaultMessage: "Draft instructions" }),
       })
     }
   }
@@ -338,8 +355,8 @@ export function luciusReviewList(
   const actionable = findings.filter((f) => !f.noCta).length
   const headline =
     actionable === 0
-      ? `${list.name} looks well-covered — tickers have alerts and topics are specific.`
-      : `${actionable} thing${actionable === 1 ? '' : 's'} to tighten up in ${list.name}.`
+      ? intl.formatMessage({ id: 'intel.assist.review.covered', defaultMessage: '{name} looks well-covered — tickers have alerts and topics are specific.' }, { name: list.name })
+      : intl.formatMessage({ id: 'intel.assist.review.headline', defaultMessage: '{count, plural, one {# thing} other {# things}} to tighten up in {name}.' }, { count: actionable, name: list.name })
 
   return { headline, findings }
 }

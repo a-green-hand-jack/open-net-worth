@@ -1,3 +1,4 @@
+import { useAppIntl } from '../../i18n/useAppIntl'
 // The card Lucius's `connectors.open_setup` shows in the transcript — the connector's own logo,
 // name, publisher and verification, and a Set up / Connect button — in place of a bare navigation
 // chip (owner, 2026-10-31: "Claude shows a card"). Every field comes from OUR catalog, keyed by the
@@ -28,6 +29,7 @@ export function ConnectorSetupCard({
   /** What to show when the id names nothing in the catalog — the plain chip. */
   fallback: ReactNode
 }): ReactNode {
+  const intl = useAppIntl()
   const entry = entryFor(id)
   if (!entry) return fallback
   const logo = connectorLogo(entry.id)
@@ -60,11 +62,11 @@ export function ConnectorSetupCard({
         <div className="cmd-setup-name">
           {entry.name}
           {entry.verification === 'verified' ? (
-            <span className="cmd-setup-badge">Verified</span>
+            <span className="cmd-setup-badge">{intl.formatMessage({ id: 'chat.connector.verified', defaultMessage: 'Verified' })}</span>
           ) : null}
         </div>
         <div className="cmd-setup-sub">
-          {entry.generic ? entry.sub : entry.publisher ? `By ${entry.publisher}` : entry.sub}
+          {entry.generic ? entry.sub : entry.publisher ? intl.formatMessage({ id: 'chat.connector.publisher', defaultMessage: 'By {publisher}' }, { publisher: entry.publisher }) : entry.sub}
         </div>
       </div>
       <button
@@ -75,7 +77,7 @@ export function ConnectorSetupCard({
           onOpen({ connect: signsIn })
         }}
       >
-        {signsIn ? 'Connect' : 'Set up'}
+        {signsIn ? intl.formatMessage({ id: 'chat.connector.connect', defaultMessage: 'Connect' }) : intl.formatMessage({ id: 'chat.connector.setup', defaultMessage: 'Set up' })}
         <ArrowRight size={12} aria-hidden="true" />
       </button>
     </div>

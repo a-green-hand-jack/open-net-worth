@@ -1,3 +1,5 @@
+import { moveMessage } from './move-messages';
+
 export interface MoveCall {
   method: 'GET' | 'POST' | 'PUT' | 'DELETE';
   path: string;
@@ -15,6 +17,8 @@ export class MoveError extends Error {}
 export class MoveCancelled extends Error { constructor() { super('The move was cancelled.'); } }
 
 export function detailOf(result: MoveResult, fallback: string): string {
+  const localized = moveMessage(result.body);
+  if (localized !== null) return localized;
   const detail = (result.body as { detail?: unknown } | null)?.detail;
   if (typeof detail === 'string' && detail) return detail;
   const message = (detail as { message?: unknown } | null)?.message;

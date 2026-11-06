@@ -9,7 +9,9 @@
  */
 
 import { useState, useEffect } from 'react'
+import { defineMessages, type MessageDescriptor } from 'react-intl'
 import type { ReactNode } from 'react'
+import { useAppIntl } from '../../../i18n/useAppIntl'
 import { Modal } from '../../ui/Modal'
 import { Button } from '../../ui/Button'
 import { FormField } from '../../ui/FormField'
@@ -18,40 +20,24 @@ import { TextField } from '../../ui/TextField'
 export type CatKind = 'income' | 'expense' | 'transfer' | 'investment'
 
 const KIND_ORDER: CatKind[] = ['expense', 'income', 'transfer', 'investment']
-const KIND_LABEL: Record<CatKind, string> = {
-  expense: 'Expense',
-  income: 'Income',
-  transfer: 'Transfer',
-  investment: 'Investment',
-}
-const KIND_PLACEHOLDER: Record<CatKind, string> = {
-  expense: 'e.g. Pet care',
-  income: 'e.g. Bonus',
-  transfer: 'e.g. Reimbursement',
-  investment: 'e.g. Dividends',
-}
-const KIND_NOTE: Record<CatKind, ReactNode> = {
-  expense: (
-    <>
-      This is <b>money out (−)</b> — a label for spending.
-    </>
-  ),
-  income: (
-    <>
-      This is <b>money in (+)</b> — a label for income.
-    </>
-  ),
-  transfer: (
-    <>
-      This is a <b>transfer</b> label — money moved between your accounts.
-    </>
-  ),
-  investment: (
-    <>
-      This is an <b>investment</b> label — buys, sells, dividends.
-    </>
-  ),
-}
+const labels = defineMessages({
+  expense: { id: 'accounts.addCategory.expense', defaultMessage: 'Expense' },
+  income: { id: 'accounts.addCategory.income', defaultMessage: 'Income' },
+  transfer: { id: 'accounts.addCategory.transfer', defaultMessage: 'Transfer' },
+  investment: { id: 'accounts.addCategory.investment', defaultMessage: 'Investment' },
+})
+const placeholders = defineMessages({
+  expense: { id: 'accounts.addCategory.expenseExample', defaultMessage: 'e.g. Pet care' },
+  income: { id: 'accounts.addCategory.incomeExample', defaultMessage: 'e.g. Bonus' },
+  transfer: { id: 'accounts.addCategory.transferExample', defaultMessage: 'e.g. Reimbursement' },
+  investment: { id: 'accounts.addCategory.investmentExample', defaultMessage: 'e.g. Dividends' },
+})
+const notes = defineMessages({
+  expense: { id: 'accounts.addCategory.expenseNote', defaultMessage: 'This is <b>money out (−)</b> — a label for spending.' },
+  income: { id: 'accounts.addCategory.incomeNote', defaultMessage: 'This is <b>money in (+)</b> — a label for income.' },
+  transfer: { id: 'accounts.addCategory.transferNote', defaultMessage: 'This is a <b>transfer</b> label — money moved between your accounts.' },
+  investment: { id: 'accounts.addCategory.investmentNote', defaultMessage: 'This is an <b>investment</b> label — buys, sells, dividends.' },
+})
 
 export interface AddCategoryModalProps {
   open: boolean
@@ -63,6 +49,7 @@ export interface AddCategoryModalProps {
 }
 
 export function AddCategoryModal({ open, prefill, kind, onClose, onSave }: AddCategoryModalProps) {
+  const { formatMessage } = useAppIntl()
   const [name, setName] = useState('')
   const [selectedKind, setSelectedKind] = useState<CatKind>(kind ?? 'expense')
 
@@ -85,24 +72,24 @@ export function AddCategoryModal({ open, prefill, kind, onClose, onSave }: AddCa
       open={open}
       onClose={onClose}
       size="sm"
-      title="Add category"
+      title={formatMessage({ id: 'accounts.addCategory.title', defaultMessage: "Add category" })}
       footer={
         <>
           <Button size="sm" variant="ghost" onClick={onClose}>
-            Cancel
+            {formatMessage({ id: 'accounts.addCategory.cancel', defaultMessage: "Cancel" })}
           </Button>
           <Button size="sm" variant="primary" disabled={!valid} onClick={save}>
-            Save
+            {formatMessage({ id: 'accounts.addCategory.save', defaultMessage: "Save" })}
           </Button>
         </>
       }
     >
       <div className="acct-form">
         <div className="full">
-          <div className="acct-refund-note">{KIND_NOTE[selectedKind]}</div>
+          <div className="acct-refund-note">{formatMessage(notes[selectedKind] as MessageDescriptor, { b: (chunks: ReactNode[]) => <b>{chunks}</b> })}</div>
         </div>
         <div className="full">
-          <FormField label="Type" htmlFor="cat-kind">
+          <FormField label={formatMessage({ id: 'accounts.addCategory.type', defaultMessage: "Type" })} htmlFor="cat-kind">
             <div className="acct-edit-seg">
               {KIND_ORDER.map((k) => (
                 <button
@@ -111,19 +98,19 @@ export function AddCategoryModal({ open, prefill, kind, onClose, onSave }: AddCa
                   className={`acct-edit-seg-btn${selectedKind === k ? ` on ${k}` : ''}`}
                   onClick={() => setSelectedKind(k)}
                 >
-                  {KIND_LABEL[k]}
+                  {formatMessage(labels[k])}
                 </button>
               ))}
             </div>
           </FormField>
         </div>
         <div className="full">
-          <FormField label="Category name" htmlFor="cat-name">
+          <FormField label={formatMessage({ id: 'accounts.addCategory.name', defaultMessage: "Category name" })} htmlFor="cat-name">
             <TextField
               id="cat-name"
               autoFocus
               value={name}
-              placeholder={KIND_PLACEHOLDER[selectedKind]}
+              placeholder={formatMessage(placeholders[selectedKind])}
               onChange={(e) => setName(e.target.value)}
               onKeyDown={(e) => {
                 if (e.key === 'Enter') {

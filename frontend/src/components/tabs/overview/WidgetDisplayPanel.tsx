@@ -11,6 +11,7 @@ import { AUTOH_IDS } from './grid'
 import { findDefinition } from './definitions'
 import { ALL_ROWS, CURATED_ACCENTS, DEFAULT_CUSTOM_HEX, rowCap } from './widgetDisplayShared'
 import type { HeightMode } from './types'
+import { useAppIntl } from '../../../i18n/useAppIntl'
 
 export interface WidgetDisplayPanelProps {
   open: boolean
@@ -38,6 +39,13 @@ export function WidgetDisplayPanel({
   accent,
   onSave,
 }: WidgetDisplayPanelProps) {
+  const { formatMessage } = useAppIntl()
+  const colors: Record<string, string> = {
+    blue: formatMessage({ id: 'overview.color.blue', defaultMessage: 'Blue' }),
+    green: formatMessage({ id: 'overview.color.green', defaultMessage: 'Green' }),
+    amber: formatMessage({ id: 'overview.color.amber', defaultMessage: 'Amber' }),
+    violet: formatMessage({ id: 'overview.color.violet', defaultMessage: 'Violet' }),
+  }
   const [draftHideTitle, setDraftHideTitle] = useState(!!hideTitle)
   const [draftFixed, setDraftFixed] = useState(heightMode === 'fixed')
   const [draftLimit, setDraftLimit] = useState<number | null>(limit ?? null)
@@ -60,7 +68,12 @@ export function WidgetDisplayPanel({
   }
 
   return (
-    <Modal open={open} onClose={onClose} title="Display" size="sm">
+    <Modal
+      open={open}
+      onClose={onClose}
+      title={formatMessage({ id: 'overview.display.title', defaultMessage: 'Display' })}
+      size="sm"
+    >
       <div className="ov-display-panel">
         <label className="ov-display-row ov-display-checkbox">
           <input
@@ -68,7 +81,9 @@ export function WidgetDisplayPanel({
             checked={draftHideTitle}
             onChange={(e) => setDraftHideTitle(e.target.checked)}
           />
-          <span>Hide title</span>
+          <span>
+            {formatMessage({ id: 'overview.display.hideTitle', defaultMessage: 'Hide title' })}
+          </span>
         </label>
 
         {isAutoh && (
@@ -78,14 +93,28 @@ export function WidgetDisplayPanel({
               checked={draftFixed}
               onChange={(e) => setDraftFixed(e.target.checked)}
             />
-            <span>Fixed height (manual resize + inner scroll)</span>
+            <span>
+              {formatMessage({
+                id: 'overview.display.fixedHeight',
+                defaultMessage: 'Fixed height (manual resize + inner scroll)',
+              })}
+            </span>
           </label>
         )}
 
         {isList && (
           <div className="ov-display-row">
-            <span className="ov-display-label">Rows shown</span>
-            <div className="ov-display-limit-seg" role="group" aria-label="Rows shown">
+            <span className="ov-display-label">
+              {formatMessage({ id: 'overview.display.rows', defaultMessage: 'Rows shown' })}
+            </span>
+            <div
+              className="ov-display-limit-seg"
+              role="group"
+              aria-label={formatMessage({
+                id: 'overview.display.rows',
+                defaultMessage: 'Rows shown',
+              })}
+            >
               {rows?.options.map((o) => {
                 const value = o === 'all' ? null : o
                 const on = rowCap({ limit: draftLimit }, { rows }) === value
@@ -96,7 +125,7 @@ export function WidgetDisplayPanel({
                     className={'ov-display-limit-opt' + (on ? ' active' : '')}
                     onClick={() => setDraftLimit(value ?? ALL_ROWS)}
                   >
-                    {o === 'all' ? 'All' : o}
+                    {o === 'all' ? formatMessage({ id: 'overview.all', defaultMessage: 'All' }) : o}
                   </button>
                 )
               })}
@@ -105,15 +134,20 @@ export function WidgetDisplayPanel({
         )}
 
         <div className="ov-display-row">
-          <span className="ov-display-label">Accent color</span>
+          <span className="ov-display-label">
+            {formatMessage({ id: 'overview.display.accent', defaultMessage: 'Accent color' })}
+          </span>
           <div className="ov-display-swatches">
             <button
               type="button"
               className={
                 'ov-display-swatch ov-display-swatch--none' + (draftAccent == null ? ' active' : '')
               }
-              title="None"
-              aria-label="No accent"
+              title={formatMessage({ id: 'overview.none', defaultMessage: 'None' })}
+              aria-label={formatMessage({
+                id: 'overview.display.noAccent',
+                defaultMessage: 'No accent',
+              })}
               onClick={() => setDraftAccent(null)}
             />
             {CURATED_ACCENTS.map((c) => (
@@ -122,8 +156,8 @@ export function WidgetDisplayPanel({
                 type="button"
                 className={'ov-display-swatch' + (draftAccent === c.key ? ' active' : '')}
                 style={{ background: c.cssVar }}
-                title={c.label}
-                aria-label={c.label}
+                title={colors[c.key] ?? c.label}
+                aria-label={colors[c.key] ?? c.label}
                 onClick={() => setDraftAccent(c.key)}
               />
             ))}
@@ -133,10 +167,10 @@ export function WidgetDisplayPanel({
 
         <div className="ov-display-actions">
           <Button size="sm" variant="secondary" onClick={onClose}>
-            Cancel
+            {formatMessage({ id: 'overview.cancel', defaultMessage: 'Cancel' })}
           </Button>
           <Button size="sm" variant="primary" onClick={save}>
-            Save
+            {formatMessage({ id: 'overview.save', defaultMessage: 'Save' })}
           </Button>
         </div>
       </div>

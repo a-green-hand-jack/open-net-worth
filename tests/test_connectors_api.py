@@ -112,6 +112,7 @@ def test_patch_accepts_enabled_only(client):
 def test_patch_missing_enabled_is_422(client):
     res = client.patch("/api/connectors/webhook", json={})
     assert res.status_code == 422
+    assert res.json()["message_id"] == "connector.error.enabledRequired"
 
 
 def test_patch_telegram_enable_delegates_to_store(client):
@@ -190,11 +191,14 @@ def test_delete_native_connector_clears_credentials_and_disables(client):
 def test_delete_unknown_connector_is_404(client):
     res = client.delete("/api/connectors/does-not-exist")
     assert res.status_code == 404
+    assert res.json()["message_id"] == "connector.error.unknown"
+    assert res.json()["message_params"] == {"connector": "does-not-exist"}
 
 
 def test_patch_always_on_connector_is_422(client):
     res = client.patch("/api/connectors/yahoo_finance", json={"enabled": False})
     assert res.status_code == 422
+    assert res.json()["message_id"] == "connector.error.alwaysOn"
     assert client.get("/api/connectors/yahoo_finance").json()["enabled"] is True
 
 
@@ -202,6 +206,7 @@ def test_delete_yahoo_finance_is_422_no_credential_to_clear(client):
     res = client.delete("/api/connectors/yahoo_finance")
     assert res.status_code == 422
     assert "powers price lookups" in res.json()["detail"]
+    assert res.json()["message_id"] == "connector.error.fixedYahoo"
 
 
 def test_delete_coingecko_is_422_too_even_though_it_holds_a_key(client):
@@ -400,6 +405,7 @@ def test_delete_telegram_refuses_and_keeps_credentials_when_stop_cannot_be_confi
     TelegramConfigStore().update({"bot_token": "123:abc", "enabled": True})
     res = client.delete("/api/connectors/telegram")
     assert res.status_code == 502
+    assert res.json()["message_id"] == "connector.error.telegramStop"
     # The credential was NOT wiped — the whole point of the ordering fix.
     assert TelegramConfigStore().get()["bot_token"] == "123:abc"
     assert TelegramConfigStore().get()["enabled"] is True
@@ -559,3 +565,15 @@ def test_get_connector_accounts_route_wins_over_the_generic_connector_id_route(c
     res = client.get("/api/connectors/plaid/accounts")
     assert res.status_code == 200
     assert "accounts" in res.json()
+
+
+def test_unrecognized_domain_error_metadata_does_not_cross_the_api_boundary():
+    from backend.api.connector_error_responses import connector_domain_error
+    from backend.core.errors import ValidationError
+
+    response = connector_domain_error(
+        ValidationError(
+            "provider detail", message_id="provider.unknown", message_params={"extra": "value"}
+        )
+    )
+    assert json.loads(response.body) == {"detail": "provider detail"}

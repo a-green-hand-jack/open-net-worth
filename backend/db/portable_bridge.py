@@ -376,6 +376,7 @@ from typing import Any, Callable, NamedTuple
 from sqlalchemy import Connection, Table, delete, select
 
 from backend.core.errors import ValidationError
+from backend.core.import_message import ImportMessage
 from backend.core.io import fire_db_write_hook
 from backend.core.paths import statements_files_dir
 from backend.db import (
@@ -653,7 +654,12 @@ def attachment_id_errors(filename: str, parsed: object) -> list[str]:
     else:
         return []
     return [
-        f"{where}: {ref!r} is not an attachment id"
+        ImportMessage(
+            f"{where}: {ref!r} is not an attachment id",
+            "restore.error.attachmentId",
+            location=where,
+            id=repr(ref),
+        )
         for where, ref in refs
         if not is_attachment_id(ref)
     ]

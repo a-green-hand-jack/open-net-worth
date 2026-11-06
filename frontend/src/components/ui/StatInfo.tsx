@@ -1,4 +1,5 @@
 import { useId, useState, useCallback } from 'react'
+import { useAppIntl } from '../../i18n/useAppIntl'
 
 export interface StatInfoProps {
   /** Explanatory text shown in the hover/focus popover. */
@@ -20,6 +21,7 @@ export interface StatInfoProps {
  * .stat-info / .stat-pop hover-tooltip in design.css.)
  */
 export function StatInfo({ text, className }: StatInfoProps) {
+  const { formatMessage } = useAppIntl()
   const [visible, setVisible] = useState(false)
   const id = useId()
 
@@ -37,7 +39,10 @@ export function StatInfo({ text, className }: StatInfoProps) {
         className="stat-info-btn"
         role="button"
         tabIndex={0}
-        aria-label="More information"
+        aria-label={formatMessage({
+          id: 'common.moreInformation',
+          defaultMessage: 'More information',
+        })}
         aria-expanded={visible}
         aria-controls={id}
         onMouseEnter={show}

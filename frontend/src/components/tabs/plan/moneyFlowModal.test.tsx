@@ -1,6 +1,8 @@
 // @vitest-environment jsdom
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
+import { IntlProvider } from 'react-intl'
+import messages from './zh-CN.messages.json'
 
 const authFetch = vi.hoisted(() => vi.fn())
 vi.mock('../../../api/client', () => ({ authFetch }))
@@ -67,6 +69,25 @@ function serve(body: unknown) {
 }
 
 describe('MoneyFlowModal', () => {
+  it('translates identified system nodes and preserves user category names', async () => {
+    serve({
+      ...OVERSPENT,
+      nodes: OVERSPENT.nodes.map((node) =>
+        node.id === 'total'
+          ? { ...node, label_message: { id: 'moneyFlow.label.spent', params: {} } }
+          : node,
+      ),
+    })
+    render(
+      <IntlProvider locale="zh-CN" messages={messages}>
+        <MoneyFlowModal initialMonth="2026-08" onClose={vi.fn()} onOpenRegister={vi.fn()} />
+      </IntlProvider>,
+    )
+    expect(await screen.findByText('已支出')).toBeTruthy()
+    expect(screen.getByRole('link', { name: /Rent/ })).toBeTruthy()
+    expect(screen.getByRole('heading', { name: '资金流向', level: 3 })).toBeTruthy()
+  })
+
   it('shows an overspent month as covered from savings, never as saved', async () => {
     serve(OVERSPENT)
     render(<MoneyFlowModal initialMonth="2026-08" onClose={vi.fn()} />)

@@ -1,3 +1,6 @@
+import { message as t } from './native-messages';
+import { getDesktopLocale } from './desktop-locale';
+
 export const UPDATE_REPO = 'open-net-worth-ai/open-net-worth-releases';
 export const RELEASES_PAGE = `https://github.com/${UPDATE_REPO}/releases/latest`;
 export const releasePage = (version: string): string => `https://github.com/${UPDATE_REPO}/releases/tag/v${version}`;
@@ -89,9 +92,9 @@ export class UpdateController {
   stop(): void { for (const timer of this.timers) clearTimeout(timer); this.timers = []; }
 
   get menuLabel(): string {
-    if (this.phase === 'ready') return 'Restart to Update';
-    if (this.phase === 'available') return 'Update Available…';
-    return this.phase === 'checking' || this.phase === 'downloading' ? 'Downloading Update…' : 'Check for Updates…';
+    if (this.phase === 'ready') return t('Restart to Update');
+    if (this.phase === 'available') return t('Update Available…');
+    return this.phase === 'checking' || this.phase === 'downloading' ? t('Downloading Update…') : t('Check for Updates…');
   }
 
   get pending(): boolean { return this.phase === 'ready' || this.phase === 'available'; }
@@ -100,7 +103,7 @@ export class UpdateController {
     if (!this.updater) { this.hooks.openReleases(); return; }
     if (this.phase === 'ready') { await this.installNewest(); return; }
     if (this.phase === 'available') { await this.offerUpdate(); return; }
-    if (this.phase === 'checking' || this.phase === 'downloading') { await this.hooks.ask('An update is downloading.', 'You will be told when it is ready to install.', ['OK']); return; }
+    if (this.phase === 'checking' || this.phase === 'downloading') { await this.hooks.ask(t('An update is downloading.'), t('You will be told when it is ready to install.'), [t('OK')]); return; }
     await this.detect(true);
   }
 
@@ -111,7 +114,7 @@ export class UpdateController {
     let choice: number;
     try {
       const version = this.readyVersion ? ` ${this.readyVersion}` : '';
-      choice = await this.hooks.ask(`Open Net Worth${version} is ready to install.`, 'The app will close your book safely, install the update and reopen. If you choose Later, it installs the next time you quit.', ['Restart Now', 'Later']);
+      choice = await this.hooks.ask(t('Open Net Worth{version} is ready to install.', getDesktopLocale(), { version }), t('The app will close your book safely, install the update and reopen. If you choose Later, it installs the next time you quit.'), [t('Restart Now'), t('Later')]);
     } finally { this.asking = false; }
     if (choice === 0) await this.installNewest();
   }
@@ -119,7 +122,7 @@ export class UpdateController {
   // A release can come out after another finished downloading. Installing the staged one would
   // land the person on a version that immediately offers the next, so the newer one replaces it first.
   private async installNewest(): Promise<void> {
-    if (this.superseding) { this.manual = true; await this.hooks.ask(`Downloading Open Net Worth ${this.availableVersion}…`, `It is newer than ${this.readyVersion}, so it installs instead. You will be asked to restart when it is ready.`, ['OK']); return; }
+    if (this.superseding) { this.manual = true; await this.hooks.ask(t('Downloading Open Net Worth {version}…', getDesktopLocale(), { version: String(this.availableVersion) }), t('It is newer than {version}, so it installs instead. You will be asked to restart when it is ready.', getDesktopLocale(), { version: String(this.readyVersion) }), [t('OK')]); return; }
     if (this.detecting) return;
     this.detecting = true;
     let latest: string | null;
@@ -129,7 +132,7 @@ export class UpdateController {
     const staged = this.readyVersion;
     this.manual = true;
     this.supersede(latest);
-    if (this.superseding) await this.hooks.ask(`Downloading Open Net Worth ${latest}…`, `It came out after ${staged} was downloaded, so it installs instead. You will be asked to restart when it is ready.`, ['OK']);
+    if (this.superseding) await this.hooks.ask(t('Downloading Open Net Worth {version}…', getDesktopLocale(), { version: String(latest) }), t('It came out after {version} was downloaded, so it installs instead. You will be asked to restart when it is ready.', getDesktopLocale(), { version: String(staged) }), [t('OK')]);
   }
 
   private supersedes(version: string | null): version is string {
@@ -151,10 +154,10 @@ export class UpdateController {
     this.asking = true;
     try {
       const inPlace = await this.updater.canInstallInPlace?.() ?? true;
-      const choice = await this.hooks.ask(`Open Net Worth ${version} is available.`, inPlace
-        ? `You have ${this.currentVersion}. Download it now and it installs when you restart or the next time you quit. Your book is not affected.`
-        : `You have ${this.currentVersion}. This install cannot update itself, so the new version comes from the releases page. Your book is not affected.`,
-      [inPlace ? 'Download and Install' : 'Open Download Page', 'Skip This Version', 'Later']);
+      const choice = await this.hooks.ask(t('Open Net Worth {version} is available.', getDesktopLocale(), { version }), inPlace
+        ? t('You have {version}. Download it now and it installs when you restart or the next time you quit. Your book is not affected.', getDesktopLocale(), { version: this.currentVersion })
+        : t('You have {version}. This install cannot update itself, so the new version comes from the releases page. Your book is not affected.', getDesktopLocale(), { version: this.currentVersion }),
+      [t(inPlace ? 'Download and Install' : 'Open Download Page'), t('Skip This Version'), t('Later')]);
       if (choice === 0) this.accept(inPlace);
       else if (choice === 1) { await this.hooks.skip(version); this.availableVersion = null; this.set('idle'); }
       else this.remind(version);
@@ -169,7 +172,7 @@ export class UpdateController {
     this.manual = true;
     this.set('downloading');
     try { this.updater!.checkForUpdates(); } catch (error) { this.downloadFailed(error); return; }
-    void this.hooks.ask(`Downloading Open Net Worth ${this.availableVersion ?? 'update'}…`, 'This takes a minute or two. You will be asked to restart when it is ready. Your book is not affected.', ['OK']);
+    void this.hooks.ask(t('Downloading Open Net Worth {version}…', getDesktopLocale(), { version: this.availableVersion ?? 'update' }), t('This takes a minute or two. You will be asked to restart when it is ready. Your book is not affected.'), [t('OK')]);
   }
 
   private async detect(manual: boolean): Promise<void> {
@@ -178,12 +181,12 @@ export class UpdateController {
     this.detecting = true;
     this.manual = manual;
     let version: string | null;
-    try { version = await this.hooks.newerVersion(); } catch { version = null; if (manual) await this.hooks.ask('Updates could not be checked.', 'Check your internet connection and try again.', ['OK']); return; } finally { this.detecting = false; }
+    try { version = await this.hooks.newerVersion(); } catch { version = null; if (manual) await this.hooks.ask(t('Updates could not be checked.'), t('Check your internet connection and try again.'), [t('OK')]); return; } finally { this.detecting = false; }
     if (this.phase !== 'idle' && this.phase !== 'available') return;
     if (!version) {
       this.availableVersion = null;
       this.set('idle');
-      if (manual) await this.hooks.ask('You’re up to date.', `Open Net Worth ${this.currentVersion} is the newest version.`, ['OK']);
+      if (manual) await this.hooks.ask(t('You’re up to date.'), t('Open Net Worth {version} is the newest version.', getDesktopLocale(), { version: this.currentVersion }), [t('OK')]);
       return;
     }
     if (manual) { this.availableVersion = version; this.set('available'); await this.offerUpdate(); return; }
@@ -226,7 +229,7 @@ export class UpdateController {
     this.readyVersion = this.availableVersion ?? name?.replace(/^(Open Net Worth\s+)?v?/, '') ?? null;
     this.set('ready');
     if (this.manual) { this.manual = false; void this.offerRestart(); return; }
-    this.hooks.notify(`Open Net Worth ${this.readyVersion ?? 'update'} is ready. Restart to update, or it installs the next time you quit.`, () => { void this.offerRestart(); });
+    this.hooks.notify(t('Open Net Worth {version} is ready. Restart to update, or it installs the next time you quit.', getDesktopLocale(), { version: this.readyVersion ?? 'update' }), () => { void this.offerRestart(); });
   }
 
   private manualInstall(): void {
@@ -244,7 +247,7 @@ export class UpdateController {
     const version = this.availableVersion;
     if (!version || this.remindVersion === version && this.now() < this.remindAt) return;
     this.remind(version);
-    this.hooks.notify(`Open Net Worth ${version} is available.`, () => { void this.offerUpdate(); });
+    this.hooks.notify(t('Open Net Worth {version} is available.', getDesktopLocale(), { version }), () => { void this.offerUpdate(); });
   }
 
   // Squirrel.Mac rejects an update whose signature does not match the installed app (an unsigned
@@ -259,8 +262,8 @@ export class UpdateController {
     const version = this.availableVersion ? ` ${this.availableVersion}` : '';
     const unsigned = /signature|code requirement/i.test(error instanceof Error ? error.message : String(error ?? ''));
     const ask = unsigned
-      ? this.hooks.ask('This copy of Open Net Worth cannot install updates itself.', `Download Open Net Worth${version} from the download page and install it over this one. Your book is not affected.`, ['Open Download Page', 'Later'])
-      : this.hooks.ask('The update could not be downloaded.', 'Check your internet connection and choose Check for Updates… to try again, or get it from the download page. Your book is not affected.', ['Open Download Page', 'OK']);
+      ? this.hooks.ask(t('This copy of Open Net Worth cannot install updates itself.'), t('Download Open Net Worth{version} from the download page and install it over this one. Your book is not affected.', getDesktopLocale(), { version }), [t('Open Download Page'), t('Later')])
+      : this.hooks.ask(t('The update could not be downloaded.'), t('Check your internet connection and choose Check for Updates… to try again, or get it from the download page. Your book is not affected.'), [t('Open Download Page'), t('OK')]);
     void ask.then(choice => { if (choice === 0) this.hooks.openReleases(); });
   }
 
@@ -272,7 +275,7 @@ export class UpdateController {
     this.availableVersion = this.readyVersion;
     if (!this.manual) return;
     this.manual = false;
-    void this.hooks.ask('The newer update could not be downloaded.', `Restart now to install Open Net Worth ${this.readyVersion ?? 'update'}, or choose Later to install it the next time you quit.`, ['Restart Now', 'Later'])
+    void this.hooks.ask(t('The newer update could not be downloaded.'), t('Restart now to install Open Net Worth {version}, or choose Later to install it the next time you quit.', getDesktopLocale(), { version: this.readyVersion ?? 'update' }), [t('Restart Now'), t('Later')])
       .then(choice => { if (choice === 0) this.hooks.install(); });
   }
 
@@ -280,7 +283,7 @@ export class UpdateController {
   // version was recorded has no previous version, only an earlier book or server choice.
   announceUpdate(previousVersion: string | null, earlierInstall: boolean): boolean {
     const updated = previousVersion ? isNewer(this.currentVersion, previousVersion) : earlierInstall;
-    if (updated) this.hooks.notify(`Open Net Worth was updated to ${this.currentVersion}.`, () => this.hooks.openReleases());
+    if (updated) this.hooks.notify(t('Open Net Worth was updated to {version}.', getDesktopLocale(), { version: this.currentVersion }), () => this.hooks.openReleases());
     return updated;
   }
 

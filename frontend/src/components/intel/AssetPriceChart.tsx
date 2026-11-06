@@ -1,3 +1,7 @@
+import type { IntlShape } from 'react-intl'
+import { intelTimeAgo } from './relativeTime'
+import { useAppIntl } from '../../i18n/useAppIntl'
+import { FormattedMessage } from './FormattedMessage'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { LineStyle, type AutoscaleInfo, type MouseEventParams, type Time } from 'lightweight-charts'
 import { authFetch } from '../../api/client'
@@ -69,9 +73,9 @@ function isOlderSeries(next: AssetPriceSeries, current: AssetPriceSeries | null)
   return Number.isFinite(nextAt) && Number.isFinite(currentAt) && nextAt < currentAt
 }
 
-function relativeUpdatedAt(asOf: string): string {
+function relativeUpdatedAt(asOf: string, intl: IntlShape): string {
   const at = new Date(asOf).getTime()
-  return Number.isFinite(at) && at > Date.now() ? 'just now' : timeAgo(asOf)
+  return intl.locale.toLowerCase().startsWith('en') ? (Number.isFinite(at) && at > Date.now() ? 'just now' : timeAgo(asOf)) : intelTimeAgo(asOf, intl)
 }
 
 function isPreviousSessionSeries(series: AssetPriceSeries | null): boolean {
@@ -195,6 +199,7 @@ export function AssetPriceChart({
   timezone = null,
   onLatestPoint,
 }: Props) {
+  const intl = useAppIntl()
   // A callback ref (state, not a plain ref object) so the chart-lifecycle effect below
   // can depend on container PRESENCE directly — it re-runs exactly when the box mounts
   // (loading/empty-state -> chart) or unmounts (chart -> loading/empty-state), which a
@@ -824,25 +829,25 @@ export function AssetPriceChart({
   // 2026-09-21 removal of the "Previous session" one) — the chart just draws what it has;
   // the aria-live announcement below still discloses a stale series to screen readers.
   const announcement = loading
-    ? 'Price history is loading.'
+    ? intl.formatMessage({ id: 'intel.chart.loadingAnnouncement', defaultMessage: 'Price history is loading.' })
     : explicitUnavailable
-      ? 'No live or recent saved price history is available for this timeframe.'
+      ? intl.formatMessage({ id: 'intel.chart.unavailableAnnouncement', defaultMessage: 'No live or recent saved price history is available for this timeframe.' })
       : loadError
-        ? 'The price history request failed.'
+        ? intl.formatMessage({ id: 'intel.chart.failedAnnouncement', defaultMessage: 'The price history request failed.' })
         : // The "previous session" fallback is fully silent now (owner ask 2026-09-21) — no
           // visual banner and no aria-live disclosure either; the chart just draws.
           previousSession
           ? ''
           : marketState === 'stale' && series
-            ? `The chart now shows saved ${series.provider === 'yahoo' ? 'Yahoo' : 'fallback'} price history${series.as_of ? ` from ${relativeUpdatedAt(series.as_of)}` : ''} because live providers are unavailable.`
+            ? intl.formatMessage({ id: 'intel.chart.savedAnnouncement', defaultMessage: 'The chart now shows saved {provider, select, yahoo {Yahoo} other {fallback}} price history{when} because live providers are unavailable.' }, { provider: series.provider === 'yahoo' ? 'yahoo' : 'fallback', when: series.as_of ? intl.formatMessage({ id: 'intel.chart.fromTime', defaultMessage: ' from {time}' }, { time: relativeUpdatedAt(series.as_of, intl) }) : '' })
             : marketState === 'live' && series
-              ? `The chart now shows fresh ${series.provider === 'coingecko' ? 'fallback' : series.provider === 'yahoo' ? 'Yahoo' : ''} market data${series.as_of ? ` from ${relativeUpdatedAt(series.as_of)}` : ''}.`
+              ? intl.formatMessage({ id: 'intel.chart.liveAnnouncement', defaultMessage: 'The chart now shows fresh {provider, select, coingecko {fallback} yahoo {Yahoo} other {}} market data{when}.' }, { provider: series.provider, when: series.as_of ? intl.formatMessage({ id: 'intel.chart.fromTime', defaultMessage: ' from {time}' }, { time: relativeUpdatedAt(series.as_of, intl) }) : '' })
               : emptyReason === 'delayed'
-                ? 'The chart is waiting for delayed intraday prices.'
+                ? intl.formatMessage({ id: 'intel.chart.waitingAnnouncement', defaultMessage: 'The chart is waiting for delayed intraday prices.' })
                 : emptyReason === 'intraday-unavailable'
-                  ? 'Choose a longer timeframe because intraday prices are not stored.'
+                  ? intl.formatMessage({ id: 'intel.chart.chooseLongerAnnouncement', defaultMessage: 'Choose a longer timeframe because intraday prices are not stored.' })
                   : emptyReason === 'not-enough'
-                    ? 'The chart needs more price history before it can draw.'
+                    ? intl.formatMessage({ id: 'intel.chart.needsHistoryAnnouncement', defaultMessage: 'The chart needs more price history before it can draw.' })
                     : ''
 
   const card = (
@@ -881,7 +886,7 @@ export function AssetPriceChart({
               pane, a compact select where it would wrap onto a second line. */}
           <div className="asd-tf-tabs">
             <SegmentedControl
-              ariaLabel="Price history timeframe"
+              ariaLabel={intl.formatMessage({ id: 'intel.chart.timeframe', defaultMessage: 'Price history timeframe' })}
               options={TIMEFRAMES}
               value={timeframe}
               onChange={setTimeframe}
@@ -889,7 +894,7 @@ export function AssetPriceChart({
           </div>
           <ToolbarMenu
             className="asd-tf-menu"
-            ariaLabel="Price history timeframe"
+            ariaLabel={intl.formatMessage({ id: 'intel.chart.timeframe', defaultMessage: 'Price history timeframe' })}
             value={timeframe}
             items={TIMEFRAMES}
             onPick={setTimeframe}
@@ -907,8 +912,8 @@ export function AssetPriceChart({
             <Button
               variant="ghost"
               size="sm"
-              aria-label="Expand chart"
-              title="Expand chart — drag to pan, scroll to zoom"
+              aria-label={intl.formatMessage({ id: "intel.field.b4e5a738", defaultMessage: "Expand chart" })}
+              title={intl.formatMessage({ id: "intel.field.2f535998", defaultMessage: "Expand chart — drag to pan, scroll to zoom" })}
               onClick={() => setFullscreen(true)}
             >
               <Maximize2 size={14} />
@@ -926,16 +931,16 @@ export function AssetPriceChart({
       </div>
       {loading ? (
         <div className="asd-chart-box" aria-hidden="true">
-          <Loading label="Loading price history…" />
+          <Loading label={intl.formatMessage({ id: "intel.field.77a364c3", defaultMessage: "Loading price history…" })} />
         </div>
       ) : explicitUnavailable ? (
         <div className="asd-chart-box">
           <EmptyState
-            title="Price history unavailable"
+            title={intl.formatMessage({ id: "intel.field.1db301ca", defaultMessage: "Price history unavailable" })}
             body="Live market data is unavailable and there is no recent saved history for this timeframe."
             action={
               <Button variant="secondary" size="sm" onClick={() => setRetryVersion((v) => v + 1)}>
-                Try again
+                {<FormattedMessage id="intel.extra.0c1dae16" defaultMessage={"Try again"} />}
               </Button>
             }
           />
@@ -943,11 +948,11 @@ export function AssetPriceChart({
       ) : loadError ? (
         <div className="asd-chart-box">
           <EmptyState
-            title={<span className="ui-state__error-title">Something went wrong</span>}
+            title={<span className="ui-state__error-title">{<FormattedMessage id="intel.static.something_went_wrong_7d3ec418" defaultMessage={"Something went wrong"} />}</span>}
             body="Could not load price history."
             action={
               <Button variant="secondary" size="sm" onClick={() => setRetryVersion((v) => v + 1)}>
-                Retry
+                {<FormattedMessage id="intel.extra.ef217ee7" defaultMessage={"Retry"} />}
               </Button>
             }
           />
@@ -955,21 +960,21 @@ export function AssetPriceChart({
       ) : emptyReason === 'delayed' ? (
         <div className="asd-chart-box">
           <EmptyState
-            title="Live data delayed"
+            title={intl.formatMessage({ id: "intel.field.7c02823b", defaultMessage: "Live data delayed" })}
             body="Intraday prices from the exchange are delayed — the chart will fill in shortly."
           />
         </div>
       ) : emptyReason === 'intraday-unavailable' ? (
         <div className="asd-chart-box">
           <EmptyState
-            title="Intraday data not available"
+            title={intl.formatMessage({ id: "intel.field.45dcc7e3", defaultMessage: "Intraday data not available" })}
             body="1D intraday prices are not stored. Select a longer timeframe to view historical prices."
           />
         </div>
       ) : emptyReason === 'not-enough' ? (
         <div className="asd-chart-box">
           <EmptyState
-            title="Not enough price history"
+            title={intl.formatMessage({ id: "intel.field.7e6fc64e", defaultMessage: "Not enough price history" })}
             body="Price history will appear once data is available for this timeframe."
           />
         </div>
@@ -983,32 +988,32 @@ export function AssetPriceChart({
             >
               <div className="asd-chart-tip-date">{hover.dateLabel}</div>
               <div className="asd-chart-tip-row">
-                <span className="asd-chart-tip-k">Open</span>
+                <span className="asd-chart-tip-k">{<FormattedMessage id="intel.static.open_04422c9a" defaultMessage={"Open"} />}</span>
                 <span>
                   {seriesCcy} {fPrice(hover.open, priceDigits(assetClass))}
                 </span>
               </div>
               <div className="asd-chart-tip-row">
-                <span className="asd-chart-tip-k">High</span>
+                <span className="asd-chart-tip-k">{<FormattedMessage id="intel.static.high_51374b6b" defaultMessage={"High"} />}</span>
                 <span>
                   {seriesCcy} {fPrice(hover.high, priceDigits(assetClass))}
                 </span>
               </div>
               <div className="asd-chart-tip-row">
-                <span className="asd-chart-tip-k">Low</span>
+                <span className="asd-chart-tip-k">{<FormattedMessage id="intel.static.low_aac53e41" defaultMessage={"Low"} />}</span>
                 <span>
                   {seriesCcy} {fPrice(hover.low, priceDigits(assetClass))}
                 </span>
               </div>
               <div className="asd-chart-tip-row">
-                <span className="asd-chart-tip-k">Close</span>
+                <span className="asd-chart-tip-k">{<FormattedMessage id="intel.static.close_d2c0aec0" defaultMessage={"Close"} />}</span>
                 <span>
                   {seriesCcy} {fPrice(hover.close, priceDigits(assetClass))}
                 </span>
               </div>
               {hover.volume != null && (
                 <div className="asd-chart-tip-row">
-                  <span className="asd-chart-tip-k">Volume</span>
+                  <span className="asd-chart-tip-k">{<FormattedMessage id="intel.static.volume_be36c8e8" defaultMessage={"Volume"} />}</span>
                   <span>{fNum(hover.volume)}</span>
                 </div>
               )}
@@ -1050,8 +1055,8 @@ export function AssetPriceChart({
       <Modal
         open
         onClose={() => setFullscreen(false)}
-        title="Price chart"
-        subtitle="Drag to pan • scroll or pinch to zoom"
+        title={intl.formatMessage({ id: "intel.field.b2771289", defaultMessage: "Price chart" })}
+        subtitle={intl.formatMessage({ id: "intel.field.5d1f6a82", defaultMessage: "Drag to pan • scroll or pinch to zoom" })}
         size="workspace"
         className="asd-chart-fs-modal"
         overlayClassName="asd-chart-fs-overlay"

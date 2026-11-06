@@ -1,3 +1,6 @@
+import { getNumberLocale } from '../../../utils/format'
+import { useAppIntl } from '../../../i18n/useAppIntl'
+import { FormattedMessage } from '../FormattedMessage'
 // Manage view — every alert on one ticker (verbatim port of the prototype's ManageAlerts).
 // Each control in this view commits itself — the per-alert toggles already do, so a Save
 // button covering only mute and feeds would be ambiguous. Mute sits in the header: it silences
@@ -53,6 +56,7 @@ export interface ManageAlertsProps {
 }
 
 export function ManageAlerts(p: ManageAlertsProps) {
+  const intl = useAppIntl()
   const { sym, ccy, price, alerts: mine, feeds, sugg } = p
   const live = mine.filter((x) => x.enabled !== false)
   const gapOf = (r: AlertRecord): number =>
@@ -101,13 +105,13 @@ export function ManageAlerts(p: ManageAlertsProps) {
           </button>
           {p.canRemove && p.onRemove && (
             <button type="button" className="pa-del" onClick={p.onRemove}>
-              Remove from watchlist
+              {intl.formatMessage({ id: 'intel.alert.removeWatchlist', defaultMessage: 'Remove from watchlist' })}
             </button>
           )}
           {p.error && <span className="pa-err">{p.error}</span>}
           <div className="pa-foot-r">
             <Button variant="primary" size="sm" onClick={p.onNew}>
-              New alert
+              {intl.formatMessage({ id: 'intel.alert.newTitle', defaultMessage: 'New alert' })}
             </Button>
           </div>
         </div>
@@ -120,12 +124,11 @@ export function ManageAlerts(p: ManageAlertsProps) {
             {fmt(price)}
           </Money>
         ) : (
-          <span className="pa-head-px">Price unavailable</span>
+          <span className="pa-head-px">{<FormattedMessage id="intel.static.price_unavailable_17feabdc" defaultMessage={"Price unavailable"} />}</span>
         )}
         {p.chg != null && (
           <span className={'pa-head-ch' + (p.chg < 0 ? ' pa-head-ch--dn' : '')}>
-            {p.chg >= 0 ? '+' : ''}
-            {p.chg.toFixed(2)}% today
+            {intl.formatMessage({ id: 'intel.alert.percentToday', defaultMessage: '{value}% today' }, { value: `${p.chg >= 0 ? '+' : ''}${p.chg.toLocaleString(getNumberLocale(), { minimumFractionDigits: 2, maximumFractionDigits: 2, useGrouping: false })}` })}
           </span>
         )}
         {p.hasItem && (
@@ -133,11 +136,11 @@ export function ManageAlerts(p: ManageAlertsProps) {
             type="button"
             className={'pa-mute' + (p.muted ? ' pa-mute--on' : '')}
             aria-pressed={p.muted}
-            aria-label={`Mute ${sym}`}
+            aria-label={intl.formatMessage({ id: 'intel.alert.muteSymbol', defaultMessage: 'Mute {symbol}' }, { symbol: sym })}
             title={
               p.muted
-                ? `Muted: no price alerts or news scans for ${sym}`
-                : `Stop price alerts and news scans for ${sym}`
+                ? intl.formatMessage({ id: 'intel.alert.mutedSymbol', defaultMessage: 'Muted: no price alerts or news scans for {symbol}' }, { symbol: sym })
+                : intl.formatMessage({ id: 'intel.alert.stopSymbol', defaultMessage: 'Stop price alerts and news scans for {symbol}' }, { symbol: sym })
             }
             onClick={() => p.onMute(!p.muted)}
           >
@@ -146,20 +149,20 @@ export function ManageAlerts(p: ManageAlertsProps) {
             ) : (
               <Bell size={13} strokeWidth={2.2} />
             )}
-            {p.muted ? 'Muted' : 'Mute'}
+            {p.muted ? intl.formatMessage({ id: 'intel.monitor.muted', defaultMessage: 'Muted' }) : intl.formatMessage({ id: 'intel.monitor.mute', defaultMessage: 'Mute' })}
           </button>
         )}
       </div>
 
       {levels.length > 0 && price != null && (
         <>
-          <div className="pa-scale-title">Alert levels</div>
+          <div className="pa-scale-title">{<FormattedMessage id="intel.static.alert_levels_aa097e24" defaultMessage={"Alert levels"} />}</div>
           <div
             ref={scaleRef}
             className={'pa-scale' + (tickRowCount > 1 ? ` pa-scale--${tickRowCount}rows` : '')}
           >
             <span className="pa-nowlab" style={{ left: pct(price) + '%' }}>
-              now{' '}
+              {intl.formatMessage({ id: 'intel.alert.now', defaultMessage: 'now' })}{' '}
               <Money>
                 {ccy}
                 {fmt(price)}
@@ -194,12 +197,12 @@ export function ManageAlerts(p: ManageAlertsProps) {
           </div>
           {p.lo != null && p.hi != null && (
             <div className="pa-range">
-              52w low{' '}
+              {intl.formatMessage({ id: 'intel.alert.low52', defaultMessage: '52w low' })}{' '}
               <Money>
                 {ccy}
                 {fmt(p.lo)}
               </Money>{' '}
-              · high{' '}
+              · {intl.formatMessage({ id: 'intel.alert.high52', defaultMessage: 'high' })}{' '}
               <Money>
                 {ccy}
                 {fmt(p.hi)}
@@ -211,13 +214,13 @@ export function ManageAlerts(p: ManageAlertsProps) {
 
       {mine.length === 0 ? (
         <EmptyState
-          title={`No alerts on ${sym} yet`}
-          body="Lucius tracks the price either way — it just won't tell you until there's a level worth hearing about."
+          title={intl.formatMessage({ id: 'intel.alert.noAlertsSymbol', defaultMessage: 'No alerts on {symbol} yet' }, { symbol: sym })}
+          body={intl.formatMessage({ id: 'intel.alert.noAlertsHelp', defaultMessage: "Lucius tracks the price either way — it just won't tell you until there's a level worth hearing about." })}
           action={
             <div className="asd-alerts-start asd-alerts-start--center">
               <BuildWithLucius sym={sym} prompt={alertsBuildPrompt(sym)} />
               <Button variant="secondary" size="sm" onClick={p.onNew}>
-                New alert
+                {intl.formatMessage({ id: 'intel.alert.newTitle', defaultMessage: 'New alert' })}
               </Button>
             </div>
           }
@@ -233,7 +236,7 @@ export function ManageAlerts(p: ManageAlertsProps) {
             onAddAll={p.onAddAll}
             onDismiss={p.onDismissSuggestion}
           />
-          <Panel title="Alerts" badge={`${live.length} of ${mine.length} on`}>
+          <Panel title={intl.formatMessage({ id: 'intel.filter.alerts', defaultMessage: 'Alerts' })} badge={intl.formatMessage({ id: 'intel.alert.activeCount', defaultMessage: '{active} of {total} on' }, { active: live.length, total: mine.length })}>
             <div className="pa-list">
               {sorted.map(({ r, gap }, i) => (
                 <AlertRow

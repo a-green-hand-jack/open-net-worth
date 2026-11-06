@@ -3,22 +3,24 @@
 // useIsMobile: the five-column table for a wide layout, the two-line card list for a phone.
 
 import { fCurrency, fDate, moneyClass } from '../../../utils/format'
+import { defineMessages } from 'react-intl'
+import { useAppIntl } from '../../../i18n/useAppIntl'
 import type { ActivityRow } from './useActivityView'
 
 // ── Type metadata ─────────────────────────────────────────────────────────────
 
-const TYPE_LABEL: Record<string, string> = {
-  buy: 'Buy',
-  sell: 'Sell',
-  dividend: 'Dividend',
-  coupon: 'Coupon',
-  interest: 'Interest',
-  deposit: 'Deposit',
-  withdrawal: 'Withdrawal',
-  transfer: 'Transfer',
-  vest: 'Vest',
-  fee: 'Fee',
-}
+const TYPE_LABEL = defineMessages({
+  buy: { id: 'investmentActivity.type.buy', defaultMessage: 'Buy' },
+  sell: { id: 'investmentActivity.type.sell', defaultMessage: 'Sell' },
+  dividend: { id: 'investmentActivity.type.dividend', defaultMessage: 'Dividend' },
+  coupon: { id: 'investmentActivity.type.coupon', defaultMessage: 'Coupon' },
+  interest: { id: 'investmentActivity.type.interest', defaultMessage: 'Interest' },
+  deposit: { id: 'investmentActivity.type.deposit', defaultMessage: 'Deposit' },
+  withdrawal: { id: 'investmentActivity.type.withdrawal', defaultMessage: 'Withdrawal' },
+  transfer: { id: 'investmentActivity.type.transfer', defaultMessage: 'Transfer' },
+  vest: { id: 'investmentActivity.type.vest', defaultMessage: 'Vest' },
+  fee: { id: 'investmentActivity.type.fee', defaultMessage: 'Fee' },
+})
 
 // Maps an activity type → pill variant class suffix (matches prototype ACT_PILL)
 const TYPE_PILL: Record<string, string> = {
@@ -63,14 +65,21 @@ function amountColor(type: string): string {
 }
 
 function TypePill({ type }: { type: string }) {
+  const { formatMessage } = useAppIntl()
+  const descriptor = TYPE_LABEL[type as keyof typeof TYPE_LABEL]
   return (
-    <span className={'act-pill ' + (TYPE_PILL[type] ?? 'sell')}>{TYPE_LABEL[type] ?? type}</span>
+    <span className={'act-pill ' + (TYPE_PILL[type] ?? 'sell')}>
+      {descriptor ? formatMessage(descriptor) : type}
+    </span>
   )
 }
 
 // ── Row renderers ─────────────────────────────────────────────────────────────
 
-const EMPTY_MSG = 'No activity in this range. Try a wider range or clear filters.'
+const EMPTY_MSG = {
+  id: 'investmentActivity.empty',
+  defaultMessage: 'No activity in this range. Try a wider range or clear filters.',
+}
 
 interface RowsProps {
   rows: ActivityRow[]
@@ -79,16 +88,33 @@ interface RowsProps {
 
 /** Wide layout: the five-column ledger table (scrolls horizontally inside its card). */
 export function ActivityRows({ rows, baseCurrency }: RowsProps) {
+  const { formatMessage } = useAppIntl()
   return (
     <div style={{ overflowX: 'auto', paddingTop: 4 }}>
       <table className="act-tbl">
         <thead>
           <tr>
-            <th>Date</th>
-            <th>Type</th>
-            <th>Details</th>
-            <th>Account</th>
-            <th className="num">Amount</th>
+            <th>
+              {formatMessage({ id: 'investmentActivity.header.date', defaultMessage: 'Date' })}
+            </th>
+            <th>
+              {formatMessage({ id: 'investmentActivity.header.type', defaultMessage: 'Type' })}
+            </th>
+            <th>
+              {formatMessage({
+                id: 'investmentActivity.header.details',
+                defaultMessage: 'Details',
+              })}
+            </th>
+            <th>
+              {formatMessage({
+                id: 'investmentActivity.header.account',
+                defaultMessage: 'Account',
+              })}
+            </th>
+            <th className="num">
+              {formatMessage({ id: 'investmentActivity.header.amount', defaultMessage: 'Amount' })}
+            </th>
           </tr>
         </thead>
         <tbody>
@@ -114,7 +140,7 @@ export function ActivityRows({ rows, baseCurrency }: RowsProps) {
                 colSpan={5}
                 style={{ textAlign: 'center', color: 'var(--faint)', padding: '28px' }}
               >
-                {EMPTY_MSG}
+                {formatMessage(EMPTY_MSG)}
               </td>
             </tr>
           )}
@@ -127,9 +153,13 @@ export function ActivityRows({ rows, baseCurrency }: RowsProps) {
 /** Phone layout: one two-line card per event, nothing to scroll sideways. Line 1 is what
  * happened (symbol + type pill) and how much; line 2 the trade detail and when/where. */
 export function ActivityCards({ rows, baseCurrency }: RowsProps) {
-  if (rows.length === 0) return <div className="act-cards-empty">{EMPTY_MSG}</div>
+  const { formatMessage } = useAppIntl()
+  if (rows.length === 0) return <div className="act-cards-empty">{formatMessage(EMPTY_MSG)}</div>
   return (
-    <ul className="act-cards" aria-label="Activity">
+    <ul
+      className="act-cards"
+      aria-label={formatMessage({ id: 'investmentActivity.label', defaultMessage: 'Activity' })}
+    >
       {rows.map((r) => {
         // A row with no symbol (a cash movement) leads with its name; the detail line then
         // stays free for the figure rather than repeating that name. With neither (an

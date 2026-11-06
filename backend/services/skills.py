@@ -52,9 +52,24 @@ def validate(
     # write; name is coerced to a valid slug at the store, so a non-compliant name can't persist).
     desc = skill.get("description")
     if require_standard_fields and (not isinstance(desc, str) or not desc.strip()):
-        problems.append("description is required and must be non-empty (Agent Skills spec).")
+        from backend.core.skill_problem import SkillProblem
+
+        problems.append(
+            SkillProblem(
+                "description is required and must be non-empty (Agent Skills spec).",
+                "skills.validation.descriptionRequired",
+            )
+        )
     elif isinstance(desc, str) and len(desc) > 1024:
-        problems.append("description exceeds the 1024-character limit (Agent Skills spec).")
+        from backend.core.skill_problem import SkillProblem
+
+        problems.append(
+            SkillProblem(
+                "description exceeds the 1024-character limit (Agent Skills spec).",
+                "skills.validation.descriptionLength",
+                maximum="1024",
+            )
+        )
     from backend.db.skill_files import validate_claude_extensions, validate_openai_metadata
 
     problems.extend(validate_claude_extensions(skill.get("claude")))
@@ -77,11 +92,26 @@ def _validate_script_bundle(skill: dict) -> list[str]:
     """
     sid = skill.get("id")
     if not sid:
-        return ["script skill is missing an 'id' (needed to locate its folder)."]
+        from backend.core.skill_problem import SkillProblem
+
+        return [
+            SkillProblem(
+                "script skill is missing an 'id' (needed to locate its folder).",
+                "skills.validation.scriptSkillId",
+            )
+        ]
     try:
         bundle = skill_bundles.read_bundle(sid, "live")
     except NotFoundError:
-        return [f"skill folder '{sid}' was not found on disk."]
+        from backend.core.skill_problem import SkillProblem
+
+        return [
+            SkillProblem(
+                f"skill folder '{sid}' was not found on disk.",
+                "skills.validation.scriptFolder",
+                skill=str(sid),
+            )
+        ]
     except ValidationError as e:
         return [str(e)]
 

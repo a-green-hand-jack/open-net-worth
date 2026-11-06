@@ -7,6 +7,8 @@ import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-li
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { ToolDisplay } from '../../../types/chat'
 import { ToolActivity } from './ToolActivity'
+import { IntlProvider } from 'react-intl'
+import messages from '../zh-CN.messages.json'
 import type { ActionItem, ToolItem } from './cluster'
 
 afterEach(cleanup)
@@ -63,6 +65,13 @@ function tool(over: Partial<ToolItem> = {}): ToolItem {
 const view = (items: ActionItem[]) => render(<ToolActivity items={items} sessionId="s1" />)
 
 describe('the goal', () => {
+  it('localizes known tool activity and preserves search input', () => {
+    const search = display({ label: 'Search the web for "ACME"', verb: 'search', noun: 'searches', localization: { tool: 'web_search', detail: 'ACME', detail_mode: 'search' } })
+    render(<IntlProvider locale="zh-CN" messages={messages}><ToolActivity items={[tool({ name: 'web_search', display: search }), tool({ name: 'web_search', display: search })]} sessionId="s1" /></IntlProvider>)
+    expect(screen.getByText(/搜索网络 ×2/)).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: /搜索网络 ×2/ }))
+    expect(screen.getAllByText('搜索网络：“ACME”')).toHaveLength(2)
+  })
   it('never renders a raw tool name', () => {
     const { container } = view([
       tool(),

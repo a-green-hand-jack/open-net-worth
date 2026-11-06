@@ -3,6 +3,7 @@
 // the Plan tabs, the sidebar and Lucius stay usable, and it goes away on its own once the
 // answers are saved and the Outlook has what it needs.
 import { useId, useState } from 'react'
+import { useAppIntl } from '../../../i18n/useAppIntl'
 import { authFetch } from '../../../api/client'
 import { PROFILE_KEY } from '../../../hooks/serverState'
 import { Spark } from '../../../lucius/identity'
@@ -37,6 +38,7 @@ export function OutlookSetupModal({
   onSaved: () => void
   onAskLucius: (text: string) => void
 }) {
+  const { formatMessage } = useAppIntl()
   const id = useId()
   const [birthDate, setBirthDate] = useState('')
   const [spending, setSpending] = useState<number | null>(
@@ -92,7 +94,15 @@ export function OutlookSetupModal({
           body: JSON.stringify({ date_of_birth: birthDate }),
         })
         if (!res.ok) {
-          setError(`Could not save your birth date (HTTP ${res.status}).`)
+          setError(
+            formatMessage(
+              {
+                id: 'plan.setupBirthError',
+                defaultMessage: 'Could not save your birth date (HTTP {status}).',
+              },
+              { status: res.status },
+            ),
+          )
           return
         }
         const saved = (await res.json()) as { profile: Record<string, unknown> }
@@ -107,14 +117,24 @@ export function OutlookSetupModal({
           monthlySaving: needsSaving ? (monthlySaving ?? 0) : '',
         })
         if (!ok) {
-          setError('Could not save your answers. Try again.')
+          setError(
+            formatMessage({
+              id: 'plan.setupSaveError',
+              defaultMessage: 'Could not save your answers. Try again.',
+            }),
+          )
           return
         }
       }
       markIntroSeen()
       onSaved()
     } catch {
-      setError('Could not reach the server. Try again.')
+      setError(
+        formatMessage({
+          id: 'plan.setupNetworkError',
+          defaultMessage: 'Could not reach the server. Try again.',
+        }),
+      )
     } finally {
       setSaving(false)
     }
@@ -196,20 +216,31 @@ export function OutlookSetupModal({
           </svg>
           <div className="pl-os-q">
             <span className="pl-os-q-pct">?%</span>
-            <span className="pl-os-q-label">chance your money lasts</span>
+            <span className="pl-os-q-label">
+              {formatMessage({ id: 'plan.setupChance', defaultMessage: 'chance your money lasts' })}
+            </span>
           </div>
         </div>
 
         <div className="pl-os-body">
           <h2 id={`${id}-title`} className="pl-os-title">
-            Will your money last?
+            {formatMessage({ id: 'plan.setupTitle', defaultMessage: 'Will your money last?' })}
           </h2>
           <p className="pl-os-sub">
-            {['One answer', 'Two answers', 'Three answers'][answers - 1] ?? 'A few answers'} and
-            you'll see when you could retire.
+            {formatMessage(
+              {
+                id: 'plan.setupAnswers',
+                defaultMessage:
+                  "{count, plural, =1 {One answer} =2 {Two answers} =3 {Three answers} other {A few answers}} and you'll see when you could retire.",
+              },
+              { count: answers },
+            )}
           </p>
           {needsBirthDate && (
-            <FormField label="Your birth date" htmlFor={`${id}-dob`}>
+            <FormField
+              label={formatMessage({ id: 'plan.setupBirth', defaultMessage: 'Your birth date' })}
+              htmlFor={`${id}-dob`}
+            >
               <DateField
                 id={`${id}-dob`}
                 value={birthDate}
@@ -220,9 +251,15 @@ export function OutlookSetupModal({
           )}
           {needsSaving && (
             <FormField
-              label="Monthly saving now"
+              label={formatMessage({
+                id: 'plan.setupSaving',
+                defaultMessage: 'Monthly saving now',
+              })}
               htmlFor={`${id}-save`}
-              help="What you put aside each month until you retire. 0 is fine."
+              help={formatMessage({
+                id: 'plan.setupSavingHelp',
+                defaultMessage: 'What you put aside each month until you retire. 0 is fine.',
+              })}
             >
               <MoneyField
                 id={`${id}-save`}
@@ -238,12 +275,22 @@ export function OutlookSetupModal({
           )}
           {needsSpending && (
             <FormField
-              label="Monthly spending in retirement"
+              label={formatMessage({
+                id: 'plan.setupSpending',
+                defaultMessage: 'Monthly spending in retirement',
+              })}
               htmlFor={`${id}-spend`}
               help={
                 suggestedSpending > 0
-                  ? 'About what you spend today. Change it if retirement looks different.'
-                  : 'What you expect to spend each month once you stop working.'
+                  ? formatMessage({
+                      id: 'plan.setupSuggested',
+                      defaultMessage:
+                        'About what you spend today. Change it if retirement looks different.',
+                    })
+                  : formatMessage({
+                      id: 'plan.setupSpendingHelp',
+                      defaultMessage: 'What you expect to spend each month once you stop working.',
+                    })
               }
             >
               <MoneyField
@@ -273,10 +320,10 @@ export function OutlookSetupModal({
             iconLeft={<Spark size={15} ariaHidden />}
             onClick={askLucius}
           >
-            Set up with Lucius
+            {formatMessage({ id: 'plan.setupLucius', defaultMessage: 'Set up with Lucius' })}
           </Button>
           <Button size="sm" variant="primary" disabled={!valid} loading={saving} onClick={save}>
-            Show my outlook
+            {formatMessage({ id: 'plan.setupShow', defaultMessage: 'Show my outlook' })}
           </Button>
         </div>
       </div>

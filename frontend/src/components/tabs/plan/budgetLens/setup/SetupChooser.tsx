@@ -11,6 +11,7 @@
 import type { ReactNode } from 'react'
 import { Button, Loading } from '../../../../ui'
 import { Spark } from '../../../../../lucius/identity'
+import { useAppIntl } from '../../../../../i18n/useAppIntl'
 
 export function SetupChooser({
   name,
@@ -30,7 +31,19 @@ export function SetupChooser({
   /** Absent in contexts with no chat dock. */
   onAskLucius?: () => void
 }) {
-  if (busy) return <Loading label={`Reading your spending to size ${name}…`} />
+  const { formatMessage } = useAppIntl()
+  if (busy)
+    return (
+      <Loading
+        label={formatMessage(
+          {
+            id: 'plan.setupChooser.loading',
+            defaultMessage: 'Reading your spending to size {name}…',
+          },
+          { name },
+        )}
+      />
+    )
   return (
     <div className="bgl-chooser">
       {explainer}
@@ -43,15 +56,21 @@ export function SetupChooser({
             iconLeft={<Spark size={15} ariaHidden />}
             onClick={onAskLucius}
           >
-            Set up with Lucius
+            {formatMessage({
+              id: 'plan.setupChooser.lucius',
+              defaultMessage: 'Set up with Lucius',
+            })}
           </Button>
         )}
         <div className="bgl-setup__actions">
           <Button variant="secondary" size="dense" onClick={onDraft}>
-            Suggest from my spending
+            {formatMessage({
+              id: 'plan.setupChooser.suggest',
+              defaultMessage: 'Suggest from my spending',
+            })}
           </Button>
           <Button variant="secondary" size="dense" onClick={onStartBlank}>
-            Set up manually
+            {formatMessage({ id: 'plan.setupChooser.manual', defaultMessage: 'Set up manually' })}
           </Button>
         </div>
       </div>

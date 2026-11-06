@@ -192,7 +192,7 @@ def _validated_row(entry: Any) -> tuple[dict, ConnectorKind]:
     catalog can own for that kind (a built-in, or an MCP server). A legacy per-store document
     (no ``kind`` / ``secrets``) is the old wire format and is refused."""
     if not isinstance(entry, dict) or "kind" not in entry or "secrets" not in entry:
-        raise ValidationError(_STALE_FORMAT)
+        raise ValidationError(_STALE_FORMAT, message_id="move.old_format")
     connector_id, kind = entry.get("id"), CATALOG.get(entry.get("kind"))
     if (
         not isinstance(connector_id, str)
@@ -204,7 +204,9 @@ def _validated_row(entry: Any) -> tuple[dict, ConnectorKind]:
         or not isinstance(entry["secrets"], dict)
         or not isinstance(entry.get("state") or {}, dict)
     ):
-        raise ValidationError("unknown connector in the secrets payload")
+        raise ValidationError(
+            "unknown connector in the secrets payload", message_id="move.connector_unknown"
+        )
     if len(repr(entry)) > _MAX_ROW_BYTES:
         raise ValidationError(f"connector {connector_id} configuration is too large")
     return entry, kind
@@ -287,16 +289,20 @@ def _apply_mcp(entry: dict, skipped: list[dict]) -> bool:
 def apply(payload: Any) -> dict:
     """Write the payload into this instance's stores. Returns names only; ``deferred`` is internal."""
     if not isinstance(payload, dict):
-        raise ValidationError("secrets payload must be an object")
+        raise ValidationError(
+            "secrets payload must be an object", message_id="move.secrets_object_required"
+        )
     if "mcp_servers" in payload:
-        raise ValidationError(_STALE_FORMAT)
+        raise ValidationError(_STALE_FORMAT, message_id="move.old_format")
     providers = payload.get("ai_providers") or {}
     entries = payload.get("connectors") or []
     if not isinstance(providers, dict) or not isinstance(entries, list):
-        raise ValidationError("secrets payload has the wrong shape")
+        raise ValidationError(
+            "secrets payload has the wrong shape", message_id="move.secrets_shape_invalid"
+        )
     rows = [_validated_row(entry) for entry in entries]
     if sum(1 for _, kind in rows if kind.kind == "mcp") > _MAX_MCP_SERVERS:
-        raise ValidationError("too many MCP servers")
+        raise ValidationError("too many MCP servers", message_id="move.mcp_limit")
     skipped: list[dict] = []
     deferred: list[str] = []
     applied = _apply_providers(payload, providers, skipped)

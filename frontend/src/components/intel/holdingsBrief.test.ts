@@ -1,3 +1,5 @@
+import { createIntl } from 'react-intl'
+import messages from './zh-CN.messages.json'
 import { describe, expect, it } from 'vitest'
 import { holdingsBrief } from './holdingsBrief'
 import type { IntelDigest } from '../../types/intelDigest'
@@ -77,4 +79,12 @@ describe('holdingsBrief — verbosity levels', () => {
     expect(text).toContain('Top movers: NVDA +8.20%, AAPL -2.10%.')
     expect(text).toContain('The 1M biggest driver: NVDA')
   })
+})
+
+const chineseIntl = createIntl({ locale: 'zh-CN', messages })
+it('renders the portfolio direction and benchmark in Chinese', () => {
+  const text = holdingsBrief(DIGEST, 4, chineseIntl)
+  expect(text).toContain('领涨')
+  expect(text).toContain('领先 SPY 1.9')
+  expect(text).toContain('主要变动')
 })

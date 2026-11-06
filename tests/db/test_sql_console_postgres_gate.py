@@ -42,8 +42,39 @@ def test_settings_reads_whether_sql_can_actually_run(db_engine, monkeypatch):
         "enabled": True,
         "available": False,
         "reason": "a reason",
+        "reason_message": None,
         "fix": 'ALTER ROLE "x" CREATEROLE;',
     }
+
+
+def test_settings_preserves_structured_reason_and_legacy_text(db_engine, monkeypatch):
+    from backend.api import config as config_api
+
+    message = {"id": "sqlAccess.reason.signinExternal", "params": {"role": "custom-role"}}
+    monkeypatch.setattr(
+        config_api,
+        "console_status",
+        lambda: sql_console_role.ConsoleStatus(False, "legacy reason", reason_message=message),
+    )
+    got = config_api.get_sql_query_config()
+    assert got["reason"] == "legacy reason"
+    assert got["reason_message"] == message
+
+
+def test_role_creation_failure_keeps_login_as_data():
+    from unittest.mock import Mock
+
+    conn = Mock()
+    conn.execute.side_effect = [
+        Mock(scalar_one=lambda: "user-role"),
+        Mock(scalar_one=lambda: "160000"),
+    ]
+    error = sql_console_role._no_createrole(conn, "onw_sql_test")
+    assert error.reason_message == {
+        "id": "sqlAccess.reason.createRole",
+        "params": {"login": "user-role"},
+    }
+    assert "user-role" in error.reason
 
 
 # ── _scrub: every string form, so a ';' or a keyword inside one is data ──────────────────

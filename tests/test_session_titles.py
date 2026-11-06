@@ -226,6 +226,50 @@ def test_patch_without_auto_is_a_rename(client):
     assert (_meta("s-patch")["title"], _meta("s-patch")["title_source"]) == ("Mine", "user")
 
 
+def test_placeholder_is_marked_and_yields_to_derived_and_user_titles(client):
+    c, _ = client
+    c.patch(
+        "/api/sessions/s-placeholder",
+        json={"title": "New conversation", "auto": True, "placeholder": True},
+    )
+    assert _meta("s-placeholder")["title_source"] == "placeholder"
+    assert (
+        next(row for row in c.get("/api/sessions").json() if row["id"] == "s-placeholder")[
+            "title_source"
+        ]
+        == "placeholder"
+    )
+    c.patch("/api/sessions/s-placeholder", json={"title": "First message", "auto": True})
+    c.patch(
+        "/api/sessions/s-placeholder",
+        json={"title": "New conversation", "auto": True, "placeholder": True},
+    )
+    assert (_meta("s-placeholder")["title"], _meta("s-placeholder")["title_source"]) == (
+        "First message",
+        "auto",
+    )
+    c.patch("/api/sessions/s-placeholder", json={"title": "New conversation"})
+    assert _meta("s-placeholder")["title_source"] == "user"
+
+
+def test_onboarding_title_source_survives_listing_and_yields_to_rename(client):
+    c, _ = client
+    title = "Onboarding to Open Net Worth"
+    assert (
+        c.patch(
+            "/api/sessions/s-onboarding", json={"title": title, "auto": True, "onboarding": True}
+        ).status_code
+        == 200
+    )
+    row = next(row for row in c.get("/api/sessions").json() if row["id"] == "s-onboarding")
+    assert (row["title"], row["title_source"]) == (title, "onboarding")
+    c.patch("/api/sessions/s-onboarding", json={"title": title})
+    c.patch("/api/sessions/s-onboarding", json={"title": title, "auto": True, "onboarding": True})
+    assert _meta("s-onboarding")["title_source"] == "user"
+    c.patch("/api/sessions/s-other", json={"title": "Custom", "auto": True, "onboarding": True})
+    assert _meta("s-other")["title_source"] == "auto"
+
+
 def test_live_listing_reports_recent_titles(client, monkeypatch):
     c, _ = client
     monkeypatch.setattr(session_titles, "_recent", {"s-live": 9e12})

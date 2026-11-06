@@ -102,7 +102,11 @@ def find_or_create_position(
         }
     )
     if result.get("error"):
-        raise ValidationError(f"failed to create {role} position: {result['error']}")
+        raise ValidationError(
+            f"failed to create {role} position: {result['error']}",
+            message_id="equity.error.createPosition",
+            message_params={"role": str(role), "reason": str(result["error"])},
+        )
     return result["position_id"]
 
 
@@ -141,6 +145,7 @@ def assert_no_existing_vest_lot(position_id: str, tranche_id: str) -> None:
                 "a vest lot already exists for this tranche",
                 tranche_id=tranche_id,
                 lot_id=lot.get("id"),
+                message_id="equity.error.vestLotExists",
             )
 
 
@@ -226,7 +231,11 @@ def create_vest_lot(
         }
     )
     if result.get("error"):
-        raise ValidationError(f"failed to create vest lot: {result['error']}")
+        raise ValidationError(
+            f"failed to create vest lot: {result['error']}",
+            message_id="equity.error.createVestLot",
+            message_params={"reason": str(result["error"])},
+        )
     return result.get("lot_id")
 
 
@@ -320,6 +329,7 @@ def apply_release(change: dict) -> dict:
             "release_date cannot be before the vest date",
             release_date=release_date,
             vest_date=ev["date"],
+            message_id="equity.error.releaseBeforeVest",
         )
 
     units = float(ev.get("units") or 0)
@@ -410,13 +420,16 @@ def _validate_release(change: dict) -> tuple[dict, dict, str]:
     if not ev and change.get("grant_id") and change.get("tranche_id"):
         ev = _svc().vest_events.find_by_grant_tranche(change["grant_id"], change["tranche_id"])
     if not ev:
-        raise NotFoundError("vest event not found", vest_event_id=ev_id)
+        raise NotFoundError(
+            "vest event not found", vest_event_id=ev_id, message_id="equity.error.vestNotFound"
+        )
 
     if ev.get("released_on"):
         raise ValidationError(
             "this vest was already released",
             vest_event_id=ev["id"],
             released_on=ev["released_on"],
+            message_id="equity.error.alreadyReleased",
         )
     if ev.get("pending_release") is True:
         release_mode = "move_pending"
@@ -427,11 +440,14 @@ def _validate_release(change: dict) -> tuple[dict, dict, str]:
             "this vest is not awaiting release — its shares were delivered at vest",
             vest_event_id=ev["id"],
             hint="only grants with release_required=true have a release step",
+            message_id="equity.error.notAwaitingRelease",
         )
 
     grant = _svc().grants.find_by_id(ev.get("grant_id", ""))
     if not grant:
-        raise NotFoundError("grant not found", grant_id=ev.get("grant_id"))
+        raise NotFoundError(
+            "grant not found", grant_id=ev.get("grant_id"), message_id="equity.error.grantNotFound"
+        )
     return ev, grant, release_mode
 
 
@@ -447,6 +463,7 @@ def _account_for(grant: dict, ev: dict) -> str:
         raise ValidationError(
             "cannot determine the delivery account for this release",
             grant_id=grant.get("id"),
+            message_id="equity.error.deliveryAccountRequired",
         )
     return account_id
 

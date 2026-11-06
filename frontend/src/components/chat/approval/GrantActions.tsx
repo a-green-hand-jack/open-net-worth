@@ -1,8 +1,9 @@
+import { useAppIntl } from '../../../i18n/useAppIntl'
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
-import { GRANT_SCOPE_LABELS, type GrantScope } from '../../../api/toolPermissions'
+import { type GrantScope } from '../../../api/toolPermissions'
 import { ChevronDown } from '../../../ui/icons'
 
-const ALWAYS_NOTE = 'every future call, any amount • revoke in Settings'
+
 
 // The row needs this much width for [Allow once] [Always allow] … [Deny] on one line.
 const WIDE_MIN_PX = 300
@@ -26,6 +27,7 @@ export function GrantActions({
   onAlways: () => void
   onDeny: () => void
 }) {
+  const intl = useAppIntl()
   const rowRef = useRef<HTMLDivElement | null>(null)
   const wide = useFitsWidth(rowRef, WIDE_MIN_PX)
   const locked = busy !== null || disabled
@@ -38,15 +40,15 @@ export function GrantActions({
             disabled={locked}
             onClick={onOnce}
           >
-            {busy === 'once' ? 'Saving…' : GRANT_SCOPE_LABELS.once}
+            {busy === 'once' ? intl.formatMessage({ id: 'chat.permission.saving', defaultMessage: 'Saving…' }) : intl.formatMessage({ id: 'chat.permission.once', defaultMessage: 'Allow once' })}
           </button>
           <button
             className="change-confirm-btn change-grant-btn change-grant-btn--always"
             disabled={locked}
-            title={ALWAYS_NOTE}
+            title={intl.formatMessage({ id: 'chat.permission.alwaysNote', defaultMessage: 'every future call, any amount • revoke in Settings' })}
             onClick={onAlways}
           >
-            {busy === 'always' ? 'Saving…' : GRANT_SCOPE_LABELS.always}
+            {busy === 'always' ? intl.formatMessage({ id: 'chat.permission.saving', defaultMessage: 'Saving…' }) : intl.formatMessage({ id: 'chat.permission.always', defaultMessage: 'Always allow' })}
           </button>
         </>
       ) : (
@@ -57,7 +59,7 @@ export function GrantActions({
         disabled={busy !== null}
         onClick={onDeny}
       >
-        Deny
+        {intl.formatMessage({ id: 'chat.permission.deny', defaultMessage: 'Deny' })}
       </button>
     </div>
   )
@@ -77,6 +79,7 @@ function GrantSplit({
   onOnce: () => void
   onAlways: () => void
 }) {
+  const intl = useAppIntl()
   const [open, setOpen] = useState(false)
   const ref = useRef<HTMLDivElement | null>(null)
   // Closes on outside click and Escape — a permission menu that stays open after you look
@@ -105,14 +108,14 @@ function GrantSplit({
       >
         {/* The in-flight label lives on the visible button, not the menu item that started
             it: the menu closes on click, so a "Saving…" inside it would vanish at once. */}
-        {busy ? 'Saving…' : GRANT_SCOPE_LABELS.once}
+        {busy ? intl.formatMessage({ id: 'chat.permission.saving', defaultMessage: 'Saving…' }) : intl.formatMessage({ id: 'chat.permission.once', defaultMessage: 'Allow once' })}
       </button>
       <button
         className="change-grant-btn grant-split__caret"
         disabled={locked}
         aria-haspopup="menu"
         aria-expanded={open}
-        aria-label="Standing permission"
+        aria-label={intl.formatMessage({ id: 'chat.permission.standing', defaultMessage: 'Standing permission' })}
         onClick={() => setOpen((v) => !v)}
       >
         <ChevronDown size={12} strokeWidth={2} aria-hidden="true" />
@@ -128,8 +131,8 @@ function GrantSplit({
               onAlways()
             }}
           >
-            <span className="grant-split__item-label">{GRANT_SCOPE_LABELS.always}</span>
-            <span className="grant-split__item-note">{ALWAYS_NOTE}</span>
+            <span className="grant-split__item-label">{intl.formatMessage({ id: 'chat.permission.always', defaultMessage: 'Always allow' })}</span>
+            <span className="grant-split__item-note">{intl.formatMessage({ id: 'chat.permission.alwaysNote', defaultMessage: 'every future call, any amount • revoke in Settings' })}</span>
           </button>
         </div>
       )}

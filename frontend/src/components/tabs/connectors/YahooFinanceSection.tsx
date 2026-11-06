@@ -1,7 +1,8 @@
+import { useConnectorRelativeTime } from './useConnectorRelativeTime'
+import { useAppIntl } from '../../../i18n/useAppIntl'
 import { useEffect, useState } from 'react'
 import { authFetch } from '../../../api/client'
 import { Badge, Cluster, Stack, Switch, Text } from '../../ui'
-import { timeAgo } from '../../../utils/format'
 
 // Yahoo Finance connector config — reuses the SAME /api/market-data/config + /status
 // endpoints the retired "Data" settings panel used (MarketDataPanel.tsx), just hosted
@@ -39,11 +40,6 @@ interface MarketDataStatus extends ProviderHealth {
 const CONFIG_URL = '/api/market-data/config'
 const STATUS_URL = '/api/market-data/status'
 
-function relativeTime(iso: string): string {
-  const at = new Date(iso).getTime()
-  return Number.isFinite(at) && at > Date.now() ? 'just now' : timeAgo(iso)
-}
-
 function health(status: ProviderHealth): {
   label: string
   tone: 'pos' | 'warn' | 'neg' | 'neutral'
@@ -59,6 +55,8 @@ function health(status: ProviderHealth): {
 }
 
 export function YahooFinanceSection() {
+  const { formatMessage } = useAppIntl()
+  const relativeTime = useConnectorRelativeTime()
   const [cfg, setCfg] = useState<MarketDataConfig | null>(null)
   const [status, setStatus] = useState<MarketDataStatus | null>(null)
   const [error, setError] = useState(false)
@@ -96,7 +94,7 @@ export function YahooFinanceSection() {
       setCfg((await r.json()) as MarketDataConfig)
     } catch {
       setCfg(previous)
-      setSaveErr('Could not save — try again.')
+      setSaveErr(formatMessage({ id: 'connectors.yahoo.save', defaultMessage: 'Could not save — try again.' }))
     } finally {
       setSaving(false)
     }
@@ -105,14 +103,14 @@ export function YahooFinanceSection() {
   if (error) {
     return (
       <Text size="sm" tone="bad">
-        Could not load Yahoo Finance&apos;s settings.
+        {formatMessage({ id: 'connectors.yahoo.load', defaultMessage: "Could not load Yahoo Finance's settings." })}
       </Text>
     )
   }
   if (!cfg) {
     return (
       <Text size="sm" tone="faint">
-        Loading…
+        {formatMessage({ id: 'connectors.email.loading', defaultMessage: 'Loading…' })}
       </Text>
     )
   }
@@ -124,39 +122,36 @@ export function YahooFinanceSection() {
   return (
     <Stack gap="--space-4">
       <Text size="sm" tone="faint">
-        Every equity and ETF quote comes from Yahoo Finance — no account or API key needed.
-        Supported major crypto pairs priced in USD use it first too, before falling back to
-        CoinGecko.
+        {formatMessage({ id: 'connectors.yahoo.intro', defaultMessage: 'Every equity and ETF quote comes from Yahoo Finance — no account or API key needed. Supported major crypto pairs priced in USD use it first too, before falling back to CoinGecko.' })}
       </Text>
 
       <Cluster justify="between" gap="--space-4" wrap={false}>
         <Text size="xs" tone="faint">
           {status?.yahoo.last_ok_at
-            ? `Last successful ${relativeTime(status.yahoo.last_ok_at)}`
-            : 'No successful call recorded yet.'}
+            ? formatMessage({ id: 'connectors.yahoo.last', defaultMessage: 'Last successful {time}' }, { time: relativeTime(status.yahoo.last_ok_at) })
+            : formatMessage({ id: 'connectors.yahoo.noCalls', defaultMessage: 'No successful call recorded yet.' })}
         </Text>
-        <Badge tone={yahooHealth.tone}>{yahooHealth.label}</Badge>
+        <Badge tone={yahooHealth.tone}>{yahooHealth.label === 'Cooling down' ? formatMessage({ id: 'connectors.yahoo.cooling', defaultMessage: 'Cooling down' }) : yahooHealth.label === 'Recovering' ? formatMessage({ id: 'connectors.yahoo.recovering', defaultMessage: 'Recovering' }) : yahooHealth.label === 'Unavailable' ? formatMessage({ id: 'connectors.yahoo.unavailable', defaultMessage: 'Unavailable' }) : yahooHealth.label === 'Available' ? formatMessage({ id: 'connectors.yahoo.available', defaultMessage: 'Available' }) : formatMessage({ id: 'connectors.yahoo.notChecked', defaultMessage: 'Not checked yet' })}</Badge>
       </Cluster>
 
       <Cluster justify="between" gap="--space-4" align="center" wrap={false}>
         <Stack gap="--space-1">
-          <Text size="sm">Use Yahoo Finance first for supported major crypto</Text>
+          <Text size="sm">{formatMessage({ id: 'connectors.yahoo.switch', defaultMessage: 'Use Yahoo Finance first for supported major crypto' })}</Text>
           <Text size="xs" tone="faint">
-            Recommended. Turn this off only to temporarily restore CoinGecko-first chart and quote
-            requests — identities and saved charts do not change.
+            {formatMessage({ id: 'connectors.yahoo.recommend', defaultMessage: 'Recommended. Turn this off only to temporarily restore CoinGecko-first chart and quote requests — identities and saved charts do not change.' })}
           </Text>
         </Stack>
         <Switch
           checked={cfg.yahoo_primary_for_major_crypto}
           disabled={saving}
-          aria-label="Use Yahoo Finance first for supported major crypto"
+          aria-label={formatMessage({ id: 'connectors.yahoo.switch', defaultMessage: 'Use Yahoo Finance first for supported major crypto' })}
           onChange={(e) => void setYahooFirst(e.target.checked)}
         />
       </Cluster>
 
       {!cfg.yahoo_primary_for_major_crypto && (
         <Text size="xs" tone="warn">
-          CoinGecko is used first for major crypto right now, not Yahoo Finance.
+          {formatMessage({ id: 'connectors.yahoo.warning', defaultMessage: 'CoinGecko is used first for major crypto right now, not Yahoo Finance.' })}
         </Text>
       )}
 

@@ -18,6 +18,8 @@ const fetchMock = vi.fn()
 vi.mock('../../api/client', () => ({ authFetch: (...a: unknown[]) => fetchMock(...a) }))
 
 import { WriteReceiptChip } from './WriteReceiptChip'
+import { IntlProvider } from 'react-intl'
+import scanMessages from '../scan-fixes.zh-CN.messages.json'
 import { __test__setDescriptor } from '../../lucius/entityRegistry'
 import { TransactionSurfacesContext } from '../tabs/accounts/transactionSurfacesContext'
 import type { ReceiptMention, WriteReceipt, WriteReceiptItem } from '../../types/chat'
@@ -344,3 +346,11 @@ it('opens the transaction drawer in place, by id, never navigating away', () => 
 // (MAX_CHECKPOINTS evicts), and the four states needed to say that honestly
 // (undoable / gone / retryable-409 / error) were more machinery than the affordance was
 // worth.
+
+
+it('localizes receipt operations without altering user entity names', () => {
+  render(<IntlProvider locale="zh-CN" messages={scanMessages}><WriteReceiptChip receipt={receipt()} /></IntlProvider>)
+  expect(screen.getByText('已添加 1 项交易')).toBeTruthy()
+  fireEvent.click(screen.getByRole('button', { expanded: false }))
+  expect(screen.getByText('Grab ride home')).toBeTruthy()
+})

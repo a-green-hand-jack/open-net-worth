@@ -2,6 +2,8 @@
 // Shows allocation bars with target markers and drift badges.
 
 import { useState } from 'react'
+import { useAppIntl } from '../../../i18n/useAppIntl'
+import { investmentClassLabel } from './investmentClassLabel'
 import { ASSET_CLASS_COLOR, ASSET_CLASS_LABEL } from '../../../utils/constants'
 import { EntityRow } from '../../../lucius/EntityRow'
 import type { DerivedBook } from './useInvestmentsBook'
@@ -48,6 +50,9 @@ function Card({
 }
 
 export function Allocation({ alloc, d, onSaveTargets }: Props) {
+  const intl = useAppIntl()
+  const { formatMessage } = intl
+  const className = (cls: string) => investmentClassLabel(cls, clsDisplayName(cls), intl)
   // Drift (pp) at/above which a class is flagged "off target" — the server's ONE constant
   // (rebalance.DRIFT_FLAG_PP), never a number of our own (MATH-37).
   const thresholdPp = d.thresholdPp
@@ -66,13 +71,15 @@ export function Allocation({ alloc, d, onSaveTargets }: Props) {
 
   if (editing) {
     return (
-      <Card title="Adjust target mix">
+      <Card
+        title={formatMessage({ id: 'allocation.adjustMix', defaultMessage: 'Adjust target mix' })}
+      >
         <div className="mk-tgt-edit">
           {alloc.map((a) => (
             <div className="mk-tgt-erow" key={a.cls}>
               <span className="mk-tgt-elbl">
                 <span className="mk-atl-dot" style={{ background: clsColor(a.cls) }} />
-                {clsDisplayName(a.cls)}
+                {className(a.cls)}
               </span>
               <input
                 className="mk-tgt-input"
@@ -94,7 +101,9 @@ export function Allocation({ alloc, d, onSaveTargets }: Props) {
           ))}
         </div>
         <div className="mk-tgt-sum">
-          <span>Must total 100%</span>
+          <span>
+            {formatMessage({ id: 'allocation.mustTotal', defaultMessage: 'Must total 100%' })}
+          </span>
           <b style={{ color: balanced ? 'var(--good)' : 'var(--warn)' }}>{Math.round(sum)}%</b>
         </div>
         <div className="mk-tgt-foot">
@@ -111,10 +120,10 @@ export function Allocation({ alloc, d, onSaveTargets }: Props) {
               setEditing(false)
             }}
           >
-            Save targets
+            {formatMessage({ id: 'allocation.save', defaultMessage: 'Save targets' })}
           </Button>
           <Button variant="ghost" size="sm" onClick={() => setEditing(false)}>
-            Cancel
+            {formatMessage({ id: 'allocation.cancel', defaultMessage: 'Cancel' })}
           </Button>
         </div>
       </Card>
@@ -123,10 +132,16 @@ export function Allocation({ alloc, d, onSaveTargets }: Props) {
 
   return (
     <Card
-      title={hasTargets ? 'Allocation vs target' : 'Allocation'}
+      title={
+        hasTargets
+          ? formatMessage({ id: 'allocation.vsTarget', defaultMessage: 'Allocation vs target' })
+          : formatMessage({ id: 'allocation.title', defaultMessage: 'Allocation' })
+      }
       meta={
         <button className="mk-card-edit" onClick={start}>
-          {hasTargets ? 'Adjust' : 'Set targets'}
+          {hasTargets
+            ? formatMessage({ id: 'allocation.adjust', defaultMessage: 'Adjust' })
+            : formatMessage({ id: 'allocation.setTargets', defaultMessage: 'Set targets' })}
         </button>
       }
     >
@@ -141,14 +156,24 @@ export function Allocation({ alloc, d, onSaveTargets }: Props) {
               key={a.cls}
               type="allocation_slice"
               id={`asset_class:${a.cls}`}
-              label={clsDisplayName(a.cls)}
-              sublabel={hasTargets ? `${a.cur}% • target ${a.tgt}%` : `${a.cur}%`}
+              label={className(a.cls)}
+              sublabel={
+                hasTargets
+                  ? formatMessage(
+                      {
+                        id: 'allocation.currentTarget',
+                        defaultMessage: '{current}% • target {target}%',
+                      },
+                      { current: a.cur, target: a.tgt },
+                    )
+                  : `${a.cur}%`
+              }
               item={a}
               toFields={(it) => ({ axis: 'asset_class', selector: it.cls })}
             >
               <div className="mk-atl-top">
                 <span className="mk-atl-dot" style={{ background: clsColor(a.cls) }} />
-                <span className="mk-atl-nm">{clsDisplayName(a.cls)}</span>
+                <span className="mk-atl-nm">{className(a.cls)}</span>
                 <span className="mk-atl-cur">{a.cur}%</span>
                 {hasTargets && (
                   <span
@@ -181,12 +206,22 @@ export function Allocation({ alloc, d, onSaveTargets }: Props) {
         {hasTargets ? (
           <>
             <span className="mk-tgt-key">
-              <i /> target
+              <i /> {formatMessage({ id: 'allocation.target', defaultMessage: 'target' })}
             </span>
-            <span>• over the investment book (excl. cash)</span>
+            <span>
+              {formatMessage({
+                id: 'allocation.book',
+                defaultMessage: '• over the investment book (excl. cash)',
+              })}
+            </span>
           </>
         ) : (
-          <span>No target set. Over the investment book (excl. cash).</span>
+          <span>
+            {formatMessage({
+              id: 'allocation.noTarget',
+              defaultMessage: 'No target set. Over the investment book (excl. cash).',
+            })}
+          </span>
         )}
       </div>
     </Card>

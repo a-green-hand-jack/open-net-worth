@@ -22,6 +22,8 @@ vi.mock('./useBudgetModel', async (importOriginal) => {
 
 import { BudgetTab } from './budget'
 import { fBase, fSmart, statusOf } from './planData'
+import { IntlProvider } from 'react-intl'
+import messages from './zh-CN.messages.json'
 
 // Synthetic book: one envelope carrying last month's hole (nothing assigned, nothing spent this
 // month), one overspent this month, one funded. S$5.00 of spending has no category (Uncategorized)
@@ -112,6 +114,17 @@ beforeEach(() => {
 afterEach(() => cleanup())
 
 describe('the Budget summary "available" is the plain envelope sum', () => {
+  it('localizes the summary and month while keeping user envelope names', () => {
+    const { container } = render(
+      <IntlProvider locale="zh-CN" messages={messages} onError={() => {}}>
+        <BudgetTab toast={vi.fn()} />
+      </IntlProvider>,
+    )
+    expect(container.textContent).toContain('待分配')
+    expect(container.textContent).toContain('2026年7月')
+    expect(container.textContent).toContain('Groceries')
+  })
+
   it('the mini "available" line and the Total row both show it, untooltipped', () => {
     // The header's own "Total available" stat block is gone (owner ask, 2026-09-14 — it
     // duplicated the filter chips/rail, matching YNAB's own minimal header); this figure now

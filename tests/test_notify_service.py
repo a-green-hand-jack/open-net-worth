@@ -75,6 +75,26 @@ def test_no_telegram_still_delivers_via_in_app(isolated_signals):
     assert sigs[0]["read"] is False
 
 
+def test_presentation_metadata_only_reaches_in_app_store(clean_registry, isolated_signals):
+    from backend.db import NotificationLogStore
+    from backend.services.notify import _in_app_send
+
+    received = []
+
+    async def external(message):
+        received.append(message)
+        return {"sent": 1}
+
+    channels.register_channel("in_app", _in_app_send)
+    channels.register_channel("external", external)
+    metadata = {"id": "inbox.server.paymentTitle", "params": {}}
+    asyncio.run(notify("synthetic message", title="Payment reminder", title_message=metadata))
+    signal = NotificationLogStore().query_signals()[0]
+    assert signal["title_message"] == metadata
+    assert signal["summary"] == "synthetic message"
+    assert received == ["synthetic message"]
+
+
 # ── channels= targeting + unknown-channel skip (AC-10) ──────────────────────────
 
 

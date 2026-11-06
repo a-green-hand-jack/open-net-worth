@@ -1,3 +1,4 @@
+import { useAppIntl } from '../../i18n/useAppIntl'
 import type { TickerStories } from '../../hooks/useIntelStoryIndex'
 
 // A small "N stories" marker on an Investments holding that has live Intel stories. It lives
@@ -9,8 +10,24 @@ export function IntelStoryDot({
   stories: TickerStories | undefined
   onOpen: (storyId: string) => void
 }) {
+  const { formatMessage } = useAppIntl()
   if (!stories) return null
-  const label = `${stories.count} live Intel ${stories.count === 1 ? 'story' : 'stories'}${stories.unread ? `, ${stories.unread} unread` : ''} — open in Intel`
+  const label = formatMessage(
+    {
+      id: 'shared.chart.storyLabel',
+      defaultMessage:
+        '{count, plural, one {# live Intel story} other {# live Intel stories}}{unread} — open in Intel',
+    },
+    {
+      count: stories.count,
+      unread: stories.unread
+        ? formatMessage(
+            { id: 'shared.chart.storyUnread', defaultMessage: ', {count} unread' },
+            { count: stories.unread },
+          )
+        : '',
+    },
+  )
   return (
     <button
       type="button"

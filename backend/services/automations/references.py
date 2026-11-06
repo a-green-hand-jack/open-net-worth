@@ -100,7 +100,11 @@ def _resolve_condition_references(when: dict, options: dict | None, keep: set[st
 
 def _resolve_reference(raw_ref: object, rows: list[dict], noun: str, event: str) -> str:
     if not isinstance(raw_ref, str) or not raw_ref.strip():
-        raise ValidationError(f"automation {noun} reference must be a non-empty string")
+        raise ValidationError(
+            f"automation {noun} reference must be a non-empty string",
+            message_id="automation.error.referenceRequired",
+            message_params={"noun": noun},
+        )
     ref = raw_ref.strip()
     exact_ids = [row for row in rows if str(row.get("id") or "") == ref]
     if exact_ids:
@@ -112,11 +116,17 @@ def _resolve_reference(raw_ref: object, rows: list[dict], noun: str, event: str)
         return str(matches[0]["id"])
     if len(matches) > 1:
         ids = ", ".join(str(row.get("id") or "") for row in matches)
-        raise ValidationError(f"automation {noun} reference {ref!r} is ambiguous: {ids}")
+        raise ValidationError(
+            f"automation {noun} reference {ref!r} is ambiguous: {ids}",
+            message_id="automation.error.referenceAmbiguous",
+            message_params={"noun": noun, "reference": ref, "ids": ids},
+        )
     if event == "price":
         return ref.upper()
     labels = ", ".join(str(row.get("label") or row.get("id")) for row in rows[:8])
     suffix = f" Existing: {labels}." if labels else " No persisted choices are available."
     raise ValidationError(
-        f"automation {noun} reference {ref!r} does not match a persisted {noun}.{suffix}"
+        f"automation {noun} reference {ref!r} does not match a persisted {noun}.{suffix}",
+        message_id="automation.error.referenceMissing",
+        message_params={"noun": noun, "reference": ref, "choices": labels},
     )

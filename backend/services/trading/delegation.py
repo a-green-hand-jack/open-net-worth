@@ -10,7 +10,7 @@ from backend.models.trading import (
     MandateAmendment,
     WorkspaceCreate,
 )
-from backend.services.trading.common import event, fingerprint, now, validated
+from backend.services.trading.common import error_notice, event, fingerprint, notice, now, validated
 from backend.services.trading.lifecycle import apply_run_action
 from backend.services.trading.workspaces import (
     create_run,
@@ -42,23 +42,34 @@ def executor_capabilities(workspace):
 
 def review_delegation(data):
     clean = validated(DelegationCreate, data)
-    issues = []
+    issue_messages = []
     if clean["environment"]["mode"] == "live" and not clean["environment"]["live_authorized"]:
-        issues.append(
-            "Explicit account-specific human authorization is required to start live trading."
+        issue_messages.append(
+            notice(
+                "trading.notice.live_authorization_required",
+                "Explicit account-specific human authorization is required to start live trading.",
+            )
         )
     if clean["workspace"]["agent_kind"] == "script" and not clean["workspace"].get(
         "strategy_source"
     ):
-        issues.append(
-            "The executor must provide strategy code before automatic script work can start."
+        issue_messages.append(
+            notice(
+                "trading.notice.strategy_required",
+                "The executor must provide strategy code before automatic script work can start.",
+            )
         )
     return {
         **clean,
-        "ready": not issues,
-        "issues": issues,
+        "ready": not issue_messages,
+        "issues": [message["default_message"] for message in issue_messages],
+        "issue_messages": issue_messages,
         "executor": executor_capabilities(clean["workspace"]),
         "review_notice": "Starting real trading requires verified account authority and execution prerequisites.",
+        "review_notice_message": notice(
+            "trading.notice.live_review",
+            "Starting real trading requires verified account authority and execution prerequisites.",
+        ),
     }
 
 
@@ -77,9 +88,20 @@ async def create_delegation(data):
             result["run"] = await apply_run_action(run["id"], {"action": "start"})
             result["started"] = True
         except OpenNetWorthError as exc:
-            result["activation_error"] = {"code": exc.code, "message": redact_text(exc.message)}
+            message = redact_text(exc.message)
+            localized = error_notice(exc, message)
+            result["activation_error"] = {
+                "code": exc.code,
+                "message": message,
+                "localized": localized,
+            }
             result["run"] = update_runtime(
-                run["id"], {"last_agent_error": redact_text(exc.message), "agent_state": "blocked"}
+                run["id"],
+                {
+                    "last_agent_error": message,
+                    "last_agent_error_message": localized,
+                    "agent_state": "blocked",
+                },
             )
     return result
 
@@ -89,11 +111,15 @@ async def activate_delegation(workspace_id, data):
     with trading_transaction() as conn:
         workspace = TradingStore("workspaces").required(workspace_id, conn=conn)
         if workspace["revision"] != clean["expected_revision"]:
-            raise ConflictError("Mandate changed; review the latest revision before activating")
+            raise ConflictError(
+                "Mandate changed; review the latest revision before activating",
+                message_id="trading.error.mandate_changed_activate",
+            )
         runs = TradingStore("runs").list_scope(workspace_id, conn=conn)
         if any(run["state"] not in {"stopped", "completed", "failed"} for run in runs):
             raise ConflictError(
-                "This workspace already has an unfinished environment; resume or end it first"
+                "This workspace already has an unfinished environment; resume or end it first",
+                message_id="trading.error.unfinished_environment",
             )
         run = create_run(workspace_id, clean["environment"], conn=conn)
     result = {
@@ -106,9 +132,20 @@ async def activate_delegation(workspace_id, data):
             result["run"] = await apply_run_action(run["id"], {"action": "start"})
             result["started"] = True
         except OpenNetWorthError as exc:
-            result["activation_error"] = {"code": exc.code, "message": redact_text(exc.message)}
+            message = redact_text(exc.message)
+            localized = error_notice(exc, message)
+            result["activation_error"] = {
+                "code": exc.code,
+                "message": message,
+                "localized": localized,
+            }
             result["run"] = update_runtime(
-                run["id"], {"last_agent_error": redact_text(exc.message), "agent_state": "blocked"}
+                run["id"],
+                {
+                    "last_agent_error": message,
+                    "last_agent_error_message": localized,
+                    "agent_state": "blocked",
+                },
             )
     return result
 
@@ -140,6 +177,9 @@ def workspace_overview(workspace_id):
             "next_wake_at": (current or {}).get("next_wake_at"),
             "blocker": (current or {}).get("environment_error")
             or (current or {}).get("last_agent_error"),
+            "blocker_message": (current or {}).get("environment_error_message")
+            if (current or {}).get("environment_error")
+            else (current or {}).get("last_agent_error_message"),
             "executor": workspace["agent_label"],
         },
         "visibility": {
@@ -185,12 +225,16 @@ def amend_mandate(workspace_id, data):
         store = TradingStore("workspaces")
         workspace = store.required(workspace_id, conn=conn)
         if workspace["revision"] != clean["expected_revision"]:
-            raise ConflictError("Mandate changed; review the latest revision before amending")
+            raise ConflictError(
+                "Mandate changed; review the latest revision before amending",
+                message_id="trading.error.mandate_changed_amend",
+            )
         runs = TradingStore("runs").list_scope(workspace_id, conn=conn)
         active = [r for r in runs if r["state"] not in {"stopped", "completed", "failed"}]
         if any(r["state"] not in {"paused", "ready"} or r.get("agent_lease_id") for r in active):
             raise ConflictError(
-                "Pause the workspace and settle its current work before amending the mandate"
+                "Pause the workspace and settle its current work before amending the mandate",
+                message_id="trading.error.pause_before_amend",
             )
         before = {key: workspace.get(key) for key in WorkspaceCreate.model_fields}
         after = {
@@ -256,5 +300,8 @@ def amend_mandate(workspace_id, data):
 async def workspace_action(workspace_id, data):
     overview = workspace_overview(workspace_id)
     if overview["current_run"] is None:
-        raise ConflictError("Review the workspace's environment and allocation before starting")
+        raise ConflictError(
+            "Review the workspace's environment and allocation before starting",
+            message_id="trading.error.review_before_start",
+        )
     return await apply_run_action(overview["current_run"]["id"], data)

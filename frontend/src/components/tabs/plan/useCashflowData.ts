@@ -7,6 +7,8 @@ import { useEffect, useRef, useState } from 'react'
 import { authFetch } from '../../../api/client'
 import { invalidateQueryCache, useQueryCache } from '../../../state/queryCache'
 import { fMonth } from '../../../utils/format'
+import type { CashflowMessage } from './cashflowMessages'
+import { useAppIntl } from '../../../i18n/useAppIntl'
 
 // ── Server response types (mirrors CashFlow.tsx) ─────────────────────────────
 
@@ -20,6 +22,9 @@ export interface CashEvent {
   /** Server marks the averaged VARIABLE buckets so the UI can group them apart from the
    *  named recurring streams — an average over many items is not a bill. */
   variable?: boolean
+  label_message?: CashflowMessage
+  category_message?: CashflowMessage
+  note_message?: CashflowMessage
 }
 
 export interface ServerMonthRow {
@@ -79,6 +84,9 @@ export interface MappedEvent {
    *  but a 3-month average over many, so it gets its own group rather than sitting silently
    *  at the end of the named streams. */
   variable?: boolean
+  label_message?: CashflowMessage
+  category_message?: CashflowMessage
+  note_message?: CashflowMessage
 }
 
 export interface MappedRow {
@@ -142,6 +150,9 @@ function mapMonths(serverMonths: ServerMonthRow[], floor: number): MappedRow[] {
         dir: e.direction,
         amt: e.amount_base,
         label: e.label,
+        label_message: e.label_message,
+        category_message: e.category_message,
+        note_message: e.note_message,
         note: e.note || undefined,
         recurring: e.status === 'recurring',
         variable: !!e.variable,
@@ -218,6 +229,7 @@ function loadSaved(): Record<string, unknown> {
 // ── Hook ──────────────────────────────────────────────────────────────────────
 
 export function useCashflowData() {
+  const { formatMessage } = useAppIntl()
   const saved = loadSaved()
 
   // What-if state — persisted via localStorage.
@@ -279,7 +291,13 @@ export function useCashflowData() {
   )
   const data = query.data ?? null
   const loading = query.initialLoading
-  const error = query.error && data === null ? 'Failed to load cash flow data.' : ''
+  const error =
+    query.error && data === null
+      ? formatMessage({
+          id: 'plan.cashData.failed',
+          defaultMessage: 'Failed to load cash flow data.',
+        })
+      : ''
 
   // Persist all view state to localStorage on every change.
   useEffect(() => {

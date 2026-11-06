@@ -1,3 +1,4 @@
+import { getNumberLocale } from '../../../utils/format'
 import type { Account, TransactionUpdate, Txn } from './types'
 import { CURRENCY_OPTIONS } from '../../firstrun/currencies'
 import { ZERO_DEC } from './format'
@@ -60,45 +61,58 @@ function selectableAccount(txn: Txn, accounts: Account[], id: string): Account |
   return found
 }
 
+export type ReviewValidationCode =
+  | 'date'
+  | 'amount'
+  | 'account'
+  | 'split'
+  | 'destination'
+  | 'distinct'
+  | 'received'
+  | 'direction'
+  | 'originalBoth'
+  | 'originalAmount'
+  | 'originalCurrency'
+  | 'differentCurrency'
+
 export function validateReviewDraft(
   txn: Txn,
   draft: ReviewDraft,
   accounts: Account[],
-): string | null {
-  if (!draft.date) return 'Choose a date.'
-  if (!(draft.amount > 0)) return 'Enter a valid amount.'
-  if (!selectableAccount(txn, accounts, draft.accountId)) return 'Choose an active account.'
+): ReviewValidationCode | null {
+  if (!draft.date) return 'date'
+  if (!(draft.amount > 0)) return 'amount'
+  if (!selectableAccount(txn, accounts, draft.accountId)) return 'account'
   if (
     txn.splits.length > 0 &&
     (draft.kind !== txn.kind || draft.accountId !== (txn.fromAccountId ?? txn.toAccountId))
   ) {
-    return 'Use Edit all details to change type, account, or split lines.'
+    return 'split'
   }
   if (draft.kind === 'transfer') {
-    if (!selectableAccount(txn, accounts, draft.toAccountId))
-      return 'Choose an active destination account.'
-    if (draft.accountId === draft.toAccountId) return 'Transfers need two different accounts.'
-    if (!(draft.toAmount > 0)) return 'Enter the received amount.'
+    if (!selectableAccount(txn, accounts, draft.toAccountId)) return 'destination'
+    if (draft.accountId === draft.toAccountId) return 'distinct'
+    if (!(draft.toAmount > 0)) return 'received'
   }
   if (draft.kind === 'investment' && !draft.investmentDirection) {
-    return 'Choose whether this investment is a buy or sell.'
+    return 'direction'
   }
   const originalAmount = draft.originalAmount.trim()
   const originalCurrency = draft.originalCurrency.trim().toUpperCase()
   const hasOriginalAmount = originalAmount !== ''
   const hasOriginalCurrency = originalCurrency !== ''
   if (draft.kind !== 'transfer' && hasOriginalAmount !== hasOriginalCurrency) {
-    return 'Original charge needs both an amount and currency.'
+    return 'originalBoth'
   }
   if (hasOriginalAmount && !(Number(originalAmount) > 0)) {
-    return 'Enter a valid original charge amount.'
+    return 'originalAmount'
   }
   if (hasOriginalCurrency && !SUPPORTED_CURRENCIES.has(originalCurrency)) {
-    return 'Choose a supported original currency.'
+    return 'originalCurrency'
   }
   const ledgerCurrency = account(accounts, draft.accountId)?.currency
   if (hasOriginalCurrency && originalCurrency === ledgerCurrency) {
-    return 'Original currency must differ from the account currency.'
+    return 'differentCurrency'
   }
   return null
 }
@@ -221,7 +235,7 @@ export function reviewDate(value: string): string {
 /** Amount in the currency's own minor units: two decimals for most, none for VND/JPY/KRW… */
 export function reviewAmount(value: number, currency: string): string {
   const digits = ZERO_DEC.has((currency || '').toUpperCase()) ? 0 : 2
-  return new Intl.NumberFormat(undefined, {
+  return new Intl.NumberFormat(getNumberLocale(), {
     minimumFractionDigits: digits,
     maximumFractionDigits: digits,
   }).format(value)

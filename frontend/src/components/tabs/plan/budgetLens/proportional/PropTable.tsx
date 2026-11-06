@@ -1,8 +1,10 @@
+import { fLocalizedMonth } from '../../../../../utils/format'
 // budgetLens/proportional/PropTable.tsx — the live 50/30/20 budget. Same anatomy as the Zero-Based
 // table: a hero, then the book's envelopes in the book's Zero-Based groups (owner, 2026-09-26) —
 // each group with an optional share of income, each envelope with an optional monthly cap. Settings
 // (take-home, each group's share) live behind Configure, never on the page.
 import { useMemo, useState } from 'react'
+import { useAppIntl } from '../../../../../i18n/useAppIntl'
 import type { DragEvent } from 'react'
 import { Tag } from 'lucide-react'
 import { useCategories } from '../../../../../hooks/serverState'
@@ -15,11 +17,17 @@ import type { RegisterFilter } from '../../budget'
 import { UndoPill } from '../../UndoPill'
 import { stableColor } from '../../useBudgetModel'
 import { useUndoPill } from '../../useUndoPill'
-import { saveMonthlyNetIncome } from '../api'
+import { saveMonthlyNetIncome, IncomeSaveError, BudgetVerbRequestError } from '../api'
 import { currentYm } from '../period'
-import { fMonth } from '../../../../../utils/format'
 import { EnvelopeEditor } from './EnvelopeEditor'
-import { GROUPS_KEY, createGroup, fetchGroups, renameGroup, reorderGroups } from './envelopeOps'
+import {
+  GROUPS_KEY,
+  createGroup,
+  fetchGroups,
+  renameGroup,
+  reorderGroups,
+  EnvelopeRequestError,
+} from './envelopeOps'
 import { PropDialogs } from './PropDialogs'
 import type { PropDialog } from './PropDialogs'
 import { PropHero } from './PropHero'
@@ -41,7 +49,6 @@ const shiftYm = (ym: string, d: number) => {
   const t = new Date(y!, (m ?? 1) - 1 + d, 1)
   return `${t.getFullYear()}-${String(t.getMonth() + 1).padStart(2, '0')}`
 }
-const shortMonth = (ym: string) => fMonth(ym)
 const r50 = (v: number) => Math.ceil(v / 50) * 50
 
 const Chev = ({ dir }: { dir: 'left' | 'right' }) => (
@@ -108,6 +115,10 @@ export function PropTable({
   /** Bumped by Manage categories — a rename, merge or delete there re-reads the month. */
   categoriesVersion?: number
 }) {
+  const { formatMessage, locale } = useAppIntl()
+  const shortMonth = (key: string) => {
+    return fLocalizedMonth(key, locale, 'short', 'auto')
+  }
   const [ym, setYm] = useState(currentYm)
   const q = useQueryCache(api.propMonthKey(ym), () => api.fetchPropMonth(ym), {
     version: categoriesVersion,
@@ -144,15 +155,44 @@ export function PropTable({
   const switching = !q.data && !!m
   if (!m)
     return q.error ? (
-      <ErrorState message="Couldn't load your 50/30/20 month." onRetry={() => q.refresh()} />
+      <ErrorState message={formatMessage({ id: 'planScan.proportionalLoad', defaultMessage: "Couldn't load your 50/30/20 month." })} onRetry={() => q.refresh()} />
     ) : (
-      <TabSkeleton variant="proportional" label="Loading your 50/30/20 month…" header={false} />
+      <TabSkeleton
+        variant="proportional"
+        label={formatMessage({
+          id: 'plan.loadingProportional',
+          defaultMessage: 'Loading your 50/30/20 month…',
+        })}
+        header={false}
+      />
     )
   const d = derive(m)
   const capsLocked = m.status === 'past'
 
   const fail = (e: unknown) =>
-    toast(e instanceof Error ? e.message : 'Something went wrong — try again.')
+    toast(
+      e instanceof BudgetVerbRequestError
+        ? formatMessage(
+            { id: 'plan.model.requestFailed', defaultMessage: 'Request failed ({status})' },
+            { status: e.status },
+          )
+        : e instanceof IncomeSaveError
+          ? formatMessage({
+              id: 'plan.incomeSaveFailed',
+              defaultMessage: 'Could not save your income — try again.',
+            })
+          : e instanceof EnvelopeRequestError
+            ? formatMessage(
+                { id: 'plan.model.requestFailed', defaultMessage: 'Request failed ({status})' },
+                { status: e.status },
+              )
+            : e instanceof Error
+              ? e.message
+              : formatMessage({
+                  id: 'plan.propTable.error',
+                  defaultMessage: 'Something went wrong — try again.',
+                }),
+    )
   // An optimistic edit the server refused comes back off the screen, not just toasted.
   const revert = (e: unknown) => {
     fail(e)
@@ -208,7 +248,24 @@ export function PropTable({
       await fn()
       setEditing(null)
     } catch (e) {
-      setEditError(e instanceof Error ? e.message : 'Could not save — try again.')
+      setEditError(
+        e instanceof BudgetVerbRequestError
+          ? formatMessage(
+              { id: 'plan.model.requestFailed', defaultMessage: 'Request failed ({status})' },
+              { status: e.status },
+            )
+          : e instanceof EnvelopeRequestError
+            ? formatMessage(
+                { id: 'plan.model.requestFailed', defaultMessage: 'Request failed ({status})' },
+                { status: e.status },
+              )
+            : e instanceof Error
+              ? e.message
+              : formatMessage({
+                  id: 'plan.propTable.saveError',
+                  defaultMessage: 'Could not save — try again.',
+                }),
+      )
     } finally {
       setBusy(false)
     }
@@ -359,19 +416,19 @@ export function PropTable({
   const addControl = (
     <div className="pt-add">
       <button type="button" className="bo-linkbtn" onClick={() => setDialog({ kind: 'new' })}>
-        <Plus /> Add envelope
+        <Plus /> {formatMessage({ id: 'planScan.addEnvelope', defaultMessage: 'Add envelope' })}
       </button>
       {newGroup === null ? (
         <button type="button" className="bo-linkbtn" onClick={() => setNewGroup('')}>
-          <Plus /> Add group
+          <Plus /> {formatMessage({ id: 'planScan.addGroup', defaultMessage: 'Add group' })}
         </button>
       ) : (
         <input
           autoFocus
           className="pt-gname-in"
           value={newGroup}
-          placeholder="Group name"
-          aria-label="New group name"
+          placeholder={formatMessage({ id: 'plan.groupName', defaultMessage: 'Group name' })}
+          aria-label={formatMessage({ id: 'plan.newGroupName', defaultMessage: 'New group name' })}
           onChange={(e) => setNewGroup(e.target.value)}
           onBlur={addGroup}
           onKeyDown={(e) => {
@@ -396,13 +453,20 @@ export function PropTable({
         <span className="pt-month">
           <button
             type="button"
-            aria-label="Previous month"
+            aria-label={formatMessage({
+              id: 'plan.previousMonth',
+              defaultMessage: 'Previous month',
+            })}
             onClick={() => setYm((v) => shiftYm(v, -1))}
           >
             <Chev dir="left" />
           </button>
           <span className="pt-month-l">{shortMonth(ym)}</span>
-          <button type="button" aria-label="Next month" onClick={() => setYm((v) => shiftYm(v, 1))}>
+          <button
+            type="button"
+            aria-label={formatMessage({ id: 'plan.nextMonth', defaultMessage: 'Next month' })}
+            onClick={() => setYm((v) => shiftYm(v, 1))}
+          >
             <Chev dir="right" />
           </button>
         </span>
@@ -415,11 +479,16 @@ export function PropTable({
           size="dense"
           className="pt-barbtn"
           iconLeft={<SlidersIc />}
-          aria-label="Configure"
-          title="Configure 50/30/20"
+          aria-label={formatMessage({ id: 'plan.configure', defaultMessage: 'Configure' })}
+          title={formatMessage({
+            id: 'plan.configureProportional',
+            defaultMessage: 'Configure 50/30/20',
+          })}
           onClick={() => setSettings(true)}
         >
-          <span className="pt-barbtn-l">Configure</span>
+          <span className="pt-barbtn-l">
+            {formatMessage({ id: 'plan.configure', defaultMessage: 'Configure' })}
+          </span>
         </Button>
         {onManageCategories && (
           <Button
@@ -427,11 +496,19 @@ export function PropTable({
             size="dense"
             className="pt-barbtn"
             iconLeft={<Tag size={13} strokeWidth={2} aria-hidden="true" />}
-            aria-label="Manage categories"
-            title="Manage categories"
+            aria-label={formatMessage({
+              id: 'plan.manageCategories',
+              defaultMessage: 'Manage categories',
+            })}
+            title={formatMessage({
+              id: 'plan.manageCategories',
+              defaultMessage: 'Manage categories',
+            })}
             onClick={onManageCategories}
           >
-            <span className="pt-barbtn-l">Manage categories</span>
+            <span className="pt-barbtn-l">
+              {formatMessage({ id: 'plan.manageCategories', defaultMessage: 'Manage categories' })}
+            </span>
           </Button>
         )}
       </div>
@@ -458,10 +535,16 @@ export function PropTable({
             <div className="pl-tablewrap pt-table">
               <div className="pl-thead-clip">
                 <div className="pl-thead pl-trow">
-                  <span>Envelope</span>
-                  <span className="num">Cap</span>
-                  <span className="num">Activity</span>
-                  <span className="num">Left</span>
+                  <span>{formatMessage({ id: 'plan.envelope', defaultMessage: 'Envelope' })}</span>
+                  <span className="num">
+                    {formatMessage({ id: 'plan.cap', defaultMessage: 'Cap' })}
+                  </span>
+                  <span className="num">
+                    {formatMessage({ id: 'plan.activity', defaultMessage: 'Activity' })}
+                  </span>
+                  <span className="num">
+                    {formatMessage({ id: 'plan.left', defaultMessage: 'Left' })}
+                  </span>
                 </div>
               </div>
               <div className="pl-tbody-wrap">

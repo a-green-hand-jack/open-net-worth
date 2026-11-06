@@ -203,6 +203,7 @@ def test_engine_status_reports_missing_and_installed_commands(monkeypatch):
     assert statuses["codex"]["build_is_sandboxed"] is True
     assert statuses["claude"]["installed"] is False
     assert "Install" in statuses["claude"]["guidance"]
+    assert statuses["claude"]["guidance_message"] == {"id": "builder.guidance.claude", "params": {}}
 
 
 def test_workspace_changes_are_bounded_and_honest(tmp_path, monkeypatch):
@@ -264,6 +265,14 @@ async def test_manager_runs_executor_and_returns_incremental_events(tmp_path, mo
     assert full["status"] == "succeeded"
     assert full["workspace_changes"] == ["M frontend/a.tsx"]
     assert any(e["text"] == "I changed the dashboard." for e in full["events"])
+    assert [e["text_message"]["id"] for e in full["events"] if "text_message" in e] == [
+        "builder.event.queued",
+        "builder.event.started",
+        "builder.event.finished",
+    ]
+    assert "text_message" not in next(
+        e for e in full["events"] if e["text"] == "I changed the dashboard."
+    )
     assert all(e["seq"] > 1 for e in incremental["events"])
 
 
@@ -317,7 +326,32 @@ async def test_manager_surfaces_nonzero_exit_as_failed(tmp_path):
 
     assert run["status"] == "failed"
     assert run["error"] == "Login required"
+    assert run["error_message"] is None
+    assert "text_message" not in run["events"][-1]
     assert run["events"][-1]["kind"] == "error"
+
+
+@pytest.mark.asyncio
+async def test_empty_engine_error_uses_application_metadata(tmp_path):
+    from backend.services import builder
+
+    (tmp_path / "backend").mkdir()
+    (tmp_path / "frontend").mkdir()
+    (tmp_path / "package.json").write_text("{}")
+
+    async def failed_executor(*_args):
+        return 7, ""
+
+    manager = builder.BuilderManager(
+        executor=failed_executor,
+        workspace=tmp_path,
+        engine_probe=lambda: [{"id": "codex", "installed": True}],
+    )
+    created = await manager.start("codex", "plan", "Plan a change")
+    run = await manager.wait(created["id"])
+    assert run["error"] == "Coding engine exited with status 7."
+    assert run["error_message"] == {"id": "builder.error.exitStatus", "params": {"status": 7}}
+    assert run["events"][-1]["text_message"] == run["error_message"]
 
 
 @pytest.mark.asyncio
@@ -419,6 +453,9 @@ def test_builder_api_maps_status_start_poll_stop_and_errors(monkeypatch):
     assert client.delete("/api/builder/runs/run-1").json()["status"] == "cancelled"
     assert client.get("/api/builder/runs/missing").status_code == 404
     assert (
+        client.get("/api/builder/runs/missing").json()["message_id"] == "builder.error.runNotFound"
+    )
+    assert (
         client.post(
             "/api/builder/runs",
             json={"engine": "codex", "mode": "plan", "prompt": "busy"},
@@ -499,3 +536,21 @@ def test_off_a_demo_the_builder_is_not_refused(monkeypatch):
         builder, "get_settings", lambda: SimpleNamespace(desktop_mode=False, demo_mode=False)
     )
     builder._require_external_execution()
+
+
+def test_builder_message_contract_covers_all_application_ids():
+    import json
+    import re
+    from pathlib import Path
+
+    root = Path(__file__).resolve().parents[1]
+    contract = json.loads((root / "backend/core/builder_message_contract.json").read_text())
+    source = (root / "backend/services/builder.py").read_text() + (
+        root / "backend/api/builder.py"
+    ).read_text()
+    referenced = set(re.findall(r'"(builder\.(?:error|event|guidance)\.[a-zA-Z]+)"', source))
+    referenced.update({"builder.guidance.codex", "builder.guidance.claude"})
+    assert set(contract) == referenced
+    assert all(
+        isinstance(params, list) and len(params) == len(set(params)) for params in contract.values()
+    )

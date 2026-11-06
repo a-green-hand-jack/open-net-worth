@@ -4,6 +4,7 @@
 // full-screen chat, unchanged).
 
 import { useMemoryWindow } from '../../../hooks/useMemoryWindow'
+import { useAppIntl } from '../../../i18n/useAppIntl'
 import { Suspense, useEffect, useRef, useState } from 'react'
 import { ChatPanel, conversationGroups, conversationWhen } from '../../chat/ChatPanel'
 import { ConversationBrowser } from '../../chat/ConversationBrowser'
@@ -88,6 +89,7 @@ export function LuciusHome({
   // Forwarded to ChatPanel: only one mounted panel may send the welcome.
   claimOnboarding?: () => boolean
 }) {
+  const intl = useAppIntl()
   const {
     conversations,
     activeId,
@@ -389,7 +391,7 @@ export function LuciusHome({
             className="lucius-home-side-resizer"
             onPointerDown={onSidebarResizePointerDown}
             onDoubleClick={resetSidebarWidth}
-            title="Drag to resize (double-click to reset)"
+            title={intl.formatMessage({ id: 'luciusHome.resize', defaultMessage: "Drag to resize (double-click to reset)" })}
           />
         </div>
       )}
@@ -431,8 +433,8 @@ export function LuciusHome({
                   cancelScheduledClose()
                   setPeekingHistory(true)
                 }}
-                aria-label="Show chat history"
-                title="Show chat history"
+                aria-label={intl.formatMessage({ id: 'luciusHome.history', defaultMessage: "Show chat history" })}
+                title={intl.formatMessage({ id: 'luciusHome.history', defaultMessage: "Show chat history" })}
               >
                 <ChevronRight size={14} />
               </button>
@@ -463,8 +465,14 @@ export function LuciusHome({
               type="button"
               className="lucius-home-reopen"
               onClick={startFresh}
-              aria-label="New conversation"
-              title="New conversation"
+              aria-label={intl.formatMessage({
+                id: 'chat.newConversation',
+                defaultMessage: 'New conversation',
+              })}
+              title={intl.formatMessage({
+                id: 'chat.newConversation',
+                defaultMessage: 'New conversation',
+              })}
             >
               <SquarePen size={14} />
             </button>
@@ -475,21 +483,21 @@ export function LuciusHome({
             type="button"
             className="lucius-home-vault-btn"
             onClick={memory.show}
-            title="What Lucius remembers about you"
+            title={intl.formatMessage({ id: 'luciusHome.memory', defaultMessage: "What Lucius remembers about you" })}
           >
             <Brain size={15} strokeWidth={1.6} />
-            Memory
+            {intl.formatMessage({ id: 'luciusHome.memoryShort', defaultMessage: 'Memory' })}
           </button>
           <button
             type="button"
             className={`lucius-home-vault-btn${vaultOpen && !openArtifact ? ' is-on' : ''}`}
             onClick={toggleVault}
             aria-pressed={vaultOpen && !openArtifact}
-            title="Your documents, statements, receipts and saved artifacts"
+            title={intl.formatMessage({ id: 'luciusHome.documents', defaultMessage: "Your documents, statements, receipts and saved artifacts" })}
             data-tour="lucius-documents"
           >
             <FolderLock size={15} strokeWidth={1.6} />
-            Documents
+            {intl.formatMessage({ id: 'luciusHome.documentsShort', defaultMessage: 'Documents' })}
           </button>
         </div>
         {memory.open && (
@@ -519,7 +527,7 @@ export function LuciusHome({
             className="lucius-home-artifact-resizer"
             onPointerDown={onArtifactResizePointerDown}
             onDoubleClick={resetArtifactPanelWidth}
-            title="Drag to resize (double-click to reset)"
+            title={intl.formatMessage({ id: 'luciusHome.resize', defaultMessage: "Drag to resize (double-click to reset)" })}
           />
           {openArtifact ? (
             <ArtifactSidePanel

@@ -1,4 +1,6 @@
+import { fFixed } from '../../utils/format'
 import { useEffect, useRef } from 'react'
+import { useAppIntl } from '../../i18n/useAppIntl'
 import {
   Chart,
   LineElement,
@@ -49,6 +51,9 @@ export function FanChart({
   height = 220,
   showDryMarker = false,
 }: FanChartProps) {
+  const intl = useAppIntl()
+  const { formatMessage } = intl
+  const localeAtBuild = useRef(intl.locale)
   const chartRef = useRef<HTMLCanvasElement>(null)
   const chartInst = useRef<Chart | null>(null)
   const bandsRef = useRef<FanChartBand[]>(bands)
@@ -61,20 +66,24 @@ export function FanChart({
 
     // Chart chrome colors are read as concrete values at build time, so a theme
     // flip must rebuild the chart rather than reuse-and-update it.
-    if (chartInst.current && themeAtBuild.current !== theme) {
+    if (
+      chartInst.current &&
+      (themeAtBuild.current !== theme || localeAtBuild.current !== intl.locale)
+    ) {
       chartInst.current.destroy()
       chartInst.current = null
     }
     themeAtBuild.current = theme
+    localeAtBuild.current = intl.locale
 
-    const labels = bands.map((b) => (b.age != null ? `${b.age.toFixed(0)}` : `Y${b.year_index}`))
+    const labels = bands.map((b) => (b.age != null ? `${fFixed(b.age, 0)}` : `Y${b.year_index}`))
     const p10 = bands.map((b) => b.p10)
     const p50 = bands.map((b) => b.p50)
     const p90 = bands.map((b) => b.p90)
 
     const datasets: Chart['data']['datasets'] = [
       {
-        label: 'p90 (optimistic)',
+        label: formatMessage({ id: 'shared.chart.p90', defaultMessage: 'p90 (optimistic)' }),
         data: p90,
         borderColor: 'rgba(52,176,138,0.35)',
         borderWidth: 1,
@@ -83,7 +92,7 @@ export function FanChart({
         tension: 0.3,
       },
       {
-        label: 'p10 (pessimistic)',
+        label: formatMessage({ id: 'shared.chart.p10', defaultMessage: 'p10 (pessimistic)' }),
         data: p10,
         borderColor: 'rgba(52,176,138,0.18)',
         backgroundColor: 'rgba(52,176,138,0.18)',
@@ -93,7 +102,7 @@ export function FanChart({
         tension: 0.3,
       },
       {
-        label: 'Median (p50)',
+        label: formatMessage({ id: 'shared.chart.median', defaultMessage: 'Median (p50)' }),
         data: p50,
         borderColor: '#34b08a',
         borderWidth: 2,
@@ -130,7 +139,10 @@ export function FanChart({
           borderDash: [4, 3],
         },
         {
-          label: 'Scenario B (p50)',
+          label: formatMessage({
+            id: 'shared.chart.scenarioB',
+            defaultMessage: 'Scenario B (p50)',
+          }),
           data: b50,
           borderColor: 'rgba(52,176,138,0.50)',
           borderWidth: 2,
@@ -170,11 +182,20 @@ export function FanChart({
                 const first = items[0]
                 if (!first) return ''
                 const b = bandsRef.current[first.dataIndex]
-                return b?.age != null ? `Age ${first.label}` : `Year ${first.label}`
+                return b?.age != null
+                  ? formatMessage(
+                      { id: 'shared.chart.age', defaultMessage: 'Age {age}' },
+                      { age: first.label },
+                    )
+                  : formatMessage(
+                      { id: 'shared.chart.year', defaultMessage: 'Year {year}' },
+                      { year: first.label },
+                    )
               },
               label: (item) => {
                 const lbl = item.dataset.label ?? ''
-                if (lbl.startsWith('B —')) return null as unknown as string
+                if (item.datasetIndex === 3 || item.datasetIndex === 4)
+                  return null as unknown as string
                 return ` ${lbl}: ${fBaseCompact(item.raw as number)}`
               },
             },
@@ -197,7 +218,7 @@ export function FanChart({
         },
       },
     })
-  }, [bands, secondBands, theme])
+  }, [bands, secondBands, theme, intl.locale, formatMessage])
 
   useEffect(() => {
     return () => {
@@ -241,8 +262,17 @@ export function FanChart({
               style={{ left: `${Math.min(dryInfo.pct + 0.5, 92)}%` }}
             >
               {dryInfo.age != null
-                ? `typical path runs dry ~age ${dryInfo.age.toFixed(1)}`
-                : 'typical path runs dry'}
+                ? formatMessage(
+                    {
+                      id: 'shared.chart.dryAge',
+                      defaultMessage: 'typical path runs dry ~age {age}',
+                    },
+                    { age: fFixed(dryInfo.age, 1) },
+                  )
+                : formatMessage({
+                    id: 'shared.chart.dry',
+                    defaultMessage: 'typical path runs dry',
+                  })}
             </div>
           </>
         )}

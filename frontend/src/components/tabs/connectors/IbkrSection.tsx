@@ -1,3 +1,4 @@
+import { useAppIntl } from '../../../i18n/useAppIntl'
 import { useCallback, useEffect, useState } from 'react'
 import { authFetch } from '../../../api/client'
 import { Stack, Text, FormField, PasswordField, TextField, useSecretReveal } from '../../ui'
@@ -38,6 +39,7 @@ function ibkrFormOf(c: IbkrStatus): IbkrForm {
 }
 
 export function IbkrSection() {
+  const { formatMessage } = useAppIntl()
   const [cfg, setCfg] = useState<IbkrStatus | null>(null)
   const [form, setForm] = useState<IbkrForm | null>(null)
   const [error, setError] = useState(false)
@@ -75,14 +77,14 @@ export function IbkrSection() {
       })
       if (!r.ok) {
         const d = await r.json().catch(() => ({}))
-        setSaveErr(d.detail || 'Could not save the settings.')
+        setSaveErr(d.detail || formatMessage({ id: 'connectors.ibkr.save', defaultMessage: 'Could not save the settings.' }))
         return false
       }
       setForm((f) => f && { ...f, flex_token: '' })
       load()
       return true
     } catch {
-      setSaveErr('Could not save — could not reach the server.')
+      setSaveErr(formatMessage({ id: 'connectors.email.serverFailed', defaultMessage: 'Could not save — could not reach the server.' }))
       return false
     } finally {
       setSaving(false)
@@ -114,14 +116,14 @@ export function IbkrSection() {
   if (error) {
     return (
       <Text size="sm" tone="bad">
-        Could not load the IBKR connector status.
+        {formatMessage({ id: 'connectors.ibkr.load', defaultMessage: 'Could not load the IBKR connector status.' })}
       </Text>
     )
   }
   if (!cfg || !form) {
     return (
       <Text size="sm" tone="faint">
-        Loading…
+        {formatMessage({ id: 'connectors.email.loading', defaultMessage: 'Loading…' })}
       </Text>
     )
   }
@@ -132,46 +134,39 @@ export function IbkrSection() {
   return (
     <Stack gap="--space-4">
       <Text size="sm" tone="faint">
-        <a href="https://www.interactivebrokers.com/" target="_blank" rel="noreferrer">
-          Interactive Brokers
-        </a>{' '}
-        exports your account as a Flex Query. Set one up in Account Management (Reports → Flex
-        Queries → Activity), set <strong>Format</strong> to <strong>XML</strong>, include{' '}
-        <strong>OpenPositions</strong>, <strong>Trades</strong> and{' '}
-        <strong>CashTransactions</strong>, then paste its token and ID below.
+        {formatMessage({ id: 'connectors.ibkr.intro', defaultMessage: '<link>Interactive Brokers</link> exports your account as a Flex Query. Set one up in Account Management (Reports → Flex Queries → Activity), set <strong>Format</strong> to <strong>XML</strong>, include <strong>OpenPositions</strong>, <strong>Trades</strong> and <strong>CashTransactions</strong>, then paste its token and ID below.' }, { link: (chunks) => <a href="https://www.interactivebrokers.com/" target="_blank" rel="noreferrer">{chunks}</a>, strong: (chunks) => <strong>{chunks}</strong> })}
       </Text>
 
       {cfg.configured && !cfg.enabled && (
         <Text size="xs" tone="warn">
-          Currently paused — saving here won&apos;t resume it. Use Resume on the connector card to
-          turn it back on.
+          {formatMessage({ id: 'connectors.alpaca.paused', defaultMessage: "Currently paused — saving here won't resume it. Use Resume on the connector card to turn it back on." })}
         </Text>
       )}
 
       <ConnectorStatusLine lastSyncedAt={cfg.last_synced_at} lastStatus={cfg.last_status} />
       {cfg.last_error && (
         <Text size="xs" tone="bad">
-          Last error: {cfg.last_error}
+          {formatMessage({ id: 'connectors.email.lastError', defaultMessage: 'Last error: {error}' }, { error: cfg.last_error })}
         </Text>
       )}
 
       <FormField
-        label="Flex token"
+        label={formatMessage({ id: 'connectors.ibkr.token', defaultMessage: 'Flex token' })}
         htmlFor="conn-ibkr-token"
         required
         help={
           token.caption ||
-          'Your IBKR Flex Web Service token (from Account Management → Flex Queries → Generate Token).'
+          formatMessage({ id: 'connectors.ibkr.tokenHelp', defaultMessage: "Your IBKR Flex Web Service token (from Account Management \u2192 Flex Queries \u2192 Generate Token)." })
         }
         error={
           token.error ||
-          (tokenTouched.touched && !tokenValid ? 'A Flex token is required.' : undefined)
+          (tokenTouched.touched && !tokenValid ? formatMessage({ id: 'connectors.ibkr.tokenRequired', defaultMessage: "A Flex token is required." }) : undefined)
         }
       >
         <PasswordField
           id="conn-ibkr-token"
           value={form.flex_token}
-          placeholder={cfg.has_token ? '••••••••' : 'Paste Flex token'}
+          placeholder={cfg.has_token ? '••••••••' : formatMessage({ id: 'connectors.ibkr.tokenPlaceholder', defaultMessage: "Paste Flex token" })}
           onChange={(e) => set('flex_token', e.target.value)}
           onBlur={tokenTouched.onBlur}
           {...token.fieldProps}
@@ -179,20 +174,20 @@ export function IbkrSection() {
       </FormField>
 
       <FormField
-        label="Flex query ID"
+        label={formatMessage({ id: 'connectors.ibkr.query', defaultMessage: 'Flex query ID' })}
         htmlFor="conn-ibkr-queryid"
         required
-        help="The numeric ID of your saved Flex Query (visible in the IBKR Flex Query list)."
+        help={formatMessage({ id: 'connectors.ibkr.queryHelp', defaultMessage: 'The numeric ID of your saved Flex Query (visible in the IBKR Flex Query list).' })}
         error={
           flexQueryIdTouched.touched && !flexQueryIdValid
-            ? 'A Flex query ID is required.'
+            ? formatMessage({ id: 'connectors.ibkr.queryRequired', defaultMessage: "A Flex query ID is required." })
             : undefined
         }
       >
         <TextField
           id="conn-ibkr-queryid"
           value={form.flex_query_id}
-          placeholder="e.g. 123456"
+          placeholder={formatMessage({ id: 'connectors.ibkr.queryPlaceholder', defaultMessage: 'e.g. 123456' })}
           onChange={(e) => set('flex_query_id', e.target.value)}
           onBlur={flexQueryIdTouched.onBlur}
         />
@@ -207,7 +202,7 @@ export function IbkrSection() {
       <ConnectorAccountsList provider="ibkr" providerLabel="Interactive Brokers" />
 
       <Text size="xs" tone="faint">
-        The token can only export data — it cannot place or cancel orders.
+        {formatMessage({ id: 'connectors.ibkr.readOnly', defaultMessage: 'The token can only export data — it cannot place or cancel orders.' })}
       </Text>
     </Stack>
   )

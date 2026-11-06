@@ -56,7 +56,7 @@ describe('Cash Flow what-if is opt-in, never auto-seeded', () => {
     // preset's fields onto their own line (dc9d7d986), so a single-line slice would only ever
     // see the `key:` field itself.
     const baseline = tab.slice(tab.indexOf("key: 'baseline'"))
-    const obj = baseline.slice(0, baseline.indexOf('}'))
+    const obj = baseline.slice(0, baseline.indexOf('\n    },'))
     expect(obj).toMatch(/incomeVal: ''/)
     expect(obj).toMatch(/expenseVal: ''/)
   })
@@ -66,15 +66,15 @@ describe('Cash Flow what-if is opt-in, never auto-seeded', () => {
     // scenario against a snapshot of today's numbers.
     for (const key of ['raise', 'inflation']) {
       const rest = tab.slice(tab.indexOf("key: '" + key + "'"))
-      const spec = rest.slice(0, rest.indexOf('}'))
+      const spec = rest.slice(0, rest.indexOf('\n    },'))
       expect(spec, key).toMatch(/incomeVal: ''/)
       expect(spec, key).toMatch(/expenseVal: ''/)
     }
     // "Lean spending" genuinely changes expenses; "Lose income" genuinely zeroes income.
     const lean = tab.slice(tab.indexOf("key: 'lean'"))
-    expect(lean.slice(0, lean.indexOf('}'))).toContain('expenseVal: LEAN')
+    expect(lean.slice(0, lean.indexOf('\n    },'))).toContain('expenseVal: LEAN')
     const lose = tab.slice(tab.indexOf("key: 'lose'"))
-    expect(lose.slice(0, lose.indexOf('}'))).toMatch(/incomeVal: '0'/)
+    expect(lose.slice(0, lose.indexOf('\n    },'))).toMatch(/incomeVal: '0'/)
   })
 })
 
@@ -149,7 +149,7 @@ describe('expanded months explain where the recurring total comes from', () => {
   it('labels the in-progress month as a partial month, since its recurring figure is prorated', () => {
     // Jul showed "S$3.48K recurring in" against Aug's S$26.94K — correct (4 of 31 days left,
     // the rest already in actuals) but unexplainable without saying so.
-    expect(tab).toContain('daysLeftLabel(row.ym)')
+    expect(tab).toContain('daysLeft(row.ym)')
     expect(tab).toContain('Rest of this month •')
     // The retired wording claimed the listed items were scheduled; nothing in the list is.
     // NOTE: assertions here avoid backticks on purpose — check-css-classes.mjs pairs template
@@ -158,10 +158,10 @@ describe('expanded months explain where the recurring total comes from', () => {
     expect(tab).not.toContain('Scheduled this month')
     expect(tab).toContain('What happened this month')
     expect(tab).toContain('Expected this month •')
-    expect(tab).toContain('left of ${inMonth}')
+    expect(tab).toContain('left of {total}')
     // …and only for the month actually in progress, never a future one.
     expect(tab).toMatch(
-      /y !== today\.getFullYear\(\) \|\| m !== today\.getMonth\(\) \+ 1\) return ''/,
+      /y !== today\.getFullYear\(\) \|\| m !== today\.getMonth\(\) \+ 1\) return null/,
     )
   })
 })

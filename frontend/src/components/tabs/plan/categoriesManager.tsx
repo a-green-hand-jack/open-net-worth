@@ -8,6 +8,7 @@
 // old expense/income-only filter set and the separate InflowManager modal (income categories
 // are managed here now too).
 import { useState, useEffect, useCallback, useRef } from 'react'
+import { useAppIntl } from '../../../i18n/useAppIntl'
 import type { KeyboardEvent } from 'react'
 import { authFetch } from '../../../api/client'
 import { X, Plus } from './icons'
@@ -71,6 +72,7 @@ export function deleteCategoryOptions(
   return KIND_ORDER.slice()
     .sort((a, b) => (a === deleteKind ? -1 : 0) - (b === deleteKind ? -1 : 0))
     .map((k) => ({
+      kind: k,
       name: KIND_LABEL[k]!,
       cats: categories
         .filter((c) => c.kind === k && c.id !== deleteKey && !STRUCTURAL_CATEGORY_KEYS.has(c.id))
@@ -92,6 +94,14 @@ export function CategoriesManager({
    *  an unrelated write forced a resync (or a 422 from a now-ghost row snapped it back). */
   onMutated?: () => void
 }) {
+  const { formatMessage } = useAppIntl()
+  const kindLabels: Record<string, string> = {
+    all: formatMessage({ id: 'plan.all', defaultMessage: 'All' }),
+    expense: formatMessage({ id: 'plan.kindExpense', defaultMessage: 'Expense' }),
+    income: formatMessage({ id: 'plan.kindIncome', defaultMessage: 'Inflow' }),
+    transfer: formatMessage({ id: 'plan.kindTransfer', defaultMessage: 'Transfer' }),
+    investment: formatMessage({ id: 'plan.kindInvestment', defaultMessage: 'Investment' }),
+  }
   const tableRef = useRef<HTMLDivElement>(null)
   useHorizontalOverscrollLock(tableRef)
   const isMobile = useIsMobile()
@@ -142,7 +152,16 @@ export function CategoriesManager({
     setError('')
     Promise.all([
       authFetch('/api/categories?include_hidden=true').then((r) =>
-        r.ok ? r.json() : Promise.reject(new Error('Failed to load categories')),
+        r.ok
+          ? r.json()
+          : Promise.reject(
+              new Error(
+                formatMessage({
+                  id: 'plan.categoryLoadFailed',
+                  defaultMessage: 'Failed to load categories',
+                }),
+              ),
+            ),
       ),
       authFetch('/api/planning/envelopes').then((r) => (r.ok ? r.json() : [])),
     ])
@@ -150,8 +169,16 @@ export function CategoriesManager({
         setCategories(cats)
         setEnvelopes(envs)
       })
-      .catch((e: Error) => setError(e.message || 'Failed to load categories'))
-  }, [])
+      .catch((e: Error) =>
+        setError(
+          e.message ||
+            formatMessage({
+              id: 'plan.categoryLoadFailed',
+              defaultMessage: 'Failed to load categories',
+            }),
+        ),
+      )
+  }, [formatMessage])
   useEffect(() => {
     load()
   }, [load])
@@ -164,12 +191,25 @@ export function CategoriesManager({
     })
       .then((r) => {
         if (r.ok) {
-          toast('Category renamed')
+          toast(formatMessage({ id: 'plan.categoryRenamed', defaultMessage: 'Category renamed' }))
           load()
           onMutated?.()
-        } else toast('Failed to rename category')
+        } else
+          toast(
+            formatMessage({
+              id: 'plan.categoryRenameFailed',
+              defaultMessage: 'Failed to rename category',
+            }),
+          )
       })
-      .catch(() => toast('Failed to rename category'))
+      .catch(() =>
+        toast(
+          formatMessage({
+            id: 'plan.categoryRenameFailed',
+            defaultMessage: 'Failed to rename category',
+          }),
+        ),
+      )
   }
   const recolor = (id: string, color: string) => {
     authFetch(`/api/categories/${encodeURIComponent(id)}/color`, {
@@ -181,9 +221,19 @@ export function CategoriesManager({
         if (r.ok) {
           load()
           onMutated?.()
-        } else toast('Failed to update color')
+        } else
+          toast(
+            formatMessage({
+              id: 'plan.colorUpdateFailed',
+              defaultMessage: 'Failed to update color',
+            }),
+          )
       })
-      .catch(() => toast('Failed to update color'))
+      .catch(() =>
+        toast(
+          formatMessage({ id: 'plan.colorUpdateFailed', defaultMessage: 'Failed to update color' }),
+        ),
+      )
   }
   const toggleHide = (c: ManagedCategory) => {
     authFetch(`/api/categories/${encodeURIComponent(c.id)}/${c.hidden ? 'unhide' : 'hide'}`, {
@@ -193,9 +243,22 @@ export function CategoriesManager({
         if (r.ok) {
           load()
           onMutated?.()
-        } else toast('Failed to update category')
+        } else
+          toast(
+            formatMessage({
+              id: 'plan.categoryUpdateFailed',
+              defaultMessage: 'Failed to update category',
+            }),
+          )
       })
-      .catch(() => toast('Failed to update category'))
+      .catch(() =>
+        toast(
+          formatMessage({
+            id: 'plan.categoryUpdateFailed',
+            defaultMessage: 'Failed to update category',
+          }),
+        ),
+      )
   }
   const startAdd = () => {
     setFilter(null)
@@ -218,13 +281,30 @@ export function CategoriesManager({
       .then((r) => {
         if (r.ok) {
           toast(
-            `Category “${label}” added — link it to an envelope on the Budget table to budget for it`,
+            formatMessage(
+              {
+                id: 'plan.categoryAdded',
+                defaultMessage:
+                  'Category “{name}” added — link it to an envelope on the Budget table to budget for it',
+              },
+              { name: label },
+            ),
           )
           load()
           onMutated?.()
-        } else toast('Failed to add category')
+        } else
+          toast(
+            formatMessage({
+              id: 'plan.categoryAddFailed',
+              defaultMessage: 'Failed to add category',
+            }),
+          )
       })
-      .catch(() => toast('Failed to add category'))
+      .catch(() =>
+        toast(
+          formatMessage({ id: 'plan.categoryAddFailed', defaultMessage: 'Failed to add category' }),
+        ),
+      )
   }
   // Shared by both the desktop add-ROW and mobile add-CARD name inputs — the only bit of the
   // ~duplicated add-category markup that's pure behavior rather than layout, so it can't drift
@@ -259,15 +339,44 @@ export function CategoriesManager({
           toast(
             reassignKey
               ? carried > 0
-                ? `Category deleted — activity and its assigned money moved to ${reassignLabel}`
-                : `Category deleted — activity moved to ${reassignLabel}`
-              : 'Category deleted — its transactions are now in Uncategorized',
+                ? formatMessage(
+                    {
+                      id: 'plan.categoryDeletedMovedFunds',
+                      defaultMessage:
+                        'Category deleted — activity and its assigned money moved to {name}',
+                    },
+                    { name: reassignLabel },
+                  )
+                : formatMessage(
+                    {
+                      id: 'plan.categoryDeletedMoved',
+                      defaultMessage: 'Category deleted — activity moved to {name}',
+                    },
+                    { name: reassignLabel },
+                  )
+              : formatMessage({
+                  id: 'plan.categoryDeletedUncat',
+                  defaultMessage: 'Category deleted — its transactions are now in Uncategorized',
+                }),
           )
           onMutated?.()
-        } else toast('Failed to delete category')
+        } else
+          toast(
+            formatMessage({
+              id: 'plan.categoryDeleteFailed',
+              defaultMessage: 'Failed to delete category',
+            }),
+          )
         load()
       })
-      .catch(() => toast('Failed to delete category'))
+      .catch(() =>
+        toast(
+          formatMessage({
+            id: 'plan.categoryDeleteFailed',
+            defaultMessage: 'Failed to delete category',
+          }),
+        ),
+      )
       .finally(() => {
         setDeleteBusy(false)
         setDeleteTarget(null)
@@ -280,12 +389,17 @@ export function CategoriesManager({
   const all = (categories ?? []).filter((c) => !STRUCTURAL_CATEGORY_KEYS.has(c.id))
   // CONF-6 — resolves a category id to its LABEL, for EnvelopeCell's tooltip. A category the
   // registry hasn't seen (yet, or ever) never paints its raw id to the user.
-  const labelOf = (id: string) => all.find((c) => c.id === id)?.label ?? 'Uncategorized'
+  const labelOf = (id: string) =>
+    all.find((c) => c.id === id)?.label ??
+    formatMessage({ id: 'plan.uncategorized', defaultMessage: 'Uncategorized' })
   const filterCounts: Record<string, number> = { all: all.length }
   for (const k of KIND_ORDER) filterCounts[k] = all.filter((c) => c.kind === k).length
   const rows = filterManagedCategories(all, filter, search)
   const deleteOptions = deleteTarget
-    ? deleteCategoryOptions(all, deleteTarget.id, deleteTarget.kind)
+    ? deleteCategoryOptions(all, deleteTarget.id, deleteTarget.kind).map((g) => ({
+        ...g,
+        name: kindLabels[g.kind] ?? g.name,
+      }))
     : []
 
   // ENV-RES-06 — this modal only ever fetches the flat EnvelopeRow[] list (never the grouped
@@ -295,7 +409,7 @@ export function CategoriesManager({
   const allGroupsForModal: LocalGroup[] = [
     {
       id: '_all',
-      name: 'Envelopes',
+      name: formatMessage({ id: 'plan.catManager.envelopes', defaultMessage: 'Envelopes' }),
       collapsed: false,
       synced: false,
       subtotal: { assigned: 0, activity: 0, available: 0 },
@@ -331,12 +445,28 @@ export function CategoriesManager({
         },
       )
       if (r.ok) {
-        toast(`${addToEnvFor.label} now draws from ${targetName}`)
+        toast(
+          formatMessage(
+            { id: 'plan.categoryLinked', defaultMessage: '{category} now draws from {envelope}' },
+            { category: addToEnvFor.label, envelope: targetName },
+          ),
+        )
         load()
         onMutated?.()
-      } else toast('Failed to add to envelope')
+      } else
+        toast(
+          formatMessage({
+            id: 'plan.envelopeAddFailed',
+            defaultMessage: 'Failed to add to envelope',
+          }),
+        )
     } catch {
-      toast('Failed to add to envelope')
+      toast(
+        formatMessage({
+          id: 'plan.envelopeAddFailed',
+          defaultMessage: 'Failed to add to envelope',
+        }),
+      )
     } finally {
       setAddToEnvBusy(false)
       setAddToEnvFor(null)
@@ -344,16 +474,28 @@ export function CategoriesManager({
   }
 
   return (
-    <PlanningModal onClose={onClose} label="Manage categories" className="pl-catmgr-modal">
+    <PlanningModal
+      onClose={onClose}
+      label={formatMessage({ id: 'plan.manageCategories', defaultMessage: 'Manage categories' })}
+      className="pl-catmgr-modal"
+    >
       <div className="pl-modal-head">
         <h3>
-          Manage categories
+          {formatMessage({ id: 'plan.manageCategories', defaultMessage: 'Manage categories' })}
           <InfoPopover
             width={290}
-            text="Every category — expense, inflow, transfer, investment — in one place. This is classification only: rename, recolor, or hide. A category isn't budgeted on its own — link it to an envelope on the Budget table (one envelope per category) to start assigning it money."
+            text={formatMessage({
+              id: 'plan.categoryHelp',
+              defaultMessage:
+                "Every category — expense, inflow, transfer, investment — in one place. This is classification only: rename, recolor, or hide. A category isn't budgeted on its own — link it to an envelope on the Budget table (one envelope per category) to start assigning it money.",
+            })}
           />
         </h3>
-        <button className="pl-modal-x" onClick={onClose} aria-label="Close">
+        <button
+          className="pl-modal-x"
+          onClick={onClose}
+          aria-label={formatMessage({ id: 'plan.close', defaultMessage: 'Close' })}
+        >
           <X size={16} />
         </button>
       </div>
@@ -369,7 +511,7 @@ export function CategoriesManager({
             inlineWidth={tools.w - CATMGR_SEARCH_MIN - CATMGR_TOOLS_GAP}
             options={FILTERS.map(([key, label]) => ({
               id: key,
-              label,
+              label: kindLabels[key] ?? label,
               count: filterCounts[key] ?? 0,
             }))}
             value={filter || 'all'}
@@ -392,18 +534,24 @@ export function CategoriesManager({
             <input
               type="text"
               value={search}
-              placeholder="Search…"
+              placeholder={formatMessage({ id: 'plan.searchEllipsis', defaultMessage: 'Search…' })}
               onChange={(e) => setSearch(e.target.value)}
               onKeyDown={(e) => {
                 if (e.key === 'Escape') setSearch('')
               }}
-              aria-label="Search categories"
+              aria-label={formatMessage({
+                id: 'plan.searchCategories',
+                defaultMessage: 'Search categories',
+              })}
             />
             {search && (
               <button
                 className="pl-tsearch-x"
                 onClick={() => setSearch('')}
-                aria-label="Clear search"
+                aria-label={formatMessage({
+                  id: 'plan.clearSearch',
+                  defaultMessage: 'Clear search',
+                })}
               >
                 <X size={10} />
               </button>
@@ -413,7 +561,14 @@ export function CategoriesManager({
         <div className="pl-catmgr-table" ref={tableRef}>
           {categories === null && !error ? (
             <div className="pl-catmgr-emptywrap">
-              <TabSkeleton variant="categories" label="Loading categories…" header={false} />
+              <TabSkeleton
+                variant="categories"
+                label={formatMessage({
+                  id: 'plan.loadingCategories',
+                  defaultMessage: 'Loading categories…',
+                })}
+                header={false}
+              />
             </div>
           ) : error ? (
             <div className="pl-catmgr-emptywrap">
@@ -422,18 +577,24 @@ export function CategoriesManager({
           ) : rows.length === 0 && !addingNew ? (
             <div className="pl-catmgr-emptywrap">
               <EmptyState
-                title="No categories match"
-                body="Try a different filter or search term."
+                title={formatMessage({
+                  id: 'plan.noCategoriesMatch',
+                  defaultMessage: 'No categories match',
+                })}
+                body={formatMessage({
+                  id: 'plan.tryOtherFilter',
+                  defaultMessage: 'Try a different filter or search term.',
+                })}
               />
             </div>
           ) : (
             <div className="pl-table-inner">
               {!isMobile && (
                 <div className="pl-trow pl-thead">
-                  <span>Category</span>
-                  <span>Kind</span>
-                  <span>Envelope</span>
-                  <span>Hidden</span>
+                  <span>{formatMessage({ id: 'plan.category', defaultMessage: 'Category' })}</span>
+                  <span>{formatMessage({ id: 'plan.kind', defaultMessage: 'Kind' })}</span>
+                  <span>{formatMessage({ id: 'plan.envelope', defaultMessage: 'Envelope' })}</span>
+                  <span>{formatMessage({ id: 'plan.hidden', defaultMessage: 'Hidden' })}</span>
                 </div>
               )}
               <div className="pl-tbody">
@@ -444,7 +605,10 @@ export function CategoriesManager({
                         <ColorDot
                           color={newColor}
                           onPick={setNewColor}
-                          label="Color for new category"
+                          label={formatMessage({
+                            id: 'plan.colorNewCategory',
+                            defaultMessage: 'Color for new category',
+                          })}
                           icon="tag"
                         />
                         {/* deliberately NOT InlineEdit: blur must not commit/cancel, or tapping
@@ -453,7 +617,10 @@ export function CategoriesManager({
                           className="pl-inline-input"
                           value={newName}
                           autoFocus
-                          placeholder="New category name…  (Enter to add, Esc to cancel)"
+                          placeholder={formatMessage({
+                            id: 'plan.newCategoryPlaceholder',
+                            defaultMessage: 'New category name…  (Enter to add, Esc to cancel)',
+                          })}
                           onChange={(e) => setNewName(e.target.value)}
                           onKeyDown={onAddNameKeyDown}
                         />
@@ -463,11 +630,11 @@ export function CategoriesManager({
                           dense
                           className="pl-catmgr-kindsel"
                           value={newKind}
-                          aria-label="Kind"
+                          aria-label={formatMessage({ id: 'plan.kind', defaultMessage: 'Kind' })}
                           onChange={(e) => {
                             setNewKind(e.target.value)
                           }}
-                          options={KIND_ORDER.map((k) => ({ value: k, label: KIND_LABEL[k]! }))}
+                          options={KIND_ORDER.map((k) => ({ value: k, label: kindLabels[k]! }))}
                         />
                       </span>
                     </div>
@@ -477,7 +644,10 @@ export function CategoriesManager({
                         <ColorDot
                           color={newColor}
                           onPick={setNewColor}
-                          label="Color for new category"
+                          label={formatMessage({
+                            id: 'plan.colorNewCategory',
+                            defaultMessage: 'Color for new category',
+                          })}
                           icon="tag"
                         />
                         {/* deliberately NOT InlineEdit: blur must not commit/cancel, or clicking
@@ -486,7 +656,10 @@ export function CategoriesManager({
                           className="pl-inline-input"
                           value={newName}
                           autoFocus
-                          placeholder="New category name…  (Enter to add, Esc to cancel)"
+                          placeholder={formatMessage({
+                            id: 'plan.newCategoryPlaceholder',
+                            defaultMessage: 'New category name…  (Enter to add, Esc to cancel)',
+                          })}
                           onChange={(e) => setNewName(e.target.value)}
                           onKeyDown={onAddNameKeyDown}
                         />
@@ -496,15 +669,20 @@ export function CategoriesManager({
                           dense
                           className="pl-catmgr-kindsel"
                           value={newKind}
-                          aria-label="Kind"
+                          aria-label={formatMessage({ id: 'plan.kind', defaultMessage: 'Kind' })}
                           onChange={(e) => {
                             setNewKind(e.target.value)
                           }}
-                          options={KIND_ORDER.map((k) => ({ value: k, label: KIND_LABEL[k]! }))}
+                          options={KIND_ORDER.map((k) => ({ value: k, label: kindLabels[k]! }))}
                         />
                       </span>
                       <span>
-                        <span className="pl-catmgr-env pl-catmgr-env--none">Not budgeted</span>
+                        <span className="pl-catmgr-env pl-catmgr-env--none">
+                          {formatMessage({
+                            id: 'plan.notBudgeted',
+                            defaultMessage: 'Not budgeted',
+                          })}
+                        </span>
                       </span>
                       <span />
                     </div>
@@ -542,11 +720,15 @@ export function CategoriesManager({
         {addingNew ? (
           <>
             <span className="pl-catmgr-addhint">
-              New categories start unbudgeted — link them to an envelope on the Budget table
+              {formatMessage({
+                id: 'plan.newCategoryHelp',
+                defaultMessage:
+                  'New categories start unbudgeted — link them to an envelope on the Budget table',
+              })}
             </span>
             <span className="pl-catmgr-addactions">
               <Button variant="secondary" size="dense" onClick={() => setAddingNew(false)}>
-                Cancel
+                {formatMessage({ id: 'plan.cancel', defaultMessage: 'Cancel' })}
               </Button>
               <Button
                 variant="primary"
@@ -555,7 +737,7 @@ export function CategoriesManager({
                 disabled={!newName.trim()}
                 onClick={addCat}
               >
-                Add category
+                {formatMessage({ id: 'plan.addCategory', defaultMessage: 'Add category' })}
               </Button>
             </span>
           </>
@@ -567,10 +749,10 @@ export function CategoriesManager({
               iconLeft={<Plus size={12} />}
               onClick={startAdd}
             >
-              New category
+              {formatMessage({ id: 'plan.newCategory', defaultMessage: 'New category' })}
             </Button>
             <Button variant="primary" size="dense" onClick={onClose}>
-              Done
+              {formatMessage({ id: 'plan.done', defaultMessage: 'Done' })}
             </Button>
           </>
         )}

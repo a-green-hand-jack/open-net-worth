@@ -10,6 +10,8 @@ import type { CashAccountOption, OwnedAsset } from '../../../types/assets'
 import { localIso, setBaseCurrency } from '../../../utils/format'
 import { fmt } from './assetsData'
 import { DeleteAssetConfirm, DisposeModal } from './modals'
+import { IntlProvider } from 'react-intl'
+import zh from '../../../i18n/zh-CN.json'
 
 const { authFetch } = vi.hoisted(() => ({ authFetch: vi.fn() }))
 vi.mock('../../../api/client', () => ({ authFetch }))
@@ -79,6 +81,21 @@ beforeEach(() => {
   authFetch.mockReset()
 })
 afterEach(cleanup)
+
+it('shows the Chinese deletion warning without changing the asset name', () => {
+  render(
+    <IntlProvider locale="zh-CN" defaultLocale="en" messages={zh}>
+      <DeleteAssetConfirm
+        asset={makeAsset({ name: 'My Watch' })}
+        onClose={vi.fn()}
+        onDeleted={vi.fn()}
+      />
+    </IntlProvider>,
+  )
+  expect(screen.getByText('My Watch')).toBeTruthy()
+  expect(screen.getByText(/此操作无法撤销/)).toBeTruthy()
+  expect(screen.getByRole('button', { name: '删除' })).toBeTruthy()
+})
 
 describe('DisposeModal', () => {
   function renderDispose(asset = makeAsset()) {

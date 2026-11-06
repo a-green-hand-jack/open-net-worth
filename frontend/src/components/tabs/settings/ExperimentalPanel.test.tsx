@@ -11,6 +11,8 @@ vi.mock('../../../api/client', () => ({ authFetch: vi.fn() }))
 
 import { authFetch } from '../../../api/client'
 import { ExperimentalPanel } from './ExperimentalPanel'
+import { IntlProvider } from 'react-intl'
+import zh from '../../../i18n/zh-CN.json'
 
 const mockAuthFetch = authFetch as ReturnType<typeof vi.fn>
 const toast = vi.fn()
@@ -53,6 +55,17 @@ beforeEach(() => {
   toast.mockReset()
 })
 afterEach(cleanup)
+
+it('localizes known flags and preserves unknown server descriptions', async () => {
+  serve([flag({ name: 'voice_calls' }), flag()])
+  render(
+    <IntlProvider locale="zh-CN" messages={zh}>
+      <ExperimentalPanel toast={toast} />
+    </IntlProvider>,
+  )
+  expect(await screen.findByText('语音通话')).toBeTruthy()
+  expect(screen.getByText(/Carries overspending into next month the new way/)).toBeTruthy()
+})
 
 it('renders one row per declared flag with its description and default state', async () => {
   serve([flag(), flag({ name: 'safe_mode', kind: 'kill_switch', default: true, enabled: true })])

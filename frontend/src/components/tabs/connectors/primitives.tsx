@@ -1,3 +1,4 @@
+import { useAppIntl } from '../../../i18n/useAppIntl'
 // Shell primitives for the Connectors redesign — ported VERBATIM from the prototype's
 // `window.RD` (design_handoffs/connectors_handoff/prototype/redesign/shell.jsx): same
 // DOM, same class names, so the result is pixel-identical.
@@ -132,6 +133,7 @@ export interface KebabItem {
 }
 
 export function Kebab({ items }: { items: KebabItem[] }): JSX.Element {
+  const { formatMessage } = useAppIntl()
   const [open, setOpen] = useState(false)
   const ref = useRef<HTMLSpanElement>(null)
   useEffect(() => {
@@ -146,7 +148,7 @@ export function Kebab({ items }: { items: KebabItem[] }): JSX.Element {
     <span className="rd-kebab" ref={ref}>
       <button
         className="rd-kebab-btn"
-        aria-label="More actions"
+        aria-label={formatMessage({ id: 'connectors.moreActions', defaultMessage: 'More actions' })}
         aria-expanded={open}
         onClick={(e) => {
           e.stopPropagation()
@@ -320,6 +322,7 @@ export function Modal({
    *  one, so a click can never reach this modal's `onMouseDown` in the first place. */
   escapeDisabled?: boolean
 }): JSX.Element {
+  const { formatMessage } = useAppIntl()
   const cardRef = useRef<HTMLDivElement>(null)
   const scrimRef = useRef<HTMLDivElement>(null)
   const bodyRef = useRef<HTMLDivElement>(null)
@@ -452,7 +455,7 @@ export function Modal({
         className={'rd-modal' + (size === 'lg' ? ' lg' : '') + (size === 'xl' ? ' xl' : '')}
         role="dialog"
         aria-modal="true"
-        aria-label={typeof title === 'string' ? title : 'Connectors'}
+        aria-label={typeof title === 'string' ? title : formatMessage({ id: 'connectors.title', defaultMessage: 'Connectors' })}
         {...dragHandlers}
       >
         <div className="ui-modal-handle-wrap">
@@ -460,7 +463,7 @@ export function Modal({
         </div>
         <div className="rd-modal-head" ref={headRef}>
           <div className="rd-modal-title">{title}</div>
-          <button className="rd-modal-x" onClick={onClose} aria-label="Close">
+          <button className="rd-modal-x" onClick={onClose} aria-label={formatMessage({ id: 'connectors.close', defaultMessage: 'Close' })}>
             <X size={18} strokeWidth={1.6} aria-hidden="true" />
           </button>
         </div>

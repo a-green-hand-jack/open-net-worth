@@ -131,7 +131,10 @@ def _bearer(store: GoCardlessConfigStore, *, fresh: bool = False) -> str:
         return cached
     secret_id, secret_key = store.secret_id(), store.secret_key()
     if not secret_id or not secret_key:
-        raise ValidationError("GoCardless secret ID / secret key are not configured")
+        raise ValidationError(
+            "GoCardless secret ID / secret key are not configured",
+            message_id="connector.error.goCardlessNotConfigured",
+        )
     try:
         resp = _request(
             "POST", "/token/new/", json={"secret_id": secret_id, "secret_key": secret_key}
@@ -171,7 +174,10 @@ def _authed(store: GoCardlessConfigStore, method: str, path: str, **kwargs) -> h
 def _country(country: str) -> str:
     code = (country or "").strip().upper()
     if len(code) != 2 or not code.isalpha():
-        raise ValidationError("country must be a 2-letter ISO code (e.g. GB, DE, FR)")
+        raise ValidationError(
+            "country must be a 2-letter ISO code (e.g. GB, DE, FR)",
+            message_id="connector.error.goCardlessInvalidCountry",
+        )
     return code
 
 
@@ -239,14 +245,20 @@ def _redirect(redirect: str) -> str:
     url = (redirect or "").strip()
     parsed = urlparse(url)
     if parsed.scheme not in ("http", "https") or not parsed.netloc:
-        raise ValidationError("redirect must be an http(s) URL")
+        raise ValidationError(
+            "redirect must be an http(s) URL",
+            message_id="connector.error.goCardlessInvalidRedirect",
+        )
     return url
 
 
 def _institution_id(institution_id: str) -> str:
     inst = (institution_id or "").strip()
     if not _INSTITUTION_ID.match(inst):
-        raise ValidationError("institution_id must be a GoCardless bank id (e.g. ACME_BANK_GB)")
+        raise ValidationError(
+            "institution_id must be a GoCardless bank id (e.g. ACME_BANK_GB)",
+            message_id="connector.error.goCardlessInvalidInstitution",
+        )
     return inst
 
 
@@ -300,7 +312,9 @@ def relink_bank(key: str, redirect: str) -> dict:
     store = GoCardlessConfigStore()
     old = store.bank(key)
     if old is None:
-        raise ValidationError("That bank is not linked")
+        raise ValidationError(
+            "That bank is not linked", message_id="connector.error.goCardlessBankNotLinked"
+        )
     working = old["status"] == LINKED
     result = _new_bank(
         store,
@@ -321,7 +335,10 @@ def check_links() -> dict:
     paused."""
     store = GoCardlessConfigStore()
     if not store.banks():
-        raise ValidationError("No bank linked yet — choose a bank and select Link bank first")
+        raise ValidationError(
+            "No bank linked yet — choose a bank and select Link bank first",
+            message_id="connector.error.goCardlessNoBank",
+        )
     _refresh(store)
     return store.public()
 
@@ -348,10 +365,13 @@ def remove_bank(key: str) -> dict:
     store = GoCardlessConfigStore()
     bank = store.bank(key)
     if bank is None:
-        raise ValidationError("That bank is not linked")
+        raise ValidationError(
+            "That bank is not linked", message_id="connector.error.goCardlessBankNotLinked"
+        )
     if not _revoke(store, bank):
         raise ValidationError(
-            "Couldn't reach GoCardless to remove that bank — nothing changed. Try again in a moment."
+            "Couldn't reach GoCardless to remove that bank — nothing changed. Try again in a moment.",
+            message_id="connector.error.goCardlessRemoveFailed",
         )
     store.drop_bank(key)
     return {"removed": True, "banks_left": len(store.banks())}
@@ -419,7 +439,10 @@ def _linked_banks(store: GoCardlessConfigStore) -> tuple[list[dict], list[str]]:
     still in progress is not one: the bank it renews is still read). Raises
     ``ValidationError`` when none can — the status then says why instead of reading ``ok``."""
     if not store.banks():
-        raise ValidationError("No bank linked — link one in Connectors → GoCardless")
+        raise ValidationError(
+            "No bank linked — link one in Connectors → GoCardless",
+            message_id="connector.error.goCardlessNoLinkedBank",
+        )
     warnings = _refresh(store)
     banks = store.banks()
     usable = [b for b in banks if b["status"] == LINKED]

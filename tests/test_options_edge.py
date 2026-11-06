@@ -251,3 +251,84 @@ class TestUncoveredCallCount:
         # Confirm coverage is "unknown" (not "uncovered")
         holdings = s["holdings"]
         assert any(h.get("coverage") == "unknown" for h in holdings)
+
+
+def test_strategy_preset_provenance_is_explicit_and_cleared_by_edit(seeds, full_stores):
+    from backend.db.option_contract_store import OptionContractStore
+
+    change = {
+        "type": "open",
+        "account_id": seeds["account"]["id"],
+        "underlying_instrument_id": seeds["instrument"]["id"],
+        "option_type": "call",
+        "side": "short",
+        "strike": 160,
+        "expiry": (date.today() + timedelta(days=60)).isoformat(),
+        "contracts": 1,
+        "strategy_tag": "covered_call",
+        "strategy_preset": "covered_call",
+    }
+    result = opt_svc.apply_option_change(change)
+    assert result["ok"] is True
+    store = OptionContractStore()
+    assert store.find_by_id(result["contract_id"])["strategy_preset"] == "covered_call"
+    assert opt_svc.book()["positions"][0]["strategy_preset"] == "covered_call"
+    assert (
+        opt_svc.apply_option_change(
+            {"type": "update", "contract_id": result["contract_id"], "strategy_tag": "covered_call"}
+        )["ok"]
+        is True
+    )
+    row = store.find_by_id(result["contract_id"])
+    assert row["strategy_tag"] == "covered_call" and row["strategy_preset"] is None
+
+
+def test_strategy_preset_cannot_misrepresent_the_contract(seeds, full_stores):
+    from backend.db.option_contract_store import OptionContractStore
+
+    result = opt_svc.apply_option_change(
+        {
+            "type": "open",
+            "account_id": seeds["account"]["id"],
+            "underlying_instrument_id": seeds["instrument"]["id"],
+            "option_type": "put",
+            "side": "long",
+            "strike": 160,
+            "expiry": (date.today() + timedelta(days=60)).isoformat(),
+            "contracts": 1,
+            "strategy_tag": "covered_call",
+            "strategy_preset": "covered_call",
+        }
+    )
+    assert "error" in result
+    assert OptionContractStore().all() == []
+
+
+@pytest.mark.parametrize(
+    ("preset", "option_type", "side"),
+    [
+        ("covered_call", "call", "short"),
+        ("csp", "put", "short"),
+        ("long_call", "call", "long"),
+        ("long_put", "put", "long"),
+        ("protective_put", "put", "long"),
+        ("custom", "put", "short"),
+    ],
+)
+def test_all_selected_presets_are_valid(preset, option_type, side):
+    assert (
+        opt_svc._validate_open(
+            {
+                "account_id": "account",
+                "underlying_instrument_id": "instrument",
+                "option_type": option_type,
+                "side": side,
+                "strike": 1,
+                "expiry": "2027-01-01",
+                "contracts": 1,
+                "strategy_tag": preset,
+                "strategy_preset": preset,
+            }
+        )
+        is None
+    )

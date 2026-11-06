@@ -127,7 +127,7 @@ def _splits_block(row: dict, category_rows: list[dict]) -> Optional[list[dict]]:
     ]
 
 
-def _warnings_for(row: dict, accounts: list[dict]) -> list[str]:
+def _warnings_for(row: dict, accounts: list[dict]) -> list[dict]:
     """Tracking-start honesty parity: the same flags the post-write result surfaces, shown
     BEFORE the write instead of after. Best-effort — a warning lookup must never sink a
     preview (the card is still correct without it)."""
@@ -357,7 +357,7 @@ def preview_bulk(data_list: list[dict], *, import_description: str | None = None
 
     inflow = outflow = 0.0
     automation_counts: dict[str, dict] = {}
-    warnings: list[str] = []
+    warnings: list[dict] = []
     for row, meta in zip(rows, metas):
         base_amount = row.get("base_amount")
         if base_amount is not None:

@@ -20,6 +20,26 @@ On a phone the sections are a grouped list — tap one to open it, and use the b
 
 ## Common tasks
 
+**Choose the interface language**
+1. Open **Settings → Interface language** (also available under **Currency & format**).
+2. Under **Language**, choose **English**, **简体中文**, or **Follow browser**.
+3. An explicit choice is saved with your profile and follows it across devices. Follow browser
+   uses a supported browser language, falling back to English; before the profile loads, the
+   browser language is used as well.
+
+In the desktop app, native menus and the tray start in the operating system's language; after
+the profile loads, they follow the resolved interface language. Items supplied by macOS inside
+the Services menu are controlled by macOS and follow its own language settings.
+
+Language does not change your base currency or the date and number formats you chose. It does
+not change user-entered names or external content, and Lucius continues to respond according to
+the conversation.
+
+Unchanged built-in skill names and descriptions can also follow the interface language,
+including on installations created before language support. Customized skill text stays as entered.
+Category filters preserve your category names even when one matches a translated system label.
+The profile's retirement money readouts follow the app's hide-amounts setting.
+
 **Change your base currency**
 1. Open **Settings → Currency & format**.
 2. Pick a new **Base currency**.
@@ -34,6 +54,10 @@ On a phone the sections are a grouped list — tap one to open it, and use the b
    you pick yourself is never overwritten.
 3. Under **Number & date format**, choose a **Date format** (31/12/2026, 12/31/2026 or
    2026-12-31) and a **Number format**. Left on **Browser default**, they follow your browser.
+   Dates with month names use the interface language; a saved date format still controls their
+   day, month and year order. Numeric dates follow the selected format or browser default.
+   The desktop app also uses the profile's date format in native interface dates; without a
+   saved date format, native dates follow the operating system.
 
 **Switch to dark mode**
 1. Open **Settings → Appearance**.

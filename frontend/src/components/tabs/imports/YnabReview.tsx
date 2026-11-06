@@ -1,8 +1,13 @@
+import { formatImportCount } from './labels'
+import { importWarning } from './importMessages'
+import { useAppIntl } from '../../../i18n/useAppIntl'
+import { useAccountTypeLabel } from '../accounts/useAccountTypeLabel'
+import type { ReactNode } from 'react'
+import { FormattedMessage } from './FormattedMessage'
 import { useState } from 'react'
 import { authFetch } from '../../../api/client'
 import { fAmountNative, fDate } from '../../../utils/format'
 import { Button, Checkbox, Cluster, Modal, PageTabs, Skeleton, Stack, Text } from '../../ui'
-import { TYPE_LABELS, type AccountType } from '../accounts/categories'
 import { PMSelect } from '../accounts/ds'
 import { ASK, Categories } from './YnabCategories'
 import {
@@ -12,7 +17,6 @@ import {
   type Preview,
   type PreviewAccount,
   type PreviewCategory,
-  type PreviewTxn,
 } from './runs'
 import type { SyncDirection } from './sync'
 
@@ -43,9 +47,6 @@ const SYNC_OPTIONS: { value: SyncChoice; label: string }[] = [
   { value: 'off', label: 'Don’t sync, import once' },
 ]
 
-const plural = (n: number, one: string, many = `${one}s`) =>
-  `${n.toLocaleString()} ${n === 1 ? one : many}`
-
 export function YnabReview({
   runId,
   planLabel,
@@ -58,6 +59,7 @@ export function YnabReview({
   onClose: () => void
   onStarted: () => void
 }) {
+  const intl = useAppIntl()
   const [shownId, setShownId] = useState(runId)
   const [checkId, setCheckId] = useState<string | null>(null)
   const run = useRun(shownId).data
@@ -77,7 +79,7 @@ export function YnabReview({
     setShownId(checkId)
     setCheckId(null)
   } else if (checkId && check && check.status !== 'running') {
-    setError(check.error || 'Could not check that choice.')
+    setError(check.error || intl.formatMessage({ id: 'imports.review.checkFailed', defaultMessage: 'Could not check that choice.' }))
     setCheckId(null)
   }
   const checking = checkId !== null
@@ -105,12 +107,12 @@ export function YnabReview({
       })
       const body = await r.json().catch(() => null)
       if (!r.ok) {
-        setError(messageOf(body, 'Could not check that choice.'))
+        setError(messageOf(body, intl.formatMessage({ id: 'imports.review.checkFailed', defaultMessage: 'Could not check that choice.' })))
         return
       }
       setCheckId((body as { id: string }).id)
     } catch {
-      setError('Could not reach the server.')
+      setError(intl.formatMessage({ id: 'imports.review.serverFailed', defaultMessage: 'Could not reach the server.' }))
     }
   }
 
@@ -153,13 +155,13 @@ export function YnabReview({
         }),
       })
       if (!r.ok) {
-        setError(messageOf(await r.json().catch(() => null), 'Could not start the import.'))
+        setError(messageOf(await r.json().catch(() => null), intl.formatMessage({ id: 'imports.review.startFailed', defaultMessage: 'Could not start the import.' })))
         return
       }
       onStarted()
       onClose()
     } catch {
-      setError('Could not reach the server.')
+      setError(intl.formatMessage({ id: 'imports.review.serverFailed', defaultMessage: 'Could not reach the server.' }))
     } finally {
       setBusy(false)
     }
@@ -171,20 +173,20 @@ export function YnabReview({
       open
       size="xl"
       onClose={onClose}
-      title={`Import ${p ? p.plan_name : planLabel}`}
-      subtitle={reading ? 'Reading it from YNAB…' : p ? <Meta preview={p} /> : undefined}
+      title={intl.formatMessage({ id: 'imports.review.title', defaultMessage: 'Import {name}' }, { name: p ? p.plan_name : planLabel })}
+      subtitle={reading ? intl.formatMessage({ id: 'imports.review.reading', defaultMessage: 'Reading it from YNAB…' }) : p ? <Meta preview={p} /> : undefined}
       footer={
         <Cluster justify="between" gap="--space-3" className="ynr-footer">
           <PMSelect
             className="ynr-sync"
-            ariaLabel="After import"
+            ariaLabel={intl.formatMessage({ id: 'imports.review.afterImport', defaultMessage: 'After import' })}
             value={sync}
-            options={SYNC_OPTIONS}
+            options={SYNC_OPTIONS.map(o => ({ ...o, label: intl.formatMessage({ id: 'imports.review.syncChoice', defaultMessage: '{choice, select, both {Keep in sync both ways} from_ynab {Sync from YNAB only} to_ynab {Sync to YNAB only} other {Don’t sync, import once}}' }, { choice: o.value }) }))}
             onChange={(v) => setSync(v as SyncChoice)}
           />
           <Cluster gap="--space-2">
             <Button size="sm" variant="ghost" onClick={onClose}>
-              Cancel
+              {<FormattedMessage id="imports.static.51bac044" defaultMessage={"Cancel"} />}
             </Button>
             <Button
               size="sm"
@@ -193,7 +195,7 @@ export function YnabReview({
               loading={busy}
               onClick={importNow}
             >
-              Import
+              {<FormattedMessage id="imports.static.9ae2cb2b" defaultMessage={"Import"} />}
             </Button>
           </Cluster>
         </Cluster>
@@ -202,7 +204,7 @@ export function YnabReview({
       <Stack gap="--space-4">
         {failed ? (
           <Text size="sm" tone="bad">
-            {run?.error || 'The plan could not be read.'}
+            {run?.error || intl.formatMessage({ id: 'imports.review.readFailed', defaultMessage: 'The plan could not be read.' })}
           </Text>
         ) : (
           p && <Notes preview={p} asking={asking} />
@@ -215,13 +217,13 @@ export function YnabReview({
         {!failed && (
           <div>
             <PageTabs
-              ariaLabel="What the plan holds"
+              ariaLabel={intl.formatMessage({ id: 'imports.review.planHolds', defaultMessage: 'What the plan holds' })}
               value={pane}
               onChange={setPane}
               tabs={[
-                { key: 'accounts', label: 'Accounts', badge: p?.accounts.length },
-                { key: 'categories', label: 'Categories', badge: p?.categories },
-                { key: 'transactions', label: 'Transactions', badge: p?.transactions },
+                { key: 'accounts', label: intl.formatMessage({ id: 'imports.review.tabAccounts', defaultMessage: 'Accounts' }), badge: p?.accounts.length },
+                { key: 'categories', label: intl.formatMessage({ id: 'imports.review.tabCategories', defaultMessage: 'Categories' }), badge: p?.categories },
+                { key: 'transactions', label: intl.formatMessage({ id: 'imports.review.tabTransactions', defaultMessage: 'Transactions' }), badge: p?.transactions },
               ]}
             />
             <div
@@ -261,14 +263,15 @@ export function YnabReview({
 }
 
 function Meta({ preview: p }: { preview: Preview }) {
+  const intl = useAppIntl()
   return (
     <span className="ynr-meta">
       {[
         p.currency,
-        plural(p.accounts.length, 'account'),
-        plural(p.transactions, 'transaction'),
-        plural(p.categories, 'category', 'categories'),
-        plural(p.budget_months, 'budget month'),
+        intl.formatMessage({ id: 'imports.review.countAccounts', defaultMessage: '{count, plural, one {{display} account} other {{display} accounts}}' }, { count: p.accounts.length, display: formatImportCount(p.accounts.length) }),
+        intl.formatMessage({ id: 'imports.review.countTransactions', defaultMessage: '{count, plural, one {{display} transaction} other {{display} transactions}}' }, { count: p.transactions, display: formatImportCount(p.transactions) }),
+        intl.formatMessage({ id: 'imports.review.countCategories', defaultMessage: '{count, plural, one {{display} category} other {{display} categories}}' }, { count: p.categories, display: formatImportCount(p.categories) }),
+        intl.formatMessage({ id: 'imports.review.countMonths', defaultMessage: '{count, plural, one {{display} budget month} other {{display} budget months}}' }, { count: p.budget_months, display: formatImportCount(p.budget_months) }),
       ].join(', ')}
     </span>
   )
@@ -276,33 +279,34 @@ function Meta({ preview: p }: { preview: Preview }) {
 
 // What the import does to this book beyond adding the plan — each one sentence, only when true.
 function Notes({ preview: p, asking }: { preview: Preview; asking: PreviewCategory[] }) {
+  const intl = useAppIntl()
   const lines: { text: string; bad?: boolean }[] = []
   for (const c of asking)
     lines.push({
       bad: true,
-      text: `YNAB’s ${c.name} matches more than one of your categories. Pick one in Categories.`,
+      text: intl.formatMessage({ id: 'imports.review.ambiguous', defaultMessage: 'YNAB’s {name} matches more than one of your categories. Pick one in Categories.' }, { name: c.name }),
     })
   if (p.currency_blocked)
     lines.push({
       bad: true,
-      text: `Can’t import: this book is in ${p.base_currency} and already has data, and the plan is in ${p.currency}. Import into an empty book, or one in ${p.currency}.`,
+      text: intl.formatMessage({ id: 'imports.review.currencyBlocked', defaultMessage: 'Can’t import: this book is in {base} and already has data, and the plan is in {currency}. Import into an empty book, or one in {currency}.' }, { base: p.base_currency, currency: p.currency }),
     })
   if (p.book_state === 'foreign' && !p.currency_blocked)
     lines.push({
-      text: 'This book already has accounts of its own. Each YNAB account comes in as a new one unless you pick one of yours under In this book.',
+      text: intl.formatMessage({ id: 'imports.review.foreign', defaultMessage: 'This book already has accounts of its own. Each YNAB account comes in as a new one unless you pick one of yours under In this book.' }),
     })
   if (p.book_state === 'rerun')
-    lines.push({ text: 'This plan was imported before; importing again adds only what is new.' })
+    lines.push({ text: intl.formatMessage({ id: 'imports.review.rerun', defaultMessage: 'This plan was imported before; importing again adds only what is new.' }) })
   if (p.currency_change)
     lines.push({
-      text: `The book’s base currency changes from ${p.base_currency} to ${p.currency}.`,
+      text: intl.formatMessage({ id: 'imports.review.currencyChange', defaultMessage: 'The book’s base currency changes from {base} to {currency}.' }, { base: p.base_currency, currency: p.currency }),
     })
   const pruned = [...p.prune.categories, ...p.prune.groups]
   if (pruned.length > 0)
     lines.push({
-      text: `The starter categories the app came with that you never used are removed, since YNAB brings its own: ${pruned.join(', ')}. To keep one, pick it for a YNAB category in Categories.`,
+      text: intl.formatMessage({ id: 'imports.review.pruned', defaultMessage: 'The starter categories the app came with that you never used are removed, since YNAB brings its own: {names}. To keep one, pick it for a YNAB category in Categories.' }, { names: pruned.join(', ') }),
     })
-  for (const w of p.warnings) lines.push({ text: w })
+  for (const [index, w] of p.warnings.entries()) lines.push({ text: importWarning(intl, p.warnings_messages?.length === p.warnings.length ? p.warnings_messages[index] : null, w) })
   if (lines.length === 0) return null
   return (
     <ul className="ynr-notes">
@@ -327,7 +331,7 @@ function Placeholder() {
   )
 }
 
-function Empty({ children }: { children: string }) {
+function Empty({ children }: { children: ReactNode }) {
   return <p className="ynr-empty">{children}</p>
 }
 
@@ -340,38 +344,40 @@ interface LinkProps {
 }
 
 function Accounts({ preview: p, ...link }: { preview: Preview } & LinkProps) {
-  if (p.accounts.length === 0) return <Empty>This plan has no accounts.</Empty>
+  const intl = useAppIntl()
+  const accountTypeLabel = useAccountTypeLabel()
+  if (p.accounts.length === 0) return <Empty>{<FormattedMessage id="imports.static.e9ab2c3c" defaultMessage={"This plan has no accounts."} />}</Empty>
   return (
     <table className="imp-table ynr-table">
       <thead>
         <tr>
-          <th>Account</th>
-          <th>Type</th>
-          <th>In this book</th>
-          <th className="imp-table__num">Transactions</th>
-          <th className="imp-table__num">Opening balance</th>
+          <th>{<FormattedMessage id="imports.static.b28b6f38" defaultMessage={"Account"} />}</th>
+          <th>{<FormattedMessage id="imports.static.2cecf817" defaultMessage={"Type"} />}</th>
+          <th>{<FormattedMessage id="imports.static.8d59f947" defaultMessage={"In this book"} />}</th>
+          <th className="imp-table__num">{<FormattedMessage id="imports.static.f299c1b4" defaultMessage={"Transactions"} />}</th>
+          <th className="imp-table__num">{<FormattedMessage id="imports.static.652b0cdc" defaultMessage={"Opening balance"} />}</th>
         </tr>
       </thead>
       {p.accounts.map((a) => (
         <tbody key={a.id ?? a.name}>
           <tr>
-            <td data-label="Account">
+            <td data-label={intl.formatMessage({ id: 'imports.column.account', defaultMessage: 'Account' })}>
               {a.name}
-              {a.closed && <span className="ynr-dim"> (closed)</span>}
+              {a.closed && <span className="ynr-dim"> {<FormattedMessage id="imports.static.e50eef39" defaultMessage={"(closed)"} />}</span>}
             </td>
-            <td data-label="Type" className="ynr-dim">
-              {TYPE_LABELS[a.type as AccountType] ?? a.type}
-              {a.on_budget === false ? ' (tracking)' : ''}
+            <td data-label={intl.formatMessage({ id: 'imports.column.type', defaultMessage: 'Type' })} className="ynr-dim">
+              {accountTypeLabel(a.type)}
+              {a.on_budget === false ? intl.formatMessage({ id: 'imports.review.tracking', defaultMessage: ' (tracking)' }) : ''}
             </td>
-            <td data-label="In this book">
+            <td data-label={intl.formatMessage({ id: 'imports.column.inBook', defaultMessage: 'In this book' })}>
               <Destination account={a} {...link} />
             </td>
-            <td data-label="Transactions" className="imp-table__num">
+            <td data-label={intl.formatMessage({ id: 'imports.column.transactions', defaultMessage: 'Transactions' })} className="imp-table__num">
               {a.transactions}
             </td>
-            <td data-label="Opening balance" className="imp-table__num">
+            <td data-label={intl.formatMessage({ id: 'imports.column.opening', defaultMessage: 'Opening balance' })} className="imp-table__num">
               {a.link ? (
-                <span className="ynr-dim">Its own</span>
+                <span className="ynr-dim">{<FormattedMessage id="imports.static.4bf3ba51" defaultMessage={"Its own"} />}</span>
               ) : (
                 fAmountNative(a.opening_balance, p.currency)
               )}
@@ -397,17 +403,18 @@ function Destination({
   checking,
   onLink,
 }: { account: PreviewAccount } & LinkProps) {
-  if (a.link && !a.chosen) return <span className="ynr-dim">{a.link.name} (linked)</span>
-  if (!a.id || !a.candidates?.length) return <span className="ynr-dim">New account</span>
+  const intl = useAppIntl()
+  if (a.link && !a.chosen) return <span className="ynr-dim">{intl.formatMessage({ id: 'imports.review.linked', defaultMessage: '{name} (linked)' }, { name: a.link.name })}</span>
+  if (!a.id || !a.candidates?.length) return <span className="ynr-dim">{<FormattedMessage id="imports.static.559909a1" defaultMessage={"New account"} />}</span>
   return (
     <PMSelect
       className="ynr-dest"
-      ariaLabel={`Where ${a.name} goes`}
+      ariaLabel={intl.formatMessage({ id: 'imports.review.destination', defaultMessage: 'Where {name} goes' }, { name: a.name })}
       value={links[a.id] ?? ''}
       disabled={checking}
       options={[
-        { value: '', label: 'New account' },
-        ...a.candidates.map((c) => ({ value: c.id, label: `Use ${c.name}` })),
+        { value: '', label: intl.formatMessage({ id: 'imports.review.newAccount', defaultMessage: 'New account' }) },
+        ...a.candidates.map((c) => ({ value: c.id, label: intl.formatMessage({ id: 'imports.review.useAccount', defaultMessage: 'Use {name}' }, { name: c.name }) })),
       ]}
       onChange={(v) => onLink(a.id!, v)}
     />
@@ -422,29 +429,28 @@ function LinkSummary({
   sameAs,
   onSameAs,
 }: { account: PreviewAccount; match: LinkMatch; currency: string } & LinkProps) {
+  const intl = useAppIntl()
   if (checking)
-    return <span className="ynr-dim">Checking which transactions are already there…</span>
-  const here = a.link?.name ?? 'the account'
+    return <span className="ynr-dim">{<FormattedMessage id="imports.static.fcee9561" defaultMessage={"Checking which transactions are already there…"} />}</span>
+  const here = a.link?.name ?? intl.formatMessage({ id: 'imports.review.theAccount', defaultMessage: 'the account' })
   const parts = [
-    `${plural(m.matched, 'transaction')} already in ${here}`,
-    `${m.added.toLocaleString()} added`,
+    intl.formatMessage({ id: 'imports.review.alreadyIn', defaultMessage: '{count, plural, one {{display} transaction} other {{display} transactions}} already in {account}' }, { count: m.matched, display: formatImportCount(m.matched), account: here }),
+    intl.formatMessage({ id: 'imports.review.added', defaultMessage: '{count} added' }, { count: formatImportCount(m.added) }),
   ]
-  if (m.to_check > 0) parts.push(`${m.to_check.toLocaleString()} to check`)
+  if (m.to_check > 0) parts.push(intl.formatMessage({ id: 'imports.review.toCheck', defaultMessage: '{count} to check' }, { count: formatImportCount(m.to_check) }))
   const money = (n: number) => fAmountNative(n, currency)
   return (
     <Stack gap="--space-2">
       <span>{parts.join('. ')}.</span>
       {m.own_only > 0 && (
         <span className="ynr-dim">
-          {plural(m.own_only, 'transaction')} of {here}’s own{' '}
-          {m.own_only === 1 ? 'isn’t' : 'aren’t'} in YNAB; a sync to YNAB sends{' '}
-          {m.own_only === 1 ? 'it' : 'them'} there.
+          {intl.formatMessage({ id: 'imports.review.ownOnly', defaultMessage: '{count, plural, one {{display} transaction} other {{display} transactions}} of {account}’s own {count, plural, one {isn’t} other {aren’t}} in YNAB; a sync to YNAB sends {count, plural, one {it} other {them}} there.' }, { count: m.own_only, display: formatImportCount(m.own_only), account: here })}
         </span>
       )}
       {m.pairs.length > 0 && (
         <>
           <span className="ynr-dim">
-            These may be the same transaction. Each is added as a new one unless you tick it.
+            {<FormattedMessage id="imports.static.171d4ead" defaultMessage={"These may be the same transaction. Each is added as a new one unless you tick it."} />}
           </span>
           <ul className="ynr-pairs">
             {m.pairs.map((x) => (
@@ -457,8 +463,8 @@ function LinkSummary({
                     else delete next[x.ref]
                     onSameAs(next)
                   }}
-                  label={`Same as ${x.existing.payee ?? '(no payee)'}, ${fDate(x.existing.date)}, ${money(x.existing.amount)}`}
-                  description={`YNAB: ${x.payee ?? '(no payee)'}, ${fDate(x.date)}, ${money(x.amount)}`}
+                  label={intl.formatMessage({ id: 'imports.review.sameAs', defaultMessage: 'Same as {payee}, {date}, {amount}' }, { payee: x.existing.payee ?? intl.formatMessage({ id: 'imports.review.noPayee', defaultMessage: '(no payee)' }), date: fDate(x.existing.date), amount: money(x.existing.amount) })}
+                  description={intl.formatMessage({ id: 'imports.review.ynabTransaction', defaultMessage: 'YNAB: {payee}, {date}, {amount}' }, { payee: x.payee ?? intl.formatMessage({ id: 'imports.review.noPayee', defaultMessage: '(no payee)' }), date: fDate(x.date), amount: money(x.amount) })}
                 />
               </li>
             ))}
@@ -470,47 +476,42 @@ function LinkSummary({
 }
 
 // A blank category on an inflow is money to assign, as in YNAB; on a spend it is uncategorized.
-const NO_CATEGORY: Record<PreviewTxn['kind'], string> = {
-  income: 'Ready to Assign',
-  expense: 'Uncategorized',
-  transfer: '',
-}
-
 function Transactions({ preview: p }: { preview: Preview }) {
+  const intl = useAppIntl()
   const rows = p.transaction_list
-  if (!rows) return <Empty>Review again to see the transactions.</Empty>
-  if (rows.length === 0) return <Empty>This plan has no transactions.</Empty>
+  if (!rows) return <Empty>{<FormattedMessage id="imports.static.162af938" defaultMessage={"Review again to see the transactions."} />}</Empty>
+  if (rows.length === 0) return <Empty>{<FormattedMessage id="imports.static.b1ad25d8" defaultMessage={"This plan has no transactions."} />}</Empty>
   return (
     <table className="imp-table ynr-table">
       <thead>
         <tr>
-          <th>Date</th>
-          <th>Account</th>
-          <th>Payee</th>
-          <th>Memo</th>
-          <th>Category</th>
-          <th className="imp-table__num">Amount</th>
+          <th>{<FormattedMessage id="imports.static.0aac9844" defaultMessage={"Date"} />}</th>
+          <th>{<FormattedMessage id="imports.static.b28b6f38" defaultMessage={"Account"} />}</th>
+          <th>{<FormattedMessage id="imports.static.03d9f15a" defaultMessage={"Payee"} />}</th>
+          <th>{<FormattedMessage id="imports.static.0b783f14" defaultMessage={"Memo"} />}</th>
+          <th>{<FormattedMessage id="imports.static.ff3a7b97" defaultMessage={"Category"} />}</th>
+          <th className="imp-table__num">{<FormattedMessage id="imports.static.890d7574" defaultMessage={"Amount"} />}</th>
         </tr>
       </thead>
       <tbody>
         {rows.map((t, i) => (
           <tr key={i}>
-            <td data-label="Date" className="ynr-dim ynr-nowrap">
+            <td data-label={intl.formatMessage({ id: 'imports.column.date', defaultMessage: 'Date' })} className="ynr-dim ynr-nowrap">
               {fDate(t.date)}
             </td>
-            <td data-label="Account">
+            <td data-label={intl.formatMessage({ id: 'imports.column.account', defaultMessage: 'Account' })}>
               {t.kind === 'transfer' ? `${t.account ?? '?'} → ${t.to_account ?? '?'}` : t.account}
             </td>
-            <td data-label="Payee" className="imp-table__wrap">
+            <td data-label={intl.formatMessage({ id: 'imports.column.payee', defaultMessage: 'Payee' })} className="imp-table__wrap">
               {t.payee ?? ''}
             </td>
-            <td data-label="Memo" className="imp-table__wrap ynr-dim">
+            <td data-label={intl.formatMessage({ id: 'imports.column.memo', defaultMessage: 'Memo' })} className="imp-table__wrap ynr-dim">
               {t.memo ?? ''}
             </td>
-            <td data-label="Category" className="ynr-dim">
-              {t.category ?? NO_CATEGORY[t.kind]}
+            <td data-label={intl.formatMessage({ id: 'imports.column.category', defaultMessage: 'Category' })} className="ynr-dim">
+              {t.category ?? (t.kind === 'income' ? intl.formatMessage({ id: 'imports.review.ready', defaultMessage: 'Ready to Assign' }) : t.kind === 'expense' ? intl.formatMessage({ id: 'imports.review.uncategorized', defaultMessage: 'Uncategorized' }) : '')}
             </td>
-            <td data-label="Amount" className="imp-table__num ynr-nowrap">
+            <td data-label={intl.formatMessage({ id: 'imports.column.amount', defaultMessage: 'Amount' })} className="imp-table__num ynr-nowrap">
               {fAmountNative(t.amount, p.currency)}
             </td>
           </tr>
@@ -520,8 +521,7 @@ function Transactions({ preview: p }: { preview: Preview }) {
         <tfoot>
           <tr>
             <td colSpan={6} className="ynr-dim">
-              The newest {rows.length} of {p.transactions.toLocaleString()}. The import brings them
-              all.
+              {intl.formatMessage({ id: 'imports.review.newest', defaultMessage: 'The newest {shown} of {total}. The import brings them all.' }, { shown: formatImportCount(rows.length), total: formatImportCount(p.transactions) })}
             </td>
           </tr>
         </tfoot>

@@ -26,10 +26,11 @@ from __future__ import annotations
 import asyncio
 from typing import Optional
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter
 from pydantic import BaseModel
 
-from backend.core.errors import OpenNetWorthError, to_http_status
+from backend.api.connector_error_responses import connector_domain_error
+from backend.core.errors import OpenNetWorthError
 from backend.db.plaid_config_store import PlaidConfigStore
 from backend.services.aggregation import plaid as plaid_service
 
@@ -97,7 +98,7 @@ async def plaid_link(body: PlaidLinkRequest):
             add_accounts=bool(body.add_accounts),
         )
     except OpenNetWorthError as exc:
-        raise HTTPException(to_http_status(exc), exc.message or str(exc)) from exc
+        return connector_domain_error(exc)
     return result
 
 
@@ -109,7 +110,7 @@ async def plaid_link_complete():
     try:
         return await asyncio.to_thread(plaid_service.complete_hosted_link)
     except OpenNetWorthError as exc:
-        raise HTTPException(to_http_status(exc), exc.message or str(exc)) from exc
+        return connector_domain_error(exc)
 
 
 class PlaidBankRename(BaseModel):
@@ -123,7 +124,7 @@ async def plaid_rename_bank(key: str, body: PlaidBankRename):
     try:
         return await asyncio.to_thread(plaid_service.rename_bank, key, body.name)
     except OpenNetWorthError as exc:
-        raise HTTPException(to_http_status(exc), exc.message or str(exc)) from exc
+        return connector_domain_error(exc)
 
 
 @router.post("/api/plaid/banks/{key}/remove")
@@ -133,7 +134,7 @@ async def plaid_remove_bank(key: str):
     try:
         return await asyncio.to_thread(plaid_service.remove_bank, key)
     except OpenNetWorthError as exc:
-        raise HTTPException(to_http_status(exc), exc.message or str(exc)) from exc
+        return connector_domain_error(exc)
 
 
 @router.post("/api/plaid/exchange")
@@ -144,5 +145,5 @@ async def plaid_exchange(body: PlaidExchangeRequest):
     try:
         result = await asyncio.to_thread(plaid_service.exchange_public_token, body.public_token)
     except OpenNetWorthError as exc:
-        raise HTTPException(to_http_status(exc), exc.message or str(exc)) from exc
+        return connector_domain_error(exc)
     return result

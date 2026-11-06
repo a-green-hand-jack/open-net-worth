@@ -1,9 +1,11 @@
+import { message as t } from './native-messages';
 import { BrowserWindow, ipcMain, nativeTheme, session, type IpcMainInvokeEvent } from 'electron';
 import { join } from 'node:path';
 import type { DesktopWindow } from './window';
 import { Preferences, settingsPatch } from './preferences';
 import { appDocument } from './security';
 import { activityPage } from './activity-page';
+import { LoginSettingError } from './login-item';
 
 interface ActivityActions {
   parent(): DesktopWindow;
@@ -49,7 +51,7 @@ export class ActivityDialog {
     const isolated = session.fromPartition('onw-activity-settings');
     isolated.setPermissionRequestHandler((_contents, _permission, callback) => callback(false));
     isolated.setPermissionCheckHandler(() => false);
-    const owned = new BrowserWindow({ width: 720, height: 610, minWidth: 560, minHeight: 560, show: false, parent: this.actions.parent().window, modal: true, title: 'Background and startup — Open Net Worth', backgroundColor: nativeTheme.shouldUseDarkColors ? '#0e1014' : '#ffffff', webPreferences: { preload: join(__dirname, '..', 'activity-preload.js'), session: isolated, nodeIntegration: false, contextIsolation: true, sandbox: true, webSecurity: true, devTools: false } });
+    const owned = new BrowserWindow({ width: 720, height: 610, minWidth: 560, minHeight: 560, show: false, parent: this.actions.parent().window, modal: true, title: `${t('Background and startup')} — Open Net Worth`, backgroundColor: nativeTheme.shouldUseDarkColors ? '#0e1014' : '#ffffff', webPreferences: { preload: join(__dirname, '..', 'activity-preload.js'), session: isolated, nodeIntegration: false, contextIsolation: true, sandbox: true, webSecurity: true, devTools: false } });
     this.window = owned;
     owned.webContents.on('will-navigate', event => event.preventDefault());
     owned.webContents.on('will-attach-webview', event => event.preventDefault());
@@ -65,23 +67,24 @@ export class ActivityDialog {
   destroy(): void { this.window?.destroy(); }
   get isOpen(): boolean { return Boolean(this.window && !this.window.isDestroyed()); }
   private authorize(event: IpcMainInvokeEvent): void {
-    if (!this.window || event.sender !== this.window.webContents || event.senderFrame !== this.window.webContents.mainFrame || event.senderFrame.url !== this.url) throw new Error('Untrusted desktop settings caller.');
+    if (!this.window || event.sender !== this.window.webContents || event.senderFrame !== this.window.webContents.mainFrame || event.senderFrame.url !== this.url) throw new Error(t("Untrusted desktop settings caller."));
   }
 
   private async dismiss(): Promise<void> {
     if (this.applying || this.closing) return;
     this.closing = true;
     try { await this.preferences.save({ activitySetupComplete: true }); this.window?.destroy(); }
-    catch { await this.window?.webContents.executeJavaScript("document.getElementById('error').textContent='Could not save these choices. Try again.'").catch(() => {}); }
+    catch { await this.window?.webContents.executeJavaScript(`document.getElementById('error').textContent=${JSON.stringify(t('Could not save these choices. Try again.'))}`).catch(() => {}); }
     finally { this.closing = false; }
   }
 
   private async save(value: unknown): Promise<void> {
-    if (this.applying || this.closing) throw new Error('Wait for the current save to finish.');
+    if (this.applying || this.closing) throw new Error(t("Wait for the current save to finish."));
     const patch = settingsPatch(value);
-    if (typeof patch.background !== 'boolean' || typeof patch.launchAtLogin !== 'boolean' || Object.keys(patch).length !== 2) throw new Error('Choose background and startup settings.');
+    if (typeof patch.background !== 'boolean' || typeof patch.launchAtLogin !== 'boolean' || Object.keys(patch).length !== 2) throw new Error(t("Choose background and startup settings."));
     this.applying = true;
     try { await this.actions.save(patch); await this.preferences.save({ activitySetupComplete: true }); this.window?.destroy(); }
+    catch (error) { if (error instanceof LoginSettingError) throw new Error('ONW_LOGIN_SETTING_FAILED'); throw error; }
     finally { this.applying = false; }
   }
 }

@@ -1,3 +1,4 @@
+import { useAppIntl } from '../../i18n/useAppIntl'
 import type { ReactNode } from 'react'
 import { Panel, Skeleton } from '../ui'
 
@@ -47,8 +48,9 @@ interface SkeletonProps {
  * have (name/code) renders for real — only the unknown parts shimmer.
  */
 export function AssetDetailSkeleton({ name, ticker, subTabs }: SkeletonProps = {}) {
+  const intl = useAppIntl()
   return (
-    <div className="asd-root" role="status" aria-busy="true" aria-label="Loading asset detail">
+    <div className="asd-root" role="status" aria-busy="true" aria-label={intl.formatMessage({ id: "intel.field.7fbb2202", defaultMessage: "Loading asset detail" })}>
       {/* Header: name + subline • follow/refresh */}
       <div className="asd-header">
         <div className="asd-header-left">

@@ -277,8 +277,11 @@ def stage_write(
     source = args if args is not None else (active_call_input() or {})
     clean = {k: v for k, v in source.items() if k != CONFIRM_TOKEN_KEY}
     session_id = get_session_id()
+    from backend.ai.tools.schema_enums import approval_marker
+
     staged = {
-        **change,
+        **{k: v for k, v in change.items() if k != "enum_schema_version"},
+        **approval_marker(tool_name),
         "grant_tool": tool_name,
         "tool_use_id": tool_use_id,
         "session_id": session_id,

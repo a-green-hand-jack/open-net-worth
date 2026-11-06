@@ -1,3 +1,4 @@
+import { useAppIntl } from '../../../i18n/useAppIntl'
 import { useCallback, useEffect, useState } from 'react'
 import { authFetch } from '../../../api/client'
 import { Stack, Text, FormField, PasswordField, useSecretReveal } from '../../ui'
@@ -40,6 +41,7 @@ function lunchMoneyFormOf(): LunchMoneyForm {
 }
 
 export function LunchMoneySection() {
+  const { formatMessage } = useAppIntl()
   const [cfg, setCfg] = useState<LunchMoneyStatus | null>(null)
   const [form, setForm] = useState<LunchMoneyForm | null>(null)
   const [error, setError] = useState(false)
@@ -73,14 +75,14 @@ export function LunchMoneySection() {
       })
       if (!r.ok) {
         const d = await r.json().catch(() => ({}))
-        setSaveErr(d.detail || 'Could not save the access token.')
+        setSaveErr(d.detail || formatMessage({ id: 'connectors.lunchMoney.save', defaultMessage: 'Could not save the access token.' }))
         return false
       }
       setForm((f) => f && { ...f, access_token: '' })
       load()
       return true
     } catch {
-      setSaveErr('Could not save — could not reach the server.')
+      setSaveErr(formatMessage({ id: 'connectors.email.serverFailed', defaultMessage: 'Could not save — could not reach the server.' }))
       return false
     } finally {
       setSaving(false)
@@ -110,14 +112,14 @@ export function LunchMoneySection() {
   if (error) {
     return (
       <Text size="sm" tone="bad">
-        Could not load the Lunch Money connector status.
+        {formatMessage({ id: 'connectors.lunchMoney.load', defaultMessage: 'Could not load the Lunch Money connector status.' })}
       </Text>
     )
   }
   if (!cfg || !form) {
     return (
       <Text size="sm" tone="faint">
-        Loading…
+        {formatMessage({ id: 'connectors.email.loading', defaultMessage: 'Loading…' })}
       </Text>
     )
   }
@@ -128,37 +130,30 @@ export function LunchMoneySection() {
   return (
     <Stack gap="--space-4">
       <Text size="sm" tone="faint">
-        If you already track spending in{' '}
-        <a href="https://lunchmoney.app" target="_blank" rel="noreferrer">
-          Lunch Money
-        </a>
-        , paste a personal access token from its Settings → Developers page. Fetching and booking
-        transactions is Lucius's job — automate it with a template below. Pulls transactions only —
-        Lunch Money's own manually-tracked assets are not imported.
+        {formatMessage({ id: 'connectors.lunchMoney.intro', defaultMessage: "If you already track spending in <link>Lunch Money</link>, paste a personal access token from its Settings → Developers page. Fetching and booking transactions is Lucius's job — automate it with a template below. Pulls transactions only — Lunch Money's own manually-tracked assets are not imported." }, { link: (chunks) => <a href="https://lunchmoney.app" target="_blank" rel="noreferrer">{chunks}</a> })}
       </Text>
 
       {cfg.configured && !cfg.enabled && (
         <Text size="xs" tone="warn">
-          Currently paused — saving here won&apos;t resume it. Use Resume on the connector card to
-          turn it back on.
+          {formatMessage({ id: 'connectors.alpaca.paused', defaultMessage: "Currently paused — saving here won't resume it. Use Resume on the connector card to turn it back on." })}
         </Text>
       )}
 
       <ConnectorStatusLine lastSyncedAt={cfg.last_synced_at} lastStatus={cfg.last_status} />
       {cfg.last_error && (
         <Text size="xs" tone="bad">
-          Last error: {cfg.last_error}
+          {formatMessage({ id: 'connectors.email.lastError', defaultMessage: 'Last error: {error}' }, { error: cfg.last_error })}
         </Text>
       )}
 
       <FormField
-        label="Access token"
+        label={formatMessage({ id: 'connectors.lunchMoney.token', defaultMessage: 'Access token' })}
         htmlFor="conn-lm-token"
         required
-        help={token.caption || 'Your Lunch Money personal access token (Settings → Developers).'}
+        help={token.caption || formatMessage({ id: 'connectors.lunchMoney.help', defaultMessage: "Your Lunch Money personal access token (Settings \u2192 Developers)." })}
         error={
           token.error ||
-          (tokenTouched.touched && !tokenValid ? 'An access token is required.' : undefined)
+          (tokenTouched.touched && !tokenValid ? formatMessage({ id: 'connectors.lunchMoney.required', defaultMessage: "An access token is required." }) : undefined)
         }
       >
         <PasswordField

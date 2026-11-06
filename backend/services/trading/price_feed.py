@@ -22,7 +22,10 @@ def _feed_snapshot(run_id: str) -> dict:
 def refresh_run_market_data(run_id: str) -> dict:
     run = _feed_snapshot(run_id)
     if run["mode"] == "backtest":
-        raise ConflictError("Historical runs cannot access current market feeds")
+        raise ConflictError(
+            "Historical runs cannot access current market feeds",
+            message_id="trading.error.feed_historical",
+        )
     mandate = run["workspace_snapshot"]["mandate"]
     if mandate.get("market_data_source", "supplied") != "yahoo":
         return {"received": 0, "source": "supplied"}
@@ -34,7 +37,10 @@ def refresh_run_market_data(run_id: str) -> dict:
     if not universe:
         return {"received": 0, "source": "yahoo", "status": "awaiting_executor_selection"}
     if any(row["currency"] != "USD" for row in universe.values()):
-        raise ConflictError("The Yahoo trading feed currently requires USD-quoted instruments")
+        raise ConflictError(
+            "The Yahoo trading feed currently requires USD-quoted instruments",
+            message_id="trading.error.feed_usd_only",
+        )
     symbols = {
         key: row["symbol"].replace("/", "-") if row["asset_class"] == "crypto" else row["symbol"]
         for key, row in universe.items()

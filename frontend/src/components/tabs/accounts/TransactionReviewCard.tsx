@@ -1,11 +1,14 @@
 import { useEffect, useRef, useState } from 'react'
+import { useAppIntl } from '../../../i18n/useAppIntl'
 import { ArrowLeftRight, Check, Info, Pencil, Wallet, X } from '../../../ui/icons'
 import { Button } from '../../ui'
-import { sourceLine, validateReviewDraft, type ReviewDraft } from './transactionReview'
+import { validateReviewDraft, type ReviewDraft } from './transactionReview'
 import type { Account, Category, Txn } from './types'
 import { ReviewChoices, ReviewSummary } from './ReviewSummary'
 import { TransactionReviewPeek } from './TransactionReviewPeek'
 import { SourceIcon } from './pickers'
+import { useReviewValidation } from './useReviewValidation'
+import { useReviewSource } from './useReviewSource'
 import { useListFitsStage, useSmoothCardHeight } from './reviewCardHeight'
 
 interface Props {
@@ -68,9 +71,11 @@ function swipeThreshold(card: HTMLDivElement | null): number {
 }
 
 export function TransactionReviewCard(props: Props) {
+  const { formatMessage } = useAppIntl()
   const { txn, account, draft, busy } = props
+  const source = useReviewSource(txn)
   const selectedAccount = props.accounts.find((item) => item.id === draft.accountId) ?? account
-  const validationError = validateReviewDraft(txn, draft, props.accounts)
+  const validationError = useReviewValidation(validateReviewDraft(txn, draft, props.accounts))
   const [dragX, setDragX] = useState(0)
   const [thresholdPx, setThresholdPx] = useState(96)
   const [exit, setExit] = useState<'left' | 'right' | null>(null)
@@ -256,7 +261,7 @@ export function TransactionReviewCard(props: Props) {
                   <X size={26} strokeWidth={2.5} />
                 )}
               </span>
-              <b>{swipeIntent === 'right' ? 'Approve' : 'Skip for now'}</b>
+              <b>{swipeIntent === 'right' ? formatMessage({ id: 'accounts.reviewCard.approve', defaultMessage: "Approve" }) : formatMessage({ id: 'accounts.reviewCard.skipNow', defaultMessage: "Skip for now" })}</b>
             </div>
           )}
           {/* Two grounds, no rule between them: the facts on a panel tinted by kind, the one
@@ -268,7 +273,7 @@ export function TransactionReviewCard(props: Props) {
             <div className="acct-review-card-head">
               <b>
                 <Wallet size={16} aria-hidden="true" />
-                {selectedAccount?.name ?? 'Unknown account'}
+                {selectedAccount?.name ?? formatMessage({ id: 'accounts.reviewCard.unknownAccount', defaultMessage: "Unknown account" })}
               </b>
               <span className="acct-review-head-actions">
                 <Button
@@ -278,7 +283,7 @@ export function TransactionReviewCard(props: Props) {
                   iconLeft={<Info size={14} />}
                   onClick={props.onViewAll}
                 >
-                  Details
+                  {formatMessage({ id: 'accounts.reviewCard.details', defaultMessage: "Details" })}
                 </Button>
                 <Button
                   size="sm"
@@ -287,19 +292,19 @@ export function TransactionReviewCard(props: Props) {
                   iconLeft={<Pencil size={14} />}
                   onClick={props.onEditAll}
                 >
-                  Edit
+                  {formatMessage({ id: 'accounts.reviewCard.edit', defaultMessage: "Edit" })}
                 </Button>
               </span>
               <span
                 className="acct-review-source"
                 title={
                   txn.via
-                    ? `Added by the automation "${txn.via}". This does not mean it has been reviewed or cleared at your bank.`
-                    : 'How this transaction was added. This does not mean it has been reviewed or cleared at your bank.'
+                    ? formatMessage({ id: 'accounts.reviewCard.automationHelp', defaultMessage: 'Added by the automation "{automation}". This does not mean it has been reviewed or cleared at your bank.' }, { automation: txn.via })
+                    : formatMessage({ id: 'accounts.reviewCard.sourceHelp', defaultMessage: "How this transaction was added. This does not mean it has been reviewed or cleared at your bank." })
                 }
               >
                 <SourceIcon source={txn.source} variant="mono" />
-                <span className="acct-review-source-text">{sourceLine(txn)}</span>
+                <span className="acct-review-source-text">{source}</span>
               </span>
             </div>
             <ReviewSummary txn={txn} accounts={props.accounts} draft={draft} />
@@ -317,7 +322,7 @@ export function TransactionReviewCard(props: Props) {
       </div>
       <p className="acct-review-swipe-hint" aria-hidden="true">
         <ArrowLeftRight size={14} />
-        Left to skip · Right to approve
+        {formatMessage({ id: 'accounts.reviewCard.swipeHint', defaultMessage: "Left to skip · Right to approve" })}
       </p>
       {props.actionError && (
         <div className="acct-review-action-error" role="alert">
@@ -329,12 +334,12 @@ export function TransactionReviewCard(props: Props) {
               if (!validationError) void props.onApprove()
             }}
           >
-            Retry approval
+            {formatMessage({ id: 'accounts.reviewCard.retryApproval', defaultMessage: "Retry approval" })}
           </button>
         </div>
       )}
       {props.hasMore && (
-        <p className="acct-review-bound">Showing the newest 500. More still need review.</p>
+        <p className="acct-review-bound">{formatMessage({ id: 'accounts.reviewCard.batchLimit', defaultMessage: "Showing the newest 500. More still need review." })}</p>
       )}
     </>
   )

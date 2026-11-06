@@ -162,7 +162,7 @@ it('Link… files the account under the bank’s existing (renamed) institution'
   await waitFor(() => within(picker).getByRole('button', { name: 'Savings' }))
   fireEvent.mouseDown(within(picker).getByRole('button', { name: 'Savings' }))
   await waitFor(() => expect(puts).toHaveLength(1))
-  expect((puts[0] as { external_ids: { institution: string }[] }).external_ids[0].institution).toBe(
+  expect((puts[0] as { external_ids: { institution: string }[] }).external_ids[0]!.institution).toBe(
     'Joint Chase',
   )
 })

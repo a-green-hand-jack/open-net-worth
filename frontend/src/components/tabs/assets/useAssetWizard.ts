@@ -7,7 +7,6 @@ import * as api from './api'
 import { AssetsApiError } from './api'
 import { canHaveLoan } from './assetCategoryRules'
 import {
-  CREATE_FAILED,
   WIZARD_STEPS,
   createBody,
   emptyDraft,
@@ -23,9 +22,63 @@ import {
 import type { LoanFormGate } from './InlineAddLoan'
 import { LoanRefused, type StagedLoan } from './useStagedLoan'
 import { useSyncedDraft } from './useSyncedDraft'
+import { useAppIntl } from '../../../i18n/useAppIntl'
+import type { IntlShape } from 'react-intl'
+
+function localValidation(
+  step: WizardStep,
+  draft: WizardDraft,
+  errors: WizardErrors,
+  intl: IntlShape,
+): WizardErrors {
+  if (step === 'nameValue')
+    return {
+      ...(errors.name && {
+        name: intl.formatMessage({ id: 'assets.docs.enterName', defaultMessage: 'Enter a name.' }),
+      }),
+      ...(errors.value && {
+        value:
+          draft.value == null
+            ? intl.formatMessage({
+                id: 'assets.wizard.enterValue',
+                defaultMessage: "Enter what it's worth today.",
+              })
+            : intl.formatMessage({
+                id: 'assets.value.positive',
+                defaultMessage: 'Enter a value greater than 0.',
+              }),
+      }),
+    }
+  if (step === 'ownership')
+    return errors.share_pct
+      ? {
+          share_pct: intl.formatMessage({
+            id: 'assets.owner.shareRange',
+            defaultMessage: 'Enter a share from 0 to 100.',
+          }),
+        }
+      : {}
+  if (step === 'purchase')
+    return {
+      ...(errors.cost && {
+        cost: intl.formatMessage({
+          id: 'assets.purchase.positive',
+          defaultMessage: 'Enter a value greater than 0, or leave it blank.',
+        }),
+      }),
+      ...(errors.cost_date && {
+        cost_date: intl.formatMessage({
+          id: 'assets.value.notFuture',
+          defaultMessage: "Pick a date that isn't in the future.",
+        }),
+      }),
+    }
+  return errors
+}
 
 /** Which step is showing, what has been typed, and each step's errors. */
 export function useWizardFlow(initialCategory: string | null, today: string) {
+  const intl = useAppIntl()
   const [step, setStep] = useState<WizardStep>(initialCategory ? 'nameValue' : 'cat')
   const [draft, update, latest] = useSyncedDraft<WizardDraft>(() => emptyDraft(initialCategory))
   const [errors, setErrors] = useState<WizardErrors>({})
@@ -66,7 +119,8 @@ export function useWizardFlow(initialCategory: string | null, today: string) {
   function advance() {
     if (loanFormHolds() || hasUnreadable()) return
     const problems = stepErrors(step, latest.current, today)
-    if (Object.keys(problems).length > 0) return setErrors(problems)
+    if (Object.keys(problems).length > 0)
+      return setErrors(localValidation(step, latest.current, problems, intl))
     go(WIZARD_STEPS[WIZARD_STEPS.indexOf(step) + 1]!)
   }
   function back() {
@@ -112,21 +166,46 @@ export function useWizardSave(
   staged: StagedLoan,
   onCreated: (asset: OwnedAsset) => void,
 ) {
+  const intl = useAppIntl()
   const [saving, setSaving] = useState(false)
   const savingRef = useRef(false)
 
   function showRefusal(err: unknown) {
-    if (err instanceof LoanRefused) return flow.go('ownership', stagedLoanErrors(err.refusal))
+    if (err instanceof LoanRefused) {
+      const errors = stagedLoanErrors(err.refusal)
+      return flow.go(
+        'ownership',
+        err.refusal instanceof AssetsApiError
+          ? errors
+          : {
+              loan_account_id: intl.formatMessage({
+                id: 'assets.wizard.createFailed',
+                defaultMessage: "We couldn't add this asset. Check the details and try again.",
+              }),
+            },
+      )
+    }
     const field = err instanceof AssetsApiError ? err.field : null
     const owner = stepOfField(field)
     if (owner && field) return flow.go(owner, { [field]: (err as AssetsApiError).message })
-    flow.setSaveErr(err instanceof AssetsApiError ? err.message : CREATE_FAILED)
+    flow.setSaveErr(
+      err instanceof AssetsApiError
+        ? err.message
+        : intl.formatMessage({
+            id: 'assets.wizard.createFailed',
+            defaultMessage: "We couldn't add this asset. Check the details and try again.",
+          }),
+    )
   }
 
   async function save() {
     if (savingRef.current || flow.loanFormHolds() || flow.hasUnreadable()) return
     const invalid = firstInvalidStep(flow.latest.current, today)
-    if (invalid) return flow.go(invalid.step, invalid.errors)
+    if (invalid)
+      return flow.go(
+        invalid.step,
+        localValidation(invalid.step, flow.latest.current, invalid.errors, intl),
+      )
     savingRef.current = true
     setSaving(true)
     flow.setErrors({})

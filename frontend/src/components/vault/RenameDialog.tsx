@@ -1,3 +1,6 @@
+import { vaultError } from './vaultErrors'
+import { defineMessages, type MessageDescriptor } from 'react-intl'
+import { useAppIntl } from '../../i18n/useAppIntl'
 import { useState } from 'react'
 import { renameVaultItem, type VaultItem } from '../../api/vault'
 import { refreshVault } from '../../hooks/useVault'
@@ -5,16 +8,17 @@ import { Button } from '../ui/Button'
 import { Modal } from '../ui/Modal'
 import { TextField } from '../ui/TextField'
 
-const HELP: Partial<Record<VaultItem['kind'], string>> = {
-  file: 'Leave it empty to use the file name.',
-  statement: 'Leave it empty to go back to the account and month.',
-  receipt: 'Leave it empty to go back to its transaction’s name.',
-  asset: 'The asset’s page shows this name too.',
-}
+const HELP = defineMessages({
+  file: { id: 'vault.renameHelp.file', defaultMessage: 'Leave it empty to use the file name.' },
+  statement: { id: 'vault.renameHelp.statement', defaultMessage: 'Leave it empty to go back to the account and month.' },
+  receipt: { id: 'vault.renameHelp.receipt', defaultMessage: 'Leave it empty to go back to its transaction’s name.' },
+  asset: { id: 'vault.renameHelp.asset', defaultMessage: 'The asset’s page shows this name too.' },
+})
 // These fall back to a name of their own when cleared; an artifact or asset file needs one.
 const CLEARABLE = new Set<VaultItem['kind']>(['file', 'statement', 'receipt'])
 
 export function RenameDialog({ item, onClose }: { item: VaultItem; onClose: () => void }) {
+  const vaultIntl = useAppIntl()
   const [name, setName] = useState(item.title)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -30,7 +34,7 @@ export function RenameDialog({ item, onClose }: { item: VaultItem; onClose: () =
       refreshVault()
       onClose()
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e))
+      setError(vaultError(e, vaultIntl))
       setSaving(false)
     }
   }
@@ -38,12 +42,12 @@ export function RenameDialog({ item, onClose }: { item: VaultItem; onClose: () =
     <Modal
       open
       onClose={onClose}
-      title="Rename"
+      title={vaultIntl.formatMessage({ id: "vault.ui.3064d79a295c", defaultMessage: "Rename" })}
       size="sm"
       footer={
         <div className="ui-confirm-actions">
           <Button size="sm" variant="ghost" onClick={onClose}>
-            Cancel
+            {vaultIntl.formatMessage({ id: "vault.ui.19766ed6ccb2", defaultMessage: "Cancel" })}
           </Button>
           <Button
             size="sm"
@@ -52,7 +56,7 @@ export function RenameDialog({ item, onClose }: { item: VaultItem; onClose: () =
             disabled={blocked}
             onClick={() => void save()}
           >
-            Save
+            {vaultIntl.formatMessage({ id: "vault.ui.1509f561f241", defaultMessage: "Save" })}
           </Button>
         </div>
       }
@@ -65,7 +69,7 @@ export function RenameDialog({ item, onClose }: { item: VaultItem; onClose: () =
         }}
       >
         <TextField
-          aria-label="Name"
+          aria-label={vaultIntl.formatMessage({ id: "vault.ui.dcd1d5223f73", defaultMessage: "Name" })}
           value={name}
           maxLength={160}
           // Not a person's name. iOS ignores autocomplete="off" for its "AutoFill Contact" bar
@@ -77,7 +81,7 @@ export function RenameDialog({ item, onClose }: { item: VaultItem; onClose: () =
           onFocus={(e) => e.currentTarget.select()}
           onChange={(e) => setName(e.target.value)}
         />
-        {HELP[item.kind] && <p className="vault-rename-help">{HELP[item.kind]}</p>}
+        {Object.hasOwn(HELP, item.kind) && <p className="vault-rename-help">{vaultIntl.formatMessage(HELP[item.kind as keyof typeof HELP] as MessageDescriptor)}</p>}
         {error && <p className="vault-error">{error}</p>}
       </form>
     </Modal>

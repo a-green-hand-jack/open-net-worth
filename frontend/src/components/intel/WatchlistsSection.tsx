@@ -1,3 +1,7 @@
+import type { IntlShape } from 'react-intl'
+import { localizeWatchlistError } from './watchlistErrors'
+import { useAppIntl } from '../../i18n/useAppIntl'
+import { FormattedMessage } from './FormattedMessage'
 import { useState } from 'react'
 import { Skeleton } from '../ui'
 import { authFetch } from '../../api/client'
@@ -67,9 +71,11 @@ export interface WatchlistItem {
 }
 
 // Pull a server error message (FastAPI {detail}) off a failed response, else fallback.
-export async function errorDetail(res: Response, fallback: string): Promise<string> {
+export async function errorDetail(res: Response, fallback: string, intl?: IntlShape): Promise<string> {
   try {
     const d = await res.json()
+    const localized = intl && localizeWatchlistError(d, intl)
+    if (localized) return localized
     if (typeof d?.detail === 'string' && d.detail) return d.detail
   } catch {
     /* body not JSON */
@@ -140,6 +146,7 @@ function AssetRow({
   owned: boolean
   onEdit: (item: WatchlistItem) => void
 }) {
+  const intl = useAppIntl()
   const meta = tickerMeta[item.value]
   const sym = ccySym(item.value, tickerCcy)
   const alerts = alertsProp || []
@@ -158,8 +165,8 @@ function AssetRow({
           <span className="intel-wlc-row-name" title={meta?.name || item.label || item.value}>
             {meta?.name || item.label || item.value}
           </span>
-          {owned && <span className="intel-wlc-row-badge intel-wlc-row-badge--owned">OWNED</span>}
-          {muted && <span className="intel-wlc-row-badge intel-wlc-row-badge--muted">MUTED</span>}
+          {owned && <span className="intel-wlc-row-badge intel-wlc-row-badge--owned">{<FormattedMessage id="intel.static.owned_cce0919d" defaultMessage={"OWNED"} />}</span>}
+          {muted && <span className="intel-wlc-row-badge intel-wlc-row-badge--muted">{<FormattedMessage id="intel.static.muted_0d982cd0" defaultMessage={"MUTED"} />}</span>}
         </AssetLink>
         <span className="intel-wlc-row-price money">
           {meta?.price != null ? (
@@ -179,8 +186,8 @@ function AssetRow({
             <span
               className="intel-wlc-row-storydot"
               role="img"
-              aria-label="Has a live story in the feed"
-              title="Has a live story in the feed"
+              aria-label={intl.formatMessage({ id: 'intel.liveStory', defaultMessage: 'Has a live story in the feed' })}
+              title={intl.formatMessage({ id: 'intel.liveStory', defaultMessage: 'Has a live story in the feed' })}
             />
           )}
         </span>
@@ -188,8 +195,8 @@ function AssetRow({
           type="button"
           className="intel-wlc-row-edit"
           onClick={() => onEdit(item)}
-          title="Edit alerts"
-          aria-label={`Edit alerts for ${item.label || item.value}`}
+          title={intl.formatMessage({ id: 'intel.editAlerts', defaultMessage: 'Edit alerts' })}
+          aria-label={intl.formatMessage({ id: 'intel.editAlertsFor', defaultMessage: 'Edit alerts for {name}' }, { name: item.label || item.value })}
         >
           <ChevronRight size={11} />
         </button>
@@ -203,7 +210,7 @@ function AssetRow({
             {alerts.length > 3 && <span className="intel-wlc-row-more">+{alerts.length - 3}</span>}
           </>
         ) : (
-          <span className="intel-wlc-row-noalert">No alerts • tap to add</span>
+          <span className="intel-wlc-row-noalert">{<FormattedMessage id="intel.static.no_alerts_tap_to_add_4c258af5" defaultMessage={"No alerts • tap to add"} />}</span>
         )}
       </div>
     </div>
@@ -213,6 +220,7 @@ function AssetRow({
 // ── Inline add-ticker (cockpit Tickers tab) ───────────────────────────────────
 
 function CockpitAddTicker({ listId, onAdded }: { listId: string; onAdded: () => void }) {
+  const intl = useAppIntl()
   const [val, setVal] = useState('')
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState<string | null>(null)
@@ -233,17 +241,17 @@ function CockpitAddTicker({ listId, onAdded }: { listId: string; onAdded: () => 
         }),
       })
       if (res.status === 409) {
-        setErr(`${t} is already in this watchlist.`)
+        setErr(intl.formatMessage({ id: 'intel.monitor.alreadyListed', defaultMessage: '{ticker} is already in this watchlist.' }, { ticker: t }))
         return
       }
       if (!res.ok) {
-        setErr(await errorDetail(res, 'Could not add — try again.'))
+        setErr(await errorDetail(res, intl.formatMessage({ id: 'intel.monitor.addFailed', defaultMessage: 'Could not add — try again.' }), intl))
         return
       }
       setVal('')
       onAdded()
     } catch {
-      setErr('Could not add — try again.')
+      setErr(intl.formatMessage({ id: 'intel.monitor.addFailed', defaultMessage: 'Could not add — try again.' }))
     } finally {
       setBusy(false)
     }
@@ -259,7 +267,7 @@ function CockpitAddTicker({ listId, onAdded }: { listId: string; onAdded: () => 
             if (err) setErr(null)
           }}
           onKeyDown={(e) => e.key === 'Enter' && void add()}
-          placeholder="Add ticker — e.g. NVDA"
+          placeholder={intl.formatMessage({ id: 'intel.addTickerPlaceholder', defaultMessage: 'Add ticker — e.g. NVDA' })}
         />
         <button
           type="button"
@@ -267,7 +275,7 @@ function CockpitAddTicker({ listId, onAdded }: { listId: string; onAdded: () => 
           onClick={() => void add()}
           disabled={!val.trim() || busy}
         >
-          {busy ? '…' : 'Add'}
+          {busy ? '…' : intl.formatMessage({ id: 'intel.monitor.add', defaultMessage: 'Add' })}
         </button>
       </div>
       {err && <div className="intel-wlc-add-err">{err}</div>}
@@ -315,6 +323,7 @@ export function WatchlistsSection({
   loading,
   error,
 }: Props) {
+  const intl = useAppIntl()
   if (loading) {
     return (
       <div className="intel-wlc">
@@ -330,9 +339,9 @@ export function WatchlistsSection({
     return (
       <div className="intel-wlc">
         <div className="intel-wlc-error">
-          Could not load watchlists.{' '}
+          {intl.formatMessage({ id: 'intel.watchlistsLoadFailed', defaultMessage: 'Could not load watchlists.' })}{' '}
           <button type="button" className="intel-wlc-retry" onClick={onRefresh}>
-            Retry
+            {intl.formatMessage({ id: 'intel.retry', defaultMessage: 'Retry' })}
           </button>
         </div>
       </div>
@@ -343,7 +352,7 @@ export function WatchlistsSection({
   if (!active) {
     return (
       <div className="intel-wlc">
-        <div className="intel-wlc-error">No watchlists yet.</div>
+        <div className="intel-wlc-error">{<FormattedMessage id="intel.static.no_watchlists_yet_a7c060bd" defaultMessage={"No watchlists yet."} />}</div>
       </div>
     )
   }
@@ -359,12 +368,12 @@ export function WatchlistsSection({
         type="button"
         className="intel-wlc-head"
         onClick={onManageAll}
-        title="Manage all watchlists & monitors"
+        title={intl.formatMessage({ id: 'intel.manageAllHelp', defaultMessage: 'Manage all watchlists & monitors' })}
       >
         <span className="intel-wlc-head-title">{active.name}</span>
-        {active.muted && <span className="intel-wlc-switch-muted">muted</span>}
+        {active.muted && <span className="intel-wlc-switch-muted">{<FormattedMessage id="intel.static.muted_faccee60" defaultMessage={"muted"} />}</span>}
         <span className="intel-wlc-manage">
-          Manage all <ArrowRight size={12} />
+          {intl.formatMessage({ id: 'intel.manageAll', defaultMessage: 'Manage all' })} <ArrowRight size={12} />
         </span>
       </button>
 
@@ -386,8 +395,8 @@ export function WatchlistsSection({
         {assets.length === 0 && (
           <div className="intel-wlc-empty">
             {active.is_auto_sync
-              ? 'No positions yet.'
-              : 'No tickers in this list yet — add one below.'}
+              ? intl.formatMessage({ id: 'intel.noPositions', defaultMessage: 'No positions yet.' })
+              : intl.formatMessage({ id: 'intel.noTickersList', defaultMessage: 'No tickers in this list yet — add one below.' })}
           </div>
         )}
         {!active.is_auto_sync && (

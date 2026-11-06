@@ -1,4 +1,5 @@
 import type { MoveCall, MoveEndpoint, MoveResult } from './move-endpoint';
+import { message as t } from './native-messages';
 
 interface Sender { send(channel: string, payload: unknown): void }
 interface Frame { url: string }
@@ -23,10 +24,10 @@ export class HostedPageClient implements MoveEndpoint {
   call(request: MoveCall): Promise<MoveResult> {
     const id = this.next++;
     return new Promise<MoveResult>((resolve, reject) => {
-      const timer = setTimeout(() => { this.waiting.delete(id); reject(new Error('Your Private Cloud did not respond.')); }, this.timeoutMs);
+      const timer = setTimeout(() => { this.waiting.delete(id); reject(new Error(t('Your Private Cloud did not respond.'))); }, this.timeoutMs);
       this.waiting.set(id, { resolve, reject, timer });
       try { this.target.send(PAGE_REQUEST_CHANNEL, { id, request }); }
-      catch { clearTimeout(timer); this.waiting.delete(id); reject(new Error('The Private Cloud page is not available.')); }
+      catch { clearTimeout(timer); this.waiting.delete(id); reject(new Error(t('The Private Cloud page is not available.'))); }
     });
   }
 
@@ -36,12 +37,12 @@ export class HostedPageClient implements MoveEndpoint {
     if (!waiter || typeof status !== 'number') return;
     clearTimeout(waiter.timer);
     this.waiting.delete(id as number);
-    if (status === 0) waiter.reject(new Error('Your Private Cloud could not be reached.'));
+    if (status === 0) waiter.reject(new Error(t('Your Private Cloud could not be reached.')));
     else waiter.resolve({ status, body });
   }
 
   abandon(): void {
-    for (const [id, waiter] of this.waiting) { clearTimeout(waiter.timer); waiter.reject(new Error('The Private Cloud window closed.')); this.waiting.delete(id); }
+    for (const [id, waiter] of this.waiting) { clearTimeout(waiter.timer); waiter.reject(new Error(t('The Private Cloud window closed.'))); this.waiting.delete(id); }
   }
 }
 

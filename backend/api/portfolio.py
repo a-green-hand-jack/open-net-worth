@@ -16,15 +16,40 @@ See .claude/rfcs/instrument-position-data-model.md.
 from __future__ import annotations
 
 import asyncio
+import json
+from pathlib import Path
 from typing import List, Optional
 
 from fastapi import APIRouter, HTTPException
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
 from backend.core.errors import OpenNetWorthError, to_http_status
 from backend.services import positions as positions_service
 
 router = APIRouter()
+_CORE = Path(__file__).resolve().parents[1] / "core"
+_MESSAGE_CONTRACT = {
+    **json.loads((_CORE / "positions_message_contract.json").read_text(encoding="utf-8")),
+    **json.loads((_CORE / "lots_message_contract.json").read_text(encoding="utf-8")),
+}
+
+
+def _position_error(status: int, detail: str, context: dict):
+    message_id = context.get("message_id")
+    params = context.get("message_params", {})
+    if (
+        isinstance(message_id, str)
+        and message_id in _MESSAGE_CONTRACT
+        and isinstance(params, dict)
+        and set(params) == set(_MESSAGE_CONTRACT[message_id])
+        and all(isinstance(value, str) for value in params.values())
+    ):
+        return JSONResponse(
+            status_code=status,
+            content={"detail": detail, "message_id": message_id, "message_params": params},
+        )
+    raise HTTPException(status, detail)
 
 
 def read_rows() -> List[dict]:
@@ -104,9 +129,9 @@ def create_position(body: PositionCreate):
     try:
         result = positions_service.apply_position_change({"type": "add", **body.model_dump()})
     except OpenNetWorthError as exc:
-        raise HTTPException(to_http_status(exc), exc.message or str(exc)) from exc
+        return _position_error(to_http_status(exc), exc.message or str(exc), exc.context)
     if result.get("error"):
-        raise HTTPException(409 if result.get("position_id") else 422, result["error"])
+        return _position_error(409 if result.get("position_id") else 422, result["error"], result)
     return {"ok": True, "position": positions_service.get_position(result["position_id"])}
 
 
@@ -117,9 +142,13 @@ def patch_position(position_id: str, body: PositionUpdate):
     try:
         pos = positions_service.update_position(position_id, changes)
     except OpenNetWorthError as exc:
-        raise HTTPException(to_http_status(exc), exc.message or str(exc)) from exc
+        return _position_error(to_http_status(exc), exc.message or str(exc), exc.context)
     if pos is None:
-        raise HTTPException(404, "Position not found")
+        return _position_error(
+            404,
+            "Position not found",
+            {"message_id": "positions.error.notFound", "message_params": {}},
+        )
     return {"ok": True, "position": pos}
 
 
@@ -128,9 +157,13 @@ def delete_position(position_id: str):
     try:
         removed = positions_service.remove_position(position_id)
     except OpenNetWorthError as exc:
-        raise HTTPException(to_http_status(exc), exc.message or str(exc)) from exc
+        return _position_error(to_http_status(exc), exc.message or str(exc), exc.context)
     if not removed:
-        raise HTTPException(404, "Position not found")
+        return _position_error(
+            404,
+            "Position not found",
+            {"message_id": "positions.error.notFound", "message_params": {}},
+        )
     return {"ok": True}
 
 

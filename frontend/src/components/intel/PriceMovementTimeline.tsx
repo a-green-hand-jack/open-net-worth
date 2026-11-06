@@ -1,3 +1,6 @@
+import type { IntlShape } from 'react-intl'
+import { useAppIntl } from '../../i18n/useAppIntl'
+import { FormattedMessage } from './FormattedMessage'
 import { useEffect, useRef, useState } from 'react'
 import { useMovementTimeline } from '../../hooks/useMovementTimeline'
 import type { Citation, MovementRow, MovementTimeline } from '../../types/assetDetail'
@@ -26,20 +29,20 @@ interface Props {
   maxFrac?: number
 }
 
-function marketLabel(m: MovementTimeline['market']): string {
+function marketLabel(m: MovementTimeline['market'], intl: IntlShape): string {
   if (!m) return ''
   if (m.always_open) return '24/7'
   switch (m.state) {
     case 'REGULAR':
-      return 'Open'
+      return intl.formatMessage({ id: 'intel.movement.market.open', defaultMessage: 'Open' })
     case 'PRE':
-      return 'Pre-Market'
+      return intl.formatMessage({ id: 'intel.movement.market.pre', defaultMessage: 'Pre-Market' })
     case 'POST':
-      return 'After Hours'
+      return intl.formatMessage({ id: 'intel.movement.market.post', defaultMessage: 'After Hours' })
     case 'PREPRE':
     case 'POSTPOST':
     case 'CLOSED':
-      return 'Market Closed'
+      return intl.formatMessage({ id: 'intel.movement.market.closed', defaultMessage: 'Market Closed' })
     default:
       return ''
   }
@@ -57,10 +60,10 @@ function Change({ pct }: { pct: number | null }) {
   )
 }
 
-function noticeText(row: MovementRow): string {
-  if (row.phase === 'pre') return 'Pre-market. No trades yet — check back at the open.'
-  if (row.phase === 'post') return 'Regular session over. After-hours prints arrive here.'
-  return 'Market closed. Check back when trading resumes.'
+function noticeText(row: MovementRow, intl: IntlShape): string {
+  if (row.phase === 'pre') return intl.formatMessage({ id: 'intel.movement.preNotice', defaultMessage: 'Pre-market. No trades yet — check back at the open.' })
+  if (row.phase === 'post') return intl.formatMessage({ id: 'intel.movement.postNotice', defaultMessage: 'Regular session over. After-hours prints arrive here.' })
+  return intl.formatMessage({ id: 'intel.movement.closedNotice', defaultMessage: 'Market closed. Check back when trading resumes.' })
 }
 
 function PriceLine({
@@ -78,7 +81,7 @@ function PriceLine({
       <div className={notableCls}>
         <span className="asd-pm-px">{fUnitPrice(row.price, currency, maxFrac)}</span>{' '}
         <Change pct={row.change_pct} />
-        {row.phase === 'pre' && <span className="asd-pm-tag">Pre-Market</span>}
+        {row.phase === 'pre' && <span className="asd-pm-tag">{<FormattedMessage id="intel.static.pre_market_6f68d2b0" defaultMessage={"Pre-Market"} />}</span>}
       </div>
     )
   }
@@ -86,7 +89,7 @@ function PriceLine({
     <div className={notableCls}>
       <span className="asd-pm-px">{fUnitPrice(row.price, currency, maxFrac)}</span>{' '}
       <Change pct={row.change_pct} />
-      <span className="asd-pm-tag">at Close</span>
+      <span className="asd-pm-tag">{<FormattedMessage id="intel.static.at_close_720ad79f" defaultMessage={"at Close"} />}</span>
       {row.after_hours && (
         <>
           <span className="asd-pm-sep" aria-hidden="true">
@@ -99,7 +102,7 @@ function PriceLine({
               {fUnitPrice(row.after_hours.price, currency, maxFrac)}
             </span>{' '}
             <Change pct={row.after_hours.change_pct} />
-            <span className="asd-pm-tag">After Hours</span>
+            <span className="asd-pm-tag">{<FormattedMessage id="intel.static.after_hours_645e9e52" defaultMessage={"After Hours"} />}</span>
           </span>
         </>
       )}
@@ -117,8 +120,9 @@ function Sources({
   rewriting: boolean
 }) {
   const [open, setOpen] = useState(false)
+  const intl = useAppIntl()
   if (!sources.length && !generated && !rewriting) return null
-  const label = sources.length === 1 ? '1 source' : `${sources.length} sources`
+  const label = intl.formatMessage({ id: 'intel.movement.sources', defaultMessage: '{count} {count, plural, one {source} other {sources}}' }, { count: sources.length })
   return (
     <div className="asd-pm-sources">
       {/* One line: the pill, then the paragraph's own timestamp after a dot (owner ask
@@ -159,7 +163,7 @@ function Sources({
               </span>
             )}
             <span className="ui-btn__spinner" aria-hidden="true" />
-            Updating…
+            {<FormattedMessage id="intel.extra.909603fb" defaultMessage={"Updating…"} />}
           </span>
         )}
       </div>
@@ -200,6 +204,7 @@ function Sources({
 }
 
 function Body({ row, generated }: { row: MovementRow; generated: string }) {
+  const intl = useAppIntl()
   if (row.narration === 'ready' && row.summary) {
     return (
       <>
@@ -210,17 +215,17 @@ function Body({ row, generated }: { row: MovementRow; generated: string }) {
   }
   if (row.narration === 'pending') {
     return (
-      <div className="asd-pm-skeleton" aria-label="Explanation generating">
+      <div className="asd-pm-skeleton" aria-label={intl.formatMessage({ id: "intel.field.5d9b77ac", defaultMessage: "Explanation generating" })}>
         <Skeleton height={12} width="92%" />
         <Skeleton height={12} width="78%" />
       </div>
     )
   }
   if (row.narration === 'failed') {
-    return <p className="asd-pm-empty">Couldn't generate an explanation yet — will retry.</p>
+    return <p className="asd-pm-empty">{<FormattedMessage id="intel.static.couldn_t_generate_an_explanation_yet_will_retry_82af9a72" defaultMessage={"Couldn't generate an explanation yet — will retry."} />}</p>
   }
   // 'none': looked, and the day was quiet in our news cache.
-  return <p className="asd-pm-empty">No notable coverage found for this session.</p>
+  return <p className="asd-pm-empty">{<FormattedMessage id="intel.static.no_notable_coverage_found_for_this_session_b3297ba8" defaultMessage={"No notable coverage found for this session."} />}</p>
 }
 
 function Row({
@@ -232,6 +237,7 @@ function Row({
   data: MovementTimeline
   maxFrac?: number
 }) {
+  const intl = useAppIntl()
   const tz = data.market?.timezone ?? null
   const tzShort = data.market?.tz_short ?? null
   const showTime = row.kind !== 'session'
@@ -245,7 +251,7 @@ function Row({
     <li className="asd-pm-row" data-kind={row.kind}>
       <div className="asd-pm-when">
         <span className="asd-pm-date">{fDate(row.session_date)}</span>
-        {showTime && <span className="asd-pm-time">{clockIn(row.as_of, tz, null)}</span>}
+        {showTime && <span className="asd-pm-time">{clockIn(row.as_of, tz, null, intl.locale)}</span>}
         {showTime && tzShort && <span className="asd-pm-tz">{tzShort}</span>}
       </div>
       <div className="asd-pm-rail" aria-hidden="true">
@@ -253,13 +259,13 @@ function Row({
       </div>
       <div className="asd-pm-body">
         {row.kind === 'market_closed' ? (
-          <p className="asd-pm-notice">{noticeText(row)}</p>
+          <p className="asd-pm-notice">{noticeText(row, intl)}</p>
         ) : (
           <>
             <PriceLine row={row} currency={data.currency} maxFrac={maxFrac} />
             <Body
               row={row}
-              generated={generatedLabel(row.narrated_at, row.session_date, tz, tzShort)}
+              generated={generatedLabel(row.narrated_at, row.session_date, tz, tzShort, Date.now(), intl)}
             />
           </>
         )}
@@ -269,6 +275,7 @@ function Row({
 }
 
 export function PriceMovementTimeline({ instrumentId, hasTicker, maxFrac }: Props) {
+  const intl = useAppIntl()
   const [limit, setLimit] = useState(PAGE_SIZE)
   const { data, loading, loadingMore } = useMovementTimeline(instrumentId, limit)
   const cardRef = useRef<HTMLDivElement>(null)
@@ -302,7 +309,7 @@ export function PriceMovementTimeline({ instrumentId, hasTicker, maxFrac }: Prop
     return (
       <div className="asd-pm">
         <div className="asd-section-head">
-          <span className="asd-section-title">Notable Price Movement</span>
+          <span className="asd-section-title">{<FormattedMessage id="intel.static.notable_price_movement_284f908b" defaultMessage={"Notable Price Movement"} />}</span>
         </div>
         <div className="asd-pm-card asd-pm-skeleton">
           <Skeleton height={14} width="60%" />
@@ -313,18 +320,18 @@ export function PriceMovementTimeline({ instrumentId, hasTicker, maxFrac }: Prop
     )
   }
   if (!data || data.rows.length === 0) return null
-  const state = marketLabel(data.market)
+  const state = marketLabel(data.market, intl)
   return (
     <div className="asd-pm">
       <div className="asd-section-head">
-        <span className="asd-section-title">Notable Price Movement</span>
+        <span className="asd-section-title">{<FormattedMessage id="intel.static.notable_price_movement_284f908b" defaultMessage={"Notable Price Movement"} />}</span>
         {state && <span className="asd-pm-market">{state}</span>}
       </div>
       <div
         ref={cardRef}
         className={scrolled ? 'asd-pm-card asd-pm-card--scrolled' : 'asd-pm-card'}
         role="region"
-        aria-label="Notable price movement timeline"
+        aria-label={intl.formatMessage({ id: "intel.field.f95e19c8", defaultMessage: "Notable price movement timeline" })}
         tabIndex={0}
         onScroll={(e) => setScrolled(e.currentTarget.scrollTop > 0)}
       >
@@ -335,7 +342,7 @@ export function PriceMovementTimeline({ instrumentId, hasTicker, maxFrac }: Prop
           {/* The next page appends below the rows already on screen — the card never blanks
               to a skeleton and never changes height while it loads. */}
           {loadingMore && (
-            <li className="asd-pm-row asd-pm-row--loading" aria-label="Loading more sessions">
+            <li className="asd-pm-row asd-pm-row--loading" aria-label={intl.formatMessage({ id: "intel.field.619937e1", defaultMessage: "Loading more sessions" })}>
               <div className="asd-pm-when">
                 <Skeleton height={12} width={44} />
               </div>

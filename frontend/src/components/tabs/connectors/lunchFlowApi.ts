@@ -48,7 +48,7 @@ export interface LunchFlowConfigUpdate {
 
 export async function updateLunchFlowConfig(
   body: LunchFlowConfigUpdate,
-): Promise<{ ok: true; status: LunchFlowStatus } | { ok: false; error: string }> {
+): Promise<{ ok: true; status: LunchFlowStatus } | { ok: false; error: string; fallback?: boolean }> {
   const res = await authFetch('/api/lunch-flow/config', {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
@@ -56,20 +56,20 @@ export async function updateLunchFlowConfig(
   })
   if (!res.ok) {
     const d = await res.json().catch(() => ({}) as { detail?: string })
-    return { ok: false, error: d.detail || 'Could not save the credentials.' }
+    return { ok: false, error: d.detail || 'Could not save the credentials.', fallback: !d.detail }
   }
   return { ok: true, status: (await res.json()) as LunchFlowStatus }
 }
 
 export async function disconnectLunchFlowConnection(
   connectionId: number,
-): Promise<{ ok: true } | { ok: false; error: string }> {
+): Promise<{ ok: true } | { ok: false; error: string; fallback?: boolean; message_id?: unknown; message_params?: unknown }> {
   const res = await authFetch(`/api/lunch-flow/connections/${connectionId}`, {
     method: 'DELETE',
   })
   if (!res.ok) {
     const d = await res.json().catch(() => ({}) as { detail?: string })
-    return { ok: false, error: d.detail || 'Could not disconnect.' }
+    return { ok: false, error: d.detail || 'Could not disconnect.', fallback: !d.detail, message_id: d.message_id, message_params: d.message_params }
   }
   return { ok: true }
 }
@@ -86,29 +86,33 @@ export interface LunchFlowOAuthBeginResult {
   authorize_url?: string
   flow_id?: string
   expires_in?: number
+  status?: number
+  reason?: string
   error?: string
 }
 
-async function errorDetail(res: Response, fallback: string): Promise<string> {
+async function errorDetail(res: Response, fallback: string): Promise<{ error: string; fallbackStatus?: number }> {
   const body = (await res.json().catch(() => null)) as { detail?: unknown } | null
   const detail = body?.detail
-  return typeof detail === 'string' && detail ? detail : `${fallback} (${res.status})`
+  return typeof detail === 'string' && detail ? { error: detail } : { error: `${fallback} (${res.status})`, fallbackStatus: res.status }
 }
 
 export async function beginLunchFlowOAuth(): Promise<LunchFlowOAuthBeginResult> {
   try {
     const res = await authFetch('/api/lunch-flow/oauth/begin', { method: 'POST' })
     if (!res.ok) {
-      return { ok: false, error: await errorDetail(res, 'Could not start the sign-in') }
+      const failure = await errorDetail(res, 'Could not start the sign-in')
+      return { ok: false, error: failure.error, ...(failure.fallbackStatus === undefined ? {} : { reason: 'start_http', status: failure.fallbackStatus }) }
     }
     return (await res.json()) as LunchFlowOAuthBeginResult
   } catch {
-    return { ok: false, error: 'Could not start the sign-in — the request failed.' }
+    return { ok: false, reason: 'request_failed', error: 'Could not start the sign-in — the request failed.' }
   }
 }
 
 export interface LunchFlowOAuthPollResult {
   status: 'pending' | 'ok' | 'error'
+  reason?: string
   error: string | null
 }
 
@@ -117,9 +121,9 @@ export async function pollLunchFlowOAuth(flowId: string): Promise<LunchFlowOAuth
     const res = await authFetch(`/api/lunch-flow/oauth/${encodeURIComponent(flowId)}`, {
       cache: 'no-store',
     })
-    if (!res.ok) return { status: 'error', error: 'Could not check the sign-in status.' }
+    if (!res.ok) return { status: 'error', reason: 'status_unavailable', error: 'Could not check the sign-in status.' }
     return (await res.json()) as LunchFlowOAuthPollResult
   } catch {
-    return { status: 'error', error: 'Could not check the sign-in status — the request failed.' }
+    return { status: 'error', reason: 'status_request_failed', error: 'Could not check the sign-in status — the request failed.' }
   }
 }

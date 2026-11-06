@@ -6,6 +6,8 @@
 
 import { describe, it, expect, afterEach } from 'vitest'
 import { render, fireEvent, cleanup, screen } from '@testing-library/react'
+import { IntlProvider } from 'react-intl'
+import messages from './zh-CN.messages.json'
 import { Filters, type FilterState, type SuggestData } from './SearchFilter'
 import type { ColumnVisibility } from './columns'
 
@@ -40,7 +42,7 @@ const filter: FilterState = { preset: 'all', cfM: 1, cfY: 2024, ctM: 12, ctY: 20
 const suggest: SuggestData = { categories: [], payees: [], accounts: [], tags: [] }
 const columnVis: ColumnVisibility = { hidden: new Set(), toggle: () => {}, reset: () => {} }
 
-function renderFilters() {
+function renderFilters(chinese = false) {
   return render(
     <Filters
       filter={filter}
@@ -57,12 +59,34 @@ function renderFilters() {
       showHidden={false}
       onToggleShowHidden={() => {}}
     />,
+    chinese
+      ? {
+          wrapper: ({ children }) => (
+            <IntlProvider locale="zh-CN" messages={messages}>
+              {children}
+            </IntlProvider>
+          ),
+        }
+      : undefined,
   )
 }
 
 afterEach(() => cleanup())
 
 describe('Filters — mobile date-range sheet', () => {
+  it('shows Chinese date presets and month names', () => {
+    const restore = mockNarrowViewport()
+    try {
+      renderFilters(true)
+      fireEvent.click(screen.getByRole('button', { name: /日期范围/ }))
+      expect(screen.getByRole('button', { name: '本月' })).toBeTruthy()
+      expect(screen.getAllByText('1月').length).toBeGreaterThan(0)
+      fireEvent.click(screen.getByRole('button', { name: '完成' }))
+      expect(document.querySelector('.mb-sheet.acct-viewsheet')).toBeNull()
+    } finally {
+      restore()
+    }
+  })
   it('opens as a .mb-sheet and the Done button closes it', () => {
     const restore = mockNarrowViewport()
     try {

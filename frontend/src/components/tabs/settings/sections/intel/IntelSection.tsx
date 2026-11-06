@@ -1,3 +1,4 @@
+import { useAppIntl } from '../../../../../i18n/useAppIntl'
 // Settings → Intelligence. Every Intel setting in one place: monitoring cadence, where each kind
 // of update is sent, the AI analysis on watched tickers (and how far its opinion goes), the pulse
 // briefs' detail, and the advanced alert thresholds. Reads and writes the watchlist store's
@@ -15,13 +16,14 @@ import { MonitoringCadencePanel } from './MonitoringCadencePanel'
 import { PulseSummaryPanel } from './PulseSummaryPanel'
 
 export function IntelSection({ toast }: SectionProps) {
+  const intl = useAppIntl()
   const { cfg, channels, loading, patch } = useMonitoringConfig()
   const delivery = useFlag('intel_delivery_decider')
   useSectionBusy(loading)
   if (!cfg) return null
 
   const save = (changes: Partial<MonitoringConfig>, message: string) => {
-    void patch(changes).then((ok) => toast(ok ? message : 'Could not save — try again'))
+    void patch(changes).then((ok) => toast(ok ? message : intl.formatMessage({ id: 'intel.settings.saveFailed', defaultMessage: 'Could not save — try again' })))
   }
 
   return (

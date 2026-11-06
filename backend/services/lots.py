@@ -74,13 +74,20 @@ def select_lots_fifo(open_lots: list[dict], qty: float) -> list[tuple[dict, floa
     """
     remaining = float(qty)
     if remaining <= 0:
-        raise InvalidLotSelection("disposal quantity must be positive", qty=qty)
+        raise InvalidLotSelection(
+            "disposal quantity must be positive",
+            qty=qty,
+            message_id="lots.error.disposalQuantity",
+            message_params={},
+        )
     available = sum(float(lot.get("remaining_qty") or 0) for lot in open_lots)
     if remaining - available > _QTY_EPS:
         raise InsufficientLots(
             "not enough open lot quantity to cover the disposal",
             requested=qty,
             available=available,
+            message_id="lots.error.insufficientLots",
+            message_params={},
         )
     plan: list[tuple[dict, float]] = []
     for lot in open_lots:
@@ -113,9 +120,19 @@ def select_lots_specific(open_lots: list[dict], selection: list[dict]) -> list[t
         lot_id = sel.get("lot_id")
         take = float(sel.get("qty") or 0)
         if take <= 0:
-            raise InvalidLotSelection("lot selection qty must be positive", lot_id=lot_id)
+            raise InvalidLotSelection(
+                "lot selection qty must be positive",
+                lot_id=lot_id,
+                message_id="lots.error.selectionQuantity",
+                message_params={},
+            )
         if lot_id not in by_id:
-            raise InvalidLotSelection("lot not found among the position's open lots", lot_id=lot_id)
+            raise InvalidLotSelection(
+                "lot not found among the position's open lots",
+                lot_id=lot_id,
+                message_id="lots.error.selectionNotFound",
+                message_params={},
+            )
         if lot_id not in asks:
             order.append(lot_id)
         asks[lot_id] = asks.get(lot_id, 0.0) + take
@@ -129,6 +146,8 @@ def select_lots_specific(open_lots: list[dict], selection: list[dict]) -> list[t
                 lot_id=lot_id,
                 requested=take,
                 remaining=lot_remaining,
+                message_id="lots.error.selectionExceeds",
+                message_params={},
             )
         plan.append((lot, take))
     return plan
@@ -261,7 +280,12 @@ def compute_disposal(
     base = (base or base_currency()).upper()
     qty = float(disposal.get("quantity") or 0)
     if qty <= 0:
-        raise InvalidLotSelection("disposal quantity must be positive", qty=qty)
+        raise InvalidLotSelection(
+            "disposal quantity must be positive",
+            qty=qty,
+            message_id="lots.error.disposalQuantity",
+            message_params={},
+        )
 
     method = disposal.get("method") or "fifo"
     proceeds_ccy = (
@@ -288,6 +312,8 @@ def compute_disposal(
             "no value received, mark it a transfer-out (is_taxable=false)",
             proceeds_per_unit=proceeds_per_unit,
             disposal_fees=disposal_fees,
+            message_id="lots.error.taxableProceeds",
+            message_params={},
         )
 
     # A destination turns the non-taxable disposal into a move between the user's own
@@ -301,12 +327,18 @@ def compute_disposal(
             "a transfer moves shares, not money — transfer_to_account_id needs "
             "is_taxable=false, proceeds_per_unit=0 and no proceeds_account_id",
             transfer_to_account_id=transfer_to,
+            message_id="lots.error.transferConditions",
+            message_params={},
         )
 
     if method == "specific_id":
         selection = disposal.get("lot_selection") or []
         if not selection:
-            raise InvalidLotSelection("specific_id disposal requires a lot_selection")
+            raise InvalidLotSelection(
+                "specific_id disposal requires a lot_selection",
+                message_id="lots.error.selectionRequired",
+                message_params={},
+            )
         plan = select_lots_specific(open_lots, selection)
         # The selected qty must equal the disposal qty — no silent under/over fill.
         selected_qty = sum(take for _, take in plan)
@@ -315,11 +347,18 @@ def compute_disposal(
                 "lot_selection quantities must sum to the disposal quantity",
                 selected=selected_qty,
                 requested=qty,
+                message_id="lots.error.selectionSum",
+                message_params={},
             )
     elif method == "fifo":
         plan = select_lots_fifo(open_lots, qty)
     else:
-        raise InvalidLotSelection("unknown lot-selection method", method=method)
+        raise InvalidLotSelection(
+            "unknown lot-selection method",
+            method=method,
+            message_id="lots.error.selectionMethod",
+            message_params={},
+        )
 
     fee_per_unit = disposal_fees / qty if qty else 0.0
     consumptions = [
@@ -459,7 +498,11 @@ def apply_lot_change(change: dict) -> dict:
         return _record(_apply_amend(change), ctype)
     if ctype == "dispose_amend":
         return _record(_apply_dispose_amend(change), ctype)
-    return {"error": f"unknown change type: {ctype}"}
+    return {
+        "error": f"unknown change type: {ctype}",
+        "message_id": "lots.error.unknownChange",
+        "message_params": {"type": str(ctype)},
+    }
 
 
 # (op, entity_type, result key carrying the id) per change type, for the write-receipt chip.
@@ -502,7 +545,7 @@ def _delete_lot_core(lot_id: str, *, conn: Connection | None = None) -> dict:
     lot_store = LotStore()
     lot = lot_store.find_by_id(lot_id, conn=conn)
     if not lot:
-        return {"error": "lot not found"}
+        return {"error": "lot not found", "message_id": "lots.error.notFound", "message_params": {}}
     remaining = float(lot.get("remaining_qty") or 0)
     original = float(lot.get("original_qty") or 0)
     if original > 0 and remaining < original:
@@ -510,7 +553,9 @@ def _delete_lot_core(lot_id: str, *, conn: Connection | None = None) -> dict:
             "error": (
                 "shares from this lot have been sold, so it can't be removed — undo that sale "
                 "first (or correct the lot's date, quantity or cost instead)"
-            )
+            ),
+            "message_id": "lots.error.soldCannotDelete",
+            "message_params": {},
         }
     position_id = lot.get("position_id", "")
     lot_store.delete(lot_id, conn=conn)
@@ -558,7 +603,11 @@ def _undo_dispose(change: dict) -> dict:
     events = RealizedEventStore()
     ev = events.find_by_id(event_id) if event_id else None
     if not ev:
-        return {"error": "disposal event not found"}
+        return {
+            "error": "disposal event not found",
+            "message_id": "lots.error.disposalNotFound",
+            "message_params": {},
+        }
 
     lots = LotStore()
     consumptions = ev.get("consumptions") or []
@@ -569,7 +618,9 @@ def _undo_dispose(change: dict) -> dict:
             "error": (
                 "cannot undo — one or more consumed lots no longer exist "
                 f"({missing}); the shares can't be restored automatically"
-            )
+            ),
+            "message_id": "lots.error.undoMissingLots",
+            "message_params": {"lots": str(missing)},
         }
 
     # TASK 4 (storage plan 4b): the lot restore + the cash-leg reversal + the realized-
@@ -863,10 +914,18 @@ def _apply_acquire(change: dict) -> dict:
             }
     future = _future_acquisition(change.get("acquired_at"))
     if future:
-        return {"error": future}
+        return {
+            "error": future,
+            "message_id": "lots.error.futureAcquisition",
+            "message_params": {"date": str(change.get("acquired_at"))[:10]},
+        }
     pos = _ensure_acquire_position(change)
     if not pos:
-        return {"error": "position not found"}
+        return {
+            "error": "position not found",
+            "message_id": "lots.error.positionNotFound",
+            "message_params": {},
+        }
     change = {**change, "position_id": pos["id"]}
     if not change.get("allow_duplicate"):
         dup = _find_identical_open_lot(lots, pos["id"], change)
@@ -889,7 +948,9 @@ def _apply_acquire(change: dict) -> dict:
                 "quantity must be a positive number — an acquire needs the real quantity "
                 "of units bought (a missing/zero/negative quantity would silently book a "
                 "zero-unit lot)"
-            )
+            ),
+            "message_id": "lots.error.quantityAcquire",
+            "message_params": {},
         }
     # Historical-rate lock (ADR 2026-07-15): stamp the cost→base rate in effect NOW — the
     # write-time rate is the acquisition-date rate when the trade is entered promptly
@@ -952,7 +1013,11 @@ def preview_disposal(change: dict) -> dict:
     """
     pos = PositionStore().find_by_id(change.get("position_id", ""))
     if not pos:
-        return {"error": "position not found"}
+        return {
+            "error": "position not found",
+            "message_id": "lots.error.positionNotFound",
+            "message_params": {},
+        }
     change = {**change, "transfer_to_account_id": resolve_transfer_destination(change, pos)}
     rates = _load_rates()
     return compute_disposal(pos, LotStore().open_lots_for_position(pos["id"]), change, rates=rates)
@@ -1031,7 +1096,11 @@ def _apply_dispose(change: dict) -> dict:
     positions = PositionStore()
     pos = positions.find_by_id(change.get("position_id", ""))
     if not pos:
-        return {"error": "position not found"}
+        return {
+            "error": "position not found",
+            "message_id": "lots.error.positionNotFound",
+            "message_params": {},
+        }
 
     # Duplicate-sale guard (mirrors the acquire-side double-book refusal): a disposal whose
     # (position, date, qty, proceeds/unit, currency) already exists is REFUSED before any
@@ -1050,6 +1119,14 @@ def _apply_dispose(change: dict) -> dict:
                     "fills, re-apply with allow_duplicate=true."
                 ),
                 "existing_event_id": dup["id"],
+                "message_id": "lots.error.duplicateDisposal",
+                "message_params": {
+                    "quantity": str(dup.get("quantity")),
+                    "date": str(dup.get("disposed_at")),
+                    "price": str(dup.get("proceeds_per_unit")),
+                    "currency": str(dup.get("proceeds_currency")),
+                    "event": str(dup["id"]),
+                },
                 "position_id": pos["id"],
             }
 
@@ -1248,10 +1325,14 @@ def _apply_amend(change: dict) -> dict:
     lots = LotStore()
     lot = lots.find_by_id(lot_id)
     if not lot:
-        return {"error": "lot not found"}
+        return {"error": "lot not found", "message_id": "lots.error.notFound", "message_params": {}}
     future = _future_acquisition(change.get("acquired_at"))
     if future:
-        return {"error": future}
+        return {
+            "error": future,
+            "message_id": "lots.error.futureAcquisition",
+            "message_params": {"date": str(change.get("acquired_at"))[:10]},
+        }
     change = _real_changes(lot, change)
     if _lot_is_partial(lot):
         return _amend_sold_lot(lot, change)
@@ -1332,7 +1413,7 @@ def _amend_sold_lot(lot: dict, change: dict) -> dict:
         lot, change, events, base=base_currency().upper(), rates=_load_rates()
     )
     if plan.get("error"):
-        return {"error": plan["error"]}
+        return plan
     funding = (
         change["funding_account_id"]
         if "funding_account_id" in change
@@ -1401,7 +1482,11 @@ def _amend_open_lot(lot: dict, change: dict) -> dict:
     if "quantity" in change:
         qty = float(change.get("quantity") or 0)
         if not math.isfinite(qty) or qty <= 0:
-            return {"error": "quantity must be a positive number"}
+            return {
+                "error": "quantity must be a positive number",
+                "message_id": "lots.error.quantityPositive",
+                "message_params": {},
+            }
         updates["original_qty"] = qty
         updates["remaining_qty"] = qty
     for key in ("unit_cost", "fees", "acquired_at", "kind", "cost_currency", "note"):
@@ -1473,10 +1558,18 @@ def _apply_dispose_amend(change: dict) -> dict:
     event_id = change.get("event_id") or ""
     ev = RealizedEventStore().find_by_id(event_id)
     if not ev:
-        return {"error": "disposal event not found"}
+        return {
+            "error": "disposal event not found",
+            "message_id": "lots.error.disposalNotFound",
+            "message_params": {},
+        }
     pos = PositionStore().find_by_id(ev.get("position_id") or "")
     if not pos:
-        return {"error": "position not found"}
+        return {
+            "error": "position not found",
+            "message_id": "lots.error.positionNotFound",
+            "message_params": {},
+        }
     lots = LotStore()
     consumptions = ev.get("consumptions") or []
     missing = [c.get("lot_id") for c in consumptions if not lots.find_by_id(c.get("lot_id", ""))]
@@ -1485,7 +1578,9 @@ def _apply_dispose_amend(change: dict) -> dict:
             "error": (
                 "cannot amend — one or more consumed lots no longer exist "
                 f"({missing}); the shares can't be restored automatically"
-            )
+            ),
+            "message_id": "lots.error.amendMissingLots",
+            "message_params": {"lots": str(missing)},
         }
     new_change = {
         k: v for k, v in change.items() if k not in ("type", "event_id", "idempotency_key")
@@ -1504,6 +1599,14 @@ def _apply_dispose_amend(change: dict) -> dict:
                     "fills, re-apply with allow_duplicate=true."
                 ),
                 "existing_event_id": dup["id"],
+                "message_id": "lots.error.duplicateDisposal",
+                "message_params": {
+                    "quantity": str(dup.get("quantity")),
+                    "date": str(dup.get("disposed_at")),
+                    "price": str(dup.get("proceeds_per_unit")),
+                    "currency": str(dup.get("proceeds_currency")),
+                    "event": str(dup["id"]),
+                },
                 "position_id": pos["id"],
             }
     new_change = {

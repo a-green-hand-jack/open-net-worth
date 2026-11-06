@@ -76,6 +76,13 @@ register showing just those categories' transactions.
 view's name to rename it, and drag to reorder. To delete a view, select it and click the **×**
 on its name (the first view can't be deleted).
 
+New built-in view names and blank section names follow your display language. Names you enter,
+and older saved names without a known origin, stay as written.
+If a saved name no longer matches its default, it stays as written even if an old default marker remains.
+The foreign-exchange widget hides held and owed amounts when amounts are hidden.
+Allocation drift figures and its hover details, plus personal return figures, also follow this setting.
+The net-worth change indicator follows it as well.
+
 **Widget menu** — outside Customize mode, each widget's **⋯** menu offers **Edit…** (the same
 settings as **Edit** in Customize — title, chart type, categories and so on), **Display…** (accent
 color, hide title, fixed height), **Set alert…**, **Share with Lucius**, **Duplicate** and
@@ -249,3 +256,5 @@ newer widget.
 - [Investments](investments.md)
 - [Net worth](../concepts/net-worth.md)
 - [Base currency & FX](../concepts/base-currency-and-fx.md)
+
+The spending widget marks its budget amounts and budget percentage for the Hide amounts display setting.

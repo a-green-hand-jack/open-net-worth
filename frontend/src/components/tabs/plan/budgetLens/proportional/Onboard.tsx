@@ -3,6 +3,7 @@
 // Zero-Based"), so nothing is sorted up front; each starts at what it spent over the last three
 // months, and whatever the shares leave is savings. Every share is optional.
 import { useState } from 'react'
+import { useAppIntl } from '../../../../../i18n/useAppIntl'
 import { Button, Modal } from '../../../../ui'
 import { getCurrencySymbol } from '../../../../../utils/format'
 import { parseMoneyInput } from '../../planData'
@@ -78,6 +79,7 @@ export function Onboard({
   onLucius: () => void
   onClose: () => void
 }) {
+  const { formatMessage } = useAppIntl()
   const [step, setStep] = useState(0)
   // The income as typed (cents included); `inc` is its parsed value.
   const [incText, setIncText] = useState(profileIncome ? String(profileIncome) : '')
@@ -99,7 +101,17 @@ export function Onboard({
       open
       onClose={onClose}
       size="lg"
-      title={step === 0 ? 'What’s your monthly net income?' : 'How much should each group get?'}
+      title={
+        step === 0
+          ? formatMessage({
+              id: 'plan.onboardIncome',
+              defaultMessage: 'What’s your monthly net income?',
+            })
+          : formatMessage({
+              id: 'plan.onboardShares',
+              defaultMessage: 'How much should each group get?',
+            })
+      }
     >
       <div className="pt-ob">
         <div className="pt-ob-dots" aria-hidden="true">
@@ -115,7 +127,10 @@ export function Onboard({
                 value={incText}
                 placeholder="0"
                 inputMode="decimal"
-                aria-label="Monthly take-home"
+                aria-label={formatMessage({
+                  id: 'plan.monthlyTakeHome',
+                  defaultMessage: 'Monthly take-home',
+                })}
                 onChange={(e) => setIncText(e.target.value.replace(/[^0-9.]/g, ''))}
                 onKeyDown={(e) => {
                   if (e.key === 'Enter' && inc) setStep(1)
@@ -124,8 +139,15 @@ export function Onboard({
             </span>
             <p className="pt-ob-sub">
               {profileIncome && inc === profileIncome
-                ? 'From your Profile — change it if it’s out of date.'
-                : 'A starting estimate — once your income transactions arrive, the budget uses those instead. Saved to your Profile.'}
+                ? formatMessage({
+                    id: 'plan.onboardProfile',
+                    defaultMessage: 'From your Profile — change it if it’s out of date.',
+                  })
+                : formatMessage({
+                    id: 'plan.onboardEstimate',
+                    defaultMessage:
+                      'A starting estimate — once your income transactions arrive, the budget uses those instead. Saved to your Profile.',
+                  })}
             </p>
           </>
         ) : (
@@ -140,18 +162,28 @@ export function Onboard({
                   <span className="n">{g.name}</span>
                   <button
                     type="button"
-                    aria-label={'Lower ' + g.name}
+                    aria-label={formatMessage(
+                      { id: 'plan.lowerNamed', defaultMessage: 'Lower {name}' },
+                      { name: g.name },
+                    )}
                     disabled={!!out[g.group_id]}
                     onClick={() => stepBy(g.group_id, -5)}
                   >
                     <Minus />
                   </button>
                   <span className="v">
-                    {out[g.group_id] ? 'Excluded' : t[g.group_id] ? t[g.group_id] + '%' : '—'}
+                    {out[g.group_id]
+                      ? formatMessage({ id: 'plan.excluded', defaultMessage: 'Excluded' })
+                      : t[g.group_id]
+                        ? t[g.group_id] + '%'
+                        : '—'}
                   </span>
                   <button
                     type="button"
-                    aria-label={'Raise ' + g.name}
+                    aria-label={formatMessage(
+                      { id: 'plan.raiseNamed', defaultMessage: 'Raise {name}' },
+                      { name: g.name },
+                    )}
                     disabled={!!out[g.group_id]}
                     onClick={() => stepBy(g.group_id, 5)}
                   >
@@ -161,8 +193,21 @@ export function Onboard({
                     type="button"
                     role="checkbox"
                     aria-checked={!out[g.group_id]}
-                    aria-label={'Count ' + g.name + ' in the split'}
-                    title={out[g.group_id] ? 'Count in the split' : 'Exclude from the split'}
+                    aria-label={formatMessage(
+                      { id: 'plan.countNamed', defaultMessage: 'Count {name} in the split' },
+                      { name: g.name },
+                    )}
+                    title={
+                      out[g.group_id]
+                        ? formatMessage({
+                            id: 'plan.countSplit',
+                            defaultMessage: 'Count in the split',
+                          })
+                        : formatMessage({
+                            id: 'plan.excludeSplit',
+                            defaultMessage: 'Exclude from the split',
+                          })
+                    }
                     className={'bo-check pt-step-in' + (out[g.group_id] ? '' : ' on')}
                     onClick={() => setOut((m) => ({ ...m, [g.group_id]: !m[g.group_id] }))}
                   >
@@ -172,16 +217,20 @@ export function Onboard({
               ))}
               <div className="pt-step">
                 <i style={{ background: SAVE_COLOR }} />
-                <span className="n">Savings</span>
+                <span className="n">
+                  {formatMessage({ id: 'plan.savings', defaultMessage: 'Savings' })}
+                </span>
                 <span className="v rest">
                   {100 - total}%{inc > 0 ? ' · ' + fmt((inc * (100 - total)) / 100) : ''}
                 </span>
               </div>
             </div>
             <p className="pt-ob-sub">
-              Your Zero-Based groups, each starting at what it spent over the last three months.
-              Untick one to leave it out of the split. Change any of them here or later in
-              Configure.
+              {formatMessage({
+                id: 'plan.onboardGroupsHelp',
+                defaultMessage:
+                  'Your Zero-Based groups, each starting at what it spent over the last three months. Untick one to leave it out of the split. Change any of them here or later in Configure.',
+              })}
             </p>
           </>
         )}
@@ -199,17 +248,17 @@ export function Onboard({
             onClick={onLucius}
             disabled={busy}
           >
-            Let Lucius set it up
+            {formatMessage({ id: 'plan.luciusSetup', defaultMessage: 'Let Lucius set it up' })}
           </Button>
           <span className="bo-spacer" />
           {step === 1 && (
             <Button variant="secondary" size="sm" onClick={() => setStep(0)}>
-              Back
+              {formatMessage({ id: 'plan.back', defaultMessage: 'Back' })}
             </Button>
           )}
           {step === 0 ? (
             <Button variant="primary" size="sm" disabled={!inc} onClick={() => setStep(1)}>
-              Continue
+              {formatMessage({ id: 'plan.continue', defaultMessage: 'Continue' })}
             </Button>
           ) : (
             <Button
@@ -224,7 +273,7 @@ export function Onboard({
                 )
               }
             >
-              Start budgeting
+              {formatMessage({ id: 'plan.startBudgeting', defaultMessage: 'Start budgeting' })}
             </Button>
           )}
         </div>

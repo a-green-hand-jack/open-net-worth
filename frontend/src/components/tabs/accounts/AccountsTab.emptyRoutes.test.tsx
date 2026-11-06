@@ -5,7 +5,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { AccountsTab } from './AccountsTab'
-import { SCREEN_INTROS } from '../../intro/screenIntros'
+import { screenIntros } from '../../intro/screenIntros'
+import { createIntl } from 'react-intl'
 import { takeSendIntent } from '../../../state/luciusSendIntent'
 
 vi.mock('../../../api/client', () => ({ authFetch: vi.fn() }))
@@ -73,7 +74,7 @@ describe('AccountsTab — focused zero-accounts state', () => {
 
     fireEvent.click(await screen.findByRole('button', { name: 'Add with Lucius' }))
 
-    expect(onAskLucius).toHaveBeenCalledWith(SCREEN_INTROS.accounts.lucius)
+    expect(onAskLucius).toHaveBeenCalledWith(screenIntros(createIntl({ locale: 'en' })).accounts.lucius)
     expect(takeSendIntent()).toBe(true)
   })
 })

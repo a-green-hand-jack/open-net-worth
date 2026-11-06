@@ -31,8 +31,15 @@ from backend.services.statements.tiers import StatementParseError
 STRUCTURED_FORMATS = frozenset({"ofx", "qif", "mt940", "camt"})
 
 
-def _skip_row(reason: str) -> CanonicalRow:
-    return CanonicalRow(date="", direction="OUT", amount=0.0, skip=True, skip_reason=reason)
+def _skip_row(reason: str, message_id: str) -> CanonicalRow:
+    return CanonicalRow(
+        date="",
+        direction="OUT",
+        amount=0.0,
+        skip=True,
+        skip_reason=reason,
+        skip_message={"id": message_id, "params": {}},
+    )
 
 
 def _iso_or_none(raw: str) -> str | None:
@@ -65,18 +72,18 @@ def _ofx_rows(raw: list[dict], acct_in_file: str) -> list[CanonicalRow]:
     for txn in raw:
         date = (txn.get("date") or "").strip()
         if not date:
-            rows.append(_skip_row("missing date"))
+            rows.append(_skip_row("missing date", "statement.skip.missing_date"))
             continue
         amount = import_ofx._parse_amount(txn.get("amount", ""))
         if amount is None:
-            rows.append(_skip_row("unparseable amount"))
+            rows.append(_skip_row("unparseable amount", "statement.skip.unparseable_amount"))
             continue
         if amount == 0:
-            rows.append(_skip_row("zero amount"))
+            rows.append(_skip_row("zero amount", "statement.skip.zero_amount"))
             continue
         fitid = (txn.get("fitid") or "").strip()
         if not fitid:
-            rows.append(_skip_row("missing FITID"))
+            rows.append(_skip_row("missing FITID", "statement.skip.missing_fitid"))
             continue
         rows.append(
             CanonicalRow(
@@ -109,14 +116,14 @@ def _qif_rows(raw: list[dict]) -> list[CanonicalRow]:
     for txn in raw:
         date = (txn.get("date") or "").strip()
         if not date:
-            rows.append(_skip_row("missing date"))
+            rows.append(_skip_row("missing date", "statement.skip.missing_date"))
             continue
         amount = import_qif._parse_amount(txn.get("amount", ""))
         if amount is None:
-            rows.append(_skip_row("unparseable amount"))
+            rows.append(_skip_row("unparseable amount", "statement.skip.unparseable_amount"))
             continue
         if amount == 0:
-            rows.append(_skip_row("zero amount"))
+            rows.append(_skip_row("zero amount", "statement.skip.zero_amount"))
             continue
         # "Parent:Child" / "[Transfer Account]" → the leaf label, resolved at draft time.
         raw_cat = (txn.get("category") or "").strip()
@@ -178,14 +185,14 @@ def _mt940_rows(raw: list[dict], acct_in_file: str) -> list[CanonicalRow]:
     for txn in raw:
         date = (txn.get("date") or "").strip()
         if not date:
-            rows.append(_skip_row("missing date"))
+            rows.append(_skip_row("missing date", "statement.skip.missing_date"))
             continue
         amount = import_mt940._parse_amount(txn.get("amount", ""))
         if amount is None:
-            rows.append(_skip_row("unparseable amount"))
+            rows.append(_skip_row("unparseable amount", "statement.skip.unparseable_amount"))
             continue
         if amount == 0:
-            rows.append(_skip_row("zero amount"))
+            rows.append(_skip_row("zero amount", "statement.skip.zero_amount"))
             continue
         rows.append(
             CanonicalRow(
@@ -263,18 +270,20 @@ def _camt_rows(raw: list[dict], acct_in_file: str) -> list[CanonicalRow]:
     for txn in raw:
         date = (txn.get("date") or "").strip()
         if not date:
-            rows.append(_skip_row("missing date"))
+            rows.append(_skip_row("missing date", "statement.skip.missing_date"))
             continue
         amount = import_camt._parse_amount(txn.get("amount", ""))
         if amount is None:
-            rows.append(_skip_row("unparseable amount"))
+            rows.append(_skip_row("unparseable amount", "statement.skip.unparseable_amount"))
             continue
         if amount == 0:
-            rows.append(_skip_row("zero amount"))
+            rows.append(_skip_row("zero amount", "statement.skip.zero_amount"))
             continue
         dc = (txn.get("dc") or "").upper()
         if dc not in ("CRDT", "DBIT"):
-            rows.append(_skip_row("missing or invalid CdtDbtInd"))
+            rows.append(
+                _skip_row("missing or invalid CdtDbtInd", "statement.skip.invalid_credit_debit")
+            )
             continue
         rows.append(
             CanonicalRow(

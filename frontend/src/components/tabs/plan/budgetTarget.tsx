@@ -3,13 +3,14 @@
 // budget.jsx, PLUS the Notes section at the foot of the modal (owner-approved + money-moves
 // handoff): a "NOTES" label + "Enter a note…" textarea, shown in both view and edit states.
 import { useState, useRef, useEffect } from 'react'
+import { useAppIntl } from '../../../i18n/useAppIntl'
 import type { ReactNode } from 'react'
 import * as PD from './planData'
 import { fDate, getCurrencySymbol, parseDate } from '../../../utils/format'
 import { X, Chevron, Arrow } from './icons'
 import type { LocalCat } from './useBudgetModel'
 import { Button, DateField, Meter, Switch } from '../../ui'
-import { ColorIcon } from './budgetParts'
+import { ColorIcon, useAutoAssignLabel } from './budgetParts'
 import { PlanningModal } from './PlanningModal'
 
 const fMoney = (n: number) => PD.fBaseCents(n)
@@ -37,25 +38,55 @@ export function ordinal(n: number): string {
 // weekday name (unset → the server's own Monday default); monthly → the ordinal day, OR "last
 // day" for -1/unset; yearly → the annual date, OR "end of the year" when unset; custom → its
 // own repeat/by-date phrasing, unchanged. Split out so it's testable without mounting the view.
+type TargetSubtitleParts =
+  | { kind: 'repeat' | 'monthEnd' | 'yearEnd' }
+  | { kind: 'byDate'; date: string }
+  | { kind: 'weekly'; weekday: number }
+  | { kind: 'monthDay'; day: number }
+  | { kind: 'yearly'; date: string }
+  | { kind: 'periodEnd'; period: string }
+
+export function targetSubtitleParts(
+  cat: Pick<LocalCat, 'cad' | 'rep' | 'due' | 'dueWeekday' | 'dueDay' | 'everyUnit'>,
+): TargetSubtitleParts {
+  if (cat.cad === 'custom')
+    return cat.rep
+      ? { kind: 'repeat' }
+      : { kind: 'byDate', date: parseDate(cat.due || '') ? fDate(cat.due!, 'short', 'always') : '' }
+  if (cat.cad === 'weekly') return { kind: 'weekly', weekday: cat.dueWeekday ?? 0 }
+  if (cat.cad === 'monthly')
+    return cat.dueDay != null && cat.dueDay !== -1
+      ? { kind: 'monthDay', day: cat.dueDay }
+      : { kind: 'monthEnd' }
+  if (cat.cad === 'yearly')
+    return cat.due
+      ? { kind: 'yearly', date: fDate(cat.due, 'short', 'never') }
+      : { kind: 'yearEnd' }
+  return { kind: 'periodEnd', period: CAD_WORD[cat.cad || 'monthly'] || 'month' }
+}
+
 export function targetSubtitle(
   cat: Pick<LocalCat, 'cad' | 'rep' | 'due' | 'dueWeekday' | 'dueDay' | 'everyUnit'>,
 ): string {
-  const vCadWord = CAD_WORD[cat.cad || 'monthly'] || 'month'
-  if (cat.cad === 'custom') {
-    const vDueLabel = parseDate(cat.due || '') ? fDate(cat.due!, 'short', 'always') : ''
-    return cat.rep ? 'Repeating target' : 'By ' + vDueLabel
+  const parts = targetSubtitleParts(cat)
+  switch (parts.kind) {
+    case 'repeat':
+      return 'Repeating target'
+    case 'byDate':
+      return 'By ' + parts.date
+    case 'weekly':
+      return 'Every ' + WEEKDAYS[parts.weekday]
+    case 'monthDay':
+      return 'By the ' + ordinal(parts.day) + ' of each month'
+    case 'monthEnd':
+      return 'By the last day of each month'
+    case 'yearly':
+      return 'By ' + parts.date + ' each year'
+    case 'yearEnd':
+      return 'By the end of the year'
+    case 'periodEnd':
+      return 'By the end of the ' + parts.period
   }
-  if (cat.cad === 'weekly')
-    return 'Every ' + (cat.dueWeekday != null ? WEEKDAYS[cat.dueWeekday] : 'Monday')
-  if (cat.cad === 'monthly')
-    return cat.dueDay != null && cat.dueDay !== -1
-      ? 'By the ' + ordinal(cat.dueDay) + ' of each month'
-      : 'By the last day of each month'
-  if (cat.cad === 'yearly')
-    return cat.due
-      ? 'By ' + fDate(cat.due, 'short', 'never') + ' each year'
-      : 'By the end of the year'
-  return 'By the end of the ' + vCadWord
 }
 
 // ── Target-deadline "don't stamp defaults" guard (handoff regression FEB-04) — a legacy
@@ -124,24 +155,34 @@ export function TgtCard({
 }
 
 function BalanceCard({ cat }: { cat: LocalCat }) {
+  const { formatMessage } = useAppIntl()
   const rollover = cat.available - cat.assigned - cat.activity
   const balTone = cat.available < -0.005 ? 'bad' : cat.available > 0.005 ? 'good' : 'zero'
   return (
     <TgtCard
-      title="Available balance"
+      title={formatMessage({ id: 'plan.availableBalance', defaultMessage: 'Available balance' })}
       right={<span className={'pl-tgt-bal ' + balTone}>{fMoney(cat.available)}</span>}
     >
       <div className="pl-tgt-rows pl-tgt-bal-rows">
         <div className="pl-tgt-row">
-          <span>Left over from last month</span>
+          <span>
+            {formatMessage({
+              id: 'plan.leftLastMonth',
+              defaultMessage: 'Left over from last month',
+            })}
+          </span>
           <b>{fMoney(rollover)}</b>
         </div>
         <div className="pl-tgt-row">
-          <span>Assigned this month</span>
+          <span>
+            {formatMessage({ id: 'plan.assignedThisMonth', defaultMessage: 'Assigned this month' })}
+          </span>
           <b className="pos">+{fMoney(cat.assigned)}</b>
         </div>
         <div className="pl-tgt-row">
-          <span>Spent this month</span>
+          <span>
+            {formatMessage({ id: 'plan.spentThisMonth', defaultMessage: 'Spent this month' })}
+          </span>
           <b>{Math.abs(cat.activity) < 0.005 ? fMoney(0) : fMoney(cat.activity)}</b>
         </div>
       </div>
@@ -152,14 +193,24 @@ function BalanceCard({ cat }: { cat: LocalCat }) {
 // No target yet: a question and one button, never a pre-filled draft form that reads as if a
 // target were already set (owner, 2026-09-25 — the "did I really set that?" confusion).
 function TargetEmpty({ label, onCreate }: { label: string; onCreate: () => void }) {
+  const { formatMessage } = useAppIntl()
   return (
     <div className="pl-tgt-empty">
-      <div className="pl-tgt-empty-q">How much do you need for {label}?</div>
+      <div className="pl-tgt-empty-q">
+        {formatMessage(
+          { id: 'plan.targetEmptyQuestion', defaultMessage: 'How much do you need for {name}?' },
+          { name: label },
+        )}
+      </div>
       <div className="pl-tgt-empty-txt">
-        Set a target and you'll see how much to put aside each month to stay on track.
+        {formatMessage({
+          id: 'plan.targetEmptyHelp',
+          defaultMessage:
+            "Set a target and you'll see how much to put aside each month to stay on track.",
+        })}
       </div>
       <Button variant="secondary" size="dense" onClick={onCreate}>
-        Create target
+        {formatMessage({ id: 'plan.createTarget', defaultMessage: 'Create target' })}
       </Button>
     </div>
   )
@@ -184,6 +235,8 @@ function TargetView({
   onMoney: (key: string, kind: string, amount?: number) => void
   onSnooze?: (snooze: boolean) => void
 }) {
+  const { formatMessage, locale } = useAppIntl()
+  const autoLabel = useAutoAssignLabel()
   const [snoozed, setSnoozed] = useState(!!cat.snoozed)
   const vRefill = cat.tt === 'refill'
   const vBalance = cat.tt === 'balance'
@@ -203,19 +256,128 @@ function TargetView({
           ? '#5aa9f0'
           : 'var(--good)'
   const vComplete = cat.available >= -0.005 && vToGo <= 0.005 && vOverBy <= 0.005
-  const vCadWord = CAD_WORD[cat.cad || 'monthly'] || 'month'
+  const period =
+    cat.cad === 'weekly'
+      ? formatMessage({ id: 'plan.periodWeek', defaultMessage: 'week' })
+      : cat.cad === 'yearly'
+        ? formatMessage({ id: 'plan.periodYear', defaultMessage: 'year' })
+        : formatMessage({ id: 'plan.periodMonth', defaultMessage: 'month' })
+  const count = cat.every || 1
+  const frequency =
+    cat.everyUnit === 'year'
+      ? formatMessage(
+          {
+            id: 'plan.everyYears',
+            defaultMessage: '{count, plural, =1 {every year} other {every # years}}',
+          },
+          { count },
+        )
+      : cat.everyUnit === 'month'
+        ? formatMessage(
+            {
+              id: 'plan.everyMonths',
+              defaultMessage: '{count, plural, =1 {every month} other {every # months}}',
+            },
+            { count },
+          )
+        : formatMessage(
+            { id: 'plan.everyUnknownUnit', defaultMessage: 'every {unit}' },
+            { unit: count > 1 ? `${count} ${cat.everyUnit}s` : String(cat.everyUnit) },
+          )
   const vTitle = vBalance
-    ? 'Have a balance of ' + fMoney(vAmt)
+    ? formatMessage(
+        { id: 'plan.haveBalanceAmount', defaultMessage: 'Have a balance of {amount}' },
+        { amount: fMoney(vAmt) },
+      )
     : cat.cad === 'custom'
-      ? (vRefill ? 'Fill up to ' : 'Set aside ') +
-        fMoney(vAmt) +
-        (cat.rep
-          ? ' every ' +
-            ((cat.every || 1) > 1 ? cat.every + ' ' + cat.everyUnit + 's' : cat.everyUnit)
-          : '')
-      : (vRefill ? 'Fill up to ' : 'Set aside another ') + fMoney(vAmt) + ' each ' + vCadWord
+      ? cat.rep
+        ? vRefill
+          ? formatMessage(
+              { id: 'plan.fillRepeating', defaultMessage: 'Fill up to {amount} {frequency}' },
+              { amount: fMoney(vAmt), frequency },
+            )
+          : formatMessage(
+              { id: 'plan.setAsideRepeating', defaultMessage: 'Set aside {amount} {frequency}' },
+              { amount: fMoney(vAmt), frequency },
+            )
+        : vRefill
+          ? formatMessage(
+              { id: 'plan.fillUpAmount', defaultMessage: 'Fill up to {amount}' },
+              { amount: fMoney(vAmt) },
+            )
+          : formatMessage(
+              { id: 'plan.setAsideAmount', defaultMessage: 'Set aside {amount}' },
+              { amount: fMoney(vAmt) },
+            )
+      : vRefill
+        ? formatMessage(
+            { id: 'plan.fillEachPeriod', defaultMessage: 'Fill up to {amount} each {period}' },
+            { amount: fMoney(vAmt), period },
+          )
+        : formatMessage(
+            {
+              id: 'plan.setAsideEachPeriod',
+              defaultMessage: 'Set aside another {amount} each {period}',
+            },
+            { amount: fMoney(vAmt), period },
+          )
   // Target deadline subtitle (handoff delta #13) — pure helper, unit-tested standalone.
-  const vSub = targetSubtitle(cat)
+  const sub = targetSubtitleParts(cat)
+  const vSub = (() => {
+    switch (sub.kind) {
+      case 'repeat':
+        return formatMessage({ id: 'plan.targetRepeating', defaultMessage: 'Repeating target' })
+      case 'byDate':
+        return formatMessage(
+          { id: 'plan.targetByDate', defaultMessage: 'By {date}' },
+          { date: sub.date },
+        )
+      case 'weekly': {
+        const weekday = WEEKDAYS[sub.weekday]
+          ? new Intl.DateTimeFormat(locale, { weekday: 'long', timeZone: 'UTC' }).format(
+              new Date(Date.UTC(2024, 0, 1 + sub.weekday)),
+            )
+          : String(sub.weekday)
+        return formatMessage(
+          { id: 'plan.targetEveryWeekday', defaultMessage: 'Every {weekday}' },
+          { weekday },
+        )
+      }
+      case 'monthDay':
+        return formatMessage(
+          {
+            id: 'plan.targetMonthDay',
+            defaultMessage:
+              'By the {day, selectordinal, one {#st} two {#nd} few {#rd} other {#th}} of each month',
+          },
+          { day: sub.day },
+        )
+      case 'monthEnd':
+        return formatMessage({
+          id: 'plan.targetMonthEnd',
+          defaultMessage: 'By the last day of each month',
+        })
+      case 'yearly':
+        return formatMessage(
+          { id: 'plan.targetYearDate', defaultMessage: 'By {date} each year' },
+          { date: sub.date },
+        )
+      case 'yearEnd':
+        return formatMessage({ id: 'plan.targetYearEnd', defaultMessage: 'By the end of the year' })
+      case 'periodEnd':
+        return formatMessage(
+          { id: 'plan.targetPeriodEnd', defaultMessage: 'By the end of the {period}' },
+          {
+            period:
+              sub.period === 'week'
+                ? formatMessage({ id: 'plan.periodWeek', defaultMessage: 'week' })
+                : sub.period === 'year'
+                  ? formatMessage({ id: 'plan.periodYear', defaultMessage: 'year' })
+                  : formatMessage({ id: 'plan.periodMonth', defaultMessage: 'month' }),
+          },
+        )
+    }
+  })()
   // Same labels, order and grouping as the month-level rail (budgetParts.buildAutoAssignItems)
   // and as real YNAB — owner ask, 2026-09-15: this per-envelope pane had drifted into its own
   // sentence-case wording for the identical set of actions. These strings are ALSO the dispatch
@@ -234,7 +396,7 @@ function TargetView({
   return (
     <>
       <BalanceCard cat={cat} />
-      <TgtCard title="Target">
+      <TgtCard title={formatMessage({ id: 'plan.target', defaultMessage: 'Target' })}>
         {!cat.target ? (
           <TargetEmpty label={cat.label} onCreate={onEdit} />
         ) : (
@@ -248,7 +410,17 @@ function TargetView({
                 value={vPct}
                 color={vRing}
                 complete={vComplete}
-                ariaLabel={vComplete ? 'Target met' : `Target progress: ${Math.round(vPct)}%`}
+                ariaLabel={
+                  vComplete
+                    ? formatMessage({ id: 'plan.targetMet', defaultMessage: 'Target met' })
+                    : formatMessage(
+                        {
+                          id: 'plan.targetProgress',
+                          defaultMessage: 'Target progress: {percent}%',
+                        },
+                        { percent: Math.round(vPct) },
+                      )
+                }
               />
             </div>
             {cat.available < -0.005 ? (
@@ -258,53 +430,103 @@ function TargetView({
                 under the restored identity (ADR 2026-09-09), the reverse of the one-day rule
                 where it was free. */}
                 <div className="pl-tgt-callout-txt">
-                  Cover <b>{fMoney(-cat.available)}</b> to get back to green — it comes out of Ready
-                  to Assign
+                  {formatMessage(
+                    {
+                      id: 'plan.targetCoverHelp',
+                      defaultMessage:
+                        'Cover <b>{amount}</b> to get back to green — it comes out of Ready to Assign',
+                    },
+                    { amount: fMoney(-cat.available), b: (chunks) => <b>{chunks}</b> },
+                  )}
                 </div>
                 <button className="pl-tgt-assign" onClick={() => onMoney(cat.key, 'cover')}>
-                  Cover {fMoney(-cat.available)}
+                  {formatMessage(
+                    { id: 'plan.coverAmount', defaultMessage: 'Cover {amount}' },
+                    { amount: fMoney(-cat.available) },
+                  )}
                 </button>
               </div>
             ) : vToGo > 0.005 ? (
               <div className="pl-tgt-callout warn">
                 <div className="pl-tgt-callout-txt">
-                  Assign <b>{fMoney(vToGo)} more</b> to meet your target
+                  {formatMessage(
+                    {
+                      id: 'plan.targetAssignHelp',
+                      defaultMessage: 'Assign <b>{amount} more</b> to meet your target',
+                    },
+                    { amount: fMoney(vToGo), b: (chunks) => <b>{chunks}</b> },
+                  )}
                 </div>
                 <button className="pl-tgt-assign" onClick={() => onMoney(cat.key, 'fund')}>
-                  Assign {fMoney(vToGo)}
+                  {formatMessage(
+                    { id: 'plan.autoAssignAmount', defaultMessage: 'Assign {amount}' },
+                    { amount: fMoney(vToGo) },
+                  )}
                 </button>
               </div>
             ) : vOverBy > 0.005 ? (
               <div className="pl-tgt-callout over">
                 <div className="pl-tgt-callout-txt">
-                  <b>{fMoney(vOverBy)}</b> over target — free to move
+                  {formatMessage(
+                    {
+                      id: 'plan.targetExcessHelp',
+                      defaultMessage: '<b>{amount}</b> over target — free to move',
+                    },
+                    { amount: fMoney(vOverBy), b: (chunks) => <b>{chunks}</b> },
+                  )}
                 </div>
                 <button className="pl-tgt-assign" onClick={() => onMoney(cat.key, 'move')}>
-                  Move {fMoney(vOverBy)}
+                  {formatMessage(
+                    { id: 'plan.moveAmount', defaultMessage: 'Move {amount}' },
+                    { amount: fMoney(vOverBy) },
+                  )}
                 </button>
               </div>
             ) : (
-              <div className="pl-tgt-callout ok">You've met your target!</div>
+              <div className="pl-tgt-callout ok">
+                {formatMessage({
+                  id: 'plan.targetAchieved',
+                  defaultMessage: "You've met your target!",
+                })}
+              </div>
             )}
             <div className="pl-tgt-rows pl-tgt-vrows">
               <div className="pl-tgt-row">
                 <span>
-                  {vMeasuresAvail ? 'Balance target this month' : 'Amount to assign this month'}
+                  {vMeasuresAvail
+                    ? formatMessage({
+                        id: 'plan.balanceTargetMonth',
+                        defaultMessage: 'Balance target this month',
+                      })
+                    : formatMessage({
+                        id: 'plan.assignTargetMonth',
+                        defaultMessage: 'Amount to assign this month',
+                      })}
                 </span>
                 <b>{fMoney(vMonthlyTarget)}</b>
               </div>
               <div className="pl-tgt-row">
-                <span>{vMeasuresAvail ? 'Available so far' : 'Assigned so far'}</span>
+                <span>
+                  {vMeasuresAvail
+                    ? formatMessage({
+                        id: 'plan.availableSoFar',
+                        defaultMessage: 'Available so far',
+                      })
+                    : formatMessage({
+                        id: 'plan.assignedSoFar',
+                        defaultMessage: 'Assigned so far',
+                      })}
+                </span>
                 <b>{fMoney(vFunded)}</b>
               </div>
               <div className="pl-tgt-divider" />
               <div className="pl-tgt-row">
-                <span>To go</span>
+                <span>{formatMessage({ id: 'plan.targetToGo', defaultMessage: 'To go' })}</span>
                 <b>{fMoney(vToGo)}</b>
               </div>
             </div>
             <Button variant="secondary" size="dense" className="pl-tgt-editbtn" onClick={onEdit}>
-              Edit target
+              {formatMessage({ id: 'plan.editTargetShort', defaultMessage: 'Edit target' })}
             </Button>
             <div className="pl-tgt-snooze">
               <Switch
@@ -317,18 +539,41 @@ function TargetView({
                   else
                     onFund(
                       next
-                        ? cat.label + ' target snoozed this month'
-                        : cat.label + ' target un-snoozed',
+                        ? formatMessage(
+                            {
+                              id: 'plan.targetSnoozed',
+                              defaultMessage: '{name} target snoozed this month',
+                            },
+                            { name: cat.label },
+                          )
+                        : formatMessage(
+                            {
+                              id: 'plan.targetUnsnoozed',
+                              defaultMessage: '{name} target un-snoozed',
+                            },
+                            { name: cat.label },
+                          ),
                     )
                 }}
-                aria-label="Snooze this target"
+                aria-label={formatMessage({
+                  id: 'plan.snoozeTarget',
+                  defaultMessage: 'Snooze this target',
+                })}
               />
-              <span>Snooze target for this month</span>
+              <span>
+                {formatMessage({
+                  id: 'plan.snoozeMonth',
+                  defaultMessage: 'Snooze target for this month',
+                })}
+              </span>
             </div>
           </div>
         )}
       </TgtCard>
-      <TgtCard title="Auto-assign" icon={BOLT}>
+      <TgtCard
+        title={formatMessage({ id: 'plan.autoAssign', defaultMessage: 'Auto-assign' })}
+        icon={BOLT}
+      >
         <div className="pl-tgt-auto-list pl-budget-rail-pills">
           {autoRows.map((r, i) =>
             r[0] === '__div' ? (
@@ -341,7 +586,19 @@ function TargetView({
                 }
                 onClick={() => onMoney(cat.key, r[0], r[1] as number)}
               >
-                <span>{r[0]}</span>
+                <span>
+                  {r[0] === 'Reset Available Amount'
+                    ? formatMessage({
+                        id: 'plan.resetAvailableOne',
+                        defaultMessage: 'Reset Available Amount',
+                      })
+                    : r[0] === 'Reset Assigned Amount'
+                      ? formatMessage({
+                          id: 'plan.resetAssignedOne',
+                          defaultMessage: 'Reset Assigned Amount',
+                        })
+                      : autoLabel(r[0])}
+                </span>
                 <span className="hint">{fMoney((r[1] as number) || 0)}</span>
               </button>
             ),
@@ -354,16 +611,17 @@ function TargetView({
 
 // ── Notes section (owner-approved B1) — shown in both view + edit states ───────
 export function NotesSection({ note, onSave }: { note: string; onSave: (t: string) => void }) {
+  const { formatMessage } = useAppIntl()
   const [v, setV] = useState(note)
   useEffect(() => {
     setV(note)
   }, [note])
   return (
-    <TgtCard title="Notes">
+    <TgtCard title={formatMessage({ id: 'plan.notes', defaultMessage: 'Notes' })}>
       <div className="pl-tgt-notes">
         <textarea
           className="pl-tgt-note-input"
-          placeholder="Enter a note…"
+          placeholder={formatMessage({ id: 'plan.enterNote', defaultMessage: 'Enter a note…' })}
           rows={3}
           value={v}
           onChange={(e) => setV(e.target.value)}
@@ -377,12 +635,6 @@ export function NotesSection({ note, onSave }: { note: string; onSave: (t: strin
 }
 
 // ── Target editor (the modal wrapping the view + the edit form) ────────────────
-const PERIOD: Record<string, string> = {
-  weekly: 'week',
-  monthly: 'month',
-  yearly: 'year',
-  custom: 'period',
-}
 const FACTOR: Record<string, number> = { weekly: 52 / 12, monthly: 1, yearly: 1 / 12 }
 type Cad = 'weekly' | 'monthly' | 'yearly' | 'custom'
 const CADS: [Cad, string][] = [
@@ -413,6 +665,7 @@ function WantToSelect({
   opts: WantOpt[]
   onPick: (f: WantFlavor) => void
 }) {
+  const { formatMessage } = useAppIntl()
   const [open, setOpen] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
   const popRef = useRef<HTMLDivElement>(null)
@@ -489,7 +742,12 @@ function WantToSelect({
                 >
                   {o.title}
                 </span>
-                <span className="pl-tgt-opt-desc">Use for: {o.use}</span>
+                <span className="pl-tgt-opt-desc">
+                  {formatMessage(
+                    { id: 'plan.targetUseFor', defaultMessage: 'Use for: {examples}' },
+                    { examples: o.use },
+                  )}
+                </span>
                 <span className="pl-tgt-opt-desc">{o.desc}</span>
               </span>
             </button>
@@ -541,6 +799,7 @@ export function TargetEditor({
    *  Default (unset) is today's unchanged modal behavior. */
   inline?: boolean
 }) {
+  const { formatMessage, locale } = useAppIntl()
   const [tt, setTt] = useState(cat.tt || 'set_aside')
   const [cad, setCad] = useState(cat.cad || 'monthly')
   const [amount, setAmount] = useState(
@@ -642,21 +901,52 @@ export function TargetEditor({
   const ALL_WANT_OPTS: WantOpt[] = [
     {
       key: 'set_aside',
-      title: 'Set aside ' + fMoney(amt),
-      use: 'bills, subscriptions, saving over time',
-      desc: 'Add ' + fMoney(amt) + ' to this category, regardless of its current balance.',
+      title: formatMessage(
+        { id: 'plan.setAsideAmount', defaultMessage: 'Set aside {amount}' },
+        { amount: fMoney(amt) },
+      ),
+      use: formatMessage({
+        id: 'plan.targetUseBills',
+        defaultMessage: 'bills, subscriptions, saving over time',
+      }),
+      desc: formatMessage(
+        {
+          id: 'plan.targetSetAsideHelp',
+          defaultMessage: 'Add {amount} to this category, regardless of its current balance.',
+        },
+        { amount: fMoney(amt) },
+      ),
     },
     {
       key: 'refill',
-      title: 'Fill up to ' + fMoney(amt),
-      use: 'gasoline, fun money, dining out',
-      desc: 'Use what is already in this category and fill it up to ' + fMoney(amt) + '.',
+      title: formatMessage(
+        { id: 'plan.fillUpAmount', defaultMessage: 'Fill up to {amount}' },
+        { amount: fMoney(amt) },
+      ),
+      use: formatMessage({
+        id: 'plan.targetUseDaily',
+        defaultMessage: 'gasoline, fun money, dining out',
+      }),
+      desc: formatMessage(
+        {
+          id: 'plan.targetRefillHelp',
+          defaultMessage: 'Use what is already in this category and fill it up to {amount}.',
+        },
+        { amount: fMoney(amt) },
+      ),
     },
     {
       key: 'balance',
-      title: 'Have a balance of ' + fMoney(amt),
-      use: 'long-term savings',
-      desc: 'Reach this amount by a specific time and refrain from spending until you reach it.',
+      title: formatMessage(
+        { id: 'plan.haveBalanceAmount', defaultMessage: 'Have a balance of {amount}' },
+        { amount: fMoney(amt) },
+      ),
+      use: formatMessage({ id: 'plan.targetUseLongTerm', defaultMessage: 'long-term savings' }),
+      desc: formatMessage({
+        id: 'plan.targetBalanceHelp',
+        defaultMessage:
+          'Reach this amount by a specific time and refrain from spending until you reach it.',
+      }),
     },
   ]
   // Only the dated Custom cadence offers "Have a balance of"; recurring cadences show two.
@@ -667,7 +957,7 @@ export function TargetEditor({
     <div className="pl-modal-foot pl-tgt-foot">
       {cat.target ? (
         <Button variant="danger" size="dense" onClick={onRemove}>
-          Delete target
+          {formatMessage({ id: 'plan.deleteTarget', defaultMessage: 'Delete target' })}
         </Button>
       ) : (
         <span />
@@ -681,7 +971,7 @@ export function TargetEditor({
             setMode('view')
           }}
         >
-          Cancel
+          {formatMessage({ id: 'plan.cancel', defaultMessage: 'Cancel' })}
         </Button>
         <Button
           variant="primary"
@@ -703,7 +993,7 @@ export function TargetEditor({
             })
           }
         >
-          Save target
+          {formatMessage({ id: 'plan.saveTarget', defaultMessage: 'Save target' })}
         </Button>
       </span>
     </div>
@@ -723,17 +1013,29 @@ export function TargetEditor({
       ) : (
         <>
           <BalanceCard cat={cat} />
-          <TgtCard title="Target">
+          <TgtCard title={formatMessage({ id: 'plan.target', defaultMessage: 'Target' })}>
             <div className="pl-tgt-grid">
-              <label className="pl-modal-label">Cadence</label>
+              <label className="pl-modal-label">
+                {formatMessage({ id: 'plan.cadence', defaultMessage: 'Cadence' })}
+              </label>
               <div className="pl-seg pl-tgt-cad">
                 {CADS.map(([k, lbl]) => (
                   <button key={k} className={cad === k ? 'on' : ''} onClick={() => pickCadence(k)}>
-                    {lbl}
+                    {k === 'weekly'
+                      ? formatMessage({ id: 'plan.cadWeekly', defaultMessage: 'Weekly' })
+                      : k === 'monthly'
+                        ? formatMessage({ id: 'plan.cadMonthly', defaultMessage: 'Monthly' })
+                        : k === 'yearly'
+                          ? formatMessage({ id: 'plan.cadYearly', defaultMessage: 'Yearly' })
+                          : k === 'custom'
+                            ? formatMessage({ id: 'plan.cadCustom', defaultMessage: 'Custom' })
+                            : lbl}
                   </button>
                 ))}
               </div>
-              <label className="pl-modal-label">I need</label>
+              <label className="pl-modal-label">
+                {formatMessage({ id: 'plan.iNeed', defaultMessage: 'I need' })}
+              </label>
               <div className="pl-tgt-amt">
                 <span className="pl-tgt-cur">{getCurrencySymbol()}</span>
                 <input
@@ -747,12 +1049,29 @@ export function TargetEditor({
                   placeholder="0.00"
                 />
                 <span className="pl-tgt-per">
-                  {cad === 'custom' ? 'total' : '/ ' + PERIOD[cad]}
+                  {cad === 'custom'
+                    ? formatMessage({ id: 'plan.totalLower', defaultMessage: 'total' })
+                    : formatMessage(
+                        { id: 'plan.periodSuffix', defaultMessage: '/ {period}' },
+                        {
+                          period:
+                            cad === 'weekly'
+                              ? formatMessage({ id: 'plan.periodWeek', defaultMessage: 'week' })
+                              : cad === 'yearly'
+                                ? formatMessage({ id: 'plan.periodYear', defaultMessage: 'year' })
+                                : formatMessage({
+                                    id: 'plan.periodMonth',
+                                    defaultMessage: 'month',
+                                  }),
+                        },
+                      )}
                 </span>
               </div>
               {cad === 'weekly' && (
                 <>
-                  <label className="pl-modal-label">Every</label>
+                  <label className="pl-modal-label">
+                    {formatMessage({ id: 'plan.every', defaultMessage: 'Every' })}
+                  </label>
                   <div className="pl-selwrap pl-tgt-selwrap">
                     <select
                       className="pl-sel"
@@ -762,9 +1081,12 @@ export function TargetEditor({
                         setDowTouched(true)
                       }}
                     >
-                      {WEEKDAYS.map((d) => (
+                      {WEEKDAYS.map((d, index) => (
                         <option key={d} value={d}>
-                          {d}
+                          {new Intl.DateTimeFormat(locale, {
+                            weekday: 'long',
+                            timeZone: 'UTC',
+                          }).format(new Date(Date.UTC(2024, 0, 1 + index)))}
                         </option>
                       ))}
                     </select>
@@ -776,7 +1098,9 @@ export function TargetEditor({
               )}
               {cad === 'monthly' && (
                 <>
-                  <label className="pl-modal-label">By</label>
+                  <label className="pl-modal-label">
+                    {formatMessage({ id: 'plan.by', defaultMessage: 'By' })}
+                  </label>
                   <div className="pl-selwrap pl-tgt-selwrap">
                     <select
                       className="pl-sel"
@@ -786,10 +1110,22 @@ export function TargetEditor({
                         setDomTouched(true)
                       }}
                     >
-                      <option value="last">Last day of month</option>
+                      <option value="last">
+                        {formatMessage({
+                          id: 'plan.lastDayMonth',
+                          defaultMessage: 'Last day of month',
+                        })}
+                      </option>
                       {Array.from({ length: 28 }, (_, i) => i + 1).map((d) => (
                         <option key={d} value={d}>
-                          {ordinal(d)}
+                          {formatMessage(
+                            {
+                              id: 'plan.dayOrdinal',
+                              defaultMessage:
+                                '{day, selectordinal, one {#st} two {#nd} few {#rd} other {#th}}',
+                            },
+                            { day: d },
+                          )}
                         </option>
                       ))}
                     </select>
@@ -801,7 +1137,9 @@ export function TargetEditor({
               )}
               {cad === 'yearly' && (
                 <>
-                  <label className="pl-modal-label">By</label>
+                  <label className="pl-modal-label">
+                    {formatMessage({ id: 'plan.by', defaultMessage: 'By' })}
+                  </label>
                   <DateField
                     unstyled
                     className="pl-tgt-date"
@@ -812,24 +1150,31 @@ export function TargetEditor({
               )}
               {cad === 'custom' && (
                 <>
-                  <label className="pl-modal-label">Due by</label>
+                  <label className="pl-modal-label">
+                    {formatMessage({ id: 'plan.dueBy', defaultMessage: 'Due by' })}
+                  </label>
                   <DateField
                     unstyled
                     className="pl-tgt-date"
                     value={due}
                     onChange={(e) => setDue(e.target.value)}
                   />
-                  <label className="pl-modal-label">Repeat</label>
+                  <label className="pl-modal-label">
+                    {formatMessage({ id: 'plan.repeat', defaultMessage: 'Repeat' })}
+                  </label>
                   <div className="pl-tgt-repeat">
                     <Switch
                       dense
                       checked={repeat}
                       onChange={(e) => setRepeat(e.target.checked)}
-                      aria-label="Repeat every period"
+                      aria-label={formatMessage({
+                        id: 'plan.repeatEvery',
+                        defaultMessage: 'Repeat every period',
+                      })}
                     />
                     {repeat && (
                       <span className="pl-tgt-every-wrap">
-                        every
+                        {formatMessage({ id: 'plan.everyLower', defaultMessage: 'every' })}
                         <input
                           type="number"
                           className="pl-tgt-every"
@@ -844,8 +1189,24 @@ export function TargetEditor({
                             value={everyUnit}
                             onChange={(e) => setEveryUnit(e.target.value)}
                           >
-                            <option value="month">{everyN > 1 ? 'Months' : 'Month'}</option>
-                            <option value="year">{everyN > 1 ? 'Years' : 'Year'}</option>
+                            <option value="month">
+                              {formatMessage(
+                                {
+                                  id: 'plan.monthUnits',
+                                  defaultMessage: '{count, plural, =1 {Month} other {Months}}',
+                                },
+                                { count: everyN },
+                              )}
+                            </option>
+                            <option value="year">
+                              {formatMessage(
+                                {
+                                  id: 'plan.yearUnits',
+                                  defaultMessage: '{count, plural, =1 {Year} other {Years}}',
+                                },
+                                { count: everyN },
+                              )}
+                            </option>
                           </select>
                           <span className="pl-sel-caret">
                             <Chevron dir="down" size={13} />
@@ -857,7 +1218,9 @@ export function TargetEditor({
                 </>
               )}
             </div>
-            <div className="pl-modal-label pl-tgt-want">I want to</div>
+            <div className="pl-modal-label pl-tgt-want">
+              {formatMessage({ id: 'plan.iWantTo', defaultMessage: 'I want to' })}
+            </div>
             <WantToSelect value={tt} opts={WANT_OPTS} onPick={pickFlavor} />
             {amt > 0 && (
               <div className="pl-tgt-progress">
@@ -866,35 +1229,84 @@ export function TargetEditor({
                   size="sm"
                   value={pct}
                   color={ringColor}
-                  ariaLabel={`Target progress: ${Math.round(pct)}%`}
+                  ariaLabel={formatMessage(
+                    {
+                      id: 'plan.targetProgressAria',
+                      defaultMessage: 'Target progress: {percent}%',
+                    },
+                    { percent: Math.round(pct) },
+                  )}
                 />
                 <div className="pl-tgt-rows">
                   <div className="pl-tgt-row">
                     <span>
-                      {measuresAvail ? 'Balance target this month' : 'To assign this month'}
+                      {measuresAvail
+                        ? formatMessage({
+                            id: 'plan.balanceTargetMonth',
+                            defaultMessage: 'Balance target this month',
+                          })
+                        : formatMessage({
+                            id: 'plan.toAssignThisMonth',
+                            defaultMessage: 'To assign this month',
+                          })}
                     </span>
                     <b>{fMoney(monthlyTarget)}</b>
                   </div>
                   <div className="pl-tgt-row">
-                    <span>{measuresAvail ? 'Available so far' : 'Assigned so far'}</span>
+                    <span>
+                      {measuresAvail
+                        ? formatMessage({
+                            id: 'plan.availableSoFar',
+                            defaultMessage: 'Available so far',
+                          })
+                        : formatMessage({
+                            id: 'plan.assignedSoFar',
+                            defaultMessage: 'Assigned so far',
+                          })}
+                    </span>
                     <b>{fMoney(fundedSoFar)}</b>
                   </div>
                   <div className="pl-tgt-row">
-                    <span>To go</span>
+                    <span>{formatMessage({ id: 'plan.targetToGo', defaultMessage: 'To go' })}</span>
                     <b>{fMoney(toGo)}</b>
                   </div>
                   {cat.available < -0.005 ? (
                     <div className="pl-tgt-note bad">
-                      Overspent by {fMoney(-cat.available)} — cover it to get back to green.
+                      {formatMessage(
+                        {
+                          id: 'plan.targetOverspentEdit',
+                          defaultMessage: 'Overspent by {amount} — cover it to get back to green.',
+                        },
+                        { amount: fMoney(-cat.available) },
+                      )}
                     </div>
                   ) : toGo > 0.005 ? (
-                    <div className="pl-tgt-note warn">{fMoney(toGo)} more needed this month.</div>
+                    <div className="pl-tgt-note warn">
+                      {formatMessage(
+                        {
+                          id: 'plan.targetNeededEdit',
+                          defaultMessage: '{amount} more needed this month.',
+                        },
+                        { amount: fMoney(toGo) },
+                      )}
+                    </div>
                   ) : overBy > 0.005 ? (
                     <div className="pl-tgt-note over">
-                      Funded — {fMoney(overBy)} over target, free to move elsewhere.
+                      {formatMessage(
+                        {
+                          id: 'plan.targetExcessEdit',
+                          defaultMessage: 'Funded — {amount} over target, free to move elsewhere.',
+                        },
+                        { amount: fMoney(overBy) },
+                      )}
                     </div>
                   ) : (
-                    <div className="pl-tgt-note ok">Fully funded this month. ✓</div>
+                    <div className="pl-tgt-note ok">
+                      {formatMessage({
+                        id: 'plan.fullyFundedMonth',
+                        defaultMessage: 'Fully funded this month. ✓',
+                      })}
+                    </div>
                   )}
                 </div>
               </div>
@@ -916,7 +1328,7 @@ export function TargetEditor({
             <span className="pl-tgt-rail-name">{cat.label}</span>
           </span>
           <Button variant="secondary" size="dense" onClick={onCancel}>
-            <Arrow dir="left" size={12} /> Back
+            <Arrow dir="left" size={12} /> {formatMessage({ id: 'planScan.back', defaultMessage: 'Back' })}
           </Button>
         </div>
         {body}
@@ -925,13 +1337,27 @@ export function TargetEditor({
   }
 
   return (
-    <PlanningModal onClose={onCancel} label={'Target for ' + cat.label} className="pl-tgt-modal">
+    <PlanningModal
+      onClose={onCancel}
+      label={formatMessage(
+        { id: 'plan.targetFor', defaultMessage: 'Target for {name}' },
+        { name: cat.label },
+      )}
+      className="pl-tgt-modal"
+    >
       <div className="pl-modal-head">
         <h3>
           <span className="pl-cdot" style={{ background: cat.color, marginRight: 8 }} />
-          {cat.label} • Target
+          {formatMessage(
+            { id: 'plan.namedTarget', defaultMessage: '{name} • Target' },
+            { name: cat.label },
+          )}
         </h3>
-        <button className="pl-modal-x" onClick={onCancel} aria-label="Close">
+        <button
+          className="pl-modal-x"
+          onClick={onCancel}
+          aria-label={formatMessage({ id: 'plan.close', defaultMessage: 'Close' })}
+        >
           <X size={16} />
         </button>
       </div>

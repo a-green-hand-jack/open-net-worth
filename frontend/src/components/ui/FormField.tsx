@@ -1,5 +1,6 @@
 import { cloneElement, isValidElement, type ReactNode } from 'react'
 import { Info } from '../../ui/icons'
+import { useAppIntl } from '../../i18n/useAppIntl'
 
 export interface FormFieldProps {
   label?: ReactNode
@@ -39,6 +40,7 @@ export function FormField({
   reserveMessageSpace = false,
   children,
 }: FormFieldProps) {
+  const intl = useAppIntl()
   const describedBy = error ? `${htmlFor}-error` : help ? `${htmlFor}-help` : undefined
 
   // Wire aria-describedby / aria-invalid onto the child control so screen-readers
@@ -67,7 +69,7 @@ export function FormField({
             <button
               type="button"
               className="ui-field__info"
-              aria-label={typeof info === 'string' ? info : 'More info'}
+              aria-label={typeof info === 'string' ? info : intl.formatMessage({ id: 'shared.formField.moreInfo', defaultMessage: 'More info' })}
             >
               <Info size={12} strokeWidth={2} aria-hidden="true" />
               <span className="ui-field__info-tip" role="tooltip">

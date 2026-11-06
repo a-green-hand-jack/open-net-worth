@@ -155,6 +155,14 @@ def test_an_unrelated_profile_save_leaves_display_formats_alone():
     assert client.get("/api/profile").json()["date_format"] == "iso"
 
 
+def test_language_preference_persists_and_can_follow_browser(db_isolated):
+    assert client.put("/api/profile", json={"language": "zh-CN"}).status_code == 200
+    assert client.get("/api/profile").json()["language"] == "zh-CN"
+    assert client.put("/api/profile", json={"language": "zh-TW"}).status_code == 422
+    assert client.put("/api/profile", json={"language": None}).status_code == 200
+    assert client.get("/api/profile").json()["language"] is None
+
+
 def test_base_currency_preview_lists_the_amounts_that_will_not_convert():
     client.put(
         "/api/profile",

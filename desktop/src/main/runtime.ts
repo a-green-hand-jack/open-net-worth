@@ -1,31 +1,39 @@
+import { message as t } from './native-messages';
 import { readFile, realpath, stat } from 'node:fs/promises';
 import { isAbsolute, posix, resolve, sep } from 'node:path';
+import { getDesktopLocale } from './desktop-locale';
 
 export interface BackendReady { type: 'ready'; protocol: 1; port: number; instance_id: string; version: string }
 export interface RuntimeConfig { python: string; cwd: string; version: string }
 
 export class BookInUseError extends Error {
   constructor(readonly port: number | null) {
-    super(`This book is already open in another Open Net Worth server${port === null ? '' : ` on port ${port}`}. Stop that server and retry, or choose another folder.`);
+    super(port === null ? t('This book is already open in another Open Net Worth server. Stop that server and retry, or choose another folder.') : t('This book is already open in another Open Net Worth server on port {port}. Stop that server and retry, or choose another folder.', getDesktopLocale(), { port }));
   }
 }
 
+export class DatabaseAheadError extends Error {
+  readonly port = null;
+  constructor() { super('This book was last opened by a newer version of Open Net Worth. Update the app to open it.'); }
+}
+
 export function failureReason(stderrTail: string, startError = ''): string {
-  if (/NEWER code/.test(stderrTail)) return 'This book was last opened by a newer version of Open Net Worth. Update the app to open it.';
   const last = stderrTail.split('\n').map(line => line.trim()).filter(Boolean).at(-1) ?? startError;
   return last.length > 240 ? `${last.slice(0, 240)}…` : last;
 }
 
-export function parseStartupError(line: string, instanceId: string, version: string): BookInUseError | null {
+export function parseStartupError(line: string, instanceId: string, version: string): BookInUseError | DatabaseAheadError | null {
   const value = JSON.parse(line) as { type: string; protocol: number; instance_id: string; version: string; code: string; port: number | null };
   if (value.type !== 'startup_error') return null;
-  if (value.protocol !== 1 || value.instance_id !== instanceId || value.version !== version || value.code !== 'book_in_use' || value.port !== null && (!Number.isInteger(value.port) || value.port < 1 || value.port > 65535)) throw new Error('The bundled backend returned an incompatible startup error.');
-  return new BookInUseError(value.port);
+  if (value.protocol !== 1 || value.instance_id !== instanceId || value.version !== version) throw new Error(t("The bundled backend returned an incompatible startup error."));
+  if (value.code === 'database_ahead' && value.port === null) return new DatabaseAheadError();
+  if (value.code === 'book_in_use' && (value.port === null || Number.isInteger(value.port) && value.port >= 1 && value.port <= 65535)) return new BookInUseError(value.port);
+  throw new Error(t("The bundled backend returned an incompatible startup error."));
 }
 
 export function parseReady(line: string, instanceId: string, version: string): BackendReady {
   const value = JSON.parse(line) as BackendReady;
-  if (value.type !== 'ready' || value.protocol !== 1 || value.instance_id !== instanceId || value.version !== version || !Number.isInteger(value.port) || value.port < 1 || value.port > 65535) throw new Error('The bundled backend returned an incompatible identity.');
+  if (value.type !== 'ready' || value.protocol !== 1 || value.instance_id !== instanceId || value.version !== version || !Number.isInteger(value.port) || value.port < 1 || value.port > 65535) throw new Error(t("The bundled backend returned an incompatible identity."));
   return value;
 }
 
@@ -43,19 +51,19 @@ export function childEnvironment(ambient: NodeJS.ProcessEnv, platform: NodeJS.Pl
 
 export function runtimePath(root: string, relative: string): string {
   const path = resolve(root, relative);
-  if (isAbsolute(relative) || path === resolve(root) || !path.startsWith(`${resolve(root)}${sep}`)) throw new Error('Invalid bundled runtime path.');
+  if (isAbsolute(relative) || path === resolve(root) || !path.startsWith(`${resolve(root)}${sep}`)) throw new Error(t("Invalid bundled runtime path."));
   return path;
 }
 
 export async function bundledRuntime(root: string, expectedVersion: string): Promise<RuntimeConfig> {
   const canonicalRoot = await realpath(root);
   const manifest = JSON.parse(await readFile(resolve(root, 'manifest.json'), 'utf8')) as { protocol: number; version: string; python: string; cwd: string; platform: string; arch: string };
-  if (manifest.protocol !== 1 || manifest.version !== expectedVersion) throw new Error('The bundled Python runtime does not match this application.');
+  if (manifest.protocol !== 1 || manifest.version !== expectedVersion) throw new Error(t("The bundled Python runtime does not match this application."));
   const platform = process.platform === 'win32' ? 'windows' : process.platform;
   const architecture = (value: string) => ['x64', 'x86_64', 'amd64'].includes(value.toLowerCase()) ? 'x64' : ['arm64', 'aarch64'].includes(value.toLowerCase()) ? 'arm64' : value.toLowerCase();
-  if (manifest.platform !== platform || typeof manifest.arch !== 'string' || architecture(manifest.arch) !== architecture(process.arch)) throw new Error('The bundled Python runtime is for another platform or architecture.');
+  if (manifest.platform !== platform || typeof manifest.arch !== 'string' || architecture(manifest.arch) !== architecture(process.arch)) throw new Error(t("The bundled Python runtime is for another platform or architecture."));
   const python = await realpath(runtimePath(canonicalRoot, manifest.python));
   const cwd = manifest.cwd === '.' ? canonicalRoot : await realpath(runtimePath(canonicalRoot, manifest.cwd));
-  if (!python.startsWith(`${canonicalRoot}${sep}`) || cwd !== canonicalRoot && !cwd.startsWith(`${canonicalRoot}${sep}`) || !(await stat(python)).isFile() || !(await stat(cwd)).isDirectory()) throw new Error('The bundled runtime path is invalid.');
+  if (!python.startsWith(`${canonicalRoot}${sep}`) || cwd !== canonicalRoot && !cwd.startsWith(`${canonicalRoot}${sep}`) || !(await stat(python)).isFile() || !(await stat(cwd)).isDirectory()) throw new Error(t("The bundled runtime path is invalid."));
   return { python, cwd, version: manifest.version };
 }

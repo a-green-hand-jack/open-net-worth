@@ -1,3 +1,4 @@
+import { useAppIntl } from '../../../i18n/useAppIntl'
 import { useCallback, useEffect, useState } from 'react'
 import { authFetch } from '../../../api/client'
 import { useModels } from '../../../hooks/useModels'
@@ -140,6 +141,8 @@ function FieldSelect(props: SelectProps) {
 }
 
 export function VoiceSection() {
+  const intl = useAppIntl()
+  const { formatMessage } = intl
   const [cfg, setCfg] = useState<VoiceConfig | null>(null)
   const [form, setForm] = useState<VoiceForm | null>(null)
   const [error, setError] = useState(false)
@@ -184,14 +187,14 @@ export function VoiceSection() {
       })
       if (!r.ok) {
         const d = await r.json().catch(() => ({}))
-        setSaveErr(d.detail || 'Could not save the Voice calls settings.')
+        setSaveErr(d.detail || formatMessage({ id: 'connectors.voice.save', defaultMessage: 'Could not save the Voice calls settings.' }))
         return false
       }
       setForm((f) => f && { ...f, api_key: '', api_secret: '' })
       load()
       return true
     } catch {
-      setSaveErr('Could not save — could not reach the server.')
+      setSaveErr(formatMessage({ id: 'connectors.email.serverFailed', defaultMessage: 'Could not save — could not reach the server.' }))
       return false
     } finally {
       setSaving(false)
@@ -235,14 +238,14 @@ export function VoiceSection() {
   if (error) {
     return (
       <Text size="sm" tone="bad">
-        Could not load the Voice calls settings.
+        {formatMessage({ id: 'connectors.voice.load', defaultMessage: 'Could not load the Voice calls settings.' })}
       </Text>
     )
   }
   if (!cfg || !form) {
     return (
       <Text size="sm" tone="faint">
-        Loading…
+        {formatMessage({ id: 'connectors.email.loading', defaultMessage: 'Loading…' })}
       </Text>
     )
   }
@@ -265,26 +268,20 @@ export function VoiceSection() {
   return (
     <Stack gap="--space-4">
       <Text size="sm" tone="faint">
-        Talk to Lucius out loud. A fast voice keeps the conversation going while Lucius does the
-        real work, with the same tools, permissions and approval cards as the chat. Calls run on
-        your own{' '}
-        <a href="https://cloud.livekit.io" target="_blank" rel="noreferrer">
-          LiveKit
-        </a>{' '}
-        project: create one, then copy its URL and an API key here.
+        {formatMessage({ id: 'connectors.voice.intro', defaultMessage: 'Talk to Lucius out loud. A fast voice keeps the conversation going while Lucius does the real work, with the same tools, permissions and approval cards as the chat. Calls run on your own <link>LiveKit</link> project: create one, then copy its URL and an API key here.' }, { link: (chunks) => <a href="https://cloud.livekit.io" target="_blank" rel="noreferrer">{chunks}</a> })}
       </Text>
       <Text size="xs" tone={status.tone}>
-        {status.text}
+        {status.text === 'Ready for calls. Press Call in Lucius’s chat.' ? formatMessage({ id: 'connectors.voice.ready', defaultMessage: 'Ready for calls. Press Call in Lucius’s chat.' }) : status.text === 'The voice libraries are missing from this install. Reinstall Open Net Worth, then restart.' ? formatMessage({ id: 'connectors.voice.missing', defaultMessage: 'The voice libraries are missing from this install. Reinstall Open Net Worth, then restart.' }) : status.text === 'Fill in your LiveKit project below to start taking calls.' ? formatMessage({ id: 'connectors.voice.setup', defaultMessage: 'Fill in your LiveKit project below to start taking calls.' }) : status.text === 'Paused. Use Resume on the connector card.' ? formatMessage({ id: 'connectors.voice.paused', defaultMessage: 'Paused. Use Resume on the connector card.' }) : status.text}
       </Text>
 
       <FormField
         label="LiveKit URL"
         htmlFor="conn-voice-url"
         required
-        help="From your LiveKit project's settings, e.g. wss://my-project.livekit.cloud"
+        help={formatMessage({ id: 'connectors.voice.urlHelp', defaultMessage: "From your LiveKit project's settings, e.g. wss://my-project.livekit.cloud" })}
         error={
           urlTouched.touched && !urlValid
-            ? 'Starts with wss:// (or ws:// for a server on this machine).'
+            ? formatMessage({ id: 'connectors.voice.urlError', defaultMessage: "Starts with wss:// (or ws:// for a server on this machine)." })
             : undefined
         }
       >
@@ -297,10 +294,10 @@ export function VoiceSection() {
         />
       </FormField>
       <FormField
-        label="API key"
+        label={formatMessage({ id: 'connectors.mcpField.key', defaultMessage: 'API key' })}
         htmlFor="conn-voice-key"
         required
-        help={key.caption || 'Starts with API…'}
+        help={key.caption || formatMessage({ id: 'connectors.voice.keyHelp', defaultMessage: "Starts with API…" })}
         error={key.error}
       >
         <PasswordField
@@ -312,7 +309,7 @@ export function VoiceSection() {
         />
       </FormField>
       <FormField
-        label="API secret"
+        label={formatMessage({ id: 'connectors.binance.apiSecret', defaultMessage: 'API secret' })}
         htmlFor="conn-voice-secret"
         required
         help={secret.caption}
@@ -328,59 +325,59 @@ export function VoiceSection() {
       </FormField>
 
       <FormField
-        label="Front voice"
+        label={formatMessage({ id: 'connectors.voice.front', defaultMessage: 'Front voice' })}
         htmlFor="conn-voice-front"
-        help="Holds the conversation and answers in about a second. It never sees your data and never states a number: Lucius's answers are read out word for word."
+        help={formatMessage({ id: 'connectors.voice.frontHelp', defaultMessage: "Holds the conversation and answers in about a second. It never sees your data and never states a number: Lucius's answers are read out word for word." })}
       >
         <FieldSelect
           id="conn-voice-front"
           value={form.front_model}
-          options={FRONT_OPTIONS}
+          options={FRONT_OPTIONS.map((option) => option.value === 'google/gemini-2.5-flash-lite' ? { ...option, label: formatMessage({ id: 'connectors.voice.fastest', defaultMessage: 'Gemini 2.5 Flash-Lite (fastest, recommended)' }) } : option)}
           onChange={(e) => set('front_model', e.target.value)}
         />
       </FormField>
       <FormField
-        label="Lucius on calls"
-        help="The model Lucius answers with during a call. A faster one keeps the waits short."
+        label={formatMessage({ id: 'connectors.voice.lucius', defaultMessage: 'Lucius on calls' })}
+        help={formatMessage({ id: 'connectors.voice.luciusHelp', defaultMessage: "The model Lucius answers with during a call. A faster one keeps the waits short." })}
       >
         <ModelPicker
           size="field"
-          label="Lucius on calls"
+          label={formatMessage({ id: 'connectors.voice.lucius', defaultMessage: 'Lucius on calls' })}
           models={models}
           value={form.lucius_model}
-          defaultLabel="Same as the conversation"
+          defaultLabel={formatMessage({ id: 'connectors.voice.same', defaultMessage: 'Same as the conversation' })}
           onChange={(next) => set('lucius_model', next)}
         />
       </FormField>
       <FormField
-        label="Language"
+        label={formatMessage({ id: 'connectors.voice.language', defaultMessage: 'Language' })}
         htmlFor="conn-voice-language"
-        help="What you'll speak on calls. Lucius hears it, answers in it, and his voice speaks it."
+        help={formatMessage({ id: 'connectors.voice.languageHelp', defaultMessage: "What you'll speak on calls. Lucius hears it, answers in it, and his voice speaks it." })}
       >
         <FieldSelect
           id="conn-voice-language"
           value={form.language}
-          options={LANGUAGE_OPTIONS}
+          options={LANGUAGE_OPTIONS.map((option) => ({ ...option, label: intl.locale.startsWith('en') ? option.label : new Intl.DisplayNames([intl.locale], { type: 'language' }).of(option.value) ?? option.label }))}
           onChange={(e) => pickLanguage(e.target.value)}
         />
       </FormField>
       <FormField
-        label="Speech to text"
+        label={formatMessage({ id: 'connectors.voice.stt', defaultMessage: 'Speech to text' })}
         htmlFor="conn-voice-stt"
         error={
           form.language !== 'en' && ENGLISH_ONLY_STT.has(form.stt_model)
-            ? 'This model hears English only. Pick Automatic.'
+            ? formatMessage({ id: 'connectors.voice.sttError', defaultMessage: "This model hears English only. Pick Automatic." })
             : undefined
         }
       >
         <FieldSelect
           id="conn-voice-stt"
           value={form.stt_model}
-          options={STT_OPTIONS}
+          options={STT_OPTIONS.map((option) => option.value === 'auto' ? { ...option, label: formatMessage({ id: 'connectors.voice.auto', defaultMessage: 'Automatic (the best model for your language)' }) } : option.value === 'assemblyai/universal-streaming' ? { ...option, label: formatMessage({ id: 'connectors.voice.englishOnly', defaultMessage: 'AssemblyAI Universal (English)' }) } : option.value === 'assemblyai/universal-streaming-multilingual' ? { ...option, label: formatMessage({ id: 'connectors.voice.multilingual', defaultMessage: 'AssemblyAI Universal (multilingual)' }) } : option)}
           onChange={(e) => set('stt_model', e.target.value)}
         />
       </FormField>
-      <FormField label="Voice" htmlFor="conn-voice-tts">
+      <FormField label={formatMessage({ id: 'connectors.voice.voice', defaultMessage: 'Voice' })} htmlFor="conn-voice-tts">
         <FieldSelect
           id="conn-voice-tts"
           value={form.tts_model}
@@ -389,9 +386,9 @@ export function VoiceSection() {
         />
       </FormField>
       <FormField
-        label="Voice id"
+        label={formatMessage({ id: 'connectors.voice.voiceId', defaultMessage: 'Voice id' })}
         htmlFor="conn-voice-voice"
-        help="Optional: a voice id from the provider. Blank uses its default voice."
+        help={formatMessage({ id: 'connectors.voice.voiceIdHelp', defaultMessage: "Optional: a voice id from the provider. Blank uses its default voice." })}
       >
         <TextField
           id="conn-voice-voice"

@@ -1,3 +1,5 @@
+import { IntlProvider } from 'react-intl'
+import messages from './zh-CN.messages.json'
 // @vitest-environment jsdom
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, waitFor, cleanup, fireEvent } from '@testing-library/react'
@@ -54,6 +56,14 @@ describe('EditGrantModal', () => {
   afterEach(() => {
     cleanup()
     vi.clearAllMocks()
+  })
+
+  it('renders Chinese tax and delayed delivery guidance without changing user notes', async () => {
+    render(<IntlProvider locale="zh-CN" messages={{ ...messages, 'common.close': '关闭' }}><EditGrantModal grant={grant({ note: 'My custom note' })} onClose={() => {}} onDone={() => {}} /></IntlProvider>)
+    expect(await screen.findByDisplayValue('My custom note')).toBeTruthy()
+    expect(screen.getByLabelText(/税务事件/)).toBeTruthy()
+    expect(screen.getByText(/已有历史记录不受影响/)).toBeTruthy()
+    expect(screen.getByRole('option', { name: /归属时纳税/ })).toBeTruthy()
   })
 
   it('prefills every field from the grant being edited', async () => {

@@ -1,3 +1,5 @@
+import { useAppIntl } from '../../i18n/useAppIntl'
+import { FormattedMessage } from './FormattedMessage'
 import type { ClipboardEvent, KeyboardEvent } from 'react'
 import { FormField, TextField } from '../ui'
 import { X, Plus } from '../../ui/icons'
@@ -25,6 +27,7 @@ interface CustomFeedsFieldProps {
 
 /** The Custom news feeds row-list, shared verbatim by the topic and ticker editors. */
 export function CustomFeedsField({ urls, onChange, error, invalidUrl }: CustomFeedsFieldProps) {
+  const intl = useAppIntl()
   const setAt = (i: number, v: string) => onChange(urls.map((u, j) => (j === i ? v : u)))
   const removeAt = (i: number) => onChange(urls.filter((_, j) => j !== i))
   const addRow = () => {
@@ -56,16 +59,16 @@ export function CustomFeedsField({ urls, onChange, error, invalidUrl }: CustomFe
 
   return (
     <FormField
-      label="Custom news feeds"
+      label={intl.formatMessage({ id: "intel.field.a6646500", defaultMessage: "Custom news feeds" })}
       error={error}
       help={
         error
           ? undefined
-          : 'Headlines from these feeds are watched every ~2 minutes. Up to 5, http(s) only.'
+          : intl.formatMessage({ id: 'intel.sources.feedPollingHelp', defaultMessage: 'Headlines from these feeds are watched every ~2 minutes. Up to 5, http(s) only.' })
       }
     >
       <div className="intel-pa-rows">
-        {urls.length === 0 && <div className="intel-pa-empty">No custom feeds yet.</div>}
+        {urls.length === 0 && <div className="intel-pa-empty">{<FormattedMessage id="intel.static.no_custom_feeds_yet_80e6b614" defaultMessage={"No custom feeds yet."} />}</div>}
         {urls.map((u, i) => (
           <div key={i} className="intel-td-feed-row">
             <TextField
@@ -79,7 +82,7 @@ export function CustomFeedsField({ urls, onChange, error, invalidUrl }: CustomFe
             <button
               type="button"
               className="intel-pa-row-remove"
-              title="Remove this feed"
+              title={intl.formatMessage({ id: "intel.field.9bea5ba0", defaultMessage: "Remove this feed" })}
               onClick={() => removeAt(i)}
             >
               <X size={11} />
@@ -88,10 +91,10 @@ export function CustomFeedsField({ urls, onChange, error, invalidUrl }: CustomFe
         ))}
         {urls.length < MAX_FEEDS ? (
           <button type="button" className="intel-pa-add" onClick={addRow}>
-            <Plus size={12} aria-hidden="true" /> Add feed URL
+            <Plus size={12} aria-hidden="true" /> {intl.formatMessage({ id: 'scan2.addFeedUrl', defaultMessage: 'Add feed URL' })}
           </button>
         ) : (
-          <p className="ui-field__help">Maximum 5 feeds.</p>
+          <p className="ui-field__help">{<FormattedMessage id="intel.static.maximum_5_feeds_e977b1c4" defaultMessage={"Maximum 5 feeds."} />}</p>
         )}
       </div>
     </FormField>

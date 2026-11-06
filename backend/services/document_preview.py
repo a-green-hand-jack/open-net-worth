@@ -43,20 +43,29 @@ def page_image(vid: str, page: int) -> tuple[bytes, int]:
 
     item = vault.get_item(vid)
     if not is_pdf(item):
-        raise ValidationError("only a PDF has page previews")
+        raise ValidationError("only a PDF has page previews", message_id="vault.error.pdfOnly")
     content = original_bytes(item)
     if not content:
-        raise NotFoundError("the file is missing")
+        raise NotFoundError("the file is missing", message_id="vault.error.fileMissing")
     try:
         doc = fitz.open(stream=content, filetype="pdf")
     except Exception as exc:
-        raise ValidationError("this PDF can't be read — download it instead") from exc
+        raise ValidationError(
+            "this PDF can't be read — download it instead", message_id="vault.error.pdfUnreadable"
+        ) from exc
     try:
         if doc.needs_pass:
-            raise ValidationError("this PDF is password-protected — download it to open it")
+            raise ValidationError(
+                "this PDF is password-protected — download it to open it",
+                message_id="vault.error.pdfProtected",
+            )
         count = doc.page_count
         if not 1 <= page <= count:
-            raise NotFoundError(f"no page {page} — this PDF has {count}")
+            raise NotFoundError(
+                f"no page {page} — this PDF has {count}",
+                message_id="vault.error.pageMissing",
+                message_params={"page": str(page), "count": str(count)},
+            )
         rect = doc[page - 1].rect
         zoom = min(_TARGET_WIDTH_PX / rect.width, _MAX_HEIGHT_PX / rect.height)
         zoom = max(_MIN_ZOOM, min(_MAX_ZOOM, zoom))
@@ -82,10 +91,10 @@ def thumbnail(vid: str) -> bytes:
 
     item = vault.get_item(vid)
     if not is_image(item):
-        raise ValidationError("only a photo has a thumbnail")
+        raise ValidationError("only a photo has a thumbnail", message_id="vault.error.photoOnly")
     content = original_bytes(item)
     if not content:
-        raise NotFoundError("the file is missing")
+        raise NotFoundError("the file is missing", message_id="vault.error.fileMissing")
     try:
         with Image.open(io.BytesIO(content)) as img:
             small = ImageOps.exif_transpose(img).convert("RGB")
@@ -94,4 +103,6 @@ def thumbnail(vid: str) -> bytes:
             small.save(out, format="JPEG", quality=80)
             return out.getvalue()
     except Exception as exc:  # a corrupt or unsupported image: the row keeps its icon
-        raise ValidationError("this photo can't be read") from exc
+        raise ValidationError(
+            "this photo can't be read", message_id="vault.error.photoUnreadable"
+        ) from exc

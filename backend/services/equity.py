@@ -145,11 +145,17 @@ def _grant_create(change: dict) -> dict:
 
     inst = instruments.find_by_id(change.get("instrument_id", ""))
     if not inst:
-        raise ValidationError("instrument not found", instrument_id=change.get("instrument_id"))
+        raise ValidationError(
+            "instrument not found",
+            instrument_id=change.get("instrument_id"),
+            message_id="equity.error.instrumentNotFound",
+        )
 
     tax_event = change.get("tax_event", "at_vest")
     if tax_event not in _VALID_TAX_EVENTS:
-        raise ValidationError(f"tax_event must be one of {_VALID_TAX_EVENTS}")
+        raise ValidationError(
+            f"tax_event must be one of {_VALID_TAX_EVENTS}", message_id="equity.error.taxEvent"
+        )
 
     raw_tranches = change.get("tranches") or []
     tranches = _stamp_tranches(raw_tranches)
@@ -160,6 +166,7 @@ def _grant_create(change: dict) -> dict:
             "Σ tranche.units must equal total_units (±0.01)",
             total_units=total_units,
             tranche_sum=round(tranche_sum, 4),
+            message_id="equity.error.trancheSum",
         )
 
     # Adopt an existing locked position or create one.
@@ -172,6 +179,7 @@ def _grant_create(change: dict) -> dict:
             raise ValidationError(
                 "an account is required — which custodian holds this grant?",
                 hint="pass account_id (from list_accounts) or account_name",
+                message_id="equity.error.grantAccountRequired",
             )
         locked_position_id = _create_locked_position(inst, change, total_units)
 
@@ -222,7 +230,11 @@ def _assert_adoptable(position_id: str) -> None:
 
     pos = positions.find_by_id(position_id)
     if not pos:
-        raise ValidationError("locked_position_id not found", locked_position_id=position_id)
+        raise ValidationError(
+            "locked_position_id not found",
+            locked_position_id=position_id,
+            message_id="equity.error.lockedPositionNotFound",
+        )
     owned = any(
         position_id in (g.get("locked_position_id"), g.get("pending_position_id"))
         for g in grants.all()
@@ -232,6 +244,7 @@ def _assert_adoptable(position_id: str) -> None:
             "only an unvested position with no lots and no grant can be adopted as a grant's "
             "unvested units — leave locked_position_id out and the grant creates its own",
             locked_position_id=position_id,
+            message_id="equity.error.positionNotAdoptable",
         )
 
 
@@ -251,6 +264,7 @@ def _edited_tranches(grant: dict, raw: list[dict]) -> list[dict]:
             raise ValidationError(
                 "this tranche has already vested — undo its vest before changing its units",
                 tranche_id=t["id"],
+                message_id="equity.error.vestedUnitsEdit",
             )
     kept = {t["id"] for t in edited}
     dropped = [tid for tid, t in stored.items() if t.get("vested") and tid not in kept]
@@ -258,6 +272,7 @@ def _edited_tranches(grant: dict, raw: list[dict]) -> list[dict]:
         raise ValidationError(
             "a vested tranche can't be removed from the schedule — undo its vest first",
             tranche_id=dropped[0],
+            message_id="equity.error.vestedTrancheRemove",
         )
     return edited
 
@@ -293,7 +308,11 @@ def _create_locked_position(inst: dict, change: dict, total_units: float) -> str
         }
     )
     if result.get("error"):
-        raise ValidationError(f"failed to create locked position: {result['error']}")
+        raise ValidationError(
+            f"failed to create locked position: {result['error']}",
+            message_id="equity.error.createLockedPosition",
+            message_params={"reason": str(result["error"])},
+        )
     return result["position_id"]
 
 
@@ -320,7 +339,10 @@ def _validate_grant_price(raw) -> Optional[float]:
         return None
     val = float(raw)
     if not math.isfinite(val) or val < 0:
-        raise ValidationError("grant_price_per_unit must be a finite number ≥ 0")
+        raise ValidationError(
+            "grant_price_per_unit must be a finite number ≥ 0",
+            message_id="equity.error.grantPriceInvalid",
+        )
     return val
 
 
@@ -328,7 +350,9 @@ def _grant_update(change: dict) -> dict:
     grant_id = change.get("grant_id") or change.get("id")
     grant = grants.find_by_id(grant_id) if grant_id else None
     if not grant:
-        raise NotFoundError("grant not found", grant_id=grant_id)
+        raise NotFoundError(
+            "grant not found", grant_id=grant_id, message_id="equity.error.grantNotFound"
+        )
     updates: dict = {}
     for field in ("grant_date", "currency", "note"):
         if field in change:
@@ -337,7 +361,9 @@ def _grant_update(change: dict) -> dict:
         updates["grant_price_per_unit"] = _validate_grant_price(change["grant_price_per_unit"])
     if "tax_event" in change:
         if change["tax_event"] not in _VALID_TAX_EVENTS:
-            raise ValidationError(f"tax_event must be one of {_VALID_TAX_EVENTS}")
+            raise ValidationError(
+                f"tax_event must be one of {_VALID_TAX_EVENTS}", message_id="equity.error.taxEvent"
+            )
         updates["tax_event"] = change["tax_event"]
     if "release_required" in change:
         # Only the FUTURE vests of this grant change shape. Vests already recorded keep
@@ -384,7 +410,9 @@ def _grant_cancel(change: dict) -> dict:
     grant_id = change.get("grant_id") or change.get("id")
     grant = grants.find_by_id(grant_id) if grant_id else None
     if not grant:
-        raise NotFoundError("grant not found", grant_id=grant_id)
+        raise NotFoundError(
+            "grant not found", grant_id=grant_id, message_id="equity.error.grantNotFound"
+        )
     # Cancelled = forfeited: the unvested units stop counting (ADR 2026-10-07).
     with locked_unit_of_work(grants_tbl, positions_tbl) as conn:
         grants.update_grant(grant_id, {"status": "cancelled"}, conn=conn)
@@ -543,47 +571,64 @@ def _validate_vest(change: dict):
     tranche_id = change.get("tranche_id")
     grant = grants.find_by_id(grant_id) if grant_id else None
     if not grant:
-        raise NotFoundError("grant not found", grant_id=grant_id)
+        raise NotFoundError(
+            "grant not found", grant_id=grant_id, message_id="equity.error.grantNotFound"
+        )
     if grant.get("status") not in ("active",):
         raise ValidationError(
-            f"grant is not active (status={grant.get('status')})", grant_id=grant_id
+            f"grant is not active (status={grant.get('status')})",
+            grant_id=grant_id,
+            message_id="equity.error.grantInactive",
+            message_params={"status": str(grant.get("status"))},
         )
 
     tranche = next((t for t in (grant.get("tranches") or []) if t.get("id") == tranche_id), None)
     if not tranche:
-        raise NotFoundError("tranche not found", tranche_id=tranche_id)
+        raise NotFoundError(
+            "tranche not found", tranche_id=tranche_id, message_id="equity.error.trancheNotFound"
+        )
     if tranche.get("vested"):
-        raise ValidationError("tranche already vested", tranche_id=tranche_id)
+        raise ValidationError(
+            "tranche already vested", tranche_id=tranche_id, message_id="equity.error.trancheVested"
+        )
 
     tranche_units = float(tranche.get("units") or 0)
     vest_units = float(change.get("units") or tranche_units or 0)
     if vest_units <= 0:
-        raise ValidationError("units must be positive")
+        raise ValidationError("units must be positive", message_id="equity.error.unitsPositive")
     if vest_units > tranche_units + 1e-9:
         raise ValidationError(
             "cannot vest more units than the tranche",
             requested=vest_units,
             tranche_units=tranche_units,
+            message_id="equity.error.unitsExceed",
         )
 
     fmv_per_unit = change.get("fmv_per_unit")
     if fmv_per_unit is None:
-        raise ValidationError("fmv_per_unit is required")
+        raise ValidationError("fmv_per_unit is required", message_id="equity.error.fmvRequired")
     fmv_per_unit = float(fmv_per_unit)
     if not math.isfinite(fmv_per_unit) or fmv_per_unit < 0:
-        raise ValidationError("fmv_per_unit must be a finite number ≥ 0")
+        raise ValidationError(
+            "fmv_per_unit must be a finite number ≥ 0", message_id="equity.error.fmvInvalid"
+        )
 
     price_paid_raw = change.get("price_paid_per_unit")
     if price_paid_raw is not None:
         price_paid_val = float(price_paid_raw)
         if not math.isfinite(price_paid_val) or price_paid_val < 0:
-            raise ValidationError("price_paid_per_unit must be a finite number ≥ 0")
+            raise ValidationError(
+                "price_paid_per_unit must be a finite number ≥ 0",
+                message_id="equity.error.pricePaidInvalid",
+            )
 
     inst = instruments.find_by_id(grant.get("instrument_id", ""))
     default_ccy = (inst or {}).get("quote_currency", "")
     fmv_currency = (change.get("fmv_currency") or default_ccy or "").upper()
     if not fmv_currency:
-        raise ValidationError("fmv_currency is required")
+        raise ValidationError(
+            "fmv_currency is required", message_id="equity.error.currencyRequired"
+        )
 
     vest_date = change.get("vest_date") or tranche.get("vest_date") or user_today().isoformat()
 
@@ -592,7 +637,10 @@ def _validate_vest(change: dict):
     locked_pos = positions.find_by_id(grant.get("locked_position_id", ""))
     account_id = (locked_pos or {}).get("account_id") or grant.get("account_id")
     if not account_id:
-        raise ValidationError("cannot determine account_id for vest; set account_id on grant")
+        raise ValidationError(
+            "cannot determine account_id for vest; set account_id on grant",
+            message_id="equity.error.accountRequired",
+        )
 
     return grant, tranche, vest_units, fmv_per_unit, fmv_currency, vest_date, account_id
 
@@ -675,7 +723,11 @@ def _vest_undo(change: dict) -> dict:
     vest_event_id = change.get("vest_event_id") or change.get("id")
     ev = vest_events.find_by_id(vest_event_id) if vest_event_id else None
     if not ev:
-        raise NotFoundError("vest event not found", vest_event_id=vest_event_id)
+        raise NotFoundError(
+            "vest event not found",
+            vest_event_id=vest_event_id,
+            message_id="equity.error.vestNotFound",
+        )
 
     lot_id = ev.get("lot_id")
     txn_id = ev.get("txn_id")
@@ -699,6 +751,11 @@ def _vest_undo(change: dict) -> dict:
                 raise ValidationError(
                     f"cannot undo: {result['error']} — dispose/adjust manually",
                     lot_id=lot_id,
+                    message_id="equity.error.undoLotFailed",
+                    message_params={
+                        "reason": result["error"],
+                        "reason_id": str(result.get("message_id") or ""),
+                    },
                 )
 
         # Step 3: soft-delete the income txn — present only on events written before
@@ -897,7 +954,11 @@ def preview_vest(change: dict) -> dict:
             _validate_vest(change)
         )
     except (NotFoundError, ValidationError) as exc:
-        return {"error": str(exc)}
+        result = {"error": str(exc)}
+        if exc.context.get("message_id"):
+            result["message_id"] = exc.context["message_id"]
+            result["message_params"] = exc.context.get("message_params", {})
+        return result
 
     from backend.services import lots as lots_service
 
@@ -1003,10 +1064,14 @@ def fmv_prefill(grant_id: str, tranche_id: str) -> dict:
     the tranche's vest_date. ``fmv_per_unit=None, source='none'`` when no price."""
     grant = grants.find_by_id(grant_id)
     if not grant:
-        raise NotFoundError("grant not found", grant_id=grant_id)
+        raise NotFoundError(
+            "grant not found", grant_id=grant_id, message_id="equity.error.grantNotFound"
+        )
     tranche = next((t for t in (grant.get("tranches") or []) if t.get("id") == tranche_id), None)
     if not tranche:
-        raise NotFoundError("tranche not found", tranche_id=tranche_id)
+        raise NotFoundError(
+            "tranche not found", tranche_id=tranche_id, message_id="equity.error.trancheNotFound"
+        )
 
     vest_date = tranche.get("vest_date") or user_today().isoformat()
     inst = instruments.find_by_id(grant.get("instrument_id", ""))

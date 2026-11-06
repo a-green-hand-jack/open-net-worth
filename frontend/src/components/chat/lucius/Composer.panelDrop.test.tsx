@@ -52,7 +52,7 @@ function Panel({ composerRef }: { composerRef: React.RefObject<LuciusComposerHan
     <aside className="lx-side" {...drop.handlers}>
       {drop.over && <FileDropMask className="lx-dropmask--side" />}
       <div className="lx-side-scroll">
-        <p className="transcript">An earlier reply</p>
+        <p data-testid="transcript">An earlier reply</p>
       </div>
       <LuciusComposer
         ref={composerRef}
@@ -81,7 +81,7 @@ afterEach(cleanup)
 describe('the side panel is the file drop target', () => {
   it('shows one panel-wide mask when a file is dragged over the transcript', () => {
     mount()
-    fireEvent.dragOver(document.querySelector('.transcript')!, { dataTransfer: fileTransfer() })
+    fireEvent.dragOver(document.querySelector('[data-testid="transcript"]')!, { dataTransfer: fileTransfer() })
     expect(masks()).toHaveLength(1)
     expect(masks()[0]!.classList.contains('lx-dropmask--side')).toBe(true)
   })
@@ -95,7 +95,7 @@ describe('the side panel is the file drop target', () => {
 
   it('attaches a file dropped on the transcript, far from the composer', () => {
     mount()
-    const target = document.querySelector('.transcript')!
+    const target = document.querySelector('[data-testid="transcript"]')!
     fireEvent.dragOver(target, { dataTransfer: fileTransfer() })
     fireEvent.drop(target, { dataTransfer: fileTransfer([csv()]) })
     expect(chips()).toHaveLength(1)
@@ -105,7 +105,7 @@ describe('the side panel is the file drop target', () => {
   it('keeps the mask while the drag moves between children of the panel', () => {
     mount()
     const side = document.querySelector('.lx-side')!
-    const transcript = document.querySelector('.transcript')!
+    const transcript = document.querySelector('[data-testid="transcript"]')!
     const files = { dataTransfer: fileTransfer() }
     fireEvent.dragEnter(side, files)
     // Into a child: the browser fires dragenter on the child, then dragleave on the panel.
@@ -118,7 +118,7 @@ describe('the side panel is the file drop target', () => {
 
   it('ignores a drag that carries no files', () => {
     mount()
-    fireEvent.dragOver(document.querySelector('.transcript')!, {
+    fireEvent.dragOver(document.querySelector('[data-testid="transcript"]')!, {
       dataTransfer: { types: ['text/plain'], files: [] },
     })
     expect(masks()).toHaveLength(0)

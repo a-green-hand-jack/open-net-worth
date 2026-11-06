@@ -1,3 +1,4 @@
+import { useAppIntl } from '../../../i18n/useAppIntl'
 // Composer.tsx — LuciusComposer: the shared input surface for the dock and side panel.
 //
 // Wraps MentionComposer (contenteditable + trigger detection + serialize) and adds:
@@ -185,6 +186,7 @@ export const LuciusComposer = forwardRef<LuciusComposerHandle, LuciusComposerPro
     },
     ref,
   ) {
+    const { formatMessage } = useAppIntl()
     const mentionRef = useRef<MentionComposerHandle>(null)
     const acRef = useRef<AutocompleteHandle>(null)
     const fileInputRef = useRef<HTMLInputElement>(null)
@@ -284,7 +286,7 @@ export const LuciusComposer = forwardRef<LuciusComposerHandle, LuciusComposerPro
       // Multi-turn off + busy: useChat.sendMessage no-ops too, so say so here.
       if (sendBlocked) {
         return refuse(
-          'Lucius is still replying. Stop the reply to send this now, or wait for it.',
+          formatMessage({ id: 'chat.replying', defaultMessage: 'Lucius is still replying. Stop the reply to send this now, or wait for it.' }),
           true,
         )
       }
@@ -292,12 +294,12 @@ export const LuciusComposer = forwardRef<LuciusComposerHandle, LuciusComposerPro
       // than not sending: the reader believes Lucius has it.
       if (att.failed.length) {
         const names = fileNames(att.failed)
-        return refuse(`${names} could not be uploaded. Remove it, or add it again, to send.`)
+        return refuse(formatMessage({ id: 'chat.uploadFailed', defaultMessage: '{names} could not be uploaded. Remove it, or add it again, to send.' }, { names }))
       }
       if (att.uploading.length) {
         setSendWhenReady(true)
         setNotice({
-          text: `Sending as soon as ${fileNames(att.uploading)} finishes uploading…`,
+          text: formatMessage({ id: 'chat.uploading', defaultMessage: 'Sending as soon as {names} finishes uploading…' }, { names: fileNames(att.uploading) }),
           refused: false,
         })
         return
@@ -643,16 +645,9 @@ export const LuciusComposer = forwardRef<LuciusComposerHandle, LuciusComposerPro
         {noVisionModel && attachments.some((a) => a.kind === 'image') && (
           <div className="lx-att-warn" role="status">
             {imageReader ? (
-              <>
-                {noVisionModel} can’t see images — {imageReader} will read it and pass the text
-                along.
-              </>
+              <>{formatMessage({ id: 'chat.imageReader', defaultMessage: '{model} can’t see images — {reader} will read it and pass the text along.' }, { model: noVisionModel, reader: imageReader })}</>
             ) : (
-              <>
-                {noVisionModel} can’t see images, and no model is set to read them — Lucius won’t
-                see this attachment. Pick a vision model above, or set one under Settings → AI Model
-                → Task models → Image reading.
-              </>
+              <>{formatMessage({ id: 'chat.noImageReader', defaultMessage: '{model} can’t see images, and no model is set to read them — Lucius won’t see this attachment. Pick a vision model above, or set one under Settings → AI Model → Task models → Image reading.' }, { model: noVisionModel })}</>
             )}
           </div>
         )}
@@ -664,7 +659,7 @@ export const LuciusComposer = forwardRef<LuciusComposerHandle, LuciusComposerPro
                 key={a.id}
                 className={`lx-att${a.uploading ? ' lx-att--uploading' : ''}${a.failed ? ' lx-att--failed' : ''}`}
                 onClick={() => setAttDetail(a)}
-                title={a.failed ? 'This file did not upload' : 'View attachment'}
+                title={a.failed ? formatMessage({ id: 'chat.attachmentFailed', defaultMessage: 'This file did not upload' }) : formatMessage({ id: 'chat.viewAttachment', defaultMessage: 'View attachment' })}
               >
                 {a.kind === 'image' && a.url ? (
                   <img className="lx-att-thumb" src={a.url} alt="" />
@@ -693,7 +688,7 @@ export const LuciusComposer = forwardRef<LuciusComposerHandle, LuciusComposerPro
                     e.stopPropagation()
                     removeAtt(a.id)
                   }}
-                  aria-label="Remove"
+                  aria-label={formatMessage({ id: 'chat.remove', defaultMessage: 'Remove' })}
                 >
                   <svg
                     viewBox="0 0 24 24"
@@ -744,11 +739,11 @@ export const LuciusComposer = forwardRef<LuciusComposerHandle, LuciusComposerPro
               <div className="lx-att-meta">
                 <div className="lx-att-meta-nm">{attDetail.name}</div>
                 <div className="lx-att-meta-sub">
-                  {attDetail.type || 'file'} • {fmtBytes(attDetail.size)}
+                  {attDetail.type || formatMessage({ id: 'chat.file', defaultMessage: 'file' })} • {fmtBytes(attDetail.size)}
                 </div>
               </div>
               <button className="lx-att-remove" onClick={() => removeAtt(attDetail.id)}>
-                Remove attachment
+                {formatMessage({ id: 'chat.removeAttachment', defaultMessage: 'Remove attachment' })}
               </button>
             </div>
           </div>
@@ -785,7 +780,7 @@ export const LuciusComposer = forwardRef<LuciusComposerHandle, LuciusComposerPro
         <div className="lx-editrow">
           <MentionComposer
             ref={mentionRef}
-            placeholder={placeholder ?? 'Ask Lucius…'}
+            placeholder={placeholder ?? formatMessage({ id: 'chat.ask', defaultMessage: 'Ask Lucius…' })}
             // Editor stays editable while streaming so the user can compose the next message;
             // doSend gates the actual send until `busy` clears.
             disabled={false}
@@ -808,7 +803,7 @@ export const LuciusComposer = forwardRef<LuciusComposerHandle, LuciusComposerPro
             <div className="lx-tools-left">
               <button
                 className="lx-tool"
-                title="Attach file or image"
+                title={formatMessage({ id: 'chat.attach', defaultMessage: "Attach file or image" })}
                 data-tour="lucius-attach"
                 onMouseDown={(e) => e.preventDefault()}
                 onClick={() => fileInputRef.current?.click()}
@@ -817,7 +812,7 @@ export const LuciusComposer = forwardRef<LuciusComposerHandle, LuciusComposerPro
               </button>
               <button
                 className="lx-tool"
-                title="Mention (@)"
+                title={formatMessage({ id: 'chat.mention', defaultMessage: "Mention (@)" })}
                 data-tour="lucius-mention"
                 onMouseDown={(e) => e.preventDefault()}
                 onClick={() => openPicker('@')}
@@ -826,7 +821,7 @@ export const LuciusComposer = forwardRef<LuciusComposerHandle, LuciusComposerPro
               </button>
               <button
                 className="lx-tool"
-                title="Skills (/)"
+                title={formatMessage({ id: 'chat.skills', defaultMessage: "Skills (/)" })}
                 data-tour="lucius-skills"
                 onMouseDown={(e) => e.preventDefault()}
                 onClick={() => openPicker('/')}
@@ -870,8 +865,8 @@ export const LuciusComposer = forwardRef<LuciusComposerHandle, LuciusComposerPro
                 className="lx-send lx-stop"
                 onMouseDown={(e) => e.preventDefault()}
                 onClick={onStop}
-                aria-label="Stop"
-                title="Stop this conversation's turn"
+                aria-label={formatMessage({ id: 'chat.stop', defaultMessage: 'Stop' })}
+                title={formatMessage({ id: 'chat.stopTurn', defaultMessage: "Stop this conversation's turn" })}
               >
                 <span className="lx-stop-sq" />
               </button>
@@ -884,7 +879,7 @@ export const LuciusComposer = forwardRef<LuciusComposerHandle, LuciusComposerPro
                 aria-busy={sendWhenReady || undefined}
                 onMouseDown={(e) => e.preventDefault()}
                 onClick={doSend}
-                aria-label="Send"
+                aria-label={formatMessage({ id: 'chat.send', defaultMessage: 'Send' })}
               >
                 <ArrowUp size={18} strokeWidth={2.2} />
               </button>

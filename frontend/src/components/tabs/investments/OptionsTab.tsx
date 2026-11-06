@@ -1,5 +1,8 @@
+import { getNumberLocale } from '../../../utils/format'
 import { EntityRow } from '../../../lucius/EntityRow'
 import { useState } from 'react'
+import { defineMessages } from 'react-intl'
+import { useAppIntl } from '../../../i18n/useAppIntl'
 import './options.css'
 import {
   SummaryBar,
@@ -21,6 +24,14 @@ import { RecordOptionModal } from './RecordOptionModal'
 import { CloseOptionModal } from './CloseOptionModal'
 import { LuciusCta } from '../../intro/LuciusCta'
 import { deleteOption } from '../../../api/options'
+import { presetMessages } from './optionPresetMessages'
+
+const summaryMessages = defineMessages({
+  open: { id: 'options.summary.open', defaultMessage: 'Open positions' },
+  premium: { id: 'options.summary.premium', defaultMessage: 'Premium collected' },
+  capital: { id: 'options.summary.capital', defaultMessage: 'Capital committed' },
+  expiry: { id: 'options.summary.expiry', defaultMessage: 'Nearest expiry' },
+})
 
 interface Props {
   onAskLucius?: (text: string) => void
@@ -28,7 +39,7 @@ interface Props {
 
 // Format a signed monetary amount with real typographic minus (−).
 function fSigned(n: number, baseCurrency: string): string {
-  const abs = new Intl.NumberFormat(undefined, {
+  const abs = new Intl.NumberFormat(getNumberLocale(), {
     style: 'currency',
     currency: baseCurrency,
     maximumFractionDigits: 0,
@@ -53,6 +64,7 @@ function OptionsSection({
   onCloseRow,
   onDeleteRow,
 }: SectionProps) {
+  const { formatMessage } = useAppIntl()
   if (!positions.length) return null
   return (
     <div className="mk-panel">
@@ -65,13 +77,19 @@ function OptionsSection({
         <table className="opt-tbl">
           <thead>
             <tr>
-              <th>Position</th>
-              <th>Contract</th>
-              <th>Expiry</th>
-              <th className="num">Premium</th>
-              <th className="num">Open P&amp;L</th>
-              <th>Status</th>
-              <th aria-label="Actions" />
+              <th>{formatMessage({ id: 'options.ui.Position', defaultMessage: 'Position' })}</th>
+              <th>{formatMessage({ id: 'options.ui.Contract', defaultMessage: 'Contract' })}</th>
+              <th>{formatMessage({ id: 'options.ui.Expiry', defaultMessage: 'Expiry' })}</th>
+              <th className="num">
+                {formatMessage({ id: 'options.ui.Premium', defaultMessage: 'Premium' })}
+              </th>
+              <th className="num">
+                {formatMessage({ id: 'options.ui.OpenPL', defaultMessage: 'Open P&L' })}
+              </th>
+              <th>{formatMessage({ id: 'options.ui.Status', defaultMessage: 'Status' })}</th>
+              <th
+                aria-label={formatMessage({ id: 'options.ui.Actions', defaultMessage: 'Actions' })}
+              />
             </tr>
           </thead>
           <tbody>
@@ -92,36 +110,56 @@ function OptionsSection({
                   contracts: it.contracts,
                 })}
                 search={`${p.underlying_symbol} ${p.option_type} ${p.strategy_tag}`}
-                sublabel={`${p.side} • ${fDate(p.expiry, 'short', 'always')}`}
+                sublabel={`${p.side === 'short' ? formatMessage({ id: 'options.side.short', defaultMessage: 'short' }) : p.side === 'long' ? formatMessage({ id: 'options.side.long', defaultMessage: 'long' }) : p.side} • ${fDate(p.expiry, 'short', 'always')}`}
               >
                 <td>
                   <span className="opt-under">{p.underlying_symbol}</span>
-                  <span className="opt-strat">{p.strategy_tag}</span>
+                  <span className="opt-strat">
+                    {p.strategy_preset && Object.hasOwn(presetMessages, p.strategy_preset)
+                      ? formatMessage(presetMessages[p.strategy_preset])
+                      : p.strategy_tag}
+                  </span>
                   <div className="opt-note">{p.note}</div>
                 </td>
                 <td>
                   <span className="opt-contract">
-                    {(p.side === 'short' ? '−' : '+') + p.contracts} {p.option_type} @{' '}
-                    {p.strike.toLocaleString()}
+                    {(p.side === 'short' ? '−' : '+') + p.contracts}{' '}
+                    {p.option_type === 'CALL'
+                      ? formatMessage({ id: 'closeOption.call', defaultMessage: 'CALL' })
+                      : p.option_type === 'PUT'
+                        ? formatMessage({ id: 'closeOption.put', defaultMessage: 'PUT' })
+                        : p.option_type}{' '}
+                    @ {p.strike.toLocaleString(getNumberLocale())}
                   </span>
                 </td>
                 <td>
                   <span className="opt-contract">{fDate(p.expiry, 'short', 'always')}</span>
-                  <span className={'opt-dte' + (p.dte <= 14 ? ' soon' : '')}>{p.dte}d</span>
+                  <span className={'opt-dte' + (p.dte <= 14 ? ' soon' : '')}>
+                    {formatMessage(
+                      { id: 'options.days', defaultMessage: '{days}d' },
+                      { days: p.dte },
+                    )}
+                  </span>
                 </td>
                 <td className={`num money ${plClass(p.premium)}`}>
                   {fSigned(p.premium, baseCurrency)}
                 </td>
                 <td className={`num money ${plClass(p.mark)}`}>{fSigned(p.mark, baseCurrency)}</td>
                 <td>
-                  <Badge tone={p.status === 'ITM' ? 'warn' : 'muted'}>{p.status}</Badge>
+                  <Badge tone={p.status === 'ITM' ? 'warn' : 'muted'}>
+                    {p.status === 'ITM'
+                      ? formatMessage({ id: 'options.itm', defaultMessage: 'ITM' })
+                      : p.status === 'OTM'
+                        ? formatMessage({ id: 'options.otm', defaultMessage: 'OTM' })
+                        : p.status}
+                  </Badge>
                 </td>
                 <td className="opt-row-actions">
                   <Button variant="ghost" size="dense" onClick={() => onCloseRow(p)}>
-                    Close
+                    {formatMessage({ id: 'options.ui.Close', defaultMessage: 'Close' })}
                   </Button>
                   <Button variant="ghost" size="dense" onClick={() => onDeleteRow(p)}>
-                    Delete
+                    {formatMessage({ id: 'options.ui.Delete', defaultMessage: 'Delete' })}
                   </Button>
                 </td>
               </EntityRow>
@@ -139,6 +177,7 @@ const OPTIONS_MESSAGE =
   'thing at a time.'
 
 export function OptionsTab({ onAskLucius }: Props) {
+  const { formatMessage } = useAppIntl()
   const {
     baseCurrency,
     summaryCards,
@@ -156,11 +195,28 @@ export function OptionsTab({ onAskLucius }: Props) {
   const [deleteBusy, setDeleteBusy] = useState(false)
 
   if (loading) {
-    return <TabSkeleton variant="options" label="Loading options…" header={false} />
+    return (
+      <TabSkeleton
+        variant="options"
+        label={formatMessage({
+          id: 'options.ui.LoadingOptions',
+          defaultMessage: 'Loading options…',
+        })}
+        header={false}
+      />
+    )
   }
 
   if (error) {
-    return <ErrorState message="Could not load options positions." onRetry={refetch} />
+    return (
+      <ErrorState
+        message={formatMessage({
+          id: 'options.ui.CouldNotLoadOptionsPositions',
+          defaultMessage: 'Could not load options positions.',
+        })}
+        onRetry={refetch}
+      />
+    )
   }
 
   const hasPositions = incomePositions.length > 0 || hedgePositions.length > 0
@@ -184,12 +240,15 @@ export function OptionsTab({ onAskLucius }: Props) {
         <Modal
           open
           onClose={() => openDelete(null)}
-          title="Delete option entry"
+          title={formatMessage({
+            id: 'options.ui.DeleteOptionEntry',
+            defaultMessage: 'Delete option entry',
+          })}
           size="sm"
           footer={
             <Cluster gap="--space-3" justify="between">
               <Button variant="ghost" onClick={() => openDelete(null)} disabled={deleteBusy}>
-                Cancel
+                {formatMessage({ id: 'options.ui.Cancel', defaultMessage: 'Cancel' })}
               </Button>
               <Button
                 variant="danger"
@@ -204,20 +263,41 @@ export function OptionsTab({ onAskLucius }: Props) {
                       refetch()
                     })
                     .catch((e) => {
-                      setDeleteError(e instanceof Error ? e.message : 'Delete failed.')
+                      setDeleteError(
+                        e instanceof Error
+                          ? e.message
+                          : formatMessage({
+                              id: 'options.ui.DeleteFailed',
+                              defaultMessage: 'Delete failed.',
+                            }),
+                      )
                       setDeleteBusy(false)
                     })
                 }}
               >
-                Delete
+                {formatMessage({ id: 'options.ui.Delete', defaultMessage: 'Delete' })}
               </Button>
             </Cluster>
           }
         >
           <p className="opt-close-line">
-            Removes the mistaken entry {deleting.underlying_symbol} {deleting.option_type} @{' '}
-            {deleting.strike.toLocaleString()} — it does NOT book any cash leg. A genuine exit
-            should use Close instead.
+            {formatMessage(
+              {
+                id: 'options.deleteWarning',
+                defaultMessage:
+                  'Removes the mistaken entry {symbol} {type} @ {strike} — it does NOT book any cash leg. A genuine exit should use Close instead.',
+              },
+              {
+                symbol: deleting.underlying_symbol,
+                type:
+                  deleting.option_type === 'CALL'
+                    ? formatMessage({ id: 'closeOption.call', defaultMessage: 'CALL' })
+                    : deleting.option_type === 'PUT'
+                      ? formatMessage({ id: 'closeOption.put', defaultMessage: 'PUT' })
+                      : deleting.option_type,
+                strike: deleting.strike.toLocaleString(getNumberLocale()),
+              },
+            )}
           </p>
           {deleteError && <ErrorState message={deleteError} />}
         </Modal>
@@ -231,15 +311,25 @@ export function OptionsTab({ onAskLucius }: Props) {
         <EmptyState
           fill
           icon={<ChartCandlestick size={28} strokeWidth={1.5} aria-hidden="true" />}
-          title="No options positions"
-          body="Covered calls, cash-secured puts and hedges will appear here — with expiry countdowns, strikes and open P&L."
+          title={formatMessage({
+            id: 'options.ui.NoOptionsPositions',
+            defaultMessage: 'No options positions',
+          })}
+          body={formatMessage({
+            id: 'options.ui.CoveredCallsCashSecuredPutsAndHedgesWillAppearHereWithExpiryCountdownsStrikesAndOpenPL',
+            defaultMessage:
+              'Covered calls, cash-secured puts and hedges will appear here — with expiry countdowns, strikes and open P&L.',
+          })}
           action={
             <Cluster gap="--space-3" justify="center">
               <Button variant="primary" size="sm" onClick={() => setRecording(true)}>
-                Record option
+                {formatMessage({ id: 'options.ui.RecordOption', defaultMessage: 'Record option' })}
               </Button>
               <LuciusCta
-                label="Add with Lucius"
+                label={formatMessage({
+                  id: 'options.ui.AddWithLucius',
+                  defaultMessage: 'Add with Lucius',
+                })}
                 message={OPTIONS_MESSAGE}
                 onAskLucius={onAskLucius}
               />
@@ -252,23 +342,35 @@ export function OptionsTab({ onAskLucius }: Props) {
   }
 
   const cards: StatCard[] = summaryCards.map((c) => ({
-    label: c.label,
+    label: formatMessage(summaryMessages[c.labelKey]),
     value: c.value,
-    caption: c.caption,
+    caption: c.captionParts
+      ? formatMessage(
+          { id: 'options.nearestCaption', defaultMessage: '{days}d • {symbol}' },
+          c.captionParts,
+        )
+      : undefined,
   }))
 
   return (
     <div className="mk-subt">
       <div className="opt-toolbar">
         <Button variant="primary" size="sm" onClick={() => setRecording(true)}>
-          Record option
+          {formatMessage({ id: 'remaining.recordOption', defaultMessage: 'Record option' })}
         </Button>
       </div>
       <SummaryBar cards={cards} />
 
       <OptionsSection
-        title="Income overlays"
-        sub="covered calls • cash-secured puts — premium you collect against holdings"
+        title={formatMessage({
+          id: 'options.ui.IncomeOverlays',
+          defaultMessage: 'Income overlays',
+        })}
+        sub={formatMessage({
+          id: 'options.ui.CoveredCallsCashSecuredPutsPremiumYouCollectAgainstHoldings',
+          defaultMessage:
+            'covered calls • cash-secured puts — premium you collect against holdings',
+        })}
         positions={incomePositions}
         baseCurrency={baseCurrency}
         onCloseRow={setClosing}
@@ -276,8 +378,15 @@ export function OptionsTab({ onAskLucius }: Props) {
       />
 
       <OptionsSection
-        title="Directional &amp; hedges"
-        sub="long puts protect, long calls add upside — risk is capped at premium paid"
+        title={formatMessage({
+          id: 'options.ui.DirectionalHedges',
+          defaultMessage: 'Directional & hedges',
+        })}
+        sub={formatMessage({
+          id: 'options.ui.LongPutsProtectLongCallsAddUpsideRiskIsCappedAtPremiumPaid',
+          defaultMessage:
+            'long puts protect, long calls add upside — risk is capped at premium paid',
+        })}
         positions={hedgePositions}
         baseCurrency={baseCurrency}
         onCloseRow={setClosing}
@@ -290,9 +399,17 @@ export function OptionsTab({ onAskLucius }: Props) {
           style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}
         >
           <span className="mk-field-help" style={{ flex: 1, minWidth: 220 }}>
-            Net open P&amp;L across all option positions is{' '}
-            <b className={`money ${plClass(netMark)}`}>{fSigned(netMark, baseCurrency)}</b>. Premium
-            decays in your favour on the short overlays as expiry nears.
+            {formatMessage(
+              {
+                id: 'options.netMark',
+                defaultMessage:
+                  'Net open P&L across all option positions is <amount>{value}</amount>. Premium decays in your favour on the short overlays as expiry nears.',
+              },
+              {
+                value: fSigned(netMark, baseCurrency),
+                amount: (chunks) => <b className={`money ${plClass(netMark)}`}>{chunks}</b>,
+              },
+            )}
           </span>
           <Button
             size="sm"
@@ -301,7 +418,10 @@ export function OptionsTab({ onAskLucius }: Props) {
             iconLeft={<Spark size={15} ariaHidden />}
             onClick={() => onAskLucius?.('Tell me about my options positions and assignment risk.')}
           >
-            Ask Lucius about options
+            {formatMessage({
+              id: 'options.ui.AskLuciusAboutOptions',
+              defaultMessage: 'Ask Lucius about options',
+            })}
           </Button>
         </div>
       </div>

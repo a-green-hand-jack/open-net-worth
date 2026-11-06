@@ -94,6 +94,8 @@ On a phone, or when the panel is collapsed, tap **What if?** to open it.
 - In **Scenarios**, **Save** makes the current levers your FIRE plan (and updates your
   FIRE settings). **Create** saves them as a separate named scenario instead.
 - Click a saved scenario to load it; rename or delete it from its row.
+- Newly created default event and income-stream names follow your display language. A name you
+  edit, and an older saved name whose origin is unknown, stays as you entered it.
 - **Compare two plans** shows plan A against plan B on the same chart.
 
 ## What Lucius can do here

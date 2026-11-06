@@ -5,11 +5,18 @@
 // fixed-position pattern from budgetActivity.tsx's ActivityCell (this tab's convention — no
 // ui/Modal, no generic Popover primitive, no role="dialog").
 import { Fragment, useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { useAppIntl } from '../../../i18n/useAppIntl'
 import { createPortal } from 'react-dom'
 import * as PD from './planData'
 import { Button } from '../../ui'
 import { X } from './icons'
-import { buildRtaLines, buildRtaFlowLines, partitionRtaFlowLines, type RtaLine } from './rtaLines'
+import {
+  buildRtaLines,
+  buildRtaFlowLines,
+  partitionRtaFlowLines,
+  stripYear,
+  type RtaLine,
+} from './rtaLines'
 
 const { fBaseCents } = PD
 
@@ -27,14 +34,61 @@ const { fBaseCents } = PD
 // below, showing the glyph plus that section's own SUBTOTAL and nothing else; every item row
 // underneath carries its own sign on the amount instead, no glyph). The `.op` column still
 // renders, empty, so the label stays aligned under the glyph column either way.
-export function RtaRow({ line, showOp = true }: { line: RtaLine; showOp?: boolean }) {
+export function RtaRow({
+  line,
+  showOp = true,
+  month,
+  previousMonth,
+}: {
+  line: RtaLine
+  showOp?: boolean
+  month?: string
+  previousMonth?: string
+}) {
+  const { formatMessage } = useAppIntl()
+  const labels: Record<string, string> = {
+    cash: formatMessage({ id: 'plan.rtaCash', defaultMessage: 'Cash on hand' }),
+    held: formatMessage({ id: 'plan.rtaHeld', defaultMessage: 'Held in envelopes' }),
+    cardcredit: formatMessage({ id: 'plan.rtaCardCredit', defaultMessage: 'Credit on your cards' }),
+    heldoutside: formatMessage({
+      id: 'plan.rtaHeldOutside',
+      defaultMessage: 'Held outside envelopes',
+    }),
+    cardspend: formatMessage({
+      id: 'plan.rtaCardSpend',
+      defaultMessage: 'Card spending not covered this month',
+    }),
+    baseline: formatMessage({ id: 'plan.rtaBaseline', defaultMessage: 'Baseline' }),
+    future: formatMessage({ id: 'plan.rtaFuture', defaultMessage: 'Assigned in future months' }),
+    other: formatMessage({ id: 'plan.rtaOther', defaultMessage: 'Unexplained — refresh' }),
+  }
+  if (month !== undefined) {
+    labels.inflow = formatMessage(
+      { id: 'plan.rtaInflow', defaultMessage: 'Inflow: Ready to Assign transactions in {month}' },
+      { month },
+    )
+    labels.assigned = formatMessage(
+      { id: 'plan.rtaAssigned', defaultMessage: 'Assigned in {month}' },
+      { month },
+    )
+  }
+  if (previousMonth !== undefined) {
+    labels.carriedin = formatMessage(
+      { id: 'plan.rtaCarried', defaultMessage: 'Ready to Assign left over from {month}' },
+      { month: previousMonth },
+    )
+    labels.cashoverprev = formatMessage(
+      { id: 'plan.rtaOverspending', defaultMessage: 'Cash overspending in {month}' },
+      { month: previousMonth },
+    )
+  }
   const isZero = Math.abs(line.value) < 0.005
   return (
     <div className={'pl-rtapop-row' + (isZero ? ' zero' : line.tone === 'warn' ? ' warn' : '')}>
       <span className="op" aria-hidden="true">
         {showOp ? line.op : ''}
       </span>
-      <span className="lbl">{line.label}</span>
+      <span className="lbl">{labels[line.key] ?? line.label}</span>
       <span className="val mask">
         {showOp ? '' : line.op}
         {fBaseCents(Math.abs(line.value))}
@@ -64,6 +118,7 @@ function RtaSectionHeader({ op, amount }: { op: '+' | '−'; amount: number }) {
 // Shared by the popover (below) and the rail's summary panel (budgetRail.tsx) so the two never
 // drift on rounding, sign, or copy.
 export function RtaTotalRow({ rta }: { rta: number }) {
+  const { formatMessage } = useAppIntl()
   const totalNeg = rta < -0.005,
     totalZero = Math.abs(rta) <= 0.005
   return (
@@ -71,7 +126,9 @@ export function RtaTotalRow({ rta }: { rta: number }) {
       <span className="op" aria-hidden="true">
         =
       </span>
-      <span className="lbl">Total Ready to Assign</span>
+      <span className="lbl">
+        {formatMessage({ id: 'plan.totalRta', defaultMessage: 'Total Ready to Assign' })}
+      </span>
       <span className="val mask">
         {totalNeg ? '−' : ''}
         {fBaseCents(Math.abs(rta))}
@@ -79,24 +136,6 @@ export function RtaTotalRow({ rta }: { rta: number }) {
     </div>
   )
 }
-
-// ── Why "Held in envelopes" is showing a '+' ─────────────────────────────────────────────
-// It is the one term of the identity that can flip sign, so it is the one whose glyph can
-// contradict its own label — and a reader who cannot explain a credit assumes the number is
-// broken. Rendered INLINE, under the row it belongs to, not as a hover tooltip: the sign is on
-// screen for everyone, so its reason has to be too. Card spending is deliberately not mentioned
-// — an unfunded swipe is RTA-neutral whether or not an envelope is linked to it, so it never
-// produces this credit (backend fix, 2026-09-09).
-export const HELD_CREDIT_NOTE =
-  'Envelopes are net overspent this month — that lends Ready to Assign room back until the roll charges the hole to next month.'
-
-// ── ...and why "Held outside envelopes" is showing one too ────────────────────────────────
-// Same shape, different holder (ADR 2026-09-10): spending that no envelope saw is held by its
-// own bucket rather than by a row, so this term is ≤ 0 and its glyph is ALWAYS '+'. Without a
-// reason on screen beside it, a credit for money that has plainly left the account reads as a
-// bug. The row hides at zero, so the note appears exactly when the credit does.
-export const HELD_OUTSIDE_NOTE =
-  'Spending with no envelope is held the same way — give it a category, or link its category to an envelope, before month-end or the roll charges it to next month.'
 
 // ── RtaHero — the trigger button + its internal breakdown popover ─────────────────────────
 export function RtaHero({
@@ -145,6 +184,7 @@ export function RtaHero({
   underfundedCount: number
   onFundUnderfunded: () => void
 }) {
+  const { formatMessage } = useAppIntl()
   const zero = Math.abs(rta) <= 0.005,
     neg = rta < -0.005
   const heroCls = 'pl-sum-hero mask' + (zero ? '' : neg ? ' neg' : ' pos')
@@ -269,7 +309,10 @@ export function RtaHero({
         className={heroCls + ' as-btn'}
         aria-expanded={open}
         aria-controls="pl-rtapop-panel"
-        aria-label={`Ready to Assign, ${fBaseCents(rta)} — click for breakdown`}
+        aria-label={formatMessage(
+          { id: 'plan.rtaAria', defaultMessage: 'Ready to Assign, {amount} — click for breakdown' },
+          { amount: fBaseCents(rta) },
+        )}
         onClick={(e) => {
           e.stopPropagation()
           setOpen((o) => !o)
@@ -286,7 +329,13 @@ export function RtaHero({
             ref={popRef}
             className="pl-rtapop"
             role="group"
-            aria-label={`Ready to Assign breakdown, ${monthLabel}`}
+            aria-label={formatMessage(
+              {
+                id: 'plan.rta.breakdownLabel',
+                defaultMessage: 'Ready to Assign breakdown, {month}',
+              },
+              { month: monthLabel },
+            )}
             onMouseDown={(e) => e.stopPropagation()}
             onClick={(e) => e.stopPropagation()}
             style={{
@@ -306,8 +355,17 @@ export function RtaHero({
               }}
             />
             <div className="pl-actpop-head">
-              <div className="pl-actpop-title">Ready to Assign Breakdown</div>
-              <button className="pl-actpop-x" onClick={() => setOpen(false)} aria-label="Close">
+              <div className="pl-actpop-title">
+                {formatMessage({
+                  id: 'plan.rtaBreakdown',
+                  defaultMessage: 'Ready to Assign Breakdown',
+                })}
+              </div>
+              <button
+                className="pl-actpop-x"
+                onClick={() => setOpen(false)}
+                aria-label={formatMessage({ id: 'plan.close', defaultMessage: 'Close' })}
+              >
                 <X />
               </button>
             </div>
@@ -327,12 +385,24 @@ export function RtaHero({
                     <>
                       {added.length > 0 && <RtaSectionHeader op="+" amount={addedTotal} />}
                       {added.map((l) => (
-                        <RtaRow key={l.key} line={l} showOp={false} />
+                        <RtaRow
+                          key={l.key}
+                          line={l}
+                          showOp={false}
+                          month={stripYear(monthLabel)}
+                          previousMonth={stripYear(prevMonthLabel ?? '')}
+                        />
                       ))}
                       {added.length > 0 && deducted.length > 0 && <Div />}
                       {deducted.length > 0 && <RtaSectionHeader op="−" amount={deductedTotal} />}
                       {deducted.map((l) => (
-                        <RtaRow key={l.key} line={l} showOp={false} />
+                        <RtaRow
+                          key={l.key}
+                          line={l}
+                          showOp={false}
+                          month={stripYear(monthLabel)}
+                          previousMonth={stripYear(prevMonthLabel ?? '')}
+                        />
                       ))}
                     </>
                   )
@@ -346,10 +416,22 @@ export function RtaHero({
                   <Fragment key={l.key}>
                     <RtaRow line={l} />
                     {l.key === 'held' && heldInEnvelopes < -0.005 && (
-                      <div className="pl-rtapop-note">{HELD_CREDIT_NOTE}</div>
+                      <div className="pl-rtapop-note">
+                        {formatMessage({
+                          id: 'plan.rtaHeldCreditNote',
+                          defaultMessage:
+                            'Envelopes are net overspent this month — that lends Ready to Assign room back until the roll charges the hole to next month.',
+                        })}
+                      </div>
                     )}
                     {l.key === 'heldoutside' && (
-                      <div className="pl-rtapop-note">{HELD_OUTSIDE_NOTE}</div>
+                      <div className="pl-rtapop-note">
+                        {formatMessage({
+                          id: 'plan.rtaHeldOutsideNote',
+                          defaultMessage:
+                            'Spending with no envelope is held the same way — give it a category, or link its category to an envelope, before month-end or the roll charges it to next month.',
+                        })}
+                      </div>
                     )}
                   </Fragment>
                 ))}
@@ -359,7 +441,11 @@ export function RtaHero({
             )}
             {rta > 0.005 && (
               <div className="pl-rtapop-note">
-                Give these dollars a job by assigning them to one or more envelopes!
+                {formatMessage({
+                  id: 'plan.rtaAssignNote',
+                  defaultMessage:
+                    'Give these dollars a job by assigning them to one or more envelopes!',
+                })}
               </div>
             )}
             <Div />
@@ -368,7 +454,11 @@ export function RtaHero({
                 ⓘ
               </span>
               <span className="txt">
-                Ready to Assign is money that hasn't yet been assigned to an envelope.
+                {formatMessage({
+                  id: 'plan.rtaExplanation',
+                  defaultMessage:
+                    "Ready to Assign is money that hasn't yet been assigned to an envelope.",
+                })}
               </span>
             </div>
             {!totalNeg && rta > 0.005 && underfundedCount > 0 && (
@@ -383,7 +473,14 @@ export function RtaHero({
                     onFundUnderfunded()
                   }}
                 >
-                  Fund {underfundedCount} underfunded target{underfundedCount > 1 ? 's' : ''}
+                  {formatMessage(
+                    {
+                      id: 'plan.fundTargets',
+                      defaultMessage:
+                        'Fund {count, plural, one {# underfunded target} other {# underfunded targets}}',
+                    },
+                    { count: underfundedCount },
+                  )}
                 </Button>
               </>
             )}
@@ -394,7 +491,12 @@ export function RtaHero({
                   <span className="ic" aria-hidden="true">
                     ⓘ
                   </span>
-                  <span className="txt">Ready to Assign can shift as exchange rates move</span>
+                  <span className="txt">
+                    {formatMessage({
+                      id: 'plan.rtaFxNote',
+                      defaultMessage: 'Ready to Assign can shift as exchange rates move',
+                    })}
+                  </span>
                 </div>
               </>
             )}

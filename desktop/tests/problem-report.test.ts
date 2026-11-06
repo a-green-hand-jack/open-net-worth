@@ -8,6 +8,7 @@ import { after, test } from 'node:test';
 import { buildDraft, emailHref, LIMITS, reportText, ReportDeliveryError, sendReport, validateReport, type ReportEnvironment, type ReportPayload } from '../src/main/problem-report';
 import { REPORTS_ENDPOINT, reportsEndpoint, SUPPORT_EMAIL } from '../src/main/report-config';
 import { reportPage } from '../src/main/report-page';
+import { setDesktopLocale } from '../src/main/desktop-locale';
 
 const roots: string[] = [];
 after(async () => { await Promise.all(roots.map(root => rm(root, { recursive: true, force: true }))); });
@@ -141,6 +142,26 @@ test('the dialog page embeds the draft as data, shows one primary button and hol
   assert.match(html, /Content-Security-Policy" content="default-src 'none'/);
   assert.doesNotMatch(html, /connect-src|fetch\(|XMLHttpRequest/);
   assert.match(html, new RegExp(SUPPORT_EMAIL));
+});
+
+test('the Chinese report page localizes the form and still embeds the draft as data', async () => {
+  const draft = filled(await buildDraft(environment(), {}), { description: '</script><img src=x onerror=alert(1)>' });
+  setDesktopLocale('zh-CN');
+  try {
+    const html = reportPage(draft, 'dark');
+    assert.match(html, /lang="zh-CN"/);
+    assert.match(html, /报告问题/);
+    assert.match(html, /发送报告/);
+    assert.equal(html.includes('</script><img'), false);
+    assert.doesNotThrow(() => new Function(html.match(/<script nonce="onw-report">([\s\S]*?)<\/script>/)![1]!));
+  } finally { setDesktopLocale('en'); }
+});
+
+test('Chinese report validation errors retain the same refusal behavior', async () => {
+  const draft = filled(await buildDraft(environment(), {}), { description: '' });
+  setDesktopLocale('zh-CN');
+  try { assert.throws(() => validateReport(draft), /请描述发生了什么问题/); }
+  finally { setDesktopLocale('en'); }
 });
 
 test('the dialog page says why it asks for an email, and offers Discord without naming any URL', async () => {

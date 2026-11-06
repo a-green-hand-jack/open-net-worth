@@ -16,6 +16,7 @@ import { listRecentMerges } from '../../../api/matches'
 import { DeduplicationPairRow } from './DeduplicationPairRow'
 import type { MatchReview, RecentMerge } from '../../../api/matches'
 import { fCurrency, fDate } from '../../../utils/format'
+import { useAppIntl } from '../../../i18n/useAppIntl'
 
 type InboxFilter = 'unread' | 'all' | 'pending_approvals'
 
@@ -118,12 +119,27 @@ interface JudgeResultNoticeProps {
 }
 
 export function JudgeResultNotice({ result, onDismiss }: JudgeResultNoticeProps) {
+  const { formatMessage } = useAppIntl()
   const n = result.auto_merged
   const m = result.kept_for_review
   const mergedText =
     n === 0
-      ? `No pairs were auto-merged. ${m} match${m === 1 ? '' : 'es'} kept for your review.`
-      : `Merged ${n} transfer pair${n === 1 ? '' : 's'}. ${m} match${m === 1 ? '' : 'es'} kept for your review.`
+      ? formatMessage(
+          {
+            id: 'dedup.noneMerged',
+            defaultMessage:
+              'No pairs were auto-merged. {count, plural, one {# match} other {# matches}} kept for your review.',
+          },
+          { count: m },
+        )
+      : formatMessage(
+          {
+            id: 'dedup.merged',
+            defaultMessage:
+              'Merged {merged, plural, one {# transfer pair} other {# transfer pairs}}. {count, plural, one {# match} other {# matches}} kept for your review.',
+          },
+          { merged: n, count: m },
+        )
 
   return (
     <Panel className="dedup-judge-notice">
@@ -132,12 +148,15 @@ export function JudgeResultNotice({ result, onDismiss }: JudgeResultNoticeProps)
           <Text size="sm">{mergedText}</Text>
           {result.cost_capped && (
             <Text size="xs" tone="warn">
-              AI cap reached — some pairs need manual review.
+              {formatMessage({
+                id: 'dedup.capReached',
+                defaultMessage: 'AI cap reached — some pairs need manual review.',
+              })}
             </Text>
           )}
         </Stack>
         <Button variant="ghost" size="sm" onClick={onDismiss}>
-          Dismiss
+          {formatMessage({ id: 'dedup.dismiss', defaultMessage: 'Dismiss' })}
         </Button>
       </Cluster>
     </Panel>
@@ -152,6 +171,7 @@ interface RecentMergesSectionProps {
 }
 
 function RecentMergesSection({ undoMerge, onReload }: RecentMergesSectionProps) {
+  const { formatMessage } = useAppIntl()
   const [merges, setMerges] = useState<RecentMerge[]>([])
   const [loaded, setLoaded] = useState(false)
 
@@ -169,7 +189,13 @@ function RecentMergesSection({ undoMerge, onReload }: RecentMergesSectionProps) 
   if (!loaded || merges.length === 0) return null
 
   return (
-    <CollapsibleSection title="Recently auto-merged (last 7 days)" defaultOpen={false}>
+    <CollapsibleSection
+      title={formatMessage({
+        id: 'dedup.recent',
+        defaultMessage: 'Recently auto-merged (last 7 days)',
+      })}
+      defaultOpen={false}
+    >
       <Stack gap="--space-2">
         {merges.map((merge) => (
           <RecentMergeRow
@@ -193,13 +219,8 @@ interface RecentMergeRowProps {
   onSuccess: () => void
 }
 
-function sourceLabel(source: RecentMerge['source']): string {
-  if (source === 'user') return 'You'
-  if (source === 'ai') return 'AI'
-  return 'Rule'
-}
-
 function RecentMergeRow({ merge, undoMerge, onSuccess }: RecentMergeRowProps) {
+  const { formatMessage } = useAppIntl()
   const [undoing, setUndoing] = useState(false)
   const [undoError, setUndoError] = useState<string | null>(null)
 
@@ -231,11 +252,17 @@ function RecentMergeRow({ merge, undoMerge, onSuccess }: RecentMergeRowProps) {
               <Text size="xs" tone="faint">
                 {fDate(merge.merged_at, 'short', 'always')} • {formatMergeAmount(merge)}
               </Text>
-              <Badge tone="muted">{sourceLabel(merge.source)}</Badge>
+              <Badge tone="muted">
+                {merge.source === 'user'
+                  ? formatMessage({ id: 'dedup.you', defaultMessage: 'You' })
+                  : merge.source === 'ai'
+                    ? formatMessage({ id: 'dedup.ai', defaultMessage: 'AI' })
+                    : formatMessage({ id: 'dedup.rule', defaultMessage: 'Rule' })}
+              </Badge>
             </Cluster>
           </Stack>
           <Button variant="ghost" size="sm" loading={undoing} onClick={() => void handleUndo()}>
-            Undo
+            {formatMessage({ id: 'dedup.undo', defaultMessage: 'Undo' })}
           </Button>
         </Cluster>
       </Panel>
@@ -263,6 +290,7 @@ function DeduplicationSectionContent({
   undoMerge,
   judgeAll,
 }: ContentProps) {
+  const { formatMessage } = useAppIntl()
   const [judging, setJudging] = useState(false)
   const [judgeResult, setJudgeResult] = useState<JudgeResult | null>(null)
 
@@ -298,16 +326,19 @@ function DeduplicationSectionContent({
   const bulkActions = (
     <Cluster gap="--space-2" align="center">
       <Button variant="primary" size="sm" loading={judging} onClick={() => void handleJudgeAll()}>
-        Auto-resolve
+        {formatMessage({ id: 'dedup.autoResolve', defaultMessage: 'Auto-resolve' })}
       </Button>
       <Button variant="secondary" size="sm" onClick={() => void handleAcceptAllTransferPairs()}>
-        Accept all transfer pairs
+        {formatMessage({
+          id: 'dedup.acceptTransfers',
+          defaultMessage: 'Accept all transfer pairs',
+        })}
       </Button>
       <Button variant="secondary" size="sm" onClick={() => void handleAcceptAllMerges()}>
-        Accept all merges
+        {formatMessage({ id: 'dedup.acceptMerges', defaultMessage: 'Accept all merges' })}
       </Button>
       <Button variant="ghost" size="sm" onClick={() => void handleKeepAll()}>
-        Keep all
+        {formatMessage({ id: 'dedup.keepAll', defaultMessage: 'Keep all' })}
       </Button>
     </Cluster>
   )
@@ -316,9 +347,18 @@ function DeduplicationSectionContent({
   const batchKeys = Object.keys(batched)
 
   return (
-    <Panel title="Duplicate review" badge={sectionBadge} actions={bulkActions}>
+    <Panel
+      title={formatMessage({ id: 'dedup.title', defaultMessage: 'Duplicate review' })}
+      badge={sectionBadge}
+      actions={bulkActions}
+    >
       {loading ? (
-        <Loading label="Checking for duplicates…" />
+        <Loading
+          label={formatMessage({
+            id: 'dedup.checking',
+            defaultMessage: 'Checking for duplicates…',
+          })}
+        />
       ) : error ? (
         <ErrorState message={error} onRetry={reload} />
       ) : (
@@ -328,20 +368,37 @@ function DeduplicationSectionContent({
           )}
           {reviews.length === 0 ? (
             <EmptyState
-              title={judgeResult ? 'Queue cleared' : 'No duplicates to review'}
+              title={
+                judgeResult
+                  ? formatMessage({ id: 'dedup.cleared', defaultMessage: 'Queue cleared' })
+                  : formatMessage({ id: 'dedup.empty', defaultMessage: 'No duplicates to review' })
+              }
               body={
                 judgeResult
-                  ? 'The auto-resolve pass processed all pending pairs. New duplicates will appear here when detected.'
-                  : 'All imports are clean. Reviews appear here automatically when the engine detects a possible duplicate or transfer pair.'
+                  ? formatMessage({
+                      id: 'dedup.clearedBody',
+                      defaultMessage:
+                        'The auto-resolve pass processed all pending pairs. New duplicates will appear here when detected.',
+                    })
+                  : formatMessage({
+                      id: 'dedup.emptyBody',
+                      defaultMessage:
+                        'All imports are clean. Reviews appear here automatically when the engine detects a possible duplicate or transfer pair.',
+                    })
               }
             />
           ) : (
             <>
               {supersededCount > 0 && (
                 <Text as="p" size="xs" tone="faint">
-                  {supersededCount} review{supersededCount === 1 ? ' was' : 's were'} resolved — the
-                  underlying transaction
-                  {supersededCount === 1 ? ' no longer exists' : 's no longer exist'}.
+                  {formatMessage(
+                    {
+                      id: 'dedup.superseded',
+                      defaultMessage:
+                        '{count, plural, one {# review was resolved — the underlying transaction no longer exists.} other {# reviews were resolved — the underlying transactions no longer exist.}}',
+                    },
+                    { count: supersededCount },
+                  )}
                 </Text>
               )}
               {batchKeys.map((batchKey) => {
@@ -395,15 +452,25 @@ function DeduplicationBatchGroup({
   onReload,
   onAcceptAll,
 }: BatchGroupProps) {
+  const { formatMessage } = useAppIntl()
   const firstReview = reviews[0]
   const description = firstReview?.batch_description
     ? firstReview.batch_description
     : firstReview?.batch_created_at
-      ? `Import on ${fDate(firstReview.batch_created_at, 'short', 'always')}`
+      ? formatMessage(
+          { id: 'dedup.importOn', defaultMessage: 'Import on {date}' },
+          { date: fDate(firstReview.batch_created_at, 'short', 'always') },
+        )
       : batchKey === '_ungrouped'
-        ? 'Ungrouped'
+        ? formatMessage({ id: 'dedup.ungrouped', defaultMessage: 'Ungrouped' })
         : batchKey
-  const headerText = `${description} — ${reviews.length} pair${reviews.length === 1 ? '' : 's'}`
+  const headerText = formatMessage(
+    {
+      id: 'dedup.batch',
+      defaultMessage: '{description} — {count, plural, one {# pair} other {# pairs}}',
+    },
+    { description, count: reviews.length },
+  )
 
   return (
     <Stack gap="--space-3">
@@ -412,7 +479,7 @@ function DeduplicationBatchGroup({
           {headerText}
         </Text>
         <Button variant="ghost" size="sm" onClick={() => void onAcceptAll()}>
-          Accept all in batch
+          {formatMessage({ id: 'dedup.acceptBatch', defaultMessage: 'Accept all in batch' })}
         </Button>
       </Cluster>
       <Stack gap="--space-3">

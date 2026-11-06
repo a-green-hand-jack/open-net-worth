@@ -8,6 +8,7 @@ import { Button, FormField, MoneyField, Text, TextField } from '../../ui'
 import type { NewLoan } from './api'
 import { newLoanErrors, type NewLoanErrors } from './assetForms'
 import { useSyncedDraft } from './useSyncedDraft'
+import { useAppIntl } from '../../../i18n/useAppIntl'
 
 /** The open form's say over its dialog's primary (Continue, Add asset, Save changes). */
 export interface LoanFormGate {
@@ -64,6 +65,7 @@ function useLoanFormGate(
 }
 
 export function InlineAddLoan(props: InlineAddLoanProps) {
+  const { formatMessage } = useAppIntl()
   const { initial, currency, errors, onAdd, onCancel } = props
   const id = useId()
   const [draft, update, latest] = useSyncedDraft<{ name: string; owed: number | null }>({
@@ -112,7 +114,20 @@ export function InlineAddLoan(props: InlineAddLoanProps) {
     if (owedUnreadable.current) return
     const { name, owed } = latest.current
     const problems = newLoanErrors(name, owed)
-    setChecked(problems)
+    setChecked({
+      name: problems.name
+        ? formatMessage({
+            id: 'assets.loan.enterName',
+            defaultMessage: 'Enter a name for this loan.',
+          })
+        : undefined,
+      owed: problems.owed
+        ? formatMessage({
+            id: 'assets.loan.positive',
+            defaultMessage: 'Enter an amount greater than 0.',
+          })
+        : undefined,
+    })
     if (problems.name || problems.owed || owed == null) return
     onAdd({ name: name.trim(), owed })
   }
@@ -137,7 +152,10 @@ export function InlineAddLoan(props: InlineAddLoanProps) {
       ref={box}
       className="as-loan-add"
       role="group"
-      aria-label="New loan account"
+      aria-label={formatMessage({
+        id: 'assets.loan.newAccount',
+        defaultMessage: 'New loan account',
+      })}
       aria-describedby={holding ? `${id}-hold` : undefined}
       // Where focus goes when this form holds the dialog's primary.
       tabIndex={-1}
@@ -145,23 +163,38 @@ export function InlineAddLoan(props: InlineAddLoanProps) {
       onKeyDown={onKeyDown}
     >
       <Text as="p" size="sm" weight={600}>
-        New loan account
+        {formatMessage({ id: 'assets.loan.newAccount', defaultMessage: 'New loan account' })}
       </Text>
       <Text as="p" size="xs" tone="muted">
-        Added to Accounts as a loan when you save — what you owe today lowers your net worth.
+        {formatMessage({
+          id: 'assets.loan.explanation',
+          defaultMessage:
+            'Added to Accounts as a loan when you save — what you owe today lowers your net worth.',
+        })}
       </Text>
       <div className="as-form">
-        <FormField label="Loan name" htmlFor={`${id}-name`} error={shown.name}>
+        <FormField
+          label={formatMessage({ id: 'assets.loan.name', defaultMessage: 'Loan name' })}
+          htmlFor={`${id}-name`}
+          error={shown.name}
+        >
           <TextField
             id={`${id}-name`}
             autoFocus
             invalid={!!shown.name}
             value={draft.name}
-            placeholder="e.g. HDB Mortgage"
+            placeholder={formatMessage({
+              id: 'assets.loan.placeholder',
+              defaultMessage: 'e.g. HDB Mortgage',
+            })}
             onChange={(e) => edit({ name: e.target.value })}
           />
         </FormField>
-        <FormField label="Amount owed" htmlFor={`${id}-owed`} error={shown.owed}>
+        <FormField
+          label={formatMessage({ id: 'assets.loan.owed', defaultMessage: 'Amount owed' })}
+          htmlFor={`${id}-owed`}
+          error={shown.owed}
+        >
           <MoneyField
             id={`${id}-owed`}
             allowEmpty
@@ -179,16 +212,19 @@ export function InlineAddLoan(props: InlineAddLoanProps) {
       </div>
       <div className="as-loan-add-row">
         <Button variant="ghost" size="sm" onClick={onCancel}>
-          Cancel
+          {formatMessage({ id: 'assets.editor.cancel', defaultMessage: 'Cancel' })}
         </Button>
         {/* Secondary: the dialog's own footer keeps the one primary action. */}
         <Button variant="secondary" size="sm" onClick={add}>
-          Add loan
+          {formatMessage({ id: 'assets.loan.add', defaultMessage: 'Add loan' })}
         </Button>
       </div>
       {holding && (
         <p className="ui-field__error" id={`${id}-hold`} role="alert">
-          Add or cancel this loan first.
+          {formatMessage({
+            id: 'assets.loan.finish',
+            defaultMessage: 'Add or cancel this loan first.',
+          })}
         </p>
       )}
     </div>

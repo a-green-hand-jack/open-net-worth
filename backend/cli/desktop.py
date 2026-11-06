@@ -87,6 +87,7 @@ def _watch_host(stream: TextIO, server) -> None:
 
 
 def _startup_errors(app, config: dict, output: TextIO) -> None:
+    from backend.core.errors import MigrationError
     from backend.core.instance_lock import LOCK_NAME, InstanceAlreadyRunning
     from backend.core.version import APP_VERSION
 
@@ -118,6 +119,23 @@ def _startup_errors(app, config: dict, output: TextIO) -> None:
                 + "\n"
             )
             output.flush()
+            raise
+        except MigrationError as exc:
+            if exc.context.get("reason") == "database_ahead":
+                output.write(
+                    json.dumps(
+                        {
+                            "type": "startup_error",
+                            "protocol": 1,
+                            "instance_id": config["instance_id"],
+                            "version": APP_VERSION,
+                            "code": "database_ahead",
+                            "port": None,
+                        }
+                    )
+                    + "\n"
+                )
+                output.flush()
             raise
 
     app.router.lifespan_context = lifespan

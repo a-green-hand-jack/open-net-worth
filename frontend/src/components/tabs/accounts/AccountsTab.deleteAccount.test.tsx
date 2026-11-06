@@ -7,6 +7,9 @@
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
+import { IntlProvider } from 'react-intl'
+import messages from './zh-CN.messages.json'
+import commonMessages from '../../../i18n/zh-CN.json'
 import { AccountsTab } from './AccountsTab'
 import type { ApiAccount } from './types'
 
@@ -101,6 +104,35 @@ const openMenu = () => fireEvent.click(screen.getByLabelText('More actions'))
 const deleteMenuItem = () => screen.getByRole('button', { name: /Delete account/i })
 
 describe('Accounts — Delete account menu item + two-step escalation', () => {
+  it('preserves the two confirmations and cross-account warning in Chinese', async () => {
+    deleteOutcome = (force) =>
+      force
+        ? okJson({})
+        : errJson(409, {
+            detail: {
+              error: 'conflict',
+              message: 'Has transactions',
+              transaction_count: 3,
+              other_accounts: [{ id: 'other', name: 'Other Account' }],
+            },
+          })
+    setupMocks()
+    render(
+      <IntlProvider locale="zh-CN" messages={{ ...commonMessages, ...messages }}>
+        <AccountsTab selectedAccountId={ACCOUNT.id} />
+      </IntlProvider>,
+    )
+    await waitFor(() => expect(screen.getByLabelText('更多操作')).toBeTruthy())
+    fireEvent.click(screen.getByLabelText('更多操作'))
+    fireEvent.click(screen.getByRole('button', { name: '删除账户' }))
+    fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: '删除账户' }))
+    const second = await screen.findByRole('dialog')
+    expect(within(second).getByText(/无法撤销/)).toBeTruthy()
+    expect(within(second).getByText(/同时影响 Other Account 的转账/)).toBeTruthy()
+    expect(deleteCalls).toHaveLength(1)
+    fireEvent.click(within(second).getByRole('button', { name: '强制删除并移除 3 笔交易' }))
+    await waitFor(() => expect(deleteCalls[1]?.force).toBe(true))
+  })
   it('opens the archived-account browser from the all-accounts kebab menu', async () => {
     setupMocks()
     render(<AccountsTab selectedAccountId={null} />)

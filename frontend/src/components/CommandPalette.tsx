@@ -1,4 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { defineMessages } from 'react-intl'
+import { useAppIntl } from '../i18n/useAppIntl'
 import { Modal, TextField } from './ui'
 import { Badge } from './ui/Badge'
 import { authFetch } from '../api/client'
@@ -85,6 +87,67 @@ interface Command {
   _isAskLucius?: boolean
 }
 
+const tabLabels = defineMessages({
+  lucius: { id: 'palette.tab.lucius', defaultMessage: 'Lucius' },
+  dashboard: { id: 'palette.tab.dashboard', defaultMessage: 'Dashboard' },
+  investments: { id: 'palette.tab.investments', defaultMessage: 'Investments' },
+  accounts: { id: 'palette.tab.accounts', defaultMessage: 'Accounts' },
+  assets: { id: 'palette.tab.assets', defaultMessage: 'Assets' },
+  plan: { id: 'palette.tab.plan', defaultMessage: 'Planning' },
+  commitments: { id: 'palette.tab.commitments', defaultMessage: 'Commitments' },
+  intel: { id: 'palette.tab.intel', defaultMessage: 'Intelligence' },
+  skills: { id: 'palette.tab.skills', defaultMessage: 'Skills' },
+  automations: { id: 'palette.tab.automations', defaultMessage: 'Automations' },
+  profile: { id: 'palette.tab.profile', defaultMessage: 'Profile' },
+  connectors: { id: 'palette.tab.connectors', defaultMessage: 'Connectors' },
+  settings: { id: 'palette.tab.settings', defaultMessage: 'Settings' },
+})
+
+const tabHints = defineMessages({
+  lucius: {
+    id: 'palette.hint.lucius',
+    defaultMessage: 'Chat, history, and everything Lucius can do',
+  },
+  dashboard: { id: 'palette.hint.dashboard', defaultMessage: 'Net worth, allocation, briefing' },
+  investments: {
+    id: 'palette.hint.investments',
+    defaultMessage: 'Stocks, ETFs, crypto, commodities',
+  },
+  accounts: { id: 'palette.hint.accounts', defaultMessage: 'Balances, liabilities, register' },
+  assets: { id: 'palette.hint.assets', defaultMessage: 'Property, vehicles, valuables' },
+  plan: { id: 'palette.hint.plan', defaultMessage: 'Budgets, goals, envelopes' },
+  commitments: { id: 'palette.hint.commitments', defaultMessage: 'Dated obligations and funding' },
+  intel: { id: 'palette.hint.intel', defaultMessage: 'Living signals and watchlist' },
+  skills: { id: 'palette.hint.skills', defaultMessage: 'Reusable Lucius playbooks' },
+  automations: {
+    id: 'palette.hint.automations',
+    defaultMessage: 'Scheduled and event-driven conversations',
+  },
+  profile: { id: 'palette.hint.profile', defaultMessage: 'Personal, income, FIRE' },
+  connectors: { id: 'palette.hint.connectors', defaultMessage: 'Channels, data sources, tools' },
+  settings: { id: 'palette.hint.settings', defaultMessage: 'AI model, appearance, data' },
+})
+
+const accountTypeMessages = defineMessages({
+  cash: { id: 'palette.accountType.cash', defaultMessage: 'cash' },
+  fixed_deposit: { id: 'palette.accountType.fixed_deposit', defaultMessage: 'fixed deposit' },
+  investment: { id: 'palette.accountType.investment', defaultMessage: 'investment' },
+  retirement: { id: 'palette.accountType.retirement', defaultMessage: 'retirement' },
+  receivable: { id: 'palette.accountType.receivable', defaultMessage: 'receivable' },
+  credit: { id: 'palette.accountType.credit', defaultMessage: 'credit' },
+  loan: { id: 'palette.accountType.loan', defaultMessage: 'loan' },
+})
+
+const groupMessages = defineMessages({
+  'Quick actions': { id: 'palette.group.quick', defaultMessage: 'Quick actions' },
+  Tabs: { id: 'palette.group.tabs', defaultMessage: 'Tabs' },
+  Accounts: { id: 'palette.group.accounts', defaultMessage: 'Accounts' },
+  Holdings: { id: 'palette.group.holdings', defaultMessage: 'Holdings' },
+  Categories: { id: 'palette.group.categories', defaultMessage: 'Categories' },
+  Markets: { id: 'palette.group.markets', defaultMessage: 'Markets' },
+  'Ask Lucius': { id: 'palette.group.ask', defaultMessage: 'Ask Lucius' },
+})
+
 const GROUP_ORDER: Command['group'][] = [
   'Quick actions',
   'Tabs',
@@ -163,13 +226,6 @@ function assetClassGlyph(assetClass: string): string {
   return '◈' // equity / ETF / default
 }
 
-// Badge label for the Markets tier.
-function assetClassLabel(assetClass: string): string {
-  if (assetClass === 'crypto') return 'Crypto'
-  if (assetClass === 'commodity') return 'Commodity'
-  return 'Equity'
-}
-
 const currentMonth = (): string => new Date().toISOString().slice(0, 7)
 
 export function CommandPalette({
@@ -181,6 +237,7 @@ export function CommandPalette({
   onCategoryFilter,
   onOpenAsset,
 }: CommandPaletteProps) {
+  const intl = useAppIntl()
   const [query, setQuery] = useState('')
   // The active item's stable id (a Command.id, ASK_LUCIUS_ID, or null for "no explicit
   // selection yet" — resolved to a render index by the `activeIdx` memo below).
@@ -326,8 +383,8 @@ export function CommandPalette({
     out.push({
       id: 'qa-chat',
       group: 'Quick actions',
-      label: 'Open Lucius chat',
-      hint: 'Ask the assistant',
+      label: intl.formatMessage({ id: 'palette.openChat', defaultMessage: 'Open Lucius chat' }),
+      hint: intl.formatMessage({ id: 'palette.askAssistant', defaultMessage: 'Ask the assistant' }),
       keywords: 'open lucius chat assistant ai ask',
       run: () => {
         onOpenChat()
@@ -337,16 +394,19 @@ export function CommandPalette({
     out.push({
       id: 'qa-add-txn',
       group: 'Quick actions',
-      label: 'Add transaction',
-      hint: 'Opens Accounts',
+      label: intl.formatMessage({
+        id: 'palette.addTransaction',
+        defaultMessage: 'Add transaction',
+      }),
+      hint: intl.formatMessage({ id: 'palette.opensAccounts', defaultMessage: 'Opens Accounts' }),
       keywords: 'add transaction expense income spend log accounts',
       run: () => go('accounts'),
     })
     out.push({
       id: 'qa-new-goal',
       group: 'Quick actions',
-      label: 'New goal / target',
-      hint: 'Opens Planning',
+      label: intl.formatMessage({ id: 'palette.newGoal', defaultMessage: 'New goal / target' }),
+      hint: intl.formatMessage({ id: 'palette.opensPlan', defaultMessage: 'Opens Planning' }),
       keywords: 'new goal target savings plan',
       run: () => go('plan'),
     })
@@ -356,9 +416,9 @@ export function CommandPalette({
       out.push({
         id: `tab-${d.tab}`,
         group: 'Tabs',
-        label: d.label,
-        hint: d.hint,
-        keywords: `${d.label} ${d.hint} tab go to`,
+        label: intl.formatMessage(tabLabels[d.tab as keyof typeof tabLabels]),
+        hint: intl.formatMessage(tabHints[d.tab as keyof typeof tabHints]),
+        keywords: `${d.label} ${d.hint} ${intl.formatMessage(tabLabels[d.tab as keyof typeof tabLabels])} ${intl.formatMessage(tabHints[d.tab as keyof typeof tabHints])} tab go to`,
         run: () => go(d.tab),
       })
     }
@@ -369,7 +429,7 @@ export function CommandPalette({
         id: `acct-${a.id}`,
         group: 'Accounts',
         label: a.name,
-        hint: `${a.type.replace(/_/g, ' ')} • ${a.currency}`,
+        hint: `${Object.hasOwn(accountTypeMessages, a.type) ? intl.formatMessage(accountTypeMessages[a.type as keyof typeof accountTypeMessages]) : a.type.replace(/_/g, ' ')} • ${a.currency}`,
         keywords: `${a.name} ${a.type} ${a.currency} account`,
         run: () => go('accounts'),
       })
@@ -413,7 +473,10 @@ export function CommandPalette({
         id: `cat-${c.id}`,
         group: 'Categories',
         label: c.label || 'Uncategorized',
-        hint: 'View transactions',
+        hint: intl.formatMessage({
+          id: 'palette.viewTransactions',
+          defaultMessage: 'View transactions',
+        }),
         keywords: `${c.label} category spending`,
         run: () => {
           onCategoryFilter(c.id, currentMonth())
@@ -422,8 +485,21 @@ export function CommandPalette({
       })
     }
 
-    return out
-  }, [accounts, categories, rows, onClose, onOpenChat, onNavigate, onCategoryFilter, onOpenAsset]) // eslint-disable-line react-hooks/exhaustive-deps
+    return out.map((cmd) => ({
+      ...cmd,
+      keywords: `${cmd.keywords} ${cmd.label} ${cmd.hint ?? ''}`,
+    }))
+  }, [
+    accounts,
+    categories,
+    rows,
+    onClose,
+    onOpenChat,
+    onNavigate,
+    onCategoryFilter,
+    onOpenAsset,
+    intl,
+  ]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Filter + rank against the query (flat, ranked). With no query, keep source order.
   // Scatter (Tier-2) matches are dropped whenever a Tier-1 contiguous hit exists anywhere —
@@ -643,30 +719,48 @@ export function CommandPalette({
             autoFocus
             data-autofocus
             className="cmdk-input"
-            placeholder="Search or ask Lucius…"
+            placeholder={intl.formatMessage({
+              id: 'palette.searchPlaceholder',
+              defaultMessage: 'Search or ask Lucius\u2026',
+            })}
             value={query}
             onChange={(e) => {
               setQuery(e.target.value)
             }}
-            aria-label="Search or ask Lucius"
+            aria-label={intl.formatMessage({
+              id: 'palette.search',
+              defaultMessage: 'Search or ask Lucius',
+            })}
           />
           <button
             type="button"
             className="cmdk-cancel"
-            aria-label="Cancel search"
+            aria-label={intl.formatMessage({
+              id: 'palette.cancelSearch',
+              defaultMessage: 'Cancel search',
+            })}
             onClick={onClose}
           >
-            Cancel
+            {intl.formatMessage({ id: 'palette.cancel', defaultMessage: 'Cancel' })}
           </button>
         </div>
         <div className="cmdk-results" ref={listRef} role="listbox">
           {totalLength === 0 && !showMarketLoading ? (
-            <div className="cmdk-empty">No matches for "{query}"</div>
+            <div className="cmdk-empty">
+              {intl.formatMessage(
+                { id: 'palette.noMatches', defaultMessage: 'No matches for “{query}”' },
+                { query },
+              )}
+            </div>
           ) : (
             <>
               {groups.map(({ group, items }) => (
                 <div className="cmdk-group" key={group}>
-                  <div className="cmdk-group-label">{group}</div>
+                  <div className="cmdk-group-label">
+                    {Object.hasOwn(groupMessages, group)
+                      ? intl.formatMessage(groupMessages[group as keyof typeof groupMessages])
+                      : group}
+                  </div>
                   {group === 'Markets'
                     ? items.map((cmd) => {
                         const idx = flat.indexOf(cmd)
@@ -686,7 +780,22 @@ export function CommandPalette({
                             </span>
                             <span className="cmdk-item-label">{cmd.label}</span>
                             <span className="cmdk-item-meta">
-                              <Badge tone="muted">{assetClassLabel(mkt.asset_class)}</Badge>
+                              <Badge tone="muted">
+                                {mkt.asset_class === 'crypto'
+                                  ? intl.formatMessage({
+                                      id: 'palette.asset.crypto',
+                                      defaultMessage: 'Crypto',
+                                    })
+                                  : mkt.asset_class === 'commodity'
+                                    ? intl.formatMessage({
+                                        id: 'palette.asset.commodity',
+                                        defaultMessage: 'Commodity',
+                                      })
+                                    : intl.formatMessage({
+                                        id: 'palette.asset.equity',
+                                        defaultMessage: 'Equity',
+                                      })}
+                              </Badge>
                               <span className="cmdk-item-symbol">{mkt.symbol.toUpperCase()}</span>
                               {mkt.exchange && (
                                 <span className="cmdk-item-exchange">{mkt.exchange}</span>
@@ -718,9 +827,16 @@ export function CommandPalette({
               {/* Markets loading placeholder — not navigable */}
               {showMarketLoading && (
                 <div className="cmdk-group">
-                  <div className="cmdk-group-label">Markets</div>
+                  <div className="cmdk-group-label">
+                    {intl.formatMessage(groupMessages.Markets)}
+                  </div>
                   <div className="cmdk-item cmdk-item--loading" aria-disabled="true">
-                    <span className="cmdk-item-label">Searching the market…</span>
+                    <span className="cmdk-item-label">
+                      {intl.formatMessage({
+                        id: 'palette.searchingMarket',
+                        defaultMessage: 'Searching the market…',
+                      })}
+                    </span>
                   </div>
                 </div>
               )}
@@ -742,7 +858,12 @@ export function CommandPalette({
                     ✦
                   </span>
                   <span className="cmdk-item-label">
-                    <span className="cmdk-item-ask-prefix">Ask Lucius: </span>
+                    <span className="cmdk-item-ask-prefix">
+                      {intl.formatMessage({
+                        id: 'palette.askPrefix',
+                        defaultMessage: 'Ask Lucius: ',
+                      })}
+                    </span>
                     <span className="cmdk-item-ask-query">
                       &ldquo;
                       {trimmedQuery.length > 60 ? trimmedQuery.slice(0, 60) + '…' : trimmedQuery}
@@ -757,18 +878,23 @@ export function CommandPalette({
         <div className="cmdk-footer">
           <span>
             <kbd>↑</kbd>
-            <kbd>↓</kbd> to navigate
+            <kbd>↓</kbd>{' '}
+            {intl.formatMessage({ id: 'palette.navigate', defaultMessage: 'to navigate' })}
           </span>
           <span>
-            <kbd>↵</kbd> {isAskLuciusActive ? 'Ask Lucius' : 'to open'}
+            <kbd>↵</kbd>{' '}
+            {isAskLuciusActive
+              ? intl.formatMessage(groupMessages['Ask Lucius'])
+              : intl.formatMessage({ id: 'palette.open', defaultMessage: 'to open' })}
           </span>
           <span>
-            <kbd>esc</kbd> to close
+            <kbd>esc</kbd> {intl.formatMessage({ id: 'palette.close', defaultMessage: 'to close' })}
           </span>
           {/* Teach the shortcut. The palette is mostly reached by clicking Search, so this is
               the one moment a user is guaranteed to be looking at it. */}
           <span className="cmdk-footer-hint">
-            <kbd>⌘K</kbd> to open anytime
+            <kbd>⌘K</kbd>{' '}
+            {intl.formatMessage({ id: 'palette.openAnytime', defaultMessage: 'to open anytime' })}
           </span>
         </div>
       </div>

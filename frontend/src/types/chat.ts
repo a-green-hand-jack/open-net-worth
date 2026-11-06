@@ -202,6 +202,7 @@ export type ProposedChangeType =
   | 'txn_bulk'
 
 export interface ProposedChange {
+  enum_schema_version?: string
   // A known type renders a bespoke body; an unrecognized one (e.g. a future tool's change)
   // still renders via the generic fallback — never a blind header. `(string & {})` keeps the
   // known-type autocomplete while accepting any backend-emitted string.
@@ -288,7 +289,7 @@ export interface ProposedChange {
   base?: TxnBaseDisplay | null
   splits?: TxnSplitLine[] | null
   tags?: string[]
-  warnings?: Array<string | { type: string; account_id?: string; message: string }>
+  warnings?: Array<string | { type: string; account_id?: string; message: string; message_id?: string; message_params?: Record<string, string | number> }>
   fields?: TxnFieldDiff[] // txn_update: resolved before/after
   count?: number // txn_bulk: TOTAL rows in the batch (rows[] is a capped sample)
   import_description?: string | null
@@ -438,6 +439,8 @@ export interface AutoApproval {
  * row falls back to the raw name, which is what it always used to show.
  */
 export interface ToolDisplay {
+  localization?: { tool: string; detail: string; detail_mode: 'none' | 'separate' | 'search' | 'browse'; operation?: string; engine?: string }
+
   /** The human sentence. Already sanitized and capped server-side. */
   label: string
   /** Closed-set class — keys the icon (`toolActivity/icons.ts`) and half the grouping key. */

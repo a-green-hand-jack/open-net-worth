@@ -170,6 +170,9 @@ export function normalize(saved: unknown, defs: WidgetDefinition[]): GridItem[] 
         kind: 'section',
         instanceId: (s.instanceId as string) || localInstanceId('section'),
         title: (s.title as string) || 'Section',
+        ...(s.titleSource === 'default_section' && s.title === 'Section'
+          ? { titleSource: 'default_section' as const }
+          : {}),
         collapsed: !!s.collapsed,
         x: 0,
         y: typeof s.y === 'number' ? s.y : 0,

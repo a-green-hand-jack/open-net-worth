@@ -1,3 +1,4 @@
+import { useAppIntl } from '../../../i18n/useAppIntl'
 import { useCallback, useEffect, useState } from 'react'
 import { authFetch } from '../../../api/client'
 import { Stack, Text, FormField, PasswordField, useSecretReveal } from '../../ui'
@@ -35,6 +36,7 @@ interface YnabForm {
 const BLANK_FORM: YnabForm = { access_token: '' }
 
 export function YnabSection() {
+  const { formatMessage } = useAppIntl()
   const [cfg, setCfg] = useState<YnabStatus | null>(null)
   const [form, setForm] = useState<YnabForm | null>(null)
   const [error, setError] = useState(false)
@@ -68,14 +70,14 @@ export function YnabSection() {
       })
       if (!r.ok) {
         const d = await r.json().catch(() => ({}))
-        setSaveErr(d.detail || 'Could not save.')
+        setSaveErr(d.detail || formatMessage({ id: 'connectors.ynab.save', defaultMessage: 'Could not save.' }))
         return false
       }
       setForm((f) => f && { ...f, access_token: '' })
       load()
       return true
     } catch {
-      setSaveErr('Could not save — could not reach the server.')
+      setSaveErr(formatMessage({ id: 'connectors.email.serverFailed', defaultMessage: 'Could not save — could not reach the server.' }))
       return false
     } finally {
       setSaving(false)
@@ -107,14 +109,14 @@ export function YnabSection() {
   if (error) {
     return (
       <Text size="sm" tone="bad">
-        Could not load the YNAB connector status.
+        {formatMessage({ id: 'connectors.ynab.load', defaultMessage: 'Could not load the YNAB connector status.' })}
       </Text>
     )
   }
   if (!cfg || !form) {
     return (
       <Text size="sm" tone="faint">
-        Loading…
+        {formatMessage({ id: 'connectors.email.loading', defaultMessage: 'Loading…' })}
       </Text>
     )
   }
@@ -125,39 +127,33 @@ export function YnabSection() {
   return (
     <Stack gap="--space-4">
       <Text size="sm" tone="faint">
-        If you already track spending in{' '}
-        <a href="https://www.ynab.com" target="_blank" rel="noreferrer">
-          YNAB
-        </a>
-        , paste a personal access token from its Account Settings → Developer Settings page. Lucius
-        can then read any of your plans.
+        {formatMessage({ id: 'connectors.ynab.intro', defaultMessage: 'If you already track spending in <link>YNAB</link>, paste a personal access token from its Account Settings → Developer Settings page. Lucius can then read any of your plans.' }, { link: (chunks) => <a href="https://www.ynab.com" target="_blank" rel="noreferrer">{chunks}</a> })}
       </Text>
 
       {cfg.configured && !cfg.enabled && (
         <Text size="xs" tone="warn">
-          Currently paused — saving here won&apos;t resume it. Use Resume on the connector card to
-          turn it back on.
+          {formatMessage({ id: 'connectors.alpaca.paused', defaultMessage: "Currently paused — saving here won't resume it. Use Resume on the connector card to turn it back on." })}
         </Text>
       )}
 
       <ConnectorStatusLine lastSyncedAt={cfg.last_synced_at} lastStatus={cfg.last_status} />
       {cfg.last_error && (
         <Text size="xs" tone="bad">
-          Last error: {cfg.last_error}
+          {formatMessage({ id: 'connectors.email.lastError', defaultMessage: 'Last error: {error}' }, { error: cfg.last_error })}
         </Text>
       )}
 
       <FormField
-        label="Access token"
+        label={formatMessage({ id: 'connectors.lunchMoney.token', defaultMessage: 'Access token' })}
         htmlFor="conn-ynab-token"
         required
         help={
           token.caption ||
-          'Your YNAB personal access token (Account Settings → Developer Settings).'
+          formatMessage({ id: 'connectors.ynab.help', defaultMessage: 'Your YNAB personal access token (Account Settings → Developer Settings).' })
         }
         error={
           token.error ||
-          (tokenTouched.touched && !tokenValid ? 'An access token is required.' : undefined)
+          (tokenTouched.touched && !tokenValid ? formatMessage({ id: 'connectors.lunchMoney.required', defaultMessage: 'An access token is required.' }) : undefined)
         }
       >
         <PasswordField

@@ -1,6 +1,9 @@
+import { fFixed } from '../../../../utils/format'
+import { getNumberLocale } from '../../../../utils/format'
 // Settings → AI usage. Cost and performance are operational telemetry, kept separate from
 // provider credentials and routing so the AI section stays focused on configuration.
 import { useState } from 'react'
+import { useAppIntl } from '../../../../i18n/useAppIntl'
 import { authFetch } from '../../../../api/client'
 import { useCachedFetchState } from '../../../../state/queryCache'
 import { ChevronDown, Check } from '../../../../ui/icons'
@@ -39,13 +42,20 @@ interface CostSummary {
 
 type CostWindow = 'today' | 'yesterday' | '7' | '30' | '0'
 
-const COST_WINDOWS: readonly (readonly [CostWindow, string])[] = [
-  ['today', 'Today'],
-  ['yesterday', 'Yesterday'],
-  ['7', '7 days'],
-  ['30', '30 days'],
-  ['0', 'All time'],
-]
+function costWindows(
+  formatMessage: ReturnType<typeof useAppIntl>['formatMessage'],
+): readonly (readonly [CostWindow, string])[] {
+  return [
+    ['today', formatMessage({ id: 'settings.remaining.usageToday', defaultMessage: 'Today' })],
+    [
+      'yesterday',
+      formatMessage({ id: 'settings.remaining.usageYesterday', defaultMessage: 'Yesterday' }),
+    ],
+    ['7', formatMessage({ id: 'settings.remaining.usage7days', defaultMessage: '7 days' })],
+    ['30', formatMessage({ id: 'settings.remaining.usage30days', defaultMessage: '30 days' })],
+    ['0', formatMessage({ id: 'settings.remaining.usageAll', defaultMessage: 'All time' })],
+  ]
+}
 
 async function getJson<T>(path: string): Promise<T> {
   const response = await authFetch(path)
@@ -55,17 +65,17 @@ async function getJson<T>(path: string): Promise<T> {
 
 const usd = (value: number) => {
   const abs = Math.abs(value)
-  return 'US$' + value.toFixed(abs > 0 && abs < 0.01 ? 4 : 2)
+  return 'US$' + fFixed(value, abs > 0 && abs < 0.01 ? 4 : 2)
 }
 
 const tok = (value: number) =>
   value >= 1e6
-    ? (value / 1e6).toFixed(1) + 'M'
+    ? fFixed(value / 1e6, 1) + 'M'
     : value >= 1e3
       ? Math.round(value / 1e3) + 'k'
       : String(value)
 
-const trendUsd = (value: number) => `US$${value.toFixed(Math.abs(value) < 0.1 ? 4 : 2)}`
+const trendUsd = (value: number) => `US$${fFixed(value, Math.abs(value) < 0.1 ? 4 : 2)}`
 
 function localDateKey(daysAgo = 0) {
   const date = new Date()
@@ -137,6 +147,7 @@ function costTrendPoints(summary: CostSummary, window: CostWindow): TrendPoint[]
 }
 
 function CostTrendChart({ summary, window }: { summary: CostSummary; window: CostWindow }) {
+  const { formatMessage } = useAppIntl()
   const points = costTrendPoints(summary, window)
   const [activePoint, setActivePoint] = useState<string | null>(null)
   if (!points.length || summary.total.turns === 0) return null
@@ -145,12 +156,30 @@ function CostTrendChart({ summary, window }: { summary: CostSummary; window: Cos
   const middle = points[Math.floor(points.length / 2)]!
 
   return (
-    <div className="rd-cost-trend" aria-label="Cost trend">
+    <div
+      className="rd-cost-trend"
+      aria-label={formatMessage({
+        id: 'settings.remaining.usageTrend',
+        defaultMessage: 'Cost trend',
+      })}
+    >
       <div className="rd-cost-trend-head">
-        <span className="rd-cost-trend-title">Cost trend</span>
+        <span className="rd-cost-trend-title">
+          {formatMessage({ id: 'settings.remaining.usageTrend', defaultMessage: 'Cost trend' })}
+        </span>
         <span className="rd-cost-trend-values">
-          <span>{trendUsd(average)} avg / turn</span>
-          <span>{trendUsd(peak)} peak</span>
+          <span>
+            {formatMessage(
+              { id: 'settings.remaining.usageAverage', defaultMessage: '{amount} avg / turn' },
+              { amount: trendUsd(average) },
+            )}
+          </span>
+          <span>
+            {formatMessage(
+              { id: 'settings.remaining.usagePeak', defaultMessage: '{amount} peak' },
+              { amount: trendUsd(peak) },
+            )}
+          </span>
         </span>
       </div>
       <div
@@ -158,7 +187,13 @@ function CostTrendChart({ summary, window }: { summary: CostSummary; window: Cos
         style={{ gridTemplateColumns: `repeat(${points.length}, minmax(0, 1fr))` }}
       >
         {points.map((point, index) => {
-          const detail = `${point.label} · ${trendUsd(point.cost)} · ${point.turns} turn${point.turns === 1 ? '' : 's'}`
+          const detail = formatMessage(
+            {
+              id: 'settings.remaining.usageDetail',
+              defaultMessage: '{label} · {cost} · {count, plural, one {# turn} other {# turns}}',
+            },
+            { label: point.label, cost: trendUsd(point.cost), count: point.turns },
+          )
           const tooltipId = `cost-trend-tip-${point.key.replace(/[^a-z0-9]/gi, '-')}`
           const edge = index < 2 ? ' start' : index >= points.length - 2 ? ' end' : ''
           return (
@@ -195,6 +230,9 @@ function CostTrendChart({ summary, window }: { summary: CostSummary; window: Cos
 
 export function AiUsageSection(props: SectionProps) {
   void props
+  const intl = useAppIntl()
+  const { formatMessage } = intl
+  const windows = costWindows(formatMessage)
   const [window, setWindow] = useState<CostWindow>('today')
   const [menuOpen, setMenuOpen] = useState(false)
   const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone
@@ -218,20 +256,90 @@ export function AiUsageSection(props: SectionProps) {
           ? 30
           : Math.max(1, summary?.window_days || 1)
   const projected = (totalCost / windowDays) * 30
-  const windowLabel = COST_WINDOWS.find(([value]) => value === window)?.[1] ?? 'Today'
+  const windowLabel =
+    windows.find(([value]) => value === window)?.[1] ??
+    formatMessage({ id: 'settings.remaining.usageToday', defaultMessage: 'Today' })
   const bars = (totals: Record<string, Totals> | undefined) =>
     Object.entries(totals ?? {})
       .map(([label, value]) => [label, value.cost_usd, value.turns] as [string, number, number])
       .sort((a, b) => b[1] - a[1])
   const searchFetch = bars(summary?.by_search_fetch)
+  const surfaceLabel = (label: string) => {
+    switch (label) {
+      case 'chat':
+        return formatMessage({ id: 'settings.remaining.usageSurfaceChat', defaultMessage: 'Chat' })
+      case 'memory':
+        return formatMessage({
+          id: 'settings.remaining.usageSurfaceMemory',
+          defaultMessage: 'memory',
+        })
+      case 'intel':
+        return formatMessage({
+          id: 'settings.remaining.usageSurfaceIntel',
+          defaultMessage: 'intel',
+        })
+      case 'agents':
+        return formatMessage({
+          id: 'settings.remaining.usageSurfaceAgents',
+          defaultMessage: 'agents',
+        })
+      case 'briefing':
+        return formatMessage({
+          id: 'settings.remaining.usageSurfaceBriefing',
+          defaultMessage: 'briefing',
+        })
+      case 'ledger':
+        return formatMessage({
+          id: 'settings.remaining.usageSurfaceLedger',
+          defaultMessage: 'ledger',
+        })
+      case 'suggestions':
+        return formatMessage({
+          id: 'settings.remaining.usageSurfaceSuggestions',
+          defaultMessage: 'suggestions',
+        })
+      case 'vision':
+        return formatMessage({
+          id: 'settings.remaining.usageSurfaceVision',
+          defaultMessage: 'vision',
+        })
+      case 'compaction':
+        return formatMessage({
+          id: 'settings.remaining.usageSurfaceCompaction',
+          defaultMessage: 'compaction',
+        })
+      case 'other':
+        return formatMessage({
+          id: 'settings.remaining.usageSurfaceOther',
+          defaultMessage: 'other',
+        })
+      default:
+        return label
+    }
+  }
 
   return (
     <>
-      <div className="rd-cost-period-toolbar" aria-label="Cost period">
-        <span className="rd-cost-period-label">Period</span>
+      <div
+        className="rd-cost-period-toolbar"
+        aria-label={formatMessage({
+          id: 'settings.remaining.usagePeriodLabel',
+          defaultMessage: 'Cost period',
+        })}
+      >
+        <span className="rd-cost-period-label">
+          {formatMessage({ id: 'settings.remaining.usagePeriod', defaultMessage: 'Period' })}
+        </span>
         <div className="rd-cost-window">
-          <div className="rd-seg rd-cost-window-segments" role="tablist" aria-label="Cost window">
-            {COST_WINDOWS.map(([value, label]) => (
+          <div
+            className="rd-seg rd-cost-window-segments"
+            role="tablist"
+            aria-label={formatMessage({
+              id: 'settings.remaining.usageWindow',
+              defaultMessage: 'Cost window',
+            })}
+          >
+            {windows.map(([value, label]) => (
               <button
                 type="button"
                 key={value}
@@ -248,7 +356,13 @@ export function AiUsageSection(props: SectionProps) {
             <button
               type="button"
               className="rd-cost-filter-button"
-              aria-label={`Cost window: ${windowLabel}`}
+              aria-label={formatMessage(
+                {
+                  id: 'settings.remaining.usageWindowValue',
+                  defaultMessage: 'Cost window: {window}',
+                },
+                { window: windowLabel },
+              )}
               aria-haspopup="menu"
               aria-expanded={menuOpen}
               onClick={() => setMenuOpen((open) => !open)}
@@ -257,8 +371,15 @@ export function AiUsageSection(props: SectionProps) {
               <ChevronDown size={14} strokeWidth={1.8} aria-hidden="true" />
             </button>
             {menuOpen ? (
-              <div className="rd-cost-filter-menu" role="menu" aria-label="Cost window">
-                {COST_WINDOWS.map(([value, label]) => (
+              <div
+                className="rd-cost-filter-menu"
+                role="menu"
+                aria-label={formatMessage({
+                  id: 'settings.remaining.usageWindow',
+                  defaultMessage: 'Cost window',
+                })}
+              >
+                {windows.map(([value, label]) => (
                   <button
                     type="button"
                     key={value}
@@ -279,44 +400,84 @@ export function AiUsageSection(props: SectionProps) {
         </div>
       </div>
 
-      <Panel title="AI spend" sub="Metered per turn across every surface that calls a model">
+      <Panel
+        title={formatMessage({ id: 'settings.remaining.usageTitle', defaultMessage: 'AI spend' })}
+        sub={formatMessage({
+          id: 'settings.remaining.usageSub',
+          defaultMessage: 'Metered per turn across every surface that calls a model',
+        })}
+      >
         <div className="rd-stats rd-cost-stats">
           <div className="rd-stat">
-            <span className="rd-stat-lbl">Total spend</span>
+            <span className="rd-stat-lbl">
+              {formatMessage({
+                id: 'settings.remaining.usageTotal',
+                defaultMessage: 'Total spend',
+              })}
+            </span>
             <span className="rd-stat-val">{usd(totalCost)}</span>
           </div>
           <div className="rd-stat">
-            <span className="rd-stat-lbl">Turns</span>
-            <span className="rd-stat-val">{(summary?.total.turns ?? 0).toLocaleString()}</span>
+            <span className="rd-stat-lbl">
+              {formatMessage({ id: 'settings.remaining.usageTurns', defaultMessage: 'Turns' })}
+            </span>
+            <span className="rd-stat-val">{(summary?.total.turns ?? 0).toLocaleString(getNumberLocale())}</span>
           </div>
           <div className="rd-stat">
-            <span className="rd-stat-lbl">Tokens in</span>
+            <span className="rd-stat-lbl">
+              {formatMessage({ id: 'settings.remaining.usageInput', defaultMessage: 'Tokens in' })}
+            </span>
             <span className="rd-stat-val">{tok(summary?.total.input_tokens ?? 0)}</span>
           </div>
           <div className="rd-stat">
-            <span className="rd-stat-lbl">Tokens out</span>
+            <span className="rd-stat-lbl">
+              {formatMessage({
+                id: 'settings.remaining.usageOutput',
+                defaultMessage: 'Tokens out',
+              })}
+            </span>
             <span className="rd-stat-val">{tok(summary?.total.output_tokens ?? 0)}</span>
           </div>
           <div className="rd-stat">
-            <span className="rd-stat-lbl">Cache hits</span>
+            <span className="rd-stat-lbl">
+              {formatMessage({ id: 'settings.remaining.usageCache', defaultMessage: 'Cache hits' })}
+            </span>
             <span className="rd-stat-val">{tok(summary?.total.cache_read_tokens ?? 0)}</span>
           </div>
         </div>
         {summary ? <CostTrendChart summary={summary} window={window} /> : null}
         {(
           [
-            ['By surface', bars(summary?.by_surface)],
-            ['By provider', bars(summary?.by_provider)],
-            ['By model', bars(summary?.by_model)],
-          ] as [string, [string, number, number][]][]
-        ).map(([heading, list]) => (
-          <div className="rd-bars" key={heading}>
+            [
+              'surface',
+              formatMessage({
+                id: 'settings.remaining.usageBySurface',
+                defaultMessage: 'By surface',
+              }),
+              bars(summary?.by_surface),
+            ],
+            [
+              'provider',
+              formatMessage({
+                id: 'settings.remaining.usageByProvider',
+                defaultMessage: 'By provider',
+              }),
+              bars(summary?.by_provider),
+            ],
+            [
+              'model',
+              formatMessage({ id: 'settings.remaining.usageByModel', defaultMessage: 'By model' }),
+              bars(summary?.by_model),
+            ],
+          ] as [string, string, [string, number, number][]][]
+        ).map(([kind, heading, list]) => (
+          <div className="rd-bars" key={kind}>
             <div className="rd-bars-lbl">{heading}</div>
             {list.length ? (
               list.map(([label, value, turns]) => (
                 <div className="rd-bar" key={label}>
-                  <span className={'rd-bar-k' + (heading === 'By model' ? ' rd-mono' : '')}>
-                    {label}
+                  <span className={'rd-bar-k' + (kind === 'model' ? ' rd-mono' : '')}>
+                    {kind === 'surface' ? surfaceLabel(label) : label}
                   </span>
                   <span className="rd-bar-track">
                     <span
@@ -326,21 +487,40 @@ export function AiUsageSection(props: SectionProps) {
                   <span className="rd-bar-v">
                     {usd(value)}
                     <em>
-                      {turns} turn{turns === 1 ? '' : 's'}
+                      {formatMessage(
+                        {
+                          id: 'settings.remaining.usageTurnCount',
+                          defaultMessage: '{count, plural, one {# turn} other {# turns}}',
+                        },
+                        { count: turns },
+                      )}
                     </em>
                   </span>
                 </div>
               ))
             ) : (
-              <span className="rd-help">Nothing metered in this window.</span>
+              <span className="rd-help">
+                {formatMessage({
+                  id: 'settings.remaining.usageNone',
+                  defaultMessage: 'Nothing metered in this window.',
+                })}
+              </span>
             )}
           </div>
         ))}
         <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, flexWrap: 'wrap' }}>
           <div style={{ flex: 1, minWidth: 160 }}>
-            <div style={{ fontSize: 'var(--text-2xs, 12.5px)', fontWeight: 600 }}>Projected</div>
+            <div style={{ fontSize: 'var(--text-2xs, 12.5px)', fontWeight: 600 }}>
+              {formatMessage({
+                id: 'settings.remaining.usageProjected',
+                defaultMessage: 'Projected',
+              })}
+            </div>
             <div className="rd-help" style={{ marginTop: 3, display: 'block' }}>
-              At this window's rate, extrapolated to 30 days.
+              {formatMessage({
+                id: 'settings.remaining.usageProjectionHelp',
+                defaultMessage: "At this window's rate, extrapolated to 30 days.",
+              })}
             </div>
           </div>
           <b
@@ -350,7 +530,10 @@ export function AiUsageSection(props: SectionProps) {
               fontVariantNumeric: 'tabular-nums',
             }}
           >
-            {usd(projected)} / month est.
+            {formatMessage(
+              { id: 'settings.remaining.usageMonthly', defaultMessage: '{amount} / month est.' },
+              { amount: usd(projected) },
+            )}
           </b>
         </div>
       </Panel>

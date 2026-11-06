@@ -1214,3 +1214,19 @@ describe('Save without connecting', () => {
     expect(queryByText('Save')).toBeNull()
   })
 })
+
+it('finds the same banking catalog entries using the Chinese category', async () => {
+  const { IntlProvider } = await import('react-intl')
+  const messages = (await import('./zh-CN.messages.json')).default
+  const { container } = render(<IntlProvider locale="zh-CN" messages={messages}><DirectoryModal open connectors={[]} onClose={() => {}} onFocusConnector={() => {}} /></IntlProvider>)
+  fireEvent.change(within(container).getByRole('searchbox', { name: '搜索目录' }), { target: { value: '银行' } })
+  expect(card(container, 'Plaid')).toBeTruthy()
+})
+
+it('finds the built-in Email connector by its Chinese name', async () => {
+  const { IntlProvider } = await import('react-intl')
+  const messages = (await import('./zh-CN.messages.json')).default
+  const { container } = render(<IntlProvider locale="zh-CN" messages={messages}><DirectoryModal open connectors={[]} onClose={() => {}} onFocusConnector={() => {}} /></IntlProvider>)
+  fireEvent.change(within(container).getByRole('searchbox', { name: '搜索目录' }), { target: { value: '电子邮件' } })
+  expect(card(container, '电子邮件')).toBeTruthy()
+})

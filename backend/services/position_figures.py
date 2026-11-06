@@ -214,21 +214,34 @@ def _tell_the_user(drift: list[dict]) -> None:
     instruments = {i.get("id"): i for i in InstrumentStore().all()}
     positions = {p.get("id"): p for p in PositionStore().all()}
     moved = []
+    message_items = []
     for item in drift:
         if "quantity" not in item["fields"]:
             continue
         before, after = item["fields"]["quantity"]
         inst = instruments.get((positions.get(item["position_id"]) or {}).get("instrument_id"), {})
         moved.append(f"{inst.get('symbol') or 'a holding'} {float(before or 0):g} → {after:g}")
+        message_items.append(
+            {
+                "symbol": inst.get("symbol") or None,
+                "before": f"{float(before or 0):g}",
+                "after": f"{after:g}",
+            }
+        )
     NotificationLogStore().append(
         {
             "type": "notification",
             "title": "Corrected holding quantities",
+            "title_message": {"id": "inbox.server.holdingTitle", "params": {}},
             "summary": (
                 f"{len(moved)} holding(s) had a stored quantity that disagreed with their "
                 f"purchase, sale and vest records, and now follow those records: "
                 f"{', '.join(moved)}."
             ),
+            "summary_message": {
+                "id": "inbox.server.holdingSummary",
+                "params": {"items": message_items},
+            },
             "trigger": "data_repair",
         }
     )

@@ -1,5 +1,6 @@
 import type { ImgHTMLAttributes } from 'react'
 import { remoteImageHost } from '../../utils/remoteImage'
+import { useAppIntl } from '../../i18n/useAppIntl'
 
 // Markdown from a model, a skill file or an imported note can carry `![x](https://host/?d=…)`,
 // and a browser fetches that URL the moment the image mounts — an exfiltration channel that
@@ -8,10 +9,11 @@ import { remoteImageHost } from '../../utils/remoteImage'
 // remote image outright, so opening it is a deliberate navigation, never an embedded load.
 
 export function SafeMarkdownImage({ src, alt }: ImgHTMLAttributes<HTMLImageElement>) {
+  const intl = useAppIntl()
   const host = remoteImageHost(src)
   if (host === null) return <img src={src} alt={alt ?? ''} />
   const openable = typeof src === 'string' && /^https?:\/\//i.test(src)
-  const label = `Remote image blocked (${host})`
+  const label = intl.formatMessage({ id: 'shared.markdown.remoteImageBlocked', defaultMessage: 'Remote image blocked ({host})' }, { host })
   return openable ? (
     <a
       className="md-image-blocked"
@@ -20,7 +22,7 @@ export function SafeMarkdownImage({ src, alt }: ImgHTMLAttributes<HTMLImageEleme
       rel="noopener noreferrer"
       title={alt || undefined}
     >
-      {label} · open
+      {label} · {intl.formatMessage({ id: 'shared.markdown.open', defaultMessage: 'open' })}
     </a>
   ) : (
     <span className="md-image-blocked">{label}</span>

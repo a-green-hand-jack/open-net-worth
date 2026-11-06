@@ -1,3 +1,5 @@
+import { formatConnectorBody } from './connectorServerMessages'
+import { useAppIntl } from '../../../i18n/useAppIntl'
 import { useCallback, useEffect, useState } from 'react'
 import { authFetch } from '../../../api/client'
 import {
@@ -59,17 +61,9 @@ function plaidFormOf(c: PlaidStatus): PlaidForm {
   }
 }
 
-const ENV_OPTIONS = [
-  { value: 'sandbox', label: 'Sandbox' },
-  { value: 'production', label: 'Production' },
-]
-
-const ENV_HELP: Record<string, string> = {
-  sandbox: "Plaid's test banks — sign in with user_good / pass_good. Use the Sandbox secret.",
-  production: 'Your real bank. Needs Plaid to approve your account, and the Production secret.',
-}
-
 export function PlaidSection() {
+  const intl = useAppIntl()
+  const { formatMessage } = intl
   const [cfg, setCfg] = useState<PlaidStatus | null>(null)
   const [form, setForm] = useState<PlaidForm | null>(null)
   const [error, setError] = useState(false)
@@ -113,7 +107,16 @@ export function PlaidSection() {
       })
       if (!r.ok) {
         const d = await r.json().catch(() => ({}))
-        setSaveErr(d.detail || 'Could not save the keys.')
+        setSaveErr(
+          formatConnectorBody(
+            intl,
+            d,
+            formatMessage({
+              id: 'connectors.plaid.save',
+              defaultMessage: 'Could not save the keys.',
+            }),
+          ),
+        )
         return false
       }
       setForm((f) => f && { ...f, secret: '' })
@@ -121,7 +124,12 @@ export function PlaidSection() {
       load()
       return true
     } catch {
-      setSaveErr('Could not save — could not reach the server.')
+      setSaveErr(
+        formatMessage({
+          id: 'connectors.email.serverFailed',
+          defaultMessage: 'Could not save — could not reach the server.',
+        }),
+      )
       return false
     } finally {
       setSaving(false)
@@ -152,14 +160,17 @@ export function PlaidSection() {
   if (error) {
     return (
       <Text size="sm" tone="bad">
-        Could not load the Plaid connector status.
+        {formatMessage({
+          id: 'connectors.plaid.load',
+          defaultMessage: 'Could not load the Plaid connector status.',
+        })}
       </Text>
     )
   }
   if (!cfg || !form) {
     return (
       <Text size="sm" tone="faint">
-        Loading…
+        {formatMessage({ id: 'connectors.email.loading', defaultMessage: 'Loading…' })}
       </Text>
     )
   }
@@ -191,32 +202,48 @@ export function PlaidSection() {
   return (
     <Stack gap="--space-4">
       <Text size="sm" tone="muted">
-        Connect US and Canadian bank accounts through your own{' '}
-        <a href="https://dashboard.plaid.com" target="_blank" rel="noreferrer">
-          Plaid
-        </a>{' '}
-        developer account. Read-only: nothing here can move money.
+        {formatMessage(
+          {
+            id: 'connectors.plaid.intro',
+            defaultMessage:
+              'Connect US and Canadian bank accounts through your own <link>Plaid</link> developer account. Read-only: nothing here can move money.',
+          },
+          {
+            link: (chunks) => (
+              <a href="https://dashboard.plaid.com" target="_blank" rel="noreferrer">
+                {chunks}
+              </a>
+            ),
+          },
+        )}
       </Text>
 
       {cfg.configured && !cfg.enabled && (
         <Text size="xs" tone="warn">
-          Paused — nothing syncs. Use Resume on the connector card to turn it back on.
+          {formatMessage({
+            id: 'connectors.plaid.paused',
+            defaultMessage:
+              'Paused — nothing syncs. Use Resume on the connector card to turn it back on.',
+          })}
         </Text>
       )}
       {cfg.last_error && (
         <Text size="xs" tone="bad">
-          Last error: {cfg.last_error}
+          {formatMessage(
+            { id: 'connectors.email.lastError', defaultMessage: 'Last error: {error}' },
+            { error: cfg.last_error },
+          )}
         </Text>
       )}
 
       <SetupStep
         n={1}
-        title="Your Plaid keys"
+        title={formatMessage({ id: 'connectors.plaid.keys', defaultMessage: 'Your Plaid keys' })}
         state={keysState}
         aside={
           !showKeyFields && (
             <Button size="sm" variant="ghost" onClick={() => setEditingKeys(true)}>
-              Edit keys
+              {formatMessage({ id: 'connectors.plaid.edit', defaultMessage: 'Edit keys' })}
             </Button>
           )
         }
@@ -224,30 +251,55 @@ export function PlaidSection() {
         {showKeyFields ? (
           <Stack gap="--space-3">
             <Text size="xs" tone="faint">
-              From the Plaid dashboard → Developers → Keys.
+              {formatMessage({
+                id: 'connectors.plaid.keysHelp',
+                defaultMessage: 'From the Plaid dashboard → Developers → Keys.',
+              })}
             </Text>
-            <FormField label="Client ID" htmlFor="conn-plaid-id" required>
+            <FormField
+              label={formatMessage({
+                id: 'connectors.oauth.clientId',
+                defaultMessage: 'Client ID',
+              })}
+              htmlFor="conn-plaid-id"
+              required
+            >
               <TextField
                 id="conn-plaid-id"
                 value={form.client_id}
-                placeholder="24 characters"
+                placeholder={formatMessage({
+                  id: 'connectors.plaid.chars',
+                  defaultMessage: '24 characters',
+                })}
                 onChange={(e) => set('client_id', e.target.value)}
               />
             </FormField>
             <FormField
-              label="Secret"
+              label={formatMessage({ id: 'connectors.plaid.secret', defaultMessage: 'Secret' })}
               htmlFor="conn-plaid-secret"
               required
               help={secret.caption || undefined}
               error={
                 secret.error ||
-                (secretTouched.touched && !secretValid ? 'A Plaid secret is required.' : undefined)
+                (secretTouched.touched && !secretValid
+                  ? formatMessage({
+                      id: 'connectors.plaid.required',
+                      defaultMessage: 'A Plaid secret is required.',
+                    })
+                  : undefined)
               }
             >
               <PasswordField
                 id="conn-plaid-secret"
                 value={form.secret}
-                placeholder={cfg.has_secret ? '••••••••' : 'The secret for the environment below'}
+                placeholder={
+                  cfg.has_secret
+                    ? '••••••••'
+                    : formatMessage({
+                        id: 'connectors.plaid.secretPlaceholder',
+                        defaultMessage: 'The secret for the environment below',
+                      })
+                }
                 onChange={(e) => set('secret', e.target.value)}
                 onBlur={secretTouched.onBlur}
                 {...secret.fieldProps}
@@ -255,16 +307,49 @@ export function PlaidSection() {
             </FormField>
             <Stack gap="--space-1">
               <Text size="xs" tone="ink" weight={500}>
-                Environment
+                {formatMessage({
+                  id: 'connectors.binance.environment',
+                  defaultMessage: 'Environment',
+                })}
               </Text>
               <SegmentedControl
-                ariaLabel="Environment"
-                options={ENV_OPTIONS}
+                ariaLabel={formatMessage({
+                  id: 'connectors.binance.environment',
+                  defaultMessage: 'Environment',
+                })}
+                options={[
+                  {
+                    value: 'sandbox',
+                    label: formatMessage({
+                      id: 'connectors.plaid.sandbox',
+                      defaultMessage: 'Sandbox',
+                    }),
+                  },
+                  {
+                    value: 'production',
+                    label: formatMessage({
+                      id: 'connectors.plaid.production',
+                      defaultMessage: 'Production',
+                    }),
+                  },
+                ]}
                 value={form.environment}
                 onChange={(v) => set('environment', v)}
               />
               <Text size="xs" tone="faint">
-                {ENV_HELP[form.environment]}
+                {form.environment === 'sandbox'
+                  ? formatMessage({
+                      id: 'connectors.plaid.sandboxHelp',
+                      defaultMessage:
+                        "Plaid's test banks — sign in with user_good / pass_good. Use the Sandbox secret.",
+                    })
+                  : form.environment === 'production'
+                    ? formatMessage({
+                        id: 'connectors.plaid.productionHelp',
+                        defaultMessage:
+                          'Your real bank. Needs Plaid to approve your account, and the Production secret.',
+                      })
+                    : ''}
               </Text>
             </Stack>
             {saveErr && (
@@ -275,7 +360,10 @@ export function PlaidSection() {
           </Stack>
         ) : (
           <Text size="xs" tone="muted">
-            {cfg.environment === 'production' ? 'Production' : 'Sandbox'} · Client ID ••
+            {cfg.environment === 'production'
+              ? formatMessage({ id: 'connectors.plaid.production', defaultMessage: 'Production' })
+              : formatMessage({ id: 'connectors.plaid.sandbox', defaultMessage: 'Sandbox' })}{' '}
+            · Client ID ••
             {cfg.client_id.slice(-4)}
           </Text>
         )}
@@ -295,7 +383,14 @@ export function PlaidSection() {
         }}
       />
 
-      <SetupStep n={3} title="Choose and link accounts" state={accountsState}>
+      <SetupStep
+        n={3}
+        title={formatMessage({
+          id: 'connectors.plaid.choose',
+          defaultMessage: 'Choose and link accounts',
+        })}
+        state={accountsState}
+      >
         <Stack gap="--space-3">
           <ConnectorAccountsList
             key={`${link.linkCount}-${banksVersion}`}
@@ -309,14 +404,27 @@ export function PlaidSection() {
               load()
             }}
             notConfiguredText={{
-              title: 'No bank linked yet',
-              body: 'Link a bank above — its accounts appear here.',
+              title: formatMessage({
+                id: 'connectors.plaid.noBank',
+                defaultMessage: 'No bank linked yet',
+              }),
+              body: formatMessage({
+                id: 'connectors.plaid.noBankBody',
+                defaultMessage: 'Link a bank above \u2014 its accounts appear here.',
+              }),
             }}
           />
         </Stack>
       </SetupStep>
 
-      <SetupStep n={4} title="Bring in transactions" state={syncState}>
+      <SetupStep
+        n={4}
+        title={formatMessage({
+          id: 'connectors.plaid.bring',
+          defaultMessage: 'Bring in transactions',
+        })}
+        state={syncState}
+      >
         <Stack gap="--space-2">
           {hasLinkedAccount ? (
             <ConnectorNextStep
@@ -328,7 +436,11 @@ export function PlaidSection() {
             />
           ) : (
             <Text size="xs" tone="muted">
-              Link an account above first — then Lucius can add its transactions.
+              {formatMessage({
+                id: 'connectors.plaid.first',
+                defaultMessage:
+                  'Link an account above first — then Lucius can add its transactions.',
+              })}
             </Text>
           )}
           {cfg.last_synced_at && (

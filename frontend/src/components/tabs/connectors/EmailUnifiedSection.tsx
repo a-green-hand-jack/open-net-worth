@@ -1,3 +1,5 @@
+import { usePresetNote } from './usePresetNote'
+import { useAppIntl } from '../../../i18n/useAppIntl'
 import { useCallback, useEffect, useState } from 'react'
 import { authFetch } from '../../../api/client'
 import {
@@ -109,6 +111,8 @@ function formFrom(cfg: EmailConfig): FormState {
 }
 
 export function EmailUnifiedSection() {
+  const presetNote = usePresetNote()
+  const { formatMessage } = useAppIntl()
   const [cfg, setCfg] = useState<EmailConfig | null>(null)
   const [form, setForm] = useState<FormState | null>(null)
   const [loadErr, setLoadErr] = useState(false)
@@ -181,14 +185,14 @@ export function EmailUnifiedSection() {
       })
       if (!r.ok) {
         const d = await r.json().catch(() => ({}))
-        setSaveErr(d.detail || 'Could not save the email settings.')
+        setSaveErr(d.detail || formatMessage({ id: 'connectors.email.saveFailed', defaultMessage: "Could not save the email settings." }))
         return false
       }
       setForm((f) => f && { ...f, password: '' })
       load()
       return true
     } catch {
-      setSaveErr('Could not save — could not reach the server.')
+      setSaveErr(formatMessage({ id: 'connectors.email.serverFailed', defaultMessage: "Could not save — could not reach the server." }))
       return false
     } finally {
       setSaving(false)
@@ -207,14 +211,14 @@ export function EmailUnifiedSection() {
   if (loadErr) {
     return (
       <Text size="sm" tone="bad">
-        Could not load the email settings.
+        {formatMessage({ id: 'connectors.email.loadFailed', defaultMessage: "Could not load the email settings." })}
       </Text>
     )
   }
   if (!cfg || !form) {
     return (
       <Text size="sm" tone="faint">
-        Loading…
+        {formatMessage({ id: 'connectors.email.loading', defaultMessage: "Loading…" })}
       </Text>
     )
   }
@@ -248,7 +252,7 @@ export function EmailUnifiedSection() {
       <Stack gap="--space-3">
         <Cluster gap="--space-2" align="center" className="conn-preset-row">
           <Text size="xs" tone="faint">
-            Provider:
+            {formatMessage({ id: 'connectors.email.provider', defaultMessage: "Provider:" })}
           </Text>
           {EMAIL_PRESETS.map((pr) => (
             <button
@@ -282,18 +286,18 @@ export function EmailUnifiedSection() {
               )
             }
           >
-            Custom
+            {formatMessage({ id: 'connectors.email.custom', defaultMessage: "Custom" })}
           </button>
         </Cluster>
         {preset?.note && (
           <Text size="xs" tone="faint">
-            {preset.note}
+            {presetNote(preset.key, preset.note)}
           </Text>
         )}
         {!preset && (
           <Stack gap="--space-4">
             <Grid min={140} gap="--space-4">
-              <FormField label="IMAP host" htmlFor="email-imap-host" required>
+              <FormField label={formatMessage({ id: 'connectors.email.imapHost', defaultMessage: "IMAP host" })} htmlFor="email-imap-host" required>
                 <TextField
                   id="email-imap-host"
                   value={form.imap_host}
@@ -302,13 +306,13 @@ export function EmailUnifiedSection() {
                 />
               </FormField>
               <FormField
-                label="IMAP port"
+                label={formatMessage({ id: 'connectors.email.imapPort', defaultMessage: "IMAP port" })}
                 htmlFor="email-imap-port"
                 required
-                info="993 is the standard IMAPS port — right for almost every server."
+                info={formatMessage({ id: 'connectors.email.imapInfo', defaultMessage: "993 is the standard IMAPS port — right for almost every server." })}
                 error={
                   imapPortTouched.touched && !imapPortValid
-                    ? 'Enter a port between 1 and 65535.'
+                    ? formatMessage({ id: 'connectors.email.portError', defaultMessage: "Enter a port between 1 and 65535." })
                     : undefined
                 }
               >
@@ -321,7 +325,7 @@ export function EmailUnifiedSection() {
               </FormField>
             </Grid>
             <Grid min={140} gap="--space-4">
-              <FormField label="SMTP host" htmlFor="email-smtp-host" required>
+              <FormField label={formatMessage({ id: 'connectors.email.smtpHost', defaultMessage: "SMTP host" })} htmlFor="email-smtp-host" required>
                 <TextField
                   id="email-smtp-host"
                   value={form.smtp_host}
@@ -330,13 +334,13 @@ export function EmailUnifiedSection() {
                 />
               </FormField>
               <FormField
-                label="SMTP port"
+                label={formatMessage({ id: 'connectors.email.smtpPort', defaultMessage: "SMTP port" })}
                 htmlFor="email-smtp-port"
                 required
-                info="587 is the standard SMTP submission port — right for almost every server."
+                info={formatMessage({ id: 'connectors.email.smtpInfo', defaultMessage: "587 is the standard SMTP submission port — right for almost every server." })}
                 error={
                   smtpPortTouched.touched && !smtpPortValid
-                    ? 'Enter a port between 1 and 65535.'
+                    ? formatMessage({ id: 'connectors.email.portError', defaultMessage: "Enter a port between 1 and 65535." })
                     : undefined
                 }
               >
@@ -351,7 +355,7 @@ export function EmailUnifiedSection() {
           </Stack>
         )}
         <Grid min={200} gap="--space-4">
-          <FormField label="Email / username" htmlFor="email-user" required>
+          <FormField label={formatMessage({ id: 'connectors.email.username', defaultMessage: "Email / username" })} htmlFor="email-user" required>
             <TextField
               id="email-user"
               value={form.email}
@@ -360,15 +364,15 @@ export function EmailUnifiedSection() {
             />
           </FormField>
           <FormField
-            label="App password"
+            label={formatMessage({ id: 'connectors.email.password', defaultMessage: "App password" })}
             htmlFor="email-pwd"
             required
-            info="Use an app-specific password, not your regular account password — most providers block plain-password sign-in once 2FA is on."
+            info={formatMessage({ id: 'connectors.email.passwordInfo', defaultMessage: "Use an app-specific password, not your regular account password — most providers block plain-password sign-in once 2FA is on." })}
             help={password.caption || undefined}
             error={
               password.error ||
               (passwordTouched.touched && !passwordValid
-                ? 'An app-specific password is required.'
+                ? formatMessage({ id: 'connectors.email.passwordRequired', defaultMessage: "An app-specific password is required." })
                 : undefined)
             }
           >
@@ -376,7 +380,7 @@ export function EmailUnifiedSection() {
               id="email-pwd"
               autoComplete="off"
               value={form.password}
-              placeholder={cfg.has_password ? '••••••••' : 'app-specific password'}
+              placeholder={cfg.has_password ? '••••••••' : formatMessage({ id: 'connectors.email.passwordPlaceholder', defaultMessage: "app-specific password" })}
               onChange={(e) => set('password', e.target.value)}
               onBlur={passwordTouched.onBlur}
               {...password.fieldProps}
@@ -389,13 +393,13 @@ export function EmailUnifiedSection() {
       <Stack gap="--space-3">
         {cfg.last_error && (
           <Text size="xs" tone="bad">
-            Last error: {cfg.last_error}
+            {formatMessage({ id: 'connectors.email.lastError', defaultMessage: 'Last error: {error}' }, { error: cfg.last_error })}
           </Text>
         )}
         <FormField
-          label="Mail folder"
+          label={formatMessage({ id: 'connectors.email.folder', defaultMessage: "Mail folder" })}
           htmlFor="email-imap-folder"
-          info="INBOX works for almost every provider and reads all your email. Want to limit what Lucius sees? Point this at a specific folder instead — for example, one you filter relevant emails into."
+          info={formatMessage({ id: 'connectors.email.folderInfo', defaultMessage: "INBOX works for almost every provider and reads all your email. Want to limit what Lucius sees? Point this at a specific folder instead — for example, one you filter relevant emails into." })}
         >
           <TextField
             id="email-imap-folder"

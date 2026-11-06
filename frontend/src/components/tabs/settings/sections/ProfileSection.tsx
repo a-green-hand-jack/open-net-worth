@@ -8,6 +8,7 @@
 // This is the one section with an explicit Save: eight identity fields plus free-text notes,
 // where a half-entered state is not a state. A sticky action bar appears while dirty.
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { useAppIntl } from '../../../../i18n/useAppIntl'
 import { createPortal } from 'react-dom'
 import { authFetch } from '../../../../api/client'
 import { COUNTRIES, lookupByCode, lookupByName } from '../../../../utils/countries'
@@ -23,7 +24,7 @@ import {
   fireHorizon,
   fireNumberOf,
   fireSwrMatches,
-  fireSwrNote,
+  fireSwrNoteParts,
   fireSwrSuggestion,
   saveFireDraft,
   seedFireDraft,
@@ -96,16 +97,6 @@ const LIST_FIELD_SET: ReadonlySet<string> = new Set(LIST_FIELDS)
 type Draft = { [K in ScalarKey]: string } & { [K in ListKey]: string[] }
 
 type PickerKey = ListKey
-const PICKER_FIELD_LABELS: Record<PickerKey, string> = {
-  nationalities: 'Nationalities',
-  countries_of_residence: 'Countries of residence',
-  tax_residencies: 'Tax residencies',
-  employment_types: 'Employment types',
-}
-const PICKER_FIELD_HELP: Partial<Record<PickerKey, string>> = {
-  tax_residencies:
-    'Where you owe tax — often the same as residence, but not always (e.g. US citizens abroad).',
-}
 // The three country fields (~200 options) get a search box; employment types (5 options)
 // doesn't need one.
 const PICKER_HAS_SEARCH: Record<PickerKey, boolean> = {
@@ -114,78 +105,6 @@ const PICKER_HAS_SEARCH: Record<PickerKey, boolean> = {
   tax_residencies: true,
   employment_types: false,
 }
-
-const EMPLOYMENT: [string, string][] = [
-  ['salaried', 'Salaried employee'],
-  ['self_employed', 'Self-employed'],
-  ['business_owner', 'Business owner'],
-  ['retired', 'Retired'],
-  ['student', 'Student'],
-]
-const MARITAL: [string, string][] = [
-  ['single', 'Single'],
-  ['married', 'Married'],
-  ['divorced', 'Divorced'],
-  ['widowed', 'Widowed'],
-]
-const RISK: [string, string][] = [
-  ['conservative', 'Conservative'],
-  ['moderate', 'Moderate'],
-  ['aggressive', 'Aggressive'],
-]
-
-const FIRE_FIELDS: {
-  k: keyof FireDraft
-  label: string
-  step: number
-  money?: boolean
-  tip: string
-}[] = [
-  {
-    k: 'monthlyRetirementSpending',
-    label: 'Monthly retirement spending',
-    step: 100,
-    money: true,
-    tip: 'What you expect to spend per month once retired, in today’s dollars. It is annualized only when calculating your FIRE number.',
-  },
-  {
-    k: 'withdrawalRate',
-    label: 'Safe withdrawal rate %',
-    step: 0.1,
-    tip: 'The % of savings withdrawn each year in retirement. The classic 4% rule assumes ~30 years — retiring early stretches it longer, so a lower rate is safer.',
-  },
-  {
-    k: 'expectedReturn',
-    label: 'Expected return %',
-    step: 0.5,
-    tip: 'Roughly how much your investments grow each year, before inflation.',
-  },
-  {
-    k: 'volatility',
-    label: 'Return volatility %',
-    step: 1,
-    tip: 'How much returns swing year to year. ~14–15% is typical for a diversified global portfolio.',
-  },
-  {
-    k: 'targetAge',
-    label: 'Target retirement age',
-    step: 1,
-    tip: 'The age you want to stop working. Projections check whether you’ll reach your FIRE number by then.',
-  },
-  {
-    k: 'lifeExpectancy',
-    label: 'Life expectancy',
-    step: 1,
-    tip: 'How long your money needs to last. A longer horizon lowers the safe withdrawal rate.',
-  },
-  {
-    k: 'monthlySaving',
-    label: 'Monthly saving until retire',
-    step: 50,
-    money: true,
-    tip: 'Net amount you add to investments each month until you retire.',
-  },
-]
 
 function countryCodesToNames(codes: string[] | null | undefined): string {
   return (codes ?? []).map((c) => lookupByCode(c)?.name ?? c).join(', ')
@@ -212,6 +131,7 @@ function calcAge(dob: string | null | undefined): number | null {
 }
 
 function Tip({ text }: { text: string }) {
+  const { formatMessage } = useAppIntl()
   const [open, setOpen] = useState(false)
   return (
     <span style={{ position: 'relative', display: 'inline-flex' }}>
@@ -219,7 +139,7 @@ function Tip({ text }: { text: string }) {
         type="button"
         onClick={() => setOpen(!open)}
         onBlur={() => setOpen(false)}
-        aria-label="Help"
+        aria-label={formatMessage({ id: 'settings.remaining.profileHelp', defaultMessage: 'Help' })}
         style={{
           width: 15,
           height: 15,
@@ -278,6 +198,107 @@ function FireModal({
   onSaved: () => void
   toast: Toast
 }) {
+  const { formatMessage } = useAppIntl()
+  const FIRE_FIELDS: {
+    k: keyof FireDraft
+    label: string
+    step: number
+    money?: boolean
+    tip: string
+  }[] = [
+    {
+      k: 'monthlyRetirementSpending',
+      label: formatMessage({
+        id: 'settings.remaining.profileFireField0',
+        defaultMessage: 'Monthly retirement spending',
+      }),
+      step: 100,
+      money: true,
+      tip: formatMessage({
+        id: 'settings.remaining.profileFireField1',
+        defaultMessage:
+          'What you expect to spend per month once retired, in today’s dollars. It is annualized only when calculating your FIRE number.',
+      }),
+    },
+    {
+      k: 'withdrawalRate',
+      label: formatMessage({
+        id: 'settings.remaining.profileFireField2',
+        defaultMessage: 'Safe withdrawal rate %',
+      }),
+      step: 0.1,
+      tip: formatMessage({
+        id: 'settings.remaining.profileFireField3',
+        defaultMessage:
+          'The % of savings withdrawn each year in retirement. The classic 4% rule assumes ~30 years — retiring early stretches it longer, so a lower rate is safer.',
+      }),
+    },
+    {
+      k: 'expectedReturn',
+      label: formatMessage({
+        id: 'settings.remaining.profileFireField4',
+        defaultMessage: 'Expected return %',
+      }),
+      step: 0.5,
+      tip: formatMessage({
+        id: 'settings.remaining.profileFireField5',
+        defaultMessage: 'Roughly how much your investments grow each year, before inflation.',
+      }),
+    },
+    {
+      k: 'volatility',
+      label: formatMessage({
+        id: 'settings.remaining.profileFireField6',
+        defaultMessage: 'Return volatility %',
+      }),
+      step: 1,
+      tip: formatMessage({
+        id: 'settings.remaining.profileFireField7',
+        defaultMessage:
+          'How much returns swing year to year. ~14–15% is typical for a diversified global portfolio.',
+      }),
+    },
+    {
+      k: 'targetAge',
+      label: formatMessage({
+        id: 'settings.remaining.profileFireField8',
+        defaultMessage: 'Target retirement age',
+      }),
+      step: 1,
+      tip: formatMessage({
+        id: 'settings.remaining.profileFireField9',
+        defaultMessage:
+          'The age you want to stop working. Projections check whether you’ll reach your FIRE number by then.',
+      }),
+    },
+    {
+      k: 'lifeExpectancy',
+      label: formatMessage({
+        id: 'settings.remaining.profileFireField10',
+        defaultMessage: 'Life expectancy',
+      }),
+      step: 1,
+      tip: formatMessage({
+        id: 'settings.remaining.profileFireField11',
+        defaultMessage:
+          'How long your money needs to last. A longer horizon lowers the safe withdrawal rate.',
+      }),
+    },
+    {
+      k: 'monthlySaving',
+      label: formatMessage({
+        id: 'settings.remaining.profileFireField12',
+        defaultMessage: 'Monthly saving until retire',
+      }),
+      step: 50,
+      money: true,
+      tip: formatMessage({
+        id: 'settings.remaining.profileFireField13',
+        defaultMessage: 'Net amount you add to investments each month until you retire.',
+      }),
+    },
+  ]
+
   const [s, setS] = useState<FireDraft>(() => seedFireDraft(profile) ?? EMPTY_FIRE_DRAFT)
   const [saving, setSaving] = useState(false)
   const set = (k: keyof FireDraft, v: string) =>
@@ -286,6 +307,34 @@ function FireModal({
   const horizon = fireHorizon(s)
   const swrSuggest = fireSwrSuggestion(s)
   const swrMatches = fireSwrMatches(s)
+  const noteParts = fireSwrNoteParts(s)
+  const swrNote = !noteParts
+    ? null
+    : noteParts.kind === 'usual'
+      ? formatMessage(
+          {
+            id: 'plan.swrUsual',
+            defaultMessage: '{suggest}% is the usual rate for a {horizon}-yr retirement.',
+          },
+          noteParts,
+        )
+      : noteParts.kind === 'cautious'
+        ? formatMessage(
+            {
+              id: 'plan.swrCautious',
+              defaultMessage:
+                'A {horizon}-yr retirement usually allows {suggest}%. Your plan keeps {rate}%, the more cautious choice.',
+            },
+            noteParts,
+          )
+        : formatMessage(
+            {
+              id: 'plan.swrAggressive',
+              defaultMessage:
+                'A {horizon}-yr retirement is safer at {suggest}%. Your plan uses {rate}%, which is more aggressive.',
+            },
+            noteParts,
+          )
   const fireNum = fireNumberOf(s)
   const currency = (profile.base_currency || 'SGD').toUpperCase()
 
@@ -294,29 +343,53 @@ function FireModal({
     await saveFireDraft(s, profile)
     setSaving(false)
     onSaved()
-    toast('FIRE settings saved — projections updated')
+    toast(
+      formatMessage({
+        id: 'settings.remaining.profileFireSaved',
+        defaultMessage: 'FIRE settings saved — projections updated',
+      }),
+    )
     onClose()
   }
 
   return (
     <Modal
-      title="FIRE Settings"
+      title={formatMessage({
+        id: 'settings.remaining.profileFireModal',
+        defaultMessage: 'FIRE Settings',
+      })}
       onClose={onClose}
       footer={
         <>
-          <Btn onClick={onClose}>Cancel</Btn>
+          <Btn onClick={onClose}>
+            {formatMessage({ id: 'settings.remaining.profileCancel', defaultMessage: 'Cancel' })}
+          </Btn>
           <Btn variant="primary" disabled={saving} onClick={() => void save()}>
-            {saving ? 'Saving…' : 'Save settings'}
+            {saving
+              ? formatMessage({ id: 'settings.remaining.profileSaving', defaultMessage: 'Saving…' })
+              : formatMessage({
+                  id: 'settings.remaining.profileSaveSettings',
+                  defaultMessage: 'Save settings',
+                })}
           </Btn>
         </>
       }
     >
       <span className="rd-help">
-        The same settings the Plan tab edits — they drive both Projections and Retirement.
+        {formatMessage({
+          id: 'settings.remaining.profileFireModalHelp',
+          defaultMessage:
+            'The same settings the Plan tab edits — they drive both Projections and Retirement.',
+        })}
       </span>
       {fireNum !== null && (
         <div className="rd-callout">
-          <span className="rd-callout-k">FIRE number</span>
+          <span className="rd-callout-k">
+            {formatMessage({
+              id: 'settings.remaining.profileFireNumber',
+              defaultMessage: 'FIRE number',
+            })}
+          </span>
           <span className="rd-callout-calc">
             {fBase(Number(s.monthlyRetirementSpending))} × 12 ÷ {s.withdrawalRate}%
           </span>
@@ -336,8 +409,14 @@ function FireModal({
             help={
               k === 'withdrawalRate' && swrSuggest !== null
                 ? swrMatches
-                  ? `Matches a ${horizon}-yr retirement`
-                  : fireSwrNote(s)
+                  ? formatMessage(
+                      {
+                        id: 'settings.remaining.profileMatchesHorizon',
+                        defaultMessage: 'Matches a {horizon}-yr retirement',
+                      },
+                      { horizon },
+                    )
+                  : swrNote
                 : undefined
             }
           >
@@ -380,6 +459,7 @@ function MultiSelectModal({
   onClose: () => void
   loading: boolean
 }) {
+  const { formatMessage } = useAppIntl()
   const [query, setQuery] = useState('')
   // Checkbox options are keyed by code — normalize before anything compares against them, or a
   // name-shaped legacy country entry (see toCountryCode) silently matches no option.
@@ -408,7 +488,7 @@ function MultiSelectModal({
       onClose={onClose}
       footer={
         <Btn variant="primary" onClick={onClose}>
-          Done
+          {formatMessage({ id: 'settings.remaining.profileDone', defaultMessage: 'Done' })}
         </Btn>
       }
     >
@@ -418,7 +498,10 @@ function MultiSelectModal({
           <input
             className="rd-input"
             type="text"
-            placeholder="Search countries…"
+            placeholder={formatMessage({
+              id: 'settings.remaining.profileCountrySearch',
+              defaultMessage: 'Search countries…',
+            })}
             value={query}
             disabled={loading}
             onChange={(e) => setQuery(e.target.value)}
@@ -429,7 +512,10 @@ function MultiSelectModal({
           options={sorted.map(([v, n]) => ({ value: v, label: n }))}
           value={normalizedValue}
           onChange={onChange}
-          emptyText="No matches"
+          emptyText={formatMessage({
+            id: 'settings.remaining.profileNoMatches',
+            defaultMessage: 'No matches',
+          })}
           maxHeight={360}
         />
       </div>
@@ -442,6 +528,7 @@ export function ProfileSection({
   onReviewDefaultChange,
   actionBarSlot,
 }: SectionProps & { onReviewDefaultChange?: (v: 'skip' | 'merge') => void }) {
+  const { formatMessage, locale } = useAppIntl()
   const { data, initialLoading, refresh } = useCachedFetchState<ProfileShape>(
     PROFILE_KEY,
     () => fetchJson<ProfileShape>(PROFILE_KEY),
@@ -498,12 +585,103 @@ export function ProfileSection({
 
   const set = <K extends EditableKey>(k: K, v: Draft[K]) =>
     setDraft((prev) => (prev ? { ...prev, [k]: v } : prev))
+  const pickerLabels: Record<PickerKey, string> = {
+    nationalities: formatMessage({
+      id: 'settings.remaining.profilePicker0',
+      defaultMessage: 'Nationalities',
+    }),
+    countries_of_residence: formatMessage({
+      id: 'settings.remaining.profilePicker1',
+      defaultMessage: 'Countries of residence',
+    }),
+    tax_residencies: formatMessage({
+      id: 'settings.remaining.profilePicker2',
+      defaultMessage: 'Tax residencies',
+    }),
+    employment_types: formatMessage({
+      id: 'settings.remaining.profilePicker3',
+      defaultMessage: 'Employment types',
+    }),
+  }
+  const pickerHelp: Partial<Record<PickerKey, string>> = {
+    tax_residencies: formatMessage({
+      id: 'settings.remaining.profileTaxHelp',
+      defaultMessage:
+        'Where you owe tax — often the same as residence, but not always (e.g. US citizens abroad).',
+    }),
+  }
+  const employment: [string, string][] = [
+    [
+      'salaried',
+      formatMessage({
+        id: 'settings.remaining.profileEmployment0',
+        defaultMessage: 'Salaried employee',
+      }),
+    ],
+    [
+      'self_employed',
+      formatMessage({
+        id: 'settings.remaining.profileEmployment1',
+        defaultMessage: 'Self-employed',
+      }),
+    ],
+    [
+      'business_owner',
+      formatMessage({
+        id: 'settings.remaining.profileEmployment2',
+        defaultMessage: 'Business owner',
+      }),
+    ],
+    [
+      'retired',
+      formatMessage({ id: 'settings.remaining.profileEmployment3', defaultMessage: 'Retired' }),
+    ],
+    [
+      'student',
+      formatMessage({ id: 'settings.remaining.profileEmployment4', defaultMessage: 'Student' }),
+    ],
+  ]
+  const marital: [string, string][] = [
+    [
+      'single',
+      formatMessage({ id: 'settings.remaining.profileMarital0', defaultMessage: 'Single' }),
+    ],
+    [
+      'married',
+      formatMessage({ id: 'settings.remaining.profileMarital1', defaultMessage: 'Married' }),
+    ],
+    [
+      'divorced',
+      formatMessage({ id: 'settings.remaining.profileMarital2', defaultMessage: 'Divorced' }),
+    ],
+    [
+      'widowed',
+      formatMessage({ id: 'settings.remaining.profileMarital3', defaultMessage: 'Widowed' }),
+    ],
+  ]
+  const risk: [string, string][] = [
+    [
+      'conservative',
+      formatMessage({ id: 'settings.remaining.profileRisk0', defaultMessage: 'Conservative' }),
+    ],
+    [
+      'moderate',
+      formatMessage({ id: 'settings.remaining.profileRisk1', defaultMessage: 'Moderate' }),
+    ],
+    [
+      'aggressive',
+      formatMessage({ id: 'settings.remaining.profileRisk2', defaultMessage: 'Aggressive' }),
+    ],
+  ]
   const currency = (data?.base_currency || 'SGD').toUpperCase()
   const age = calcAge(draft?.date_of_birth)
 
   // The profile stores the ISO code (shorter for the model, unambiguous) — the picker's
   // VALUE is the code, its LABEL is the name a human actually reads.
-  const countries: [string, string][] = useMemo(() => COUNTRIES.map((c) => [c.code, c.name]), [])
+  const countries: [string, string][] = useMemo(() => {
+    const names = new Intl.DisplayNames([locale], { type: 'region', fallback: 'none' })
+    return COUNTRIES.map((c) => [c.code, locale === 'en' ? c.name : (names.of(c.code) ?? c.name)])
+  }, [locale])
 
   async function save() {
     if (!draft) return
@@ -543,7 +721,16 @@ export function ProfileSection({
               .filter(Boolean)
               .join('; ')
           : detail
-        toast(message || `Could not save (HTTP ${res.status})`)
+        toast(
+          message ||
+            formatMessage(
+              {
+                id: 'settings.remaining.profileSaveHttp',
+                defaultMessage: 'Could not save (HTTP {status})',
+              },
+              { status: res.status },
+            ),
+        )
         return
       }
       const { profile } = (await res.json()) as { profile: ProfileShape }
@@ -552,9 +739,16 @@ export function ProfileSection({
       invalidateQueryCache('/api/fire')
       setSaved(draft)
       onReviewDefaultChange?.(profile.import_review_default === 'skip' ? 'skip' : 'merge')
-      toast('Profile saved')
+      toast(
+        formatMessage({ id: 'settings.remaining.profileSaved', defaultMessage: 'Profile saved' }),
+      )
     } catch {
-      toast('Could not reach the server. Try again.')
+      toast(
+        formatMessage({
+          id: 'settings.remaining.profileNetwork',
+          defaultMessage: 'Could not reach the server. Try again.',
+        }),
+      )
     } finally {
       setSaving(false)
     }
@@ -628,13 +822,13 @@ export function ProfileSection({
   // what's already picked — and opens the full checklist (search included, for the three
   // ~200-option country fields) in a modal rather than inlining all four at once.
   const pickerOptionsFor = (k: PickerKey): [string, string][] =>
-    k === 'employment_types' ? EMPLOYMENT : countries
+    k === 'employment_types' ? employment : countries
   const pickerField = (k: PickerKey) => {
     const opts = pickerOptionsFor(k)
     const byCode = new Map(opts)
     const summary = (draft?.[k] ?? []).map((c) => byCode.get(c) ?? c).join(', ')
     return (
-      <Field key={k} label={PICKER_FIELD_LABELS[k]} help={PICKER_FIELD_HELP[k]}>
+      <Field key={k} label={pickerLabels[k]} help={pickerHelp[k]}>
         <span className="rd-select-wrap">
           <button
             type="button"
@@ -642,7 +836,11 @@ export function ProfileSection({
             disabled={loading}
             onClick={() => setPickerOpen(k)}
           >
-            {summary || 'None selected'}
+            {summary ||
+              formatMessage({
+                id: 'settings.remaining.profileNone',
+                defaultMessage: 'None selected',
+              })}
           </button>
           <ChevronDown className="rd-select-ic" size={14} strokeWidth={1.8} aria-hidden="true" />
         </span>
@@ -659,10 +857,19 @@ export function ProfileSection({
 
   const actionBar = (
     <div className="rd-actionbar">
-      <span className="rd-actionbar-note">Unsaved changes</span>
-      <Btn onClick={() => setDraft(saved)}>Discard</Btn>
+      <span className="rd-actionbar-note">
+        {formatMessage({
+          id: 'settings.remaining.profileUnsaved',
+          defaultMessage: 'Unsaved changes',
+        })}
+      </span>
+      <Btn onClick={() => setDraft(saved)}>
+        {formatMessage({ id: 'settings.remaining.profileDiscard', defaultMessage: 'Discard' })}
+      </Btn>
       <Btn variant="primary" disabled={saving} onClick={() => void save()}>
-        {saving ? 'Saving…' : 'Save profile'}
+        {saving
+          ? formatMessage({ id: 'settings.remaining.profileSaving', defaultMessage: 'Saving…' })
+          : formatMessage({ id: 'settings.remaining.profileSave', defaultMessage: 'Save profile' })}
       </Btn>
     </div>
   )
@@ -692,13 +899,57 @@ export function ProfileSection({
       )}
       draggable
     >
-      <Panel title="About you" sub="Fed directly to Lucius for personalised, goal-aware advice">
+      <Panel
+        title={formatMessage({
+          id: 'settings.remaining.profileAbout',
+          defaultMessage: 'About you',
+        })}
+        sub={formatMessage({
+          id: 'settings.remaining.profileAboutHelp',
+          defaultMessage: 'Fed directly to Lucius for personalised, goal-aware advice',
+        })}
+      >
         <div className="rd-formgrid">
-          <Field label="Full name">{input('name')}</Field>
-          <Field label="What should Lucius call you?">{input('nickname')}</Field>
-          <Field label="Date of birth">{dateInput('date_of_birth')}</Field>
-          <Field label="Marital status">{select('marital_status', MARITAL)}</Field>
-          <Field label="Risk tolerance">{select('risk_tolerance', RISK)}</Field>
+          <Field
+            label={formatMessage({
+              id: 'settings.remaining.profileFullName',
+              defaultMessage: 'Full name',
+            })}
+          >
+            {input('name')}
+          </Field>
+          <Field
+            label={formatMessage({
+              id: 'settings.remaining.profileNickname',
+              defaultMessage: 'What should Lucius call you?',
+            })}
+          >
+            {input('nickname')}
+          </Field>
+          <Field
+            label={formatMessage({
+              id: 'settings.remaining.profileDob',
+              defaultMessage: 'Date of birth',
+            })}
+          >
+            {dateInput('date_of_birth')}
+          </Field>
+          <Field
+            label={formatMessage({
+              id: 'settings.remaining.profileMarital',
+              defaultMessage: 'Marital status',
+            })}
+          >
+            {select('marital_status', marital)}
+          </Field>
+          <Field
+            label={formatMessage({
+              id: 'settings.remaining.profileRisk',
+              defaultMessage: 'Risk tolerance',
+            })}
+          >
+            {select('risk_tolerance', risk)}
+          </Field>
           {pickerField('employment_types')}
           {pickerField('nationalities')}
           {pickerField('countries_of_residence')}
@@ -707,21 +958,56 @@ export function ProfileSection({
       </Panel>
 
       <Panel
-        title="Income & expenses"
-        sub="Planning estimates for cash-flow and FIRE projections — actual spending is tracked on the Plan tab"
+        title={formatMessage({
+          id: 'settings.remaining.profileIncomeExpense',
+          defaultMessage: 'Income & expenses',
+        })}
+        sub={formatMessage({
+          id: 'settings.remaining.profileIncomeHelp',
+          defaultMessage:
+            'Planning estimates for cash-flow and FIRE projections — actual spending is tracked on the Plan tab',
+        })}
       >
         <div className="rd-formgrid">
-          <Field label={`Monthly net income (${currency})`}>
+          <Field
+            label={formatMessage(
+              {
+                id: 'settings.remaining.profileMonthlyIncome',
+                defaultMessage: 'Monthly net income ({currency})',
+              },
+              { currency },
+            )}
+          >
             {moneyInput('monthly_net_income', { min: 0 })}
           </Field>
-          <Field label={`Monthly expenses (${currency})`}>
+          <Field
+            label={formatMessage(
+              {
+                id: 'settings.remaining.profileMonthlyExpense',
+                defaultMessage: 'Monthly expenses ({currency})',
+              },
+              { currency },
+            )}
+          >
             {moneyInput('monthly_expenses', { min: 0 })}
           </Field>
           <Field
             label={
               <span>
-                Low balance threshold ({currency}){' '}
-                <Tip text="Cash-flow alerts fire when any checking account is projected to dip below this." />
+                {formatMessage(
+                  {
+                    id: 'settings.remaining.profileThreshold',
+                    defaultMessage: 'Low balance threshold ({currency})',
+                  },
+                  { currency },
+                )}{' '}
+                <Tip
+                  text={formatMessage({
+                    id: 'settings.remaining.profileThresholdHelp',
+                    defaultMessage:
+                      'Cash-flow alerts fire when any checking account is projected to dip below this.',
+                  })}
+                />
               </span>
             }
           >
@@ -731,43 +1017,97 @@ export function ProfileSection({
       </Panel>
 
       <Panel
-        title="FIRE settings"
-        sub="Drives your retirement projections"
+        title={formatMessage({
+          id: 'settings.remaining.profileFire',
+          defaultMessage: 'FIRE settings',
+        })}
+        sub={formatMessage({
+          id: 'settings.remaining.profileFireHelp',
+          defaultMessage: 'Drives your retirement projections',
+        })}
         actions={
           <Btn size="xs" onClick={() => setFireOpen(true)}>
-            Edit
+            {formatMessage({ id: 'settings.remaining.profileEdit', defaultMessage: 'Edit' })}
           </Btn>
         }
       >
         <div className="rd-readout">
           {(
             [
-              ['Monthly retirement spending', money(fireDraft.monthlyRetirementSpending) + ' / mo'],
-              ['FIRE number', fireNumber !== null ? fBaseCompact(fireNumber) : '—'],
-              ['Withdrawal rate', pct(fireDraft.withdrawalRate)],
-              ['Expected return', pct(fireDraft.expectedReturn)],
-              ['Return volatility', pct(fireDraft.volatility)],
-              ['Monthly saving', money(fireDraft.monthlySaving)],
               [
-                'Target retirement age',
+                formatMessage({
+                  id: 'settings.remaining.profileReadout0',
+                  defaultMessage: 'Monthly retirement spending',
+                }),
+                formatMessage(
+                  { id: 'settings.remaining.profilePerMonth', defaultMessage: '{amount} / mo' },
+                  { amount: money(fireDraft.monthlyRetirementSpending) },
+                ),
+              ],
+              [
+                formatMessage({
+                  id: 'settings.remaining.profileReadout1',
+                  defaultMessage: 'FIRE number',
+                }),
+                fireNumber !== null ? fBaseCompact(fireNumber) : '—',
+              ],
+              [
+                formatMessage({
+                  id: 'settings.remaining.profileReadout2',
+                  defaultMessage: 'Withdrawal rate',
+                }),
+                pct(fireDraft.withdrawalRate),
+              ],
+              [
+                formatMessage({
+                  id: 'settings.remaining.profileReadout3',
+                  defaultMessage: 'Expected return',
+                }),
+                pct(fireDraft.expectedReturn),
+              ],
+              [
+                formatMessage({
+                  id: 'settings.remaining.profileReadout4',
+                  defaultMessage: 'Return volatility',
+                }),
+                pct(fireDraft.volatility),
+              ],
+              [
+                formatMessage({
+                  id: 'settings.remaining.profileReadout5',
+                  defaultMessage: 'Monthly saving',
+                }),
+                money(fireDraft.monthlySaving),
+              ],
+              [
+                formatMessage({
+                  id: 'settings.remaining.profileReadout6',
+                  defaultMessage: 'Target retirement age',
+                }),
                 fireDraft.targetAge === '' ? '—' : String(fireDraft.targetAge),
                 age !== null && fireDraft.targetAge !== ''
-                  ? 'in ' + (Number(fireDraft.targetAge) - age) + ' yrs'
+                  ? formatMessage(
+                      { id: 'settings.remaining.profileInYears', defaultMessage: 'in {count} yrs' },
+                      { count: Number(fireDraft.targetAge) - age },
+                    )
                   : null,
               ],
               [
-                'Life expectancy',
+                formatMessage({
+                  id: 'settings.remaining.profileReadout7',
+                  defaultMessage: 'Life expectancy',
+                }),
                 fireDraft.lifeExpectancy === '' ? '—' : String(fireDraft.lifeExpectancy),
               ],
               // Exactly the eight the design specifies. A derived "Progress" row was tempting
               // here and is deliberately NOT added: this panel is a read-only MIRROR of the
               // FIRE facts, and progress-against-target is the Plan tab's job.
             ] as [string, string, string?][]
-          ).map(([k, v, note]) => (
+          ).map(([k, v, note], index) => (
             <div className="rd-readout-item" key={k}>
               <span className="rd-readout-k">{k}</span>
               <span className="rd-readout-v rd-mono">
-                {v}
+                {index === 0 || index === 1 || index === 5 ? <span className="money">{v}</span> : v}
                 {note ? <em>{note}</em> : null}
               </span>
             </div>
@@ -776,13 +1116,23 @@ export function ProfileSection({
       </Panel>
 
       <Panel
-        title="Instructions for Lucius"
-        sub="Standing rules for how Lucius should work with you. Lucius can add to them too — you’ll see each change before it’s saved."
+        title={formatMessage({
+          id: 'settings.remaining.profileInstructions',
+          defaultMessage: 'Instructions for Lucius',
+        })}
+        sub={formatMessage({
+          id: 'settings.remaining.profileInstructionsHelp',
+          defaultMessage:
+            'Standing rules for how Lucius should work with you. Lucius can add to them too — you’ll see each change before it’s saved.',
+        })}
       >
         <textarea
           className="rd-textarea"
           rows={4}
-          placeholder="e.g. Keep answers short. Always show amounts in SGD."
+          placeholder={formatMessage({
+            id: 'settings.remaining.profileInstructionsPlaceholder',
+            defaultMessage: 'e.g. Keep answers short. Always show amounts in SGD.',
+          })}
           value={draft?.notes ?? ''}
           disabled={loading}
           onChange={(e) => set('notes', e.target.value)}
@@ -808,8 +1158,8 @@ export function ProfileSection({
 
       {pickerOpen && (
         <MultiSelectModal
-          label={PICKER_FIELD_LABELS[pickerOpen]}
-          help={PICKER_FIELD_HELP[pickerOpen]}
+          label={pickerLabels[pickerOpen]}
+          help={pickerHelp[pickerOpen]}
           options={pickerOptionsFor(pickerOpen)}
           showSearch={PICKER_HAS_SEARCH[pickerOpen]}
           normalizeValue={pickerOpen === 'employment_types' ? (raw) => raw : toCountryCode}

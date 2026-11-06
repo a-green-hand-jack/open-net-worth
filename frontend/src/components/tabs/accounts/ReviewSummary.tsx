@@ -1,3 +1,5 @@
+import { defineMessages } from 'react-intl'
+import { useAppIntl } from '../../../i18n/useAppIntl'
 import { CalendarCheck, Receipt, StickyNote, Tags, Wallet } from '../../../ui/icons'
 import { fCurrency } from '../../../utils/format'
 import {
@@ -12,6 +14,14 @@ import {
 import { ReviewCategoryChoices, ReviewChipChooser } from './ReviewCategoryChoices'
 import { catOptionsFor } from './categories'
 import type { Account, Category, Txn } from './types'
+
+const reviewKinds = defineMessages({
+  expense: { id: 'accounts.reviewKind.expense', defaultMessage: 'Expense' },
+  income: { id: 'accounts.reviewKind.income', defaultMessage: 'Income' },
+  transfer: { id: 'accounts.reviewKind.transfer', defaultMessage: 'Transfer' },
+  investment: { id: 'accounts.reviewKind.investment', defaultMessage: 'Investment' },
+  adjustment: { id: 'accounts.reviewKind.adjustment', defaultMessage: 'Balance adjustment' },
+})
 
 /**
  * The facts of a review card: meta line, kind, payee, amount and details. The category block
@@ -39,6 +49,7 @@ export function ReviewSummary({
   accounts: Account[]
   draft: ReviewDraft
 }) {
+  const { formatMessage } = useAppIntl()
   const inflow = isInflow(draft)
   const ledgerCurrency = transactionCurrency(
     draft,
@@ -46,7 +57,9 @@ export function ReviewSummary({
     txn.fromCurrency ?? txn.toCurrency ?? txn.baseCurrency,
   )
   const destination = accounts.find((item) => item.id === draft.toAccountId)
-  const title = summaryTitle(draft, accounts, txn.description)
+  const title = draft.kind === 'transfer'
+    ? formatMessage({ id: 'accounts.reviewSummary.transferTo', defaultMessage: 'Transfer to {account}' }, { account: destination?.name ?? formatMessage({ id: 'accounts.reviewSummary.anotherAccount', defaultMessage: 'another account' }) })
+    : summaryTitle(draft, accounts, txn.description)
   const memo = draft.memo.trim()
   const showDestinationLeg =
     draft.kind === 'transfer' &&
@@ -71,9 +84,9 @@ export function ReviewSummary({
       {/* The kind is an eyebrow over the payee, in the register's kind colour; the amount below
           wears the same colour, so what kind of money this is reads before a word is read. */}
       <span className={`acct-review-summary-kind acct-detail-kind ${draft.kind}`}>
-        {typeLabel(draft)}
+        {reviewKinds[draft.kind as keyof typeof reviewKinds] ? formatMessage(reviewKinds[draft.kind as keyof typeof reviewKinds]) : typeLabel(draft)}
       </span>
-      <h3>{title || <span className="acct-review-no-payee">No payee yet</span>}</h3>
+      <h3>{title || <span className="acct-review-no-payee">{formatMessage({ id: 'accounts.reviewSummary.noPayee', defaultMessage: "No payee yet" })}</span>}</h3>
       <div className={`acct-review-summary-amount ${draft.kind}`}>
         {/* A transfer is always drawn from its sending leg, so a sign would only ever be "−" —
             "Transfer to …" already says which way it went. */}
@@ -84,13 +97,12 @@ export function ReviewSummary({
       <div className="acct-review-summary-details">
         {draft.originalAmount && draft.originalCurrency && (
           <span>
-            Originally {originalAmountLabel(draft.originalAmount, draft.originalCurrency)}{' '}
-            {draft.originalCurrency}
+            {formatMessage({ id: 'accounts.reviewSummary.original', defaultMessage: 'Originally {amount} {currency}' }, { amount: originalAmountLabel(draft.originalAmount, draft.originalCurrency), currency: draft.originalCurrency })}
           </span>
         )}
         {showBaseValue && (
-          <span title="Value in your base currency">
-            ≈ {fCurrency(Math.abs(txn.baseAmount), txn.baseCurrency)} in {txn.baseCurrency}
+          <span title={formatMessage({ id: 'accounts.reviewSummary.baseValue', defaultMessage: "Value in your base currency" })}>
+            {formatMessage({ id: 'accounts.reviewSummary.baseAmount', defaultMessage: '≈ {amount} in {currency}' }, { amount: fCurrency(Math.abs(txn.baseAmount), txn.baseCurrency), currency: txn.baseCurrency })}
           </span>
         )}
         {/* The heading already names the destination; this line only adds what it receives. */}
@@ -102,15 +114,15 @@ export function ReviewSummary({
         {/* ONE detail line: the memo when there is one (your own words), else the bank's
             string. Two clamped blocks buried the card; the icon says which one this is. */}
         {memo ? (
-          <p title="Memo" data-detail="memo">
-            <StickyNote size={14} aria-label="Memo" />
+          <p title={formatMessage({ id: 'accounts.reviewSummary.memo', defaultMessage: "Memo" })} data-detail="memo">
+            <StickyNote size={14} aria-label={formatMessage({ id: 'accounts.reviewSummary.memo', defaultMessage: "Memo" })} />
             {memo}
           </p>
         ) : (
           txn.description &&
           txn.description !== title && (
-            <p title="Bank description" data-detail="description">
-              <Receipt size={14} aria-label="Bank description" />
+            <p title={formatMessage({ id: 'accounts.reviewSummary.bankDescription', defaultMessage: "Bank description" })} data-detail="description">
+              <Receipt size={14} aria-label={formatMessage({ id: 'accounts.reviewSummary.bankDescription', defaultMessage: "Bank description" })} />
               {txn.description}
             </p>
           )
@@ -161,6 +173,7 @@ export function ReviewChoices({
   onDraftChange: (draft: ReviewDraft) => void
   suggestedCategoryIds: string[]
 }) {
+  const { formatMessage } = useAppIntl()
   const ledgerCurrency = transactionCurrency(
     draft,
     accounts,
@@ -171,7 +184,7 @@ export function ReviewChoices({
     return (
       <div className="acct-review-choices">
         <ReviewChipChooser
-          caption="Going to"
+          caption={formatMessage({ id: 'accounts.reviewSummary.goingTo', defaultMessage: "Going to" })}
           // Account chips have no colour of their own: they take the transfer's.
           options={destinations.map((item) => ({
             id: item.id,
@@ -192,8 +205,8 @@ export function ReviewChoices({
             onDraftChange({ ...draft, toAccountId: to.id, toAmount })
           }}
           icon={Wallet}
-          searchLabel="Search accounts"
-          placeholder="Find an account…"
+          searchLabel={formatMessage({ id: 'accounts.reviewSummary.searchAccounts', defaultMessage: "Search accounts" })}
+          placeholder={formatMessage({ id: 'accounts.reviewSummary.findAccount', defaultMessage: "Find an account…" })}
           resultsTestId="review-account-results"
           limit={3}
         />
@@ -208,7 +221,7 @@ export function ReviewChoices({
         // 2026-09-21). Changing the lines is the editor's job.
         <div className="acct-review-category-choices">
           <span className="acct-review-category-caption">
-            Split across {txn.splits.length} categories
+            {formatMessage({ id: 'accounts.reviewSummary.split', defaultMessage: 'Split across {count} categories' }, { count: txn.splits.length })}
           </span>
           <div className="acct-review-category-chips">
             {txn.splits.map((line, index) => {
@@ -220,7 +233,7 @@ export function ReviewChoices({
                   style={{ '--category-color': category?.color } as React.CSSProperties}
                 >
                   <Tags size={14} aria-hidden="true" />
-                  {category?.label ?? 'Uncategorized'}
+                  {category?.label ?? formatMessage({ id: 'accounts.reviewSummary.uncategorized', defaultMessage: "Uncategorized" })}
                   <em>
                     {reviewAmount(Math.abs(line.amount), ledgerCurrency)} {ledgerCurrency}
                   </em>

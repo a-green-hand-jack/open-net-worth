@@ -1,3 +1,4 @@
+import { useAppIntl } from '../../i18n/useAppIntl'
 import { Button, Cluster, Modal, Text } from '../ui'
 
 export function ScanConfirmModal({
@@ -9,26 +10,26 @@ export function ScanConfirmModal({
   onCancel: () => void
   onConfirm: () => void
 }) {
+  const intl = useAppIntl()
   return (
     <Modal
       open={open}
       onClose={onCancel}
-      title="Run intelligence scan?"
+      title={intl.formatMessage({ id: 'intel.scanConfirm', defaultMessage: "Run intelligence scan?" })}
       size="sm"
       footer={
         <Cluster justify="end" gap="--space-2">
           <Button variant="ghost" onClick={onCancel}>
-            Cancel
+            {intl.formatMessage({ id: 'intel.cancel', defaultMessage: "Cancel" })}
           </Button>
           <Button variant="primary" onClick={onConfirm}>
-            Scan now
+            {intl.formatMessage({ id: 'intel.scanNow', defaultMessage: "Scan now" })}
           </Button>
         </Cluster>
       }
     >
       <Text size="sm">
-        This scan makes external web-search API calls to fetch news and market signals for your
-        watchlist. It counts against your search quota.
+        {intl.formatMessage({ id: 'intel.scanCost', defaultMessage: "This scan makes external web-search API calls to fetch news and market signals for your watchlist. It counts against your search quota." })}
       </Text>
     </Modal>
   )

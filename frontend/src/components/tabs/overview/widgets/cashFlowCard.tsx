@@ -18,6 +18,8 @@ import type { WidgetContentProps } from '../types'
 import { WidgetShell } from '../WidgetShell'
 import { WidgetPlaceholder } from '../WidgetPlaceholder'
 import { useElementSize } from '../../../../hooks/useElementWidth'
+import { useAppIntl } from '../../../../i18n/useAppIntl'
+import { formatMoneyFlowLabel } from '../../../shared/moneyFlowMessages'
 
 function lastFullMonth(): string {
   const d = new Date()
@@ -25,12 +27,14 @@ function lastFullMonth(): string {
   return `${Math.floor(total / 12)}-${String((total % 12) + 1).padStart(2, '0')}`
 }
 
-function shortMonth(ym: string): string {
+function shortMonth(ym: string, locale: string): string {
   const d = new Date(Number(ym.slice(0, 4)), Number(ym.slice(5, 7)) - 1, 1)
-  return d.toLocaleString('en', { month: 'short' })
+  return d.toLocaleString(locale, { month: 'short' })
 }
 
 export const CashFlowCard: ComponentType<WidgetContentProps> = ({ instance, def, onNavigate }) => {
+  const intl = useAppIntl()
+  const { formatMessage } = intl
   const month = lastFullMonth()
   const query = useCashFlowGraph(month, true)
   const g = query.data
@@ -41,23 +45,32 @@ export const CashFlowCard: ComponentType<WidgetContentProps> = ({ instance, def,
   const laid = useMemo(
     () =>
       g
-        ? layoutMoneyFlow(g, {
-            width,
-            height,
-            labelLeft: Math.min(100, width * 0.27),
-            labelRight: Math.min(128, width * 0.32),
-            nodeWidth: 7,
-            nodePadding: 8,
-            labelGap: 26,
-          })
+        ? layoutMoneyFlow(
+            {
+              ...g,
+              nodes: g.nodes.map((node) => ({
+                ...node,
+                label: formatMoneyFlowLabel(intl, node.label_message, node.label),
+              })),
+            },
+            {
+              width,
+              height,
+              labelLeft: Math.min(100, width * 0.27),
+              labelRight: Math.min(128, width * 0.32),
+              nodeWidth: 7,
+              nodePadding: 8,
+              labelGap: 26,
+            },
+          )
         : null,
-    [g, width, height],
+    [g, width, height, intl],
   )
   const byId = useMemo(() => new Map((laid?.nodes ?? []).map((n) => [n.id, n])), [laid])
   const link =
     onNavigate && def.source?.tab ? (
       <button type="button" className="ov-panel-link" onClick={() => onNavigate(def.source!.tab)}>
-        Open in Plan
+        {formatMessage({ id: 'overview.moneyFlow.openPlan', defaultMessage: 'Open in Plan' })}
       </button>
     ) : undefined
   // Both sides of the flow net a refund against its category, which Plan → Cash Flow does not
@@ -65,7 +78,10 @@ export const CashFlowCard: ComponentType<WidgetContentProps> = ({ instance, def,
   const footer = (
     <div className="ov-mf-foot">
       <Text as="span" size="xs" tone="faint">
-        Net of refunds and reimbursements
+        {formatMessage({
+          id: 'overview.moneyFlow.netRefunds',
+          defaultMessage: 'Net of refunds and reimbursements',
+        })}
       </Text>
       {link}
     </div>
@@ -84,8 +100,17 @@ export const CashFlowCard: ComponentType<WidgetContentProps> = ({ instance, def,
         <WidgetPlaceholder
           detail={
             !g
-              ? "Couldn't load the money flow."
-              : `No income or spending recorded in ${shortMonth(month)}.`
+              ? formatMessage({
+                  id: 'overview.moneyFlow.error',
+                  defaultMessage: "Couldn't load the money flow.",
+                })
+              : formatMessage(
+                  {
+                    id: 'overview.moneyFlow.empty',
+                    defaultMessage: 'No income or spending recorded in {month}.',
+                  },
+                  { month: shortMonth(month, intl.locale) },
+                )
           }
         />
       </WidgetShell>
@@ -99,9 +124,11 @@ export const CashFlowCard: ComponentType<WidgetContentProps> = ({ instance, def,
       footer={footer}
       meta={
         <>
-          {shortMonth(month)} ·{' '}
+          {shortMonth(month, intl.locale)} ·{' '}
           <span className="money">{fBaseCompact(g.shortfall > 0 ? g.shortfall : g.saved)}</span>
-          {g.shortfall > 0 ? ' over' : ' saved'}
+          {g.shortfall > 0
+            ? formatMessage({ id: 'overview.moneyFlow.over', defaultMessage: ' over' })
+            : formatMessage({ id: 'overview.moneyFlow.saved', defaultMessage: ' saved' })}
         </>
       }
     >
@@ -113,7 +140,17 @@ export const CashFlowCard: ComponentType<WidgetContentProps> = ({ instance, def,
             height={height}
             viewBox={`0 0 ${width} ${height}`}
             role="img"
-            aria-label={`Money flow for ${shortMonth(month)}: ${fBase(g.income_total)} in, ${fBase(g.spend_total)} out`}
+            aria-label={formatMessage(
+              {
+                id: 'overview.moneyFlow.chartLabel',
+                defaultMessage: 'Money flow for {month}: {income} in, {spend} out',
+              },
+              {
+                month: shortMonth(month, intl.locale),
+                income: fBase(g.income_total),
+                spend: fBase(g.spend_total),
+              },
+            )}
           >
             <defs>
               <pattern

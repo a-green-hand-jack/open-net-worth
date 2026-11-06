@@ -1,13 +1,11 @@
 import type { DelegationCreate, RunCreate } from '../../../types/trading'
 
-export function defaultEnvironment(): RunCreate {
+export function defaultEnvironment(allocationName = 'Trading allocation'): RunCreate {
   return {
     mode: 'paper',
     start_at: new Date().toISOString(),
     end_at: new Date(Date.now() + 30 * 86400000).toISOString(),
-    accounts: [
-      { name: 'Trading allocation', currency: 'USD', capital: '1000', venue: 'simulation' },
-    ],
+    accounts: [{ name: allocationName, currency: 'USD', capital: '1000', venue: 'simulation' }],
     base_currency: 'USD',
     fx_rates: { USD: '1' },
     observations: [],
@@ -17,7 +15,7 @@ export function defaultEnvironment(): RunCreate {
   }
 }
 
-export const defaultDelegation = (): DelegationCreate => ({
+export const defaultDelegation = (allocationName?: string): DelegationCreate => ({
   workspace: {
     name: '',
     instructions: '',
@@ -35,6 +33,6 @@ export const defaultDelegation = (): DelegationCreate => ({
       instruments: [],
     },
   },
-  environment: defaultEnvironment(),
+  environment: defaultEnvironment(allocationName),
   start: true,
 })

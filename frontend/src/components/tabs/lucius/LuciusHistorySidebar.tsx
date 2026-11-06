@@ -1,3 +1,4 @@
+import { useAppIntl } from '../../../i18n/useAppIntl'
 // LuciusHistorySidebar — the Lucius home tab's persistent, collapsible history rail.
 //
 // Reuses exactly what the floating dock's own ConversationMenu already computes
@@ -57,6 +58,7 @@ export function LuciusHistorySidebar({
   onMarkAllRead: (ids: string[]) => void
   onCollapse: () => void
 }) {
+  const intl = useAppIntl()
   const [editingId, setEditingId] = useState<string | null>(null)
 
   const runs = groups.find((g) => g.key === 'automation')?.items ?? []
@@ -78,8 +80,8 @@ export function LuciusHistorySidebar({
         type="button"
         className="conv-menu-markread"
         onClick={() => onMarkAllRead(ids)}
-        aria-label="Mark all read"
-        title={`Mark ${ids.length} unread as read`}
+        aria-label={intl.formatMessage({ id: 'chat.markAllRead', defaultMessage: 'Mark all read' })}
+        title={intl.formatMessage({ id: 'chat.markUnread', defaultMessage: 'Mark {count} unread as read' }, { count: ids.length })}
       >
         <CheckCheck size={14} />
       </button>
@@ -91,7 +93,7 @@ export function LuciusHistorySidebar({
       conv={conv}
       active={conv.id === activeId}
       status={statusFor(conv.id)}
-      when={shortWhen(conv)}
+      when={shortWhen(conv, intl)}
       editing={editingId === conv.id}
       onSelect={onSelect}
       onStartRename={setEditingId}
@@ -111,14 +113,14 @@ export function LuciusHistorySidebar({
       <div className="lucius-home-side-top">
         <button type="button" className="lucius-home-side-new" onClick={onNewChat}>
           <SquarePen size={14} />
-          New
+          {intl.formatMessage({ id: 'chat.new', defaultMessage: 'New' })}
         </button>
         <button
           type="button"
           className="lucius-home-side-collapse"
           onClick={onCollapse}
-          aria-label="Hide chat history"
-          title="Hide chat history"
+          aria-label={intl.formatMessage({ id: 'chat.hideHistory', defaultMessage: 'Hide chat history' })}
+          title={intl.formatMessage({ id: 'chat.hideHistory', defaultMessage: 'Hide chat history' })}
         >
           <ChevronLeft size={14} />
         </button>
@@ -129,14 +131,14 @@ export function LuciusHistorySidebar({
           <div className="conv-menu-sec">
             <div className="conv-menu-sec-h">
               <ListChecks size={14} />
-              <span>Automation runs</span>
+              <span>{intl.formatMessage({ id: 'chat.automationRuns', defaultMessage: 'Automation runs' })}</span>
               {markAllRead(unreadRuns)}
               <button
                 type="button"
                 className="conv-menu-viewall"
                 onClick={() => onViewAll('automation')}
-                aria-label="View all runs"
-                title="View all runs"
+                aria-label={intl.formatMessage({ id: 'chat.viewRuns', defaultMessage: 'View all runs' })}
+                title={intl.formatMessage({ id: 'chat.viewRuns', defaultMessage: 'View all runs' })}
               >
                 <ChevronRight size={14} />
               </button>
@@ -147,7 +149,7 @@ export function LuciusHistorySidebar({
               className="conv-menu-more"
               onClick={() => onViewAll('automation')}
             >
-              View all runs
+              {intl.formatMessage({ id: 'remaining.history.runs', defaultMessage: 'View all runs' })}
             </button>
           </div>
         )}
@@ -156,21 +158,21 @@ export function LuciusHistorySidebar({
           <div className="conv-menu-sec">
             <div className="conv-menu-sec-h">
               <Zap size={14} />
-              <span>Captures</span>
+              <span>{intl.formatMessage({ id: 'chat.captures', defaultMessage: 'Captures' })}</span>
               {markAllRead(unreadCaptures)}
               <button
                 type="button"
                 className="conv-menu-viewall"
                 onClick={() => onViewAll('capture')}
-                aria-label="View all captures"
-                title="View all captures"
+                aria-label={intl.formatMessage({ id: 'chat.viewCaptures', defaultMessage: 'View all captures' })}
+                title={intl.formatMessage({ id: 'chat.viewCaptures', defaultMessage: 'View all captures' })}
               >
                 <ChevronRight size={14} />
               </button>
             </div>
             {visibleCaptures.map(row)}
             <button type="button" className="conv-menu-more" onClick={() => onViewAll('capture')}>
-              View all captures
+              {intl.formatMessage({ id: 'remaining.history.captures', defaultMessage: 'View all captures' })}
             </button>
           </div>
         )}
@@ -178,20 +180,20 @@ export function LuciusHistorySidebar({
         <div className="conv-menu-sec conv-menu-sec--fill">
           <div className="conv-menu-sec-h">
             <MessageSquare size={14} />
-            <span>Chats</span>
+            <span>{intl.formatMessage({ id: 'chat.chats', defaultMessage: 'Chats' })}</span>
             {markAllRead(unreadChats)}
             <button
               type="button"
               className="conv-menu-viewall"
               onClick={() => onViewAll('chat')}
-              aria-label="View all conversations"
-              title="View all conversations"
+              aria-label={intl.formatMessage({ id: 'chat.viewChats', defaultMessage: 'View all conversations' })}
+              title={intl.formatMessage({ id: 'chat.viewChats', defaultMessage: 'View all conversations' })}
             >
               <ChevronRight size={14} />
             </button>
           </div>
           {chats.length === 0 ? (
-            <div className="conv-menu-empty">No chats yet.</div>
+            <div className="conv-menu-empty">{intl.formatMessage({ id: 'chat.noChats', defaultMessage: 'No chats yet.' })}</div>
           ) : (
             groupByAge(visibleChats).map((bucket) => (
               <div key={bucket.label} className="conv-menu-bucket">
@@ -201,7 +203,7 @@ export function LuciusHistorySidebar({
             ))
           )}
           <button type="button" className="conv-menu-more" onClick={() => onViewAll('chat')}>
-            View all conversations
+            {intl.formatMessage({ id: 'remaining.history.conversations', defaultMessage: 'View all conversations' })}
           </button>
         </div>
       </div>

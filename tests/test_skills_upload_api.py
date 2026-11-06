@@ -293,12 +293,112 @@ def test_upload_requires_skill_md(client):
     assert _upload(client, _zip({"README.md": "not a skill"})).status_code == 400
 
 
+def test_upload_validation_returns_structured_problems_alongside_original_detail(client):
+    response = _upload(client, _zip({"SKILL.md": "---\nname: Example\n---\nbody"}))
+    assert response.status_code == 400
+    body = response.json()
+    assert body["message_id"] == "skills.error.invalidSkillFile"
+    assert "Invalid SKILL.md:" in body["detail"]
+    assert {item.get("message_id") for item in body["message_items"]} >= {
+        "skills.validation.nameSlug",
+        "skills.validation.descriptionRequired",
+    }
+
+
 def test_upload_rejects_non_zip(client):
     assert _upload(client, b"not a zip").status_code == 400
 
 
 def test_upload_rejects_traversal(client):
-    assert _upload(client, _zip({"../evil.md": "x", "SKILL.md": _skill_md()})).status_code == 400
+    response = _upload(client, _zip({"../evil.md": "x", "SKILL.md": _skill_md()}))
+    assert response.status_code == 400
+    assert response.json() == {
+        "detail": "Unsafe path in zip: '../evil.md'",
+        "message_id": "skills.error.unsafePath",
+        "message_params": {"path": "../evil.md"},
+    }
+
+
+def test_bundle_failure_preserves_nested_validation_source(client, monkeypatch):
+    from backend.core.errors import ValidationError
+    from backend.services import skill_bundles
+
+    def fail_bundle(*args, **kwargs):
+        raise ValidationError(
+            "invalid bundle manifest: script needs an entry",
+            message_id="skills.validation.manifestInvalid",
+            message_items=[
+                {
+                    "text": "script needs an entry",
+                    "message_id": "skills.validation.scriptEntry",
+                    "params": {"script": "1"},
+                }
+            ],
+        )
+
+    monkeypatch.setattr(skill_bundles, "write_bundle", fail_bundle)
+    response = _upload(
+        client, _zip({"SKILL.md": _skill_md("bundle-failure"), "references/guide.md": "help"})
+    )
+    assert response.status_code == 400
+    body = response.json()
+    assert body["message_params"]["reason_message_id"] == "skills.validation.manifestInvalid"
+    assert body["message_items"][0]["message_id"] == "skills.validation.scriptEntry"
+
+
+def test_skill_error_contract_tracks_emitted_ids():
+    import ast
+    import json
+    from pathlib import Path
+
+    root = Path(__file__).resolve().parents[1]
+    contract = json.loads((root / "backend/core/skill_error_contract.json").read_text())
+    tree = ast.parse((root / "backend/api/skills.py").read_text())
+    emitted = {
+        node.args[2].value
+        for node in ast.walk(tree)
+        if isinstance(node, ast.Call)
+        and isinstance(node.func, ast.Name)
+        and node.func.id == "SkillError"
+        and len(node.args) >= 3
+        and isinstance(node.args[2], ast.Constant)
+    }
+    assert emitted == set(contract)
+
+
+def test_skill_validation_contract_tracks_emitted_ids():
+    import ast
+    import json
+    from pathlib import Path
+
+    root = Path(__file__).resolve().parents[1]
+    contract = json.loads((root / "backend/core/skill_validation_contract.json").read_text())
+    emitted = set()
+    for path in (
+        "backend/db/skill_files.py",
+        "backend/services/skills.py",
+        "backend/services/skill_bundles.py",
+    ):
+        tree = ast.parse((root / path).read_text())
+        emitted.update(
+            node.args[1].value
+            for node in ast.walk(tree)
+            if isinstance(node, ast.Call)
+            and isinstance(node.func, ast.Name)
+            and node.func.id == "SkillProblem"
+            and len(node.args) >= 2
+            and isinstance(node.args[1], ast.Constant)
+        )
+        emitted.update(
+            keyword.value.value
+            for node in ast.walk(tree)
+            if isinstance(node, ast.Call)
+            for keyword in node.keywords
+            if keyword.arg == "message_id"
+            and isinstance(keyword.value, ast.Constant)
+            and str(keyword.value.value).startswith("skills.validation.")
+        )
+    assert emitted == set(contract)
 
 
 def test_upload_prompt_with_references_makes_bundle(client):

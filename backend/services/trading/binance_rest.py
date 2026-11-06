@@ -31,27 +31,42 @@ def number(value: object) -> Decimal:
             raise ValueError("invalid amount")
         return result
     except (InvalidOperation, ValueError, TypeError) as exc:
-        raise ConflictError("Binance returned an invalid monetary value") from exc
+        raise ConflictError(
+            "Binance returned an invalid monetary value",
+            message_id="trading.error.binance_amount_invalid",
+        ) from exc
 
 
 def object_row(value: object) -> dict:
     if not isinstance(value, dict) or "code" in value:
-        raise ConflictError("Binance returned an invalid structured receipt")
+        raise ConflictError(
+            "Binance returned an invalid structured receipt",
+            message_id="trading.error.binance_receipt_invalid",
+        )
     return value
 
 
 def rows(value: object) -> list[dict]:
     if not isinstance(value, list) or not all(isinstance(row, dict) for row in value):
-        raise ConflictError("Binance returned an invalid list receipt")
+        raise ConflictError(
+            "Binance returned an invalid list receipt",
+            message_id="trading.error.binance_list_invalid",
+        )
     return value
 
 
 class BinanceRest:
     def __init__(self, environment: str, api_key: str, api_secret: str):
         if environment not in HOSTS:
-            raise ConflictError("Binance environment must be live or testnet")
+            raise ConflictError(
+                "Binance environment must be live or testnet",
+                message_id="trading.error.binance_environment_invalid",
+            )
         if not api_key or not api_secret:
-            raise ConflictError("Binance requires an API key and HMAC API secret")
+            raise ConflictError(
+                "Binance requires an API key and HMAC API secret",
+                message_id="trading.error.binance_credentials_required",
+            )
         self.environment, self.api_key, self.api_secret = environment, api_key, api_secret
 
     async def __call__(self, method: str, path: str, params: dict) -> object:
@@ -59,10 +74,16 @@ class BinanceRest:
             (method == "GET" and path in _READS)
             or (method in {"POST", "DELETE"} and path == "/api/v3/order")
         ):
-            raise ConflictError("Binance endpoint is outside the Spot execution contract")
+            raise ConflictError(
+                "Binance endpoint is outside the Spot execution contract",
+                message_id="trading.error.binance_endpoint_forbidden",
+            )
         public = path == "/api/v3/exchangeInfo"
         if self.environment == "testnet" and path.startswith("/sapi/"):
-            raise ConflictError("Binance Spot Testnet does not provide wallet endpoints")
+            raise ConflictError(
+                "Binance Spot Testnet does not provide wallet endpoints",
+                message_id="trading.error.binance_testnet_wallet",
+            )
         payload = dict(params)
         headers = {}
         if not public:

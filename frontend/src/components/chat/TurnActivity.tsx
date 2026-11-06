@@ -1,3 +1,4 @@
+import { useAppIntl } from '../../i18n/useAppIntl'
 // TurnActivity — the "still working" line, pinned above the composer.
 //
 // Not inline in the transcript. A working indicator that lives in the message list
@@ -73,6 +74,7 @@ export interface TurnActivityProps {
 }
 
 export function TurnActivity({ tokens, effort, startedAt, progress }: TurnActivityProps) {
+  const intl = useAppIntl()
   // Random start so two conversations working side by side do not tick in lockstep, which
   // reads as one shared spinner rather than two independent turns.
   const [i, setI] = useState(() => Math.floor(Math.random() * WORDS.length))
@@ -123,7 +125,7 @@ export function TurnActivity({ tokens, effort, startedAt, progress }: TurnActivi
     <div className="lx-activity" role="status" aria-live="polite">
       <span className="lx-activity-dot" aria-hidden="true" />
       <span key={quiet ? 'quiet' : i} className="lx-activity-word">
-        {quiet ? 'Still working' : WORDS[i]}…
+        {quiet ? intl.formatMessage({ id: 'miss.turn.stillWorking', defaultMessage: 'Still working' }) : intl.formatMessage({ id: 'miss.turn.word', defaultMessage: '{word, select, Thinking {Thinking} Pondering {Pondering} Mulling {Mulling} Noodling {Noodling} Percolating {Percolating} Ruminating {Ruminating} Cogitating {Cogitating} Deliberating {Deliberating} Scheming {Scheming} Puzzling {Puzzling} Untangling {Untangling} Wrangling {Wrangling} Crunching {Crunching} Divining {Divining} Conjuring {Conjuring} Assembling {Assembling} Tinkering {Tinkering} Brewing {Brewing} Simmering {Simmering} Sautéing {Sautéing} Whisking {Whisking} other {Marinating}}' }, { word: WORDS[i] })}…
       </span>
       <span className="lx-activity-meta">
         ({formatElapsed(elapsed)}
@@ -131,9 +133,9 @@ export function TurnActivity({ tokens, effort, startedAt, progress }: TurnActivi
             simply absent until the first model round reports, rather than showing a
             fabricated running guess. */}
         {typeof tokens === 'number' && tokens > 0
-          ? ` • ↓ ${tokens >= 1000 ? `${(tokens / 1000).toFixed(1)}k` : tokens} tokens`
+          ? intl.formatMessage({ id: 'miss.turn.tokens', defaultMessage: ' • ↓ {count} tokens' }, { count: tokens >= 1000 ? `${(tokens / 1000).toFixed(1)}k` : tokens })
           : ''}
-        {effort ? ` • thinking with ${effort} effort` : ''})
+        {effort ? intl.formatMessage({ id: 'miss.turn.effort', defaultMessage: ' • thinking with {effort} effort' }, { effort }) : ''})
       </span>
     </div>
   )

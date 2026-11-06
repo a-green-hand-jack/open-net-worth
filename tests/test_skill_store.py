@@ -934,6 +934,55 @@ def test_seed_starters_inserts_all_and_is_idempotent(isolated):
     assert len(s.all()) == len(STARTER_SKILLS)
 
 
+def test_legacy_unchanged_builtin_exposes_read_only_provenance(isolated):
+    starter = next(item for item in STARTER_SKILLS if item["id"] == "catch-up")
+    store = SkillStore()
+    store.create({**starter, "author": "builtin"})
+    state_before = skill_store._load_state()
+    record = store.find_by_id("catch-up")
+    assert record["starter_source"]["id"] == "catch-up"
+    assert skill_store._load_state() == state_before
+    assert "starter_source" not in state_before["catch-up"]
+
+
+def test_legacy_modified_or_user_owned_skill_does_not_gain_provenance(isolated):
+    starter = next(item for item in STARTER_SKILLS if item["id"] == "catch-up")
+    store = SkillStore()
+    modified = store.create({**starter, "author": "builtin", "description": "Custom description"})
+    assert "starter_source" not in modified
+    store.delete("catch-up")
+    user = store.create({**starter, "author": "user"})
+    assert "starter_source" not in user
+
+
+def test_new_starter_source_tracks_each_field_and_preserves_user_changes(isolated):
+    store = SkillStore()
+    store.seed_starters()
+    starter = store.find_by_id("weekly-report")
+    assert starter["starter_source"]["id"] == "weekly-report"
+    assert "name_sha256" in starter["starter_source"]
+    assert "description_sha256" in starter["starter_source"]
+    path = skill_store.SKILLS_DIR / "weekly-report" / "SKILL.md"
+    from backend.db.skill_files import build_skill_md
+
+    path.write_text(
+        build_skill_md({**starter, "description": "External description"}), encoding="utf-8"
+    )
+    changed = store.find_by_id("weekly-report")
+    assert "description_sha256" not in changed["starter_source"]
+    assert changed["description"] == "External description"
+    edited = store.update_skill("weekly-report", {"description": "My own description"})
+    assert "description_sha256" not in edited["starter_source"]
+    assert edited["description"] == "My own description"
+    assert "name_sha256" in edited["starter_source"]
+
+
+def test_starter_translation_registry_tracks_shipped_skills():
+    from backend.scripts.sync_starter_skill_descriptions import OUTPUT, snapshot
+
+    assert OUTPUT.read_text(encoding="utf-8") == snapshot()
+
+
 # ── superseded starter bodies (refreshed only when the owner never edited them) ─
 # The budget-review body installs carried until 2026-09-26: it read a profile field that doesn't
 # exist and wrote through a retired tool, and a live chat followed it into nonsense.

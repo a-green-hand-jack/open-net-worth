@@ -295,3 +295,51 @@ describe('luciusReviewList', () => {
     expect(finding!.itemId).toBe('abc123')
   })
 })
+
+it('localizes new app-generated suggestions and review while preserving user labels', async () => {
+  const { createIntl } = await import('react-intl')
+  const { setDisplayFormats } = await import('./format')
+  const messages = (await import('../components/intel/zh-CN.messages.json')).default
+  const intl = createIntl({ locale: 'zh-CN', messages })
+  setDisplayFormats({ number_format: 'dot' })
+  try {
+    const asset: LuciusAsset = { symbol: 'ACME', ccy: 'USD', price: 1200, cls: 'equity' }
+    const suggestions = luciusSuggestAlerts(asset, emptyCtx, intl)
+    expect(suggestions[0]?.name).toBe('入场区间')
+    expect(suggestions[0]?.why).toContain('ACME')
+    expect(suggestions[0]?.why).toMatch(/1\.\d{3}/)
+    const review = luciusReviewList({ name: 'My Custom List', items: [{ kind: 'topic', label: 'User Topic', note: 'user text' }] }, emptyCtx, intl)
+    expect(review.headline).toContain('My Custom List')
+    expect(review.findings[0]?.title).toContain('User Topic')
+    expect(luciusDraftTopicInstruction('User Topic', intl)).toContain('User Topic')
+  } finally { setDisplayFormats({ number_format: null }) }
+})
+
+it('does not rewrite existing user instructions during review', async () => {
+  const { createIntl } = await import('react-intl')
+  const messages = (await import('../components/intel/zh-CN.messages.json')).default
+  const original = 'Keep my personal rules exactly as written.'
+  const item: LuciusReviewItem = { kind: 'topic', label: 'Custom topic', note: original }
+  luciusReviewList({ name: 'Personal list', items: [item] }, emptyCtx, createIntl({ locale: 'zh-CN', messages }))
+  expect(item.note).toBe(original)
+})
+
+it('renders every generated alert variant in Chinese without losing the instrument', async () => {
+  const { createIntl } = await import('react-intl')
+  const messages = (await import('../components/intel/zh-CN.messages.json')).default
+  const intl = createIntl({ locale: 'zh-CN', messages, onError: error => { throw error } })
+  const cases: [LuciusAsset, LuciusContext][] = [
+    [{ symbol: 'AAPL', ccy: 'USD', price: 200 }, ctxFull],
+    [{ symbol: 'BTC', ccy: 'USD', price: 50000, cls: 'crypto' }, ctxFull],
+    [{ symbol: 'TSLA', ccy: 'USD', price: 200 }, ctxFull],
+    [{ symbol: 'ACME', ccy: 'USD', price: 100 }, emptyCtx],
+    [{ symbol: 'FLAT', ccy: 'USD', price: 100 }, { ...ctxFull, holdingsBySymbol: { FLAT: { symbol: 'FLAT', cls: 'equity', weight: 5, plPct: 0 } } }],
+  ]
+  const suggestions = cases.flatMap(([asset, ctx]) => luciusSuggestAlerts(asset, ctx, intl))
+  expect(new Set(suggestions.map(s => s.sourceKey)).size).toBe(8)
+  for (const suggestion of suggestions) {
+    expect(suggestion.name).toMatch(/[\u4e00-\u9fff]/)
+    expect(suggestion.why).toMatch(/[\u4e00-\u9fff]/)
+    expect(suggestion.note).toMatch(/[\u4e00-\u9fff]/)
+  }
+})

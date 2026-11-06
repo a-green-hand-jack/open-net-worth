@@ -82,7 +82,10 @@ it('hands the exact template to onTemplate for a bank sync', () => {
 
   const bank = CONNECTOR_SYNC_TEMPLATES.find((t) => t.key === 'sync_plaid')!
   screen.getByRole('button', { name: `${bank.name} template` }).click()
-  expect(onTemplate).toHaveBeenLastCalledWith(bank)
+  expect(onTemplate).toHaveBeenLastCalledWith({
+    ...bank,
+    template_source: { name: bank.key, description: bank.key, instructions: bank.key },
+  })
   expect(bank.trigger).toEqual({ kind: 'schedule', type: 'interval', seconds: 21600 })
   expect(bank.execution).toEqual({ kind: 'lucius' })
   expect(bank.permission_mode).toBe('auto')

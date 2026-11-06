@@ -200,8 +200,8 @@ describe('TickerDesk', () => {
     const { container } = mount({
       rows: [row('AMD', { findings: [FLAG] })],
       feed: [
-        story('sig', 'AMD', { watch: true, status: 'action_needed' }),
-        story('news', 'AMD', { label: 'AMD wins contract', status: 'monitoring' }),
+        story('sig', 'AMD', { watch: true, status: 'action_needed', updated_at: new Date().toISOString() }),
+        story('news', 'AMD', { label: 'AMD wins contract', status: 'monitoring', updated_at: new Date().toISOString() }),
       ],
     })
     const line = container.querySelector('.intel-desk-line')!

@@ -2,7 +2,50 @@
 // Toggle: Sector | Region. Shows ranked bars with concentration flag.
 
 import { useMemo, useState } from 'react'
+import { defineMessages, type IntlShape } from 'react-intl'
+import { useAppIntl } from '../../../i18n/useAppIntl'
 import type { BookRow, DerivedBook } from './useInvestmentsBook'
+
+const sectorMessages = defineMessages({
+  Technology: { id: 'sectorGeo.sector.Technology', defaultMessage: 'Technology' },
+  Communication: { id: 'sectorGeo.sector.Communication', defaultMessage: 'Communication' },
+  Consumer: { id: 'sectorGeo.sector.Consumer', defaultMessage: 'Consumer' },
+  Financials: { id: 'sectorGeo.sector.Financials', defaultMessage: 'Financials' },
+  Healthcare: { id: 'sectorGeo.sector.Healthcare', defaultMessage: 'Healthcare' },
+  Energy: { id: 'sectorGeo.sector.Energy', defaultMessage: 'Energy' },
+  Industrials: { id: 'sectorGeo.sector.Industrials', defaultMessage: 'Industrials' },
+  Materials: { id: 'sectorGeo.sector.Materials', defaultMessage: 'Materials' },
+  'Real Estate': { id: 'sectorGeo.sector.RealEstate', defaultMessage: 'Real Estate' },
+  Utilities: { id: 'sectorGeo.sector.Utilities', defaultMessage: 'Utilities' },
+  'Broad market': { id: 'sectorGeo.sector.BroadMarket', defaultMessage: 'Broad market' },
+  'Fixed income': { id: 'sectorGeo.sector.FixedIncome', defaultMessage: 'Fixed income' },
+  'Digital assets': { id: 'sectorGeo.sector.DigitalAssets', defaultMessage: 'Digital assets' },
+  Commodities: { id: 'sectorGeo.sector.Commodities', defaultMessage: 'Commodities' },
+  Other: { id: 'sectorGeo.sector.Other', defaultMessage: 'Other' },
+})
+const regionMessages = defineMessages({
+  'United States': { id: 'sectorGeo.region.UnitedStates', defaultMessage: 'United States' },
+  Europe: { id: 'sectorGeo.region.Europe', defaultMessage: 'Europe' },
+  Singapore: { id: 'sectorGeo.region.Singapore', defaultMessage: 'Singapore' },
+  'Global ex-US': { id: 'sectorGeo.region.GlobalExUs', defaultMessage: 'Global ex-US' },
+  Global: { id: 'sectorGeo.region.Global', defaultMessage: 'Global' },
+  'United Kingdom': { id: 'sectorGeo.region.UnitedKingdom', defaultMessage: 'United Kingdom' },
+  'Hong Kong': { id: 'sectorGeo.region.HongKong', defaultMessage: 'Hong Kong' },
+  Japan: { id: 'sectorGeo.region.Japan', defaultMessage: 'Japan' },
+})
+
+function exposureLabel(
+  key: string,
+  known: boolean,
+  view: 'sector' | 'geography',
+  intl: IntlShape,
+): string {
+  if (!known) return key
+  const messages: Record<string, { id: string; defaultMessage: string }> =
+    view === 'sector' ? sectorMessages : regionMessages
+  const descriptor = Object.hasOwn(messages, key) ? messages[key] : undefined
+  return descriptor ? intl.formatMessage(descriptor) : key
+}
 
 const SECTOR_MAP: Record<string, string> = {
   NVDA: 'Technology',
@@ -91,19 +134,23 @@ const REGION_BY_CCY: Record<string, string> = {
   JPY: 'Japan',
 }
 
-function rowSector(r: BookRow): string {
-  if (r.cls === 'crypto') return 'Digital assets'
-  if (r.cls === 'commodity') return 'Commodities'
-  if (r.cls === 'bond') return 'Fixed income'
+function rowSector(r: BookRow): { label: string; known: boolean } {
+  const known = (label: string) => ({ label, known: true })
+  if (r.cls === 'crypto') return known('Digital assets')
+  if (r.cls === 'commodity') return known('Commodities')
+  if (r.cls === 'bond') return known('Fixed income')
   if (r.sub === 'etf' || r.sub === 'etc') {
-    return /QQQ|VGT|XLK|SMH|tech/i.test(r.sym + ' ' + r.name) ? 'Technology' : 'Broad market'
+    return known(/QQQ|VGT|XLK|SMH|tech/i.test(r.sym + ' ' + r.name) ? 'Technology' : 'Broad market')
   }
   // The instrument's recorded sector first. The prototype this was ported from hashed any
   // ticker outside a short list into a sector, so a bank (DBS) read "Communication"
   // (persona QA 2026-10-13); an unknown is "Other", never a guess.
   const own = (r._raw.sector ?? '').trim()
-  if (own) return SECTOR_ALIASES[own] ?? own
-  return SECTOR_MAP[r.sym] ?? 'Other'
+  if (own) {
+    const alias = Object.hasOwn(SECTOR_ALIASES, own) ? SECTOR_ALIASES[own] : undefined
+    return alias ? known(alias) : { label: own, known: false }
+  }
+  return known(SECTOR_MAP[r.sym] ?? 'Other')
 }
 
 function rowRegion(r: BookRow): string {
@@ -115,16 +162,21 @@ function rowRegion(r: BookRow): string {
   return REGION_BY_CCY[r.ccy] ?? 'United States'
 }
 
-function exposureBreakdown(all: BookRow[], keyFn: (r: BookRow) => string) {
+function exposureBreakdown(
+  all: BookRow[],
+  keyFn: (r: BookRow) => { label: string; known: boolean },
+) {
   const m = new Map<string, number>()
+  const known = new Map<string, boolean>()
   let tot = 0
   all.forEach((r) => {
-    const k = keyFn(r)
+    const { label: k, known: isKnown } = keyFn(r)
     m.set(k, (m.get(k) ?? 0) + r.value)
+    known.set(k, (known.get(k) ?? true) && isKnown)
     tot += r.value
   })
   const rows = [...m.entries()]
-    .map(([k, v]) => ({ k, v, pct: tot ? (v / tot) * 100 : 0 }))
+    .map(([k, v]) => ({ k, v, known: known.get(k) ?? false, pct: tot ? (v / tot) * 100 : 0 }))
     .sort((a, b) => b.v - a.v)
   return { rows, tot }
 }
@@ -154,10 +206,16 @@ function Card({
 }
 
 export function SectorGeo({ d }: Props) {
+  const intl = useAppIntl()
+  const { formatMessage } = intl
   const [view, setView] = useState<'sector' | 'geography'>('sector')
 
   const bd = useMemo(
-    () => exposureBreakdown(d.all, view === 'sector' ? rowSector : rowRegion),
+    () =>
+      exposureBreakdown(
+        d.all,
+        view === 'sector' ? rowSector : (r) => ({ label: rowRegion(r), known: true }),
+      ),
     [d.all, view],
   )
 
@@ -171,14 +229,14 @@ export function SectorGeo({ d }: Props) {
 
   return (
     <Card
-      title="Sector & geography"
+      title={formatMessage({ id: 'sectorGeo.title', defaultMessage: 'Sector & geography' })}
       meta={
         <div className="mk-seg">
           <button className={view === 'sector' ? 'on' : ''} onClick={() => setView('sector')}>
-            Sector
+            {formatMessage({ id: 'sectorGeo.sector', defaultMessage: 'Sector' })}
           </button>
           <button className={view === 'geography' ? 'on' : ''} onClick={() => setView('geography')}>
-            Region
+            {formatMessage({ id: 'sectorGeo.region', defaultMessage: 'Region' })}
           </button>
         </div>
       }
@@ -189,7 +247,7 @@ export function SectorGeo({ d }: Props) {
             <div className="sec-top">
               <span className="sec-k">
                 <span className="sec-dot" style={{ background: colorMap[s.k] ?? '#6b7280' }} />
-                {s.k}
+                {exposureLabel(s.k, s.known, view, intl)}
               </span>
               <span className="sec-v mask">{s.pct.toFixed(0)}%</span>
             </div>
@@ -206,9 +264,14 @@ export function SectorGeo({ d }: Props) {
         <div className="mk-flag">
           <span className="mk-stress-mark">▲</span>
           <span>
-            Technology is <b>{Math.round(tech!.pct)}%</b> of your book across multiple holdings — a
-            deeper concentration than any single ticker shows. A tech selloff would hit harder than
-            the asset-class mix suggests.
+            {formatMessage(
+              {
+                id: 'sectorGeo.techWarning',
+                defaultMessage:
+                  'Technology is <pct>{percent}%</pct> of your book across multiple holdings — a deeper concentration than any single ticker shows. A tech selloff would hit harder than the asset-class mix suggests.',
+              },
+              { percent: Math.round(tech!.pct), pct: (chunks) => <b>{chunks}</b> },
+            )}
           </span>
         </div>
       )}
@@ -216,14 +279,28 @@ export function SectorGeo({ d }: Props) {
         <div className="mk-flag">
           <span className="mk-stress-mark">▲</span>
           <span>
-            <b>{top!.k}</b> is <b>{Math.round(top!.pct)}%</b> of your book — limited geographic
-            diversification. International exposure would cushion a domestic drawdown.
+            {formatMessage(
+              {
+                id: 'sectorGeo.regionWarning',
+                defaultMessage:
+                  '<name>{region}</name> is <pct>{percent}%</pct> of your book — limited geographic diversification. International exposure would cushion a domestic drawdown.',
+              },
+              {
+                region: exposureLabel(top!.k, top!.known, view, intl),
+                percent: Math.round(top!.pct),
+                name: (chunks) => <b>{chunks}</b>,
+                pct: (chunks) => <b>{chunks}</b>,
+              },
+            )}
           </span>
         </div>
       )}
       <div className="mk-lots-note">
-        Look-through by where revenue and listing sit, not just asset class. ETFs counted at fund
-        level.
+        {formatMessage({
+          id: 'sectorGeo.note',
+          defaultMessage:
+            'Look-through by where revenue and listing sit, not just asset class. ETFs counted at fund level.',
+        })}
       </div>
     </Card>
   )

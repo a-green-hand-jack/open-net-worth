@@ -9,6 +9,10 @@ export interface DesktopUpdateState { ready: boolean; version: string | null; av
 export interface DesktopWhatsNew { version: string; highlights: string[]; releaseUrl: string }
 export interface DesktopClientBridge {
   version: 1;
+  setLocale?(locale: 'en' | 'zh-CN'): void;
+  setDateFormat?(format: 'dmy' | 'mdy' | 'iso' | null): void;
+  setProfileDisplay?(locale: 'en' | 'zh-CN', format: 'dmy' | 'mdy' | 'iso' | null): void;
+  onRequestProfileDisplay?(listener: () => void): () => void;
   getConnection(): Promise<DesktopConnection>;
   changeConnection(serverForm?: boolean): Promise<void>;
   openBrowser(): Promise<void>;

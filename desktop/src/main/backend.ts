@@ -1,8 +1,10 @@
+import { message as t } from './native-messages';
+import { getDesktopLocale } from './desktop-locale';
 import { spawn, type ChildProcessWithoutNullStreams } from 'node:child_process';
 import { randomBytes, randomUUID } from 'node:crypto';
 import { createInterface } from 'node:readline';
 import { desktopEvent } from './desktop-events';
-import { BookInUseError, childEnvironment, failureReason, parseReady, parseStartupError, type RuntimeConfig } from './runtime';
+import { BookInUseError, DatabaseAheadError, childEnvironment, failureReason, parseReady, parseStartupError, type RuntimeConfig } from './runtime';
 import { SESSION_HEADER } from './security';
 import { WatchedFileReader } from './watched-files';
 import type { FolderLocator } from './preferences';
@@ -20,7 +22,7 @@ export class BackendSupervisor {
   private fileReader: WatchedFileReader | null = null;
   private runtime: RuntimeConfig;
   origin: string | null = null;
-  startupFailure: BookInUseError | null = null;
+  startupFailure: BookInUseError | DatabaseAheadError | null = null;
   private startError = '';
 
   constructor(private readonly runtimeSource: RuntimeConfig | (() => Promise<RuntimeConfig>), private root: string, private readonly qaMode: boolean, private readonly onCrash: () => void) {
@@ -32,16 +34,16 @@ export class BackendSupervisor {
   get credential(): string { return this.token; }
   get bookRoot(): string { return this.root; }
   setRoot(root: string): void {
-    if (this.child || this.origin) throw new Error('Stop the current book before selecting another.');
+    if (this.child || this.origin) throw new Error(t('Stop the current book before selecting another.'));
     this.root = root;
   }
   readWatchedFile(folder: FolderLocator, name: string, file: FileIdentity): Promise<NativeFile> {
-    if (!this.fileReader || !this.origin) return Promise.reject(new Error('The local backend is unavailable.'));
+    if (!this.fileReader || !this.origin) return Promise.reject(new Error(t('The local backend is unavailable.')));
     return this.fileReader.read(folder, name, file);
   }
 
   async start(): Promise<void> {
-    if (this.child) throw new Error('The backend is already running.');
+    if (this.child) throw new Error(t('The backend is already running.'));
     if (typeof this.runtimeSource === 'function' && !this.runtime.python) this.runtime = await this.runtimeSource();
     this.fileReader ??= new WatchedFileReader(this.runtime);
     this.stopping = false;
@@ -70,7 +72,7 @@ export class BackendSupervisor {
     try {
       await this.awaitReady(child);
       const status = await this.json<{ protocol: number; instance_id: string; version: string }>('/api/desktop/status');
-      if (status.protocol !== 1 || status.instance_id !== this.instanceId || status.version !== this.runtime.version) throw new Error('The backend readiness check failed.');
+      if (status.protocol !== 1 || status.instance_id !== this.instanceId || status.version !== this.runtime.version) throw new Error(t('The backend readiness check failed.'));
     } catch (error) {
       desktopEvent({ event: 'desktop.backend_start_failed', error: error instanceof Error ? error.message : 'Startup failed', exitCode: child.exitCode, signal: child.signalCode, backendStderr: this.stderrTail });
       this.startError = error instanceof Error ? error.message : '';
@@ -82,9 +84,9 @@ export class BackendSupervisor {
   private awaitReady(child: ChildProcessWithoutNullStreams): Promise<void> {
     return new Promise((resolve, reject) => {
       const lines = createInterface({ input: child.stdout });
-      const timer = setTimeout(() => finish(new Error('Startup timed out. Your book is preserved.')), 60_000);
-      const onError = () => finish(new Error('The bundled backend could not start.'));
-      const onClose = () => finish(new Error('The backend stopped during startup. Your book is preserved.'));
+      const timer = setTimeout(() => finish(new Error(t('Startup timed out. Your book is preserved.'))), 60_000);
+      const onError = () => finish(new Error(t('The bundled backend could not start.')));
+      const onClose = () => finish(new Error(t('The backend stopped during startup. Your book is preserved.')));
       const finish = (error?: Error) => {
         clearTimeout(timer);
         lines.close();
@@ -101,14 +103,14 @@ export class BackendSupervisor {
           const ready = parseReady(line, this.instanceId, this.runtime.version);
           this.origin = `http://127.0.0.1:${ready.port}`;
           finish();
-        } catch { finish(new Error('The backend returned an incompatible startup response.')); }
+        } catch { finish(new Error(t('The backend returned an incompatible startup response.'))); }
       });
     });
   }
 
   // The raw reply, whatever its status; `request` is this plus "refuse anything that is not ok".
   async fetchRaw(path: string, init: RequestInit = {}): Promise<Response> {
-    if (!this.origin || !path.startsWith('/') || path.startsWith('//')) throw new Error('The backend is unavailable.');
+    if (!this.origin || !path.startsWith('/') || path.startsWith('//')) throw new Error(t("The backend is unavailable."));
     const headers = new Headers(init.headers);
     headers.set(SESSION_HEADER, this.token);
     headers.set('X-Requested-With', 'XMLHttpRequest');
@@ -117,7 +119,7 @@ export class BackendSupervisor {
 
   async request(path: string, init: RequestInit = {}): Promise<Response> {
     const response = await this.fetchRaw(path, init);
-    if (!response.ok) throw new Error(`The operation was refused (${response.status}).`);
+    if (!response.ok) throw new Error(t('The operation was refused ({status}).', getDesktopLocale(), { status: response.status }));
     return response;
   }
 

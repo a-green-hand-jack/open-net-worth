@@ -50,6 +50,7 @@ function buildPresetState(): DashboardState {
   const views: DashboardView[] = PRESET_VIEWS.map((p) => ({
     viewId: localInstanceId('view'),
     name: p.name,
+    nameSource: p.nameSource,
     widgets: seedWidgets(p.widgets, WIDGET_DEFINITIONS),
   }))
   return { activeViewId: views[0]?.viewId ?? null, views }
@@ -63,7 +64,7 @@ export function useDashboardLayout() {
       : { activeViewId: null, views: [] },
   )
   const [loading, setLoading] = useState(cachedLayout === undefined)
-  const [error, setError] = useState<string | null>(null)
+  const [error, setError] = useState<'load' | 'save' | null>(null)
   const snapshotRef = useRef<DashboardState | null>(null)
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const skipNextSave = useRef(true) // don't save right after the initial load/seed
@@ -112,9 +113,7 @@ export function useDashboardLayout() {
       })
       .catch(() => {
         if (!cancelled) {
-          setError(
-            'Could not load your dashboard layout — changes in this session will not be saved until you reload successfully.',
-          )
+          setError('load')
           setState(buildPresetState())
         }
       })
@@ -142,7 +141,7 @@ export function useDashboardLayout() {
       saveDashboardLayout(state)
         .then(() => invalidateQueryCache(DASHBOARD_LAYOUT_KEY))
         .catch(() => {
-          setError('Could not save your dashboard changes — they may not survive a reload.')
+          setError('save')
         })
     }, SAVE_DEBOUNCE_MS)
     return () => {
@@ -217,6 +216,7 @@ export function useDashboardLayout() {
     const view: DashboardView = {
       viewId: localInstanceId('view'),
       name: name || 'New view',
+      ...(!name ? { nameSource: 'default_view' as const } : {}),
       widgets: [],
     }
     setState((s) => ({ activeViewId: view.viewId, views: [...s.views, view] }))
@@ -232,7 +232,7 @@ export function useDashboardLayout() {
   const renameView = useCallback((viewId: string, name: string) => {
     setState((s) => ({
       ...s,
-      views: s.views.map((v) => (v.viewId === viewId ? { ...v, name } : v)),
+      views: s.views.map((v) => (v.viewId === viewId ? { ...v, name, nameSource: undefined } : v)),
     }))
   }, [])
 
@@ -315,7 +315,16 @@ export function useDashboardLayout() {
         const maxY = widgets.reduce((m, w) => Math.max(m, w.y + w.h), 0)
         return [
           ...widgets,
-          { kind: 'section', instanceId, title: title || 'Section', x: 0, y: maxY, w: 12, h: 30 },
+          {
+            kind: 'section',
+            instanceId,
+            title: title || 'Section',
+            ...(!title ? { titleSource: 'default_section' as const } : {}),
+            x: 0,
+            y: maxY,
+            w: 12,
+            h: 30,
+          },
         ]
       })
       announceNew(instanceId)

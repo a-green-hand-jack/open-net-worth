@@ -1,3 +1,4 @@
+import { useAppIntl } from '../../../i18n/useAppIntl'
 import { useCallback, useEffect, useState } from 'react'
 import { binanceApi, type BinanceSettings, type BinanceStatus } from '../../../api/binance'
 import { Badge, Button, Checkbox, Cluster, ErrorState, FormField, Loading, PasswordField, Select, Stack, Text, TextField, useSecretReveal } from '../../ui'
@@ -18,6 +19,7 @@ const formOf = (status: BinanceStatus): BinanceForm => ({
 })
 
 export function BinanceSection() {
+  const { formatMessage } = useAppIntl()
   const [cfg, setCfg] = useState<BinanceStatus | null>(null)
   const [form, setForm] = useState<BinanceForm | null>(null)
   const [loadError, setLoadError] = useState('')
@@ -30,9 +32,9 @@ export function BinanceSection() {
       setCfg(status)
       setForm(formOf(status))
     } catch {
-      setLoadError('Could not load the Binance Spot connector status.')
+      setLoadError(formatMessage({ id: 'connectors.binance.loadError', defaultMessage: "Could not load the Binance Spot connector status." }))
     }
-  }, [])
+  }, [formatMessage])
   useEffect(() => { void load() }, [load])
   const changeKey = useCallback((value: string) => setForm((f) => f && { ...f, api_key: value }), [])
   const changeSecret = useCallback((value: string) => setForm((f) => f && { ...f, api_secret: value }), [])
@@ -61,7 +63,7 @@ export function BinanceSection() {
       setForm(formOf(status))
       return true
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Could not save Binance settings.')
+      setError(err instanceof Error ? err.message : formatMessage({ id: 'connectors.binance.saveError', defaultMessage: "Could not save Binance settings." }))
       const status = await binanceApi.status().catch(() => null)
       if (status) setCfg(status)
       return false
@@ -76,7 +78,7 @@ export function BinanceSection() {
     try {
       setCfg(await binanceApi.test())
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Could not check Binance account.')
+      setError(err instanceof Error ? err.message : formatMessage({ id: 'connectors.binance.checkError', defaultMessage: "Could not check Binance account." }))
       const status = await binanceApi.status().catch(() => null)
       if (status) setCfg(status)
     } finally {
@@ -84,43 +86,43 @@ export function BinanceSection() {
     }
   }
   if (loadError) return <ErrorState message={loadError} onRetry={() => void load()} />
-  if (!cfg || !form) return <Loading label="Loading Binance Spot settings…" />
+  if (!cfg || !form) return <Loading label={formatMessage({ id: 'connectors.binance.loading', defaultMessage: "Loading Binance Spot settings…" })} />
   const set = <K extends keyof BinanceForm>(name: K, value: BinanceForm[K]) => setForm((f) => f && { ...f, [name]: value })
-  const pairError = (filled: boolean, other: boolean, touched: boolean, saved: boolean) => filled ? undefined : other ? 'Enter both keys together.' : touched && !saved ? 'This key is required.' : undefined
+  const pairError = (filled: boolean, other: boolean, touched: boolean, saved: boolean) => filled ? undefined : other ? formatMessage({ id: 'connectors.binance.pair', defaultMessage: "Enter both keys together." }) : touched && !saved ? formatMessage({ id: 'connectors.binance.required', defaultMessage: "This key is required." }) : undefined
   return <Stack gap="--space-4">
-    <Text size="sm" tone="muted">Connect a dedicated Binance Spot wallet. Reserve the entire funded account or subaccount exclusively for managed trading.</Text>
-    {cfg.configured && !cfg.enabled && <Text size="sm" tone="warn">Currently paused. Use Resume on the connector card after saving to enable it.</Text>}
-    <FormField label="Environment" htmlFor="conn-binance-environment" help={environmentChanged ? 'Changing environment requires a new key pair for that environment.' : undefined}>
+    <Text size="sm" tone="muted">{formatMessage({ id: 'connectors.binance.intro', defaultMessage: "Connect a dedicated Binance Spot wallet. Reserve the entire funded account or subaccount exclusively for managed trading." })}</Text>
+    {cfg.configured && !cfg.enabled && <Text size="sm" tone="warn">{formatMessage({ id: 'connectors.binance.paused', defaultMessage: "Currently paused. Use Resume on the connector card after saving to enable it." })}</Text>}
+    <FormField label={formatMessage({ id: 'connectors.binance.environment', defaultMessage: "Environment" })} htmlFor="conn-binance-environment" help={environmentChanged ? formatMessage({ id: 'connectors.binance.environmentHelp', defaultMessage: "Changing environment requires a new key pair for that environment." }) : undefined}>
       <Select id="conn-binance-environment" value={form.environment} onChange={(e) => set('environment', e.target.value as BinanceStatus['environment'])} options={[
-        { value: 'testnet', label: 'Binance Spot Testnet — virtual funds' },
-        { value: 'live', label: 'Binance Spot — real funds' },
+        { value: 'testnet', label: formatMessage({ id: 'connectors.binance.testnet', defaultMessage: "Binance Spot Testnet — virtual funds" }) },
+        { value: 'live', label: formatMessage({ id: 'connectors.binance.live', defaultMessage: "Binance Spot — real funds" }) },
       ]} />
     </FormField>
-    <FormField label="API key" htmlFor="conn-binance-key" required help={key.caption || 'Use a key for the selected environment. Leave both fields blank to keep the saved pair.'} error={key.error || pairError(hasKey, hasSecret, keyTouched.touched, cfg.has_api_key)}>
+    <FormField label={formatMessage({ id: 'connectors.binance.apiKey', defaultMessage: "API key" })} htmlFor="conn-binance-key" required help={key.caption || formatMessage({ id: 'connectors.binance.keyHelp', defaultMessage: "Use a key for the selected environment. Leave both fields blank to keep the saved pair." })} error={key.error || pairError(hasKey, hasSecret, keyTouched.touched, cfg.has_api_key)}>
       <PasswordField id="conn-binance-key" value={form.api_key} onChange={(e) => set('api_key', e.target.value)} onBlur={keyTouched.onBlur} placeholder={cfg.has_api_key ? '••••••••' : ''} {...key.fieldProps} />
     </FormField>
-    <FormField label="API secret" htmlFor="conn-binance-secret" required help={secret.caption} error={secret.error || pairError(hasSecret, hasKey, secretTouched.touched, cfg.has_api_secret)}>
+    <FormField label={formatMessage({ id: 'connectors.binance.apiSecret', defaultMessage: "API secret" })} htmlFor="conn-binance-secret" required help={secret.caption} error={secret.error || pairError(hasSecret, hasKey, secretTouched.touched, cfg.has_api_secret)}>
       <PasswordField id="conn-binance-secret" value={form.api_secret} onChange={(e) => set('api_secret', e.target.value)} onBlur={secretTouched.onBlur} placeholder={cfg.has_api_secret ? '••••••••' : ''} {...secret.fieldProps} />
     </FormField>
-    <FormField label="Quote currency" htmlFor="conn-binance-quote">
+    <FormField label={formatMessage({ id: 'connectors.binance.quote', defaultMessage: "Quote currency" })} htmlFor="conn-binance-quote">
       <TextField id="conn-binance-quote" value={form.quote_currency} pattern="[A-Z0-9]{2,8}" required onChange={(e) => set('quote_currency', e.target.value.toUpperCase())} />
     </FormField>
-    <FormField label="Account scope" htmlFor="conn-binance-scope">
-      <Select id="conn-binance-scope" value={form.account_scope} onChange={(e) => set('account_scope', e.target.value as BinanceStatus['account_scope'])} options={[{ value: 'dedicated_account', label: 'Dedicated account' }, { value: 'subaccount', label: 'Subaccount' }]} />
+    <FormField label={formatMessage({ id: 'connectors.binance.scope', defaultMessage: "Account scope" })} htmlFor="conn-binance-scope">
+      <Select id="conn-binance-scope" value={form.account_scope} onChange={(e) => set('account_scope', e.target.value as BinanceStatus['account_scope'])} options={[{ value: 'dedicated_account', label: formatMessage({ id: 'connectors.binance.dedicated', defaultMessage: "Dedicated account" }) }, { value: 'subaccount', label: formatMessage({ id: 'connectors.binance.subaccount', defaultMessage: "Subaccount" }) }]} />
     </FormField>
-    <Checkbox checked={form.isolated_account} onChange={(e) => set('isolated_account', e.target.checked)} label="This entire Spot wallet is reserved exclusively for managed trading." />
+    <Checkbox checked={form.isolated_account} onChange={(e) => set('isolated_account', e.target.checked)} label={formatMessage({ id: 'connectors.binance.isolated', defaultMessage: "This entire Spot wallet is reserved exclusively for managed trading." })} />
     <Cluster wrap>
-      <Badge tone={cfg.verification === 'private_account_checked' && !dirty ? 'pos' : 'muted'}>{cfg.verification === 'private_account_checked' && !dirty ? 'Account checked' : 'Account not checked'}</Badge>
-      <Button variant="secondary" disabled={dirty || !cfg.configured || busy} onClick={() => void check()}>{busy ? 'Checking…' : 'Check account'}</Button>
+      <Badge tone={cfg.verification === 'private_account_checked' && !dirty ? 'pos' : 'muted'}>{cfg.verification === 'private_account_checked' && !dirty ? formatMessage({ id: 'connectors.binance.checked', defaultMessage: "Account checked" }) : formatMessage({ id: 'connectors.binance.unchecked', defaultMessage: "Account not checked" })}</Badge>
+      <Button variant="secondary" disabled={dirty || !cfg.configured || busy} onClick={() => void check()}>{busy ? formatMessage({ id: 'connectors.binance.checking', defaultMessage: "Checking…" }) : formatMessage({ id: 'connectors.binance.check', defaultMessage: "Check account" })}</Button>
     </Cluster>
-    {dirty && <Text size="sm" tone="muted">Save your settings before checking the account.</Text>}
-    {cfg.broker_account_id && <Text size="sm">Account UID: {cfg.broker_account_id} · {cfg.venue} · {cfg.quote_currency}</Text>}
+    {dirty && <Text size="sm" tone="muted">{formatMessage({ id: 'connectors.binance.saveFirst', defaultMessage: "Save your settings before checking the account." })}</Text>}
+    {cfg.broker_account_id && <Text size="sm">{formatMessage({ id: 'connectors.binance.uid', defaultMessage: 'Account UID: {uid} · {venue} · {currency}' }, { uid: cfg.broker_account_id, venue: cfg.venue, currency: cfg.quote_currency })}</Text>}
     {cfg.verified_at && !dirty && cfg.verification === 'private_account_checked' && <Stack gap="--space-2">
-      <Text size="sm" tone="muted">Checked {new Date(cfg.verified_at).toLocaleString()}</Text>
-      <Text size="sm">Available cash: {cfg.available_cash ?? '—'} {cfg.quote_currency} · Total cash: {cfg.total_cash ?? '—'} {cfg.quote_currency}</Text>
-      <Text size="sm">Non-quote balances: {cfg.non_quote_balances ?? '—'} · Open orders: {cfg.open_orders ?? '—'}</Text>
+      <Text size="sm" tone="muted">{formatMessage({ id: 'connectors.binance.checkedAt', defaultMessage: 'Checked {time}' }, { time: new Date(cfg.verified_at).toLocaleString() })}</Text>
+      <Text size="sm">{formatMessage({ id: 'connectors.binance.cash', defaultMessage: 'Available cash: {available} {currency} · Total cash: {total} {currency}' }, { available: cfg.available_cash ?? '—', total: cfg.total_cash ?? '—', currency: cfg.quote_currency })}</Text>
+      <Text size="sm">{formatMessage({ id: 'connectors.binance.balances', defaultMessage: 'Non-quote balances: {balances} · Open orders: {orders}' }, { balances: cfg.non_quote_balances ?? '—', orders: cfg.open_orders ?? '—' })}</Text>
     </Stack>}
-    <Text size="sm" tone="muted">Starting a run checks its account, balance, permissions and execution requirements again. Account checks do not submit orders.</Text>
+    <Text size="sm" tone="muted">{formatMessage({ id: 'connectors.binance.final', defaultMessage: "Starting a run checks its account, balance, permissions and execution requirements again. Account checks do not submit orders." })}</Text>
     {error && <ErrorState message={error} />}
   </Stack>
 }

@@ -33,6 +33,14 @@ export function fetchEngineDraft(engineId: string, ym: string): Promise<GenericD
 /** POST /api/planning/verb — execute one declared write verb on any engine. The one write
  *  call GenericEnginePane needs: {engine_id, verb_id, params}, where verb_id/params are
  *  discovered from the engine's own descriptor (genericRows.ts), never hardcoded. */
+export class BudgetVerbRequestError extends Error {
+  readonly status: number
+  constructor(status: number) {
+    super(`POST verb → HTTP ${status}`)
+    this.status = status
+  }
+}
+
 export async function applyBudgetVerb(
   engineId: string,
   verbId: string,
@@ -45,9 +53,9 @@ export async function applyBudgetVerb(
   })
   if (!res.ok) {
     const detail = await res.json().catch(() => null)
-    throw new Error(
-      typeof detail?.detail === 'string' ? detail.detail : `POST verb → HTTP ${res.status}`,
-    )
+    throw typeof detail?.detail === 'string'
+      ? new Error(detail.detail)
+      : new BudgetVerbRequestError(res.status)
   }
   return (await res.json()) as Record<string, unknown>
 }
@@ -74,6 +82,12 @@ export async function dismissBudgetLensIntro(): Promise<{ intro_dismissed: boole
 
 export const PROFILE_KEY = '/api/profile'
 
+export class IncomeSaveError extends Error {
+  constructor() {
+    super('Could not save your income — try again.')
+  }
+}
+
 /** The Profile — `/api/profile` is a shared cache key holding the WHOLE object (Settings and the
  *  chat panel write it back whole), so it is only ever read whole here too. 50/30/20 measures
  *  the current month against its `monthly_net_income`; Outlook and FIRE read the same field. */
@@ -89,7 +103,7 @@ export async function saveMonthlyNetIncome(amount: number): Promise<void> {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ monthly_net_income: amount }),
   })
-  if (!res.ok) throw new Error('Could not save your income — try again.')
+  if (!res.ok) throw new IncomeSaveError()
   invalidateQueryCache(PROFILE_KEY)
   emitDataChanged(['profile'])
 }

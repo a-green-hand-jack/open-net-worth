@@ -10,6 +10,7 @@ export interface ImportItem {
   line: string
   destination: 'profile' | 'instructions' | 'memory' | 'skip'
   reason: string
+  reason_message?: { id: string; params: Record<string, unknown> }
   field?: string
   /** A string, or a list for a multi-valued profile field (employment). */
   value?: string | string[]

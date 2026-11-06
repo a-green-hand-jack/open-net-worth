@@ -92,12 +92,17 @@ def record_work(run_id, kind, payload, *, source="executor_reported"):
         "actor",
         "native_event",
     }:
-        raise ValidationError("Unsupported executor work event kind")
+        raise ValidationError(
+            "Unsupported executor work event kind", message_id="trading.error.work_kind_unsupported"
+        )
     safe = safe_work_payload(payload)
     redacted = safe != payload
     encoded = json.dumps(safe, ensure_ascii=False, default=str)
     if len(encoded.encode()) > 4 * 1024 * 1024:
-        raise ValidationError("A work record may contain at most 4 MiB; split larger records")
+        raise ValidationError(
+            "A work record may contain at most 4 MiB; split larger records",
+            message_id="trading.error.work_record_too_large",
+        )
     with trading_transaction() as conn:
         require_bound_run(conn, run_id)
         run = TradingStore("runs").required(run_id, conn=conn)
@@ -122,13 +127,18 @@ def record_work(run_id, kind, payload, *, source="executor_reported"):
 def get_work_record(run_id, record_id):
     row = TradingStore("events").required(record_id)
     if row["run_id"] != run_id:
-        raise ValidationError("Work record does not belong to this workspace deployment")
+        raise ValidationError(
+            "Work record does not belong to this workspace deployment",
+            message_id="trading.error.work_record_wrong_deployment",
+        )
     payload = row["payload"]
     if payload.get("availability") != "chunked":
         return row
     parts = [TradingStore("events").required(key) for key in payload["record_ids"]]
     if any(part["run_id"] != run_id or part["kind"] != "agent_record_part" for part in parts):
-        raise ValidationError("Invalid work record parts")
+        raise ValidationError(
+            "Invalid work record parts", message_id="trading.error.work_record_parts_invalid"
+        )
     return {
         **row,
         "payload": {
@@ -143,9 +153,15 @@ def write_workspace_file(run_id, name, content):
     if not re.fullmatch(r"[A-Za-z0-9_][A-Za-z0-9_./-]{0,159}", name) or any(
         part in {"", ".", ".."} for part in name.split("/")
     ):
-        raise ValidationError("Use a relative workspace filename without traversal")
+        raise ValidationError(
+            "Use a relative workspace filename without traversal",
+            message_id="trading.error.workspace_filename_invalid",
+        )
     if len(content.encode()) > 64000:
-        raise ValidationError("Workspace file exceeds 64000 UTF-8 bytes")
+        raise ValidationError(
+            "Workspace file exceeds 64000 UTF-8 bytes",
+            message_id="trading.error.workspace_file_too_large",
+        )
     safe = safe_work_payload(content)
     with trading_transaction() as conn:
         require_bound_run(conn, run_id)
@@ -159,7 +175,10 @@ def write_workspace_file(run_id, name, content):
         if versions and versions[-1]["payload"]["content"] == safe:
             return versions[-1]
         if len(versions) >= 200:
-            raise ConflictError("Workspace file version limit reached")
+            raise ConflictError(
+                "Workspace file version limit reached",
+                message_id="trading.error.workspace_file_version_limit",
+            )
         return event(
             conn,
             run,
@@ -195,6 +214,9 @@ def workspace_files(run_id, *, name=None, version=None):
             "total": len(latest),
         }
     if not rows:
-        raise ValidationError("Workspace file version not found")
+        raise ValidationError(
+            "Workspace file version not found",
+            message_id="trading.error.workspace_file_version_not_found",
+        )
     row = rows[-1]
     return {**row["payload"], "event_id": row["id"]}

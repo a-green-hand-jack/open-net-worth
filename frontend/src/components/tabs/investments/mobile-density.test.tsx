@@ -19,6 +19,8 @@ import { resolveInvestmentActiveTab, useCompactInvestmentsPane } from './useComp
 import type { DerivedBook } from './useInvestmentsBook'
 import type { InvestmentSignal } from '../../../types/investmentSignals'
 import { fBase } from '../../../utils/format'
+import { IntlProvider } from 'react-intl'
+import zh from '../../../i18n/zh-CN.json'
 
 afterEach(() => {
   cleanup()
@@ -97,6 +99,17 @@ function makeBook(over: Partial<DerivedBook> = {}): DerivedBook {
 // ── D1 — masthead collapses to hero + one meta line ──────────────────────────
 
 describe('Masthead on a phone', () => {
+  it('shows Chinese labels without changing the market-value figure', () => {
+    const restore = mockMobile(true)
+    render(
+      <IntlProvider locale="zh-CN" defaultLocale="en" messages={zh}>
+        <Masthead d={makeBook()} totalDay={256.59} totalPL={10000} />
+      </IntlProvider>,
+    )
+    expect(screen.getByText('市值')).toBeTruthy()
+    expect(screen.getByText(fBase(100000))).toBeTruthy()
+    restore()
+  })
   const props = {
     portfolioTotal: 250000.0,
     totalDay: 256.59,
@@ -343,7 +356,8 @@ describe('holdings toolbar on a phone', () => {
 
   it('compacts grouping to the library Grid2X2 icon in a narrow pane without removing its native choices', () => {
     expect(tabSource).toContain('<Grid2X2 size={17}')
-    expect(tabSource).toContain('<option value="account">Group: Account</option>')
+    expect(tabSource).toContain('<option value="account">')
+    expect(tabSource).toContain("defaultMessage: 'Group: {group}'")
     expect(designSource).toMatch(
       /@container holdings-feed \(max-width: 860px\)[\s\S]*\.mk-group-wrap \{[\s\S]*width: 34px;[\s\S]*\.mk-group-wrap > \.mk-toolsel \{[^}]*opacity: 0;/,
     )

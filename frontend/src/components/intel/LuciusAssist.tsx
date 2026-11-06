@@ -1,4 +1,7 @@
-import { useEffect, useState } from 'react'
+import { getNumberLocale } from '../../utils/format'
+import { useAppIntl } from '../../i18n/useAppIntl'
+import { FormattedMessage } from './FormattedMessage'
+import { useEffect, useRef, useState } from 'react'
 import { Sparkles, X, RefreshCw, ArrowRight } from '../../ui/icons'
 import { Button } from '../ui'
 import { Spark } from '../../lucius/identity'
@@ -22,12 +25,13 @@ function opSym(op: 'above' | 'below'): string {
 // ── Draft / Rewrite link (instruction fields) ─────────────────────────────────
 
 export function LuciusDraftLink({
-  label = 'Draft with Lucius',
+  label,
   onDraft,
 }: {
   label?: string
   onDraft: () => void
 }) {
+  const intl = useAppIntl()
   const [thinking, setThinking] = useState(false)
   function run() {
     setThinking(true)
@@ -41,7 +45,7 @@ export function LuciusDraftLink({
       <span className={thinking ? 'lx-pulse' : ''}>
         <Sparkles size={11} />
       </span>
-      {thinking ? 'Drafting…' : label}
+      {thinking ? intl.formatMessage({ id: 'intel.assist.drafting', defaultMessage: 'Drafting…' }) : label ?? intl.formatMessage({ id: 'intel.assist.draftWith', defaultMessage: 'Draft with Lucius' })}
     </button>
   )
 }
@@ -57,14 +61,29 @@ export function LuciusAlertSuggest({
   ctx: LuciusContext
   onAdd: (s: AlertSuggestion) => void
 }) {
+  const intl = useAppIntl()
   const [phase, setPhase] = useState<'idle' | 'thinking' | 'shown'>('idle')
   const [items, setItems] = useState<AlertSuggestion[]>([])
   const sym = getCurrencySymbol(asset.ccy)
+  const latestIntl = useRef(intl)
+  useEffect(() => { latestIntl.current = intl }, [intl])
+  const localeRef = useRef(intl.locale)
+
+  useEffect(() => {
+    if (localeRef.current === intl.locale) return
+    localeRef.current = intl.locale
+    setItems(current => {
+      const refreshed = luciusSuggestAlerts(asset, ctx, intl)
+      return current.map(item => refreshed.find(next => next.sourceKey === item.sourceKey) ?? item)
+    })
+    // Preserve the current selection while translating only generated suggestions.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [intl.locale])
 
   function generate() {
     setPhase('thinking')
     setTimeout(() => {
-      setItems(luciusSuggestAlerts(asset, ctx))
+      setItems(luciusSuggestAlerts(asset, ctx, latestIntl.current))
       setPhase('shown')
     }, 800)
   }
@@ -83,9 +102,9 @@ export function LuciusAlertSuggest({
           <Sparkles size={13} />
         </span>
         <div className="intel-lx-idle-body">
-          <div className="intel-lx-idle-title">Not sure what to set?</div>
+          <div className="intel-lx-idle-title">{<FormattedMessage id="intel.static.not_sure_what_to_set_44a45b64" defaultMessage={"Not sure what to set?"} />}</div>
           <div className="intel-lx-idle-sub">
-            Lucius can suggest alert levels for {asset.symbol} from your position and target mix.
+            {intl.formatMessage({ id: 'intel.assist.suggestExplanation', defaultMessage: 'Lucius can suggest alert levels for {symbol} from your position and target mix.' }, { symbol: asset.symbol })}
           </div>
         </div>
         <Button
@@ -95,7 +114,7 @@ export function LuciusAlertSuggest({
           iconLeft={<Spark size={15} ariaHidden />}
           onClick={generate}
         >
-          Suggest alerts
+          {<FormattedMessage id="intel.extra.57d0a930" defaultMessage={"Suggest alerts"} />}
         </Button>
       </div>
     )
@@ -107,7 +126,7 @@ export function LuciusAlertSuggest({
           <span className="lx-pulse">
             <Sparkles size={13} />
           </span>
-          Reading {asset.symbol}'s price, your position, and target mix…
+          {intl.formatMessage({ id: 'intel.assist.reading', defaultMessage: 'Reading {symbol}’s price, your position, and target mix…' }, { symbol: asset.symbol })}
         </div>
       </div>
     )
@@ -120,8 +139,8 @@ export function LuciusAlertSuggest({
         </span>
         <span className="intel-lx-shown-title">
           {items.length
-            ? `Lucius suggests ${items.length} alert${items.length === 1 ? '' : 's'}`
-            : 'All suggestions handled'}
+            ? intl.formatMessage({ id: 'intel.assist.suggestCount', defaultMessage: 'Lucius suggests {count, plural, one {# alert} other {# alerts}}' }, { count: items.length })
+            : intl.formatMessage({ id: 'intel.assist.handled', defaultMessage: 'All suggestions handled' })}
         </span>
         <div className="intel-lx-shown-actions">
           {items.length > 1 && (
@@ -133,14 +152,14 @@ export function LuciusAlertSuggest({
                 setItems([])
               }}
             >
-              Add all
+              {<FormattedMessage id="intel.extra.e4ac3a83" defaultMessage={"Add all"} />}
             </button>
           )}
           <button
             type="button"
             className="intel-lx-regen"
-            title="Regenerate"
-            aria-label="Regenerate"
+            title={intl.formatMessage({ id: "intel.field.d6bb463a", defaultMessage: "Regenerate" })}
+            aria-label={intl.formatMessage({ id: "intel.field.d6bb463a", defaultMessage: "Regenerate" })}
             onClick={generate}
           >
             <RefreshCw size={14} aria-hidden="true" />
@@ -149,9 +168,9 @@ export function LuciusAlertSuggest({
       </div>
       {items.length === 0 ? (
         <div className="intel-lx-empty">
-          Added what you need.{' '}
+          {intl.formatMessage({ id: 'intel.assist.added', defaultMessage: 'Added what you need.' })}{' '}
           <button type="button" className="intel-lx-more" onClick={generate}>
-            Suggest more <ArrowRight size={13} aria-hidden="true" />
+            {intl.formatMessage({ id: 'intel.assist.more', defaultMessage: 'Suggest more' })} <ArrowRight size={13} aria-hidden="true" />
           </button>
         </div>
       ) : (
@@ -160,21 +179,21 @@ export function LuciusAlertSuggest({
             <div key={i} className="intel-lx-sug">
               <span className="intel-lx-sug-chip">
                 {opSym(s.op)} {sym}
-                {s.value.toLocaleString()}
+                {s.value.toLocaleString(getNumberLocale())}
               </span>
               <div className="intel-lx-sug-body">
                 <div className="intel-lx-sug-why">{s.why}</div>
                 <div className="intel-lx-sug-note">
-                  <span className="intel-lx-sug-note-label">Instruction • </span>
+                  <span className="intel-lx-sug-note-label">{<FormattedMessage id="intel.static.instruction_3f351492" defaultMessage={"Instruction •"} />}</span>
                   {s.note}
                 </div>
               </div>
               <div className="intel-lx-sug-actions">
                 <button type="button" className="intel-lx-sug-add" onClick={() => take(s, i)}>
-                  Add
+                  {<FormattedMessage id="intel.extra.c5573507" defaultMessage={"Add"} />}
                 </button>
                 <button type="button" className="intel-lx-sug-skip" onClick={() => dismiss(i)}>
-                  Skip
+                  {<FormattedMessage id="intel.extra.5844fa43" defaultMessage={"Skip"} />}
                 </button>
               </div>
             </div>
@@ -197,7 +216,7 @@ export function LuciusReviewButton({ active, onClick }: { active: boolean; onCli
       aria-pressed={active}
       onClick={onClick}
     >
-      Review with Lucius
+      {<FormattedMessage id="intel.extra.39b7237b" defaultMessage={"Review with Lucius"} />}
     </Button>
   )
 }
@@ -223,18 +242,19 @@ export function LuciusReviewPanel({
   onFix: (finding: LuciusFinding) => void
   onClose: () => void
 }) {
+  const intl = useAppIntl()
   const [thinking, setThinking] = useState(true)
   const [result, setResult] = useState<ReturnType<typeof luciusReviewList> | null>(null)
 
   useEffect(() => {
     setThinking(true)
     const t = setTimeout(() => {
-      setResult(luciusReviewList({ name: listName, muted: listMuted, items }, ctx))
+      setResult(luciusReviewList({ name: listName, muted: listMuted, items }, ctx, intl))
       setThinking(false)
     }, 850)
     return () => clearTimeout(t)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [listName])
+  }, [listName, intl.locale])
 
   return (
     <div className="lx-surface intel-lx-review">
@@ -243,7 +263,7 @@ export function LuciusReviewPanel({
           <span className="lx-pulse">
             <Sparkles size={13} />
           </span>
-          Reviewing {listName} — coverage, concentration, and instructions…
+          {intl.formatMessage({ id: 'intel.assist.reviewing', defaultMessage: 'Reviewing {name} — coverage, concentration, and instructions…' }, { name: listName })}
         </div>
       ) : (
         <>
@@ -252,14 +272,14 @@ export function LuciusReviewPanel({
               <Sparkles size={13} />
             </span>
             <div className="intel-lx-review-headbody">
-              <div className="intel-lx-review-eyebrow">Lucius review</div>
+              <div className="intel-lx-review-eyebrow">{<FormattedMessage id="intel.static.lucius_review_efb94ea5" defaultMessage={"Lucius review"} />}</div>
               <div className="intel-lx-review-headline">{result.headline}</div>
             </div>
             <button
               type="button"
               className="intel-lx-review-close"
               onClick={onClose}
-              aria-label="Close review"
+              aria-label={intl.formatMessage({ id: "intel.field.1013b05b", defaultMessage: "Close review" })}
             >
               <X size={11} />
             </button>

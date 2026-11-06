@@ -13,7 +13,7 @@ const commitmentsCss = readFileSync(
   'utf8',
 )
 const briefSource = readFileSync(new URL('./investments/Brief.tsx', import.meta.url), 'utf8')
-const intelSource = readFileSync(new URL('./Intel.tsx', import.meta.url), 'utf8')
+const intelSource = readFileSync(new URL('../intel/IntelPageHeader.tsx', import.meta.url), 'utf8')
 // The Intel cards' Ask Lucius lives in the header row both tabs share (IntelCardHead).
 const intelBriefSource = readFileSync(
   new URL('../intel/IntelCardHead.tsx', import.meta.url),
@@ -34,7 +34,7 @@ const acquireLotFormSource = readFileSync(
 
 describe('affected mobile views', () => {
   it('uses the concise Intel action label in the portfolio brief', () => {
-    expect(briefSource).toMatch(/>\s*Intel(\{' '\})?\s*<span className="intel-brief-ask-spark">/)
+    expect(briefSource).toMatch(/formatMessage\(\{ id: 'inbox\.intel', defaultMessage: 'Intel' \}\)\}\{' '\}\s*<span className="intel-brief-ask-spark">/)
     expect(briefSource).not.toContain('See more in Intel')
   })
 
@@ -66,7 +66,8 @@ describe('affected mobile views', () => {
   it('shows an icon + label scan action on phones at the standard button height', () => {
     expect(intelSource).toContain('aria-label={scanning ?')
     expect(intelSource).toContain('className="intel-scan-button"')
-    expect(intelSource).toContain("scanning ? 'Scanning…' : 'Scan'")
+    expect(intelSource).toContain("id: 'intel.scanning'")
+    expect(intelSource).toContain("id: 'intel.scan'")
     // Compact horizontal padding only — no forced min-height/width, so it shares
     // the standard .ui-btn--sm height every other tab's header actions use.
     expect(indexCss).toMatch(
@@ -84,10 +85,10 @@ describe('affected mobile views', () => {
     expect(investmentsCss).toMatch(
       /@media \(max-width: 640px\)\s*\{[\s\S]*?\.mk-search-wrap\s*\{[^}]*flex:\s*1 1 auto;[^}]*\}/,
     )
-    expect(investmentsSource).toContain('aria-label="Search holdings"')
-    expect(investmentsSource).toContain("aria-label={groupBy === 'none' ? 'Grouping: No grouping'")
-    expect(investmentsSource).toContain('aria-label="Card view"')
-    expect(investmentsSource).toContain('aria-label="Table view"')
+    expect(investmentsSource).toMatch(/aria-label=\{formatMessage\(\{\s*id: 'investments\.search'/)
+    expect(investmentsSource).toMatch(/aria-label=\{\s*groupBy === 'none'[\s\S]*?id: 'investments\.groupingNone'/)
+    expect(investmentsSource).toMatch(/aria-label=\{formatMessage\(\{\s*id: 'investments\.cardView'/)
+    expect(investmentsSource).toMatch(/aria-label=\{formatMessage\(\{\s*id: 'investments\.tableView'/)
   })
 
   // Owner-reported, 2026-07-30: "the spacing here is not even among buttons", "why do the
@@ -109,7 +110,7 @@ describe('affected mobile views', () => {
       /@media \(max-width: 640px\)\s*\{[\s\S]*?\.mk-density\s*\{[^}]*box-sizing:\s*border-box;[^}]*height:\s*34px;[^}]*\}/,
     )
     expect(investmentsSource).toMatch(/variant="primary"\s+size="sm"\s+className="mk-add-holding"/)
-    expect(investmentsSource).toMatch(/className="mk-add-holding"[\s\S]{0,120}>\s*Add\s*</)
+    expect(investmentsSource).toMatch(/className="mk-add-holding"[\s\S]{0,180}id: 'investments\.add'/)
     expect(investmentsCss).toMatch(
       /@media \(max-width: 640px\)\s*\{[\s\S]*?\.mk-toolbar > \.mk-add-holding\s*\{[^}]*box-sizing:\s*border-box;[^}]*height:\s*34px;[^}]*\}/,
     )

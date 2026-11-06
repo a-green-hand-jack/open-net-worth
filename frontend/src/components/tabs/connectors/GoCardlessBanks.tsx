@@ -1,3 +1,6 @@
+import { formatConnectorBody } from './connectorServerMessages'
+import { useAppIntl } from '../../../i18n/useAppIntl'
+import type { IntlShape } from 'react-intl'
 // The banks linked through the one GoCardless connector — each its own requisition, listed by
 // name with its own Link again / Renew and Remove. Renewing a bank that still works keeps it
 // fetching until the new consent is linked (server-side), so the old row stays until then.
@@ -8,20 +11,15 @@ import { Button, ConfirmDialog, Text } from '../../ui'
 import { fDate } from '../../../utils/format'
 import { ENDED, type GoCardlessBank } from './gocardlessBank'
 
-function bankLine(b: GoCardlessBank): { text: string; warn: boolean } {
+function bankLine(b: GoCardlessBank, intl: IntlShape): { text: string; warn: boolean } {
+  const { formatMessage } = intl
   if (b.status === 'LN') {
-    const n = `${b.accounts} account${b.accounts === 1 ? '' : 's'}`
-    const until = b.consent_expires_at ? ` · access until ${fDate(b.consent_expires_at)}` : ''
-    return { text: `Linked · ${n}${until}`, warn: false }
+    const until = b.consent_expires_at ? formatMessage({ id: 'connectors.gcBanks.until', defaultMessage: ' · access until {date}' }, { date: fDate(b.consent_expires_at) }) : ''
+    return { text: formatMessage({ id: 'connectors.gcBanks.linked', defaultMessage: 'Linked · {count} {count, plural, one {account} other {accounts}}{until}' }, { count: b.accounts, until }), warn: false }
   }
-  const ended = ENDED[b.status]
-  if (ended) return { text: `${ended} — not syncing until you link it again`, warn: true }
-  return {
-    text: b.renewing
-      ? 'Renewal waiting for you to finish at the bank'
-      : 'Waiting for you to finish at the bank',
-    warn: true,
-  }
+  const ended = b.status === 'EX' ? formatMessage({ id: 'connectors.gcBanks.expired', defaultMessage: 'Access expired' }) : b.status === 'RJ' ? formatMessage({ id: 'connectors.gcBanks.refused', defaultMessage: 'The bank refused access' }) : b.status === 'SU' ? formatMessage({ id: 'connectors.gcBanks.suspended', defaultMessage: 'GoCardless suspended this link' }) : b.status === 'ER' ? formatMessage({ id: 'connectors.gcBanks.failed', defaultMessage: 'The bank link failed' }) : ''
+  if (ended) return { text: formatMessage({ id: 'connectors.gcBanks.ended', defaultMessage: '{reason} — not syncing until you link it again' }, { reason: ended }), warn: true }
+  return { text: b.renewing ? formatMessage({ id: 'connectors.gcBanks.renewing', defaultMessage: 'Renewal waiting for you to finish at the bank' }) : formatMessage({ id: 'connectors.gcBanks.waiting', defaultMessage: 'Waiting for you to finish at the bank' }), warn: true }
 }
 
 export function GoCardlessBanks({
@@ -32,6 +30,8 @@ export function GoCardlessBanks({
   /** A bank was renewed or left the list — re-read the status. */
   onChanged: () => void
 }) {
+  const intl = useAppIntl()
+  const { formatMessage } = intl
   const [removing, setRemoving] = useState<GoCardlessBank | null>(null)
   const [busy, setBusy] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -54,10 +54,9 @@ export function GoCardlessBanks({
       const d = await r.json().catch(() => ({}))
       if (!r.ok) {
         setError(
-          d.detail ||
-            (action === 'relink'
-              ? 'Could not start the bank link.'
-              : 'Could not remove that bank.'),
+          formatConnectorBody(intl, d, (action === 'relink'
+              ? formatMessage({ id: 'connectors.gocardless.linkError', defaultMessage: 'Could not start the bank link.' })
+              : formatMessage({ id: 'connectors.plaidBanks.removeFailed', defaultMessage: 'Could not remove that bank.' }))),
         )
         return
       }
@@ -65,25 +64,25 @@ export function GoCardlessBanks({
       onChanged()
       emitDataChanged(['config'])
     } catch {
-      setError('Could not reach the server.')
+      setError(formatMessage({ id: 'connectors.mcp.unreachable', defaultMessage: 'Could not reach the server.' }))
     } finally {
       setBusy(null)
       setRemoving(null)
     }
   }
 
-  const name = (b: GoCardlessBank) => b.institution_name || 'this bank'
+  const name = (b: GoCardlessBank) => b.institution_name || formatMessage({ id: 'connectors.plaidBanks.thisBank', defaultMessage: 'this bank' })
 
   return (
     <>
-      <ul className="plaid-banks" aria-label="Linked banks">
+      <ul className="plaid-banks" aria-label={formatMessage({ id: 'connectors.plaidBanks.linkedBanks', defaultMessage: 'Linked banks' })}>
         {banks.map((b) => {
-          const line = bankLine(b)
+          const line = bankLine(b, intl)
           const ended = !!ENDED[b.status]
           return (
             <li key={b.key} className="plaid-bank">
               <div className="plaid-bank-main">
-                <span className="plaid-bank-name">{b.institution_name || 'Linked bank'}</span>
+                <span className="plaid-bank-name">{b.institution_name || formatMessage({ id: 'connectors.gcBanks.linkedBank', defaultMessage: 'Linked bank' })}</span>
                 <span
                   className={line.warn ? 'plaid-bank-sub plaid-bank-sub--warn' : 'plaid-bank-sub'}
                 >
@@ -96,10 +95,10 @@ export function GoCardlessBanks({
                   variant={ended ? 'primary' : 'secondary'}
                   loading={busy === b.key}
                   disabled={busy !== null}
-                  aria-label={`${b.status === 'LN' ? 'Renew access to' : 'Link again'} ${name(b)}`}
+                  aria-label={b.status === 'LN' ? formatMessage({ id: 'connectors.gcBanks.renewLabel', defaultMessage: 'Renew access to {name}' }, { name: name(b) }) : formatMessage({ id: 'connectors.gcBanks.againLabel', defaultMessage: 'Link again {name}' }, { name: name(b) })}
                   onClick={() => void post(b, 'relink')}
                 >
-                  {b.status === 'LN' ? 'Renew' : 'Link again'}
+                  {b.status === 'LN' ? formatMessage({ id: 'connectors.gcBanks.renew', defaultMessage: 'Renew' }) : formatMessage({ id: 'connectors.gcBanks.again', defaultMessage: 'Link again' })}
                 </Button>
               )}
               <Button
@@ -107,10 +106,10 @@ export function GoCardlessBanks({
                 variant="ghost"
                 className="plaid-bank-remove"
                 disabled={busy !== null}
-                aria-label={`Remove ${name(b)}`}
+                aria-label={formatMessage({ id: 'connectors.plaidBanks.removeName', defaultMessage: 'Remove {name}' }, { name: name(b) })}
                 onClick={() => setRemoving(b)}
               >
-                Remove
+                {formatMessage({ id: 'connectors.action.remove', defaultMessage: 'Remove' })}
               </Button>
             </li>
           )
@@ -124,9 +123,9 @@ export function GoCardlessBanks({
       <ConfirmDialog
         data={
           removing && {
-            title: `Remove ${name(removing)}?`,
-            body: 'Its access is revoked at GoCardless and its accounts stop syncing. Transactions already imported stay. Your other banks are not affected.',
-            confirmLabel: 'Remove',
+            title: formatMessage({ id: 'connectors.plaidBanks.removeTitle', defaultMessage: 'Remove {name}?' }, { name: name(removing) }),
+            body: formatMessage({ id: 'connectors.gcBanks.removeBody', defaultMessage: 'Its access is revoked at GoCardless and its accounts stop syncing. Transactions already imported stay. Your other banks are not affected.' }),
+            confirmLabel: formatMessage({ id: 'connectors.action.remove', defaultMessage: 'Remove' }),
             danger: true,
             confirmDisabled: busy !== null,
           }

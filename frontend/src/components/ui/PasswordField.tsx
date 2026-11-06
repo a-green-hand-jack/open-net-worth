@@ -1,5 +1,6 @@
 import { useId, useState, type InputHTMLAttributes } from 'react'
 import { Eye, EyeOff } from '../../ui/icons'
+import { useAppIntl } from '../../i18n/useAppIntl'
 
 export interface PasswordFieldProps extends InputHTMLAttributes<HTMLInputElement> {
   invalid?: boolean
@@ -30,6 +31,7 @@ export function PasswordField({
   loading,
   ...rest
 }: PasswordFieldProps) {
+  const intl = useAppIntl()
   const [shownInternal, setShownInternal] = useState(false)
   const shown = shownProp ?? shownInternal
   const toggle = onToggleShown ?? (() => setShownInternal((s) => !s))
@@ -57,10 +59,10 @@ export function PasswordField({
         className="ui-password__toggle"
         onClick={toggle}
         disabled={loading}
-        aria-label={loading ? 'Revealing…' : shown ? 'Hide secret' : 'Show secret'}
+        aria-label={loading ? intl.formatMessage({ id: 'shared.password.revealing', defaultMessage: 'Revealing…' }) : shown ? intl.formatMessage({ id: 'shared.password.hideSecret', defaultMessage: 'Hide secret' }) : intl.formatMessage({ id: 'shared.password.showSecret', defaultMessage: 'Show secret' })}
         aria-busy={loading || undefined}
         aria-pressed={shown}
-        title={loading ? 'Revealing…' : shown ? 'Hide' : 'Show'}
+        title={loading ? intl.formatMessage({ id: 'shared.password.revealing', defaultMessage: 'Revealing…' }) : shown ? intl.formatMessage({ id: 'shared.password.hide', defaultMessage: 'Hide' }) : intl.formatMessage({ id: 'shared.password.show', defaultMessage: 'Show' })}
         tabIndex={-1}
       >
         {loading ? (

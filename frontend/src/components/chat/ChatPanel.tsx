@@ -1,3 +1,4 @@
+import type { IntlShape } from 'react-intl'
 import {
   Suspense,
   lazy,
@@ -9,6 +10,8 @@ import {
   useState,
 } from 'react'
 import { useMemoryWindow } from '../../hooks/useMemoryWindow'
+import { useAppIntl } from '../../i18n/useAppIntl'
+import { displayConversationTitle } from './conversationTitle'
 import { useLuciusChat } from '../../state/luciusChat'
 import { useChatSuggestionsEnabled } from '../../hooks/useChatSuggestionsEnabled'
 import { useIsCoarsePointer } from '../../hooks/useIsCoarsePointer'
@@ -307,6 +310,16 @@ export function homeGreeting(date: Date, name: string | undefined): string {
   return name ? `${period}, ${name}` : period
 }
 
+function localizedHomeGreeting(date: Date, name: string | undefined, intl: IntlShape): string {
+  const hour = date.getHours()
+  const weekend = date.getDay() === 0 || date.getDay() === 6
+  const clean = (name ?? '').trim()
+  if (hour < 5) return clean ? intl.formatMessage({ id: 'chat.greeting.stillNamed', defaultMessage: 'Still up, {name}?' }, { name: clean }) : intl.formatMessage({ id: 'chat.greeting.still', defaultMessage: 'Still up?' })
+  if (hour >= 21 && !weekend) return intl.formatMessage({ id: 'chat.greeting.windDown', defaultMessage: 'Winding down for the night' })
+  const greeting = hour < 8 ? intl.formatMessage({ id: 'chat.greeting.rise', defaultMessage: 'Rise and shine' }) : hour < 12 ? intl.formatMessage({ id: 'chat.greeting.morning', defaultMessage: 'Good morning' }) : hour < 17 ? intl.formatMessage({ id: 'chat.greeting.afternoon', defaultMessage: 'Good afternoon' }) : hour < 21 ? intl.formatMessage({ id: 'chat.greeting.evening', defaultMessage: 'Good evening' }) : intl.formatMessage({ id: 'chat.greeting.weekend', defaultMessage: 'Happy weekend' })
+  return clean ? intl.formatMessage({ id: 'chat.greeting.named', defaultMessage: '{greeting}, {name}' }, { greeting, name: clean }) : greeting
+}
+
 export function ChatPanel({
   open,
   onOpenChange,
@@ -323,6 +336,7 @@ export function ChatPanel({
   hideActivityPanel = false,
   dismissKeyboardOnSend = false,
 }: Props) {
+  const intl = useAppIntl()
   const setOpen = onOpenChange
 
   const composerRef = useRef<LuciusComposerHandle>(null)
@@ -1123,7 +1137,7 @@ export function ChatPanel({
                 {/* No session-cost figure on a real phone — less room, less reason to see it at
                   a glance (owner). Desktop keeps it. */}
                 {density.showCost && !isMobile && sessionCost > 0 && (
-                  <span className="chat-session-cost" title={`Session cost: ${fUsd(sessionCost)}`}>
+                  <span className="chat-session-cost" title={intl.formatMessage({ id: 'chat.sessionCost', defaultMessage: 'Session cost: {cost}' }, { cost: fUsd(sessionCost) })}>
                     {fUsd(sessionCost)}
                   </span>
                 )}
@@ -1135,11 +1149,11 @@ export function ChatPanel({
                 {density.showModel && (
                   <ModelPicker
                     className="chat-model-picker"
-                    label="Chat model"
+                    label={intl.formatMessage({ id: 'chat.model', defaultMessage: 'Chat model' })}
                     size="sm"
                     models={modelInfo.models}
                     value={activeModel}
-                    defaultLabel="Default"
+                    defaultLabel={intl.formatMessage({ id: 'chat.default', defaultMessage: 'Default' })}
                     defaultModelId={modelInfo.defaultModel}
                     onChange={(next) => setConversationModel(activeId, next)}
                     // The trigger shows just the model name on a phone — no effort trailing
@@ -1154,7 +1168,7 @@ export function ChatPanel({
                         ? [
                             {
                               key: 'effort',
-                              label: 'Effort',
+                              label: intl.formatMessage({ id: 'chat.effort', defaultMessage: 'Effort' }),
                               value: effortChoiceLabel(clampEffortChoice(effort, effortChoices)),
                               content: (close) => (
                                 <EffortChoices
@@ -1181,7 +1195,7 @@ export function ChatPanel({
             sendBlocked={(streaming || sending) && !multiTurnEnabled}
             onStop={stopStreaming}
             onSend={handleSend}
-            placeholder="Ask Lucius anything — @ to mention, / for skills…"
+            placeholder={intl.formatMessage({ id: 'chat.composer.placeholder', defaultMessage: 'Ask Lucius anything — @ to mention, / for skills…' })}
             autoFocus={open && shouldAutoFocusComposer}
             visibleIds={visibleIds}
             screenId="lucius-side"
@@ -1218,7 +1232,7 @@ export function ChatPanel({
         <div
           className="lx-side-resizer"
           onPointerDown={onResizePointerDown}
-          title="Drag to resize"
+          title={intl.formatMessage({ id: 'chat.resize', defaultMessage: 'Drag to resize' })}
         />
       )}
 
@@ -1236,7 +1250,7 @@ export function ChatPanel({
         <ConversationMenu
           groups={convGroups}
           activeId={activeId}
-          formatWhen={shortWhen}
+          formatWhen={(conv) => shortWhen(conv, intl)}
           statusFor={statusFor}
           onClose={() => setMenuOpen(false)}
           onNewChat={() => {
@@ -1264,8 +1278,8 @@ export function ChatPanel({
             type="button"
             className="lx-side-burger"
             onClick={() => setMenuOpen(true)}
-            aria-label="Conversations"
-            title="Conversations"
+            aria-label={intl.formatMessage({ id: 'chat.conversations', defaultMessage: 'Conversations' })}
+            title={intl.formatMessage({ id: 'chat.conversations', defaultMessage: 'Conversations' })}
           >
             <Menu size={17} />
           </button>
@@ -1289,7 +1303,7 @@ export function ChatPanel({
 
             <div className="conv-switcher-wrap">
               <span className="conv-switcher-title">
-                {activeConversation?.title ?? 'New conversation'}
+                {displayConversationTitle(activeConversation, intl)}
               </span>
             </div>
           </div>
@@ -1299,22 +1313,28 @@ export function ChatPanel({
             <button
               className="lx-side-x"
               onClick={() => setDocumentsOpen(true)}
-              title="Documents"
-              aria-label="Documents"
+              title={intl.formatMessage({ id: 'chat.documents', defaultMessage: 'Documents' })}
+              aria-label={intl.formatMessage({ id: 'chat.documents', defaultMessage: 'Documents' })}
               data-tour="lucius-documents"
             >
               <FolderLock size={15} />
             </button>
 
-            <button className="lx-side-x" onClick={memory.show} title="Memory" aria-label="Memory">
+            <button className="lx-side-x" onClick={memory.show} title={intl.formatMessage({ id: 'chat.memory', defaultMessage: 'Memory' })} aria-label={intl.formatMessage({ id: 'chat.memory', defaultMessage: 'Memory' })}>
               <Brain size={15} />
             </button>
 
             <button
               className="lx-side-x"
               onClick={handleNewConversation}
-              title="New conversation"
-              aria-label="New conversation"
+              title={intl.formatMessage({
+                id: 'chat.newConversation',
+                defaultMessage: 'New conversation',
+              })}
+              aria-label={intl.formatMessage({
+                id: 'chat.newConversation',
+                defaultMessage: 'New conversation',
+              })}
             >
               <SquarePen size={15} />
             </button>
@@ -1322,8 +1342,8 @@ export function ChatPanel({
             <button
               className="lx-side-x"
               onClick={() => setOpen(false)}
-              aria-label="Collapse"
-              title="Collapse"
+              aria-label={intl.formatMessage({ id: 'chat.collapse', defaultMessage: 'Collapse' })}
+              title={intl.formatMessage({ id: 'chat.collapse', defaultMessage: 'Collapse' })}
             >
               <ChevronRight size={18} />
             </button>
@@ -1378,15 +1398,15 @@ export function ChatPanel({
                 }
               >
                 <div className="lx-side-empty-t">
-                  {homeGreeting(
+                  {localizedHomeGreeting(
                     new Date(),
                     greetingName(profile.data?.nickname, profile.data?.name),
+                    intl,
                   )}
                 </div>
                 {!homeMode && (
                   <div className="lx-side-empty-hint">
-                    Use @, or drag anything on screen in, to add context with accounts,
-                    transactions, and more. Use / for skills.
+                    {intl.formatMessage({ id: 'chat.emptyHint', defaultMessage: 'Use @, or drag anything on screen in, to add context with accounts, transactions, and more. Use / for skills.' })}
                   </div>
                 )}
               </div>
@@ -1436,11 +1456,7 @@ export function ChatPanel({
                   onClick={showEarlierMessages}
                   disabled={loadingEarlier}
                 >
-                  {loadingEarlier
-                    ? 'Loading earlier messages…'
-                    : `Show ${hiddenTranscript + serverEarlier} earlier message${
-                        hiddenTranscript + serverEarlier === 1 ? '' : 's'
-                      }`}
+                  {loadingEarlier ? intl.formatMessage({ id: 'chat.loadingEarlier', defaultMessage: 'Loading earlier messages…' }) : intl.formatMessage({ id: 'chat.showEarlier', defaultMessage: 'Show {count} earlier {count, plural, one {message} other {messages}}' }, { count: hiddenTranscript + serverEarlier })}
                 </button>
               )}
               {visibleDelivered.map((msg, i) => {
@@ -1461,7 +1477,7 @@ export function ChatPanel({
                     onClick={() => openRun(brief)}
                   >
                     <Spark size={13} />
-                    <span className="lx-run-brief-t">Ran {brief.name}</span>
+                    <span className="lx-run-brief-t">{intl.formatMessage({ id: 'scan2.ran', defaultMessage: 'Ran {name}' }, { name: brief.name })}</span>
                     {brief.automationId && <ChevronRight size={14} />}
                   </button>
                 ) : (
