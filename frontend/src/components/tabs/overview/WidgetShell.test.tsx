@@ -2,6 +2,8 @@
 
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
+import { IntlProvider } from 'react-intl'
+import { catalogs } from '../../../i18n/catalogs'
 import { WidgetShell } from './WidgetShell'
 import { GridItemContext } from './gridItemContext'
 import type { GridItemContextValue } from './gridItemContext'
@@ -24,6 +26,39 @@ function baseCtx(overrides: Partial<GridItemContextValue> = {}): GridItemContext
 }
 
 describe('WidgetShell mobile header kebab', () => {
+  it('translates controls while preserving a custom title and actions', () => {
+    const ctx = baseCtx()
+    render(
+      <IntlProvider locale="zh-CN" messages={catalogs['zh-CN']}>
+        <GridItemContext.Provider value={ctx}>
+          <WidgetShell base="Net worth" title="My custom title">Widget content</WidgetShell>
+        </GridItemContext.Provider>
+      </IntlProvider>,
+    )
+    fireEvent.click(screen.getByRole('button', { name: '小组件选项' }))
+    fireEvent.click(screen.getByRole('menuitem', { name: '全屏' }))
+    expect(ctx.onOpenFullscreen).toHaveBeenCalledOnce()
+    fireEvent.doubleClick(screen.getByText('My custom title'))
+    const title = screen.getByLabelText('小组件标题')
+    fireEvent.change(title, { target: { value: 'Renamed title' } })
+    fireEvent.blur(title)
+    expect(ctx.onRenameTitle).toHaveBeenCalledWith('Renamed title')
+  })
+
+  it('does not overwrite a title when rename is opened and left unchanged', () => {
+    const ctx = baseCtx()
+    render(
+      <IntlProvider locale="zh-CN" messages={catalogs['zh-CN']}>
+        <GridItemContext.Provider value={ctx}>
+          <WidgetShell base="Net worth" title="My custom title">Widget content</WidgetShell>
+        </GridItemContext.Provider>
+      </IntlProvider>,
+    )
+    fireEvent.doubleClick(screen.getByText('My custom title'))
+    fireEvent.blur(screen.getByLabelText('小组件标题'))
+    expect(ctx.onRenameTitle).not.toHaveBeenCalled()
+  })
+
   it('offers full screen, collapse, and the shared menu items via one header kebab', () => {
     const ctx = baseCtx()
 

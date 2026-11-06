@@ -4,5 +4,12 @@
   "overview.briefing.placeholder": "Lucius 应关注什么，简报应多长？",
   "overview.briefing.saveFailed": "无法保存，请重试。",
   "overview.briefing.hint": "Lucius 每次编写简报时都会遵循这些指示。",
-  "overview.briefing.regenerating": "正在重新生成…"
+  "overview.briefing.regenerating": "正在重新生成…",
+  "overview.widget.title": "小组件标题",
+  "overview.widget.options": "小组件选项",
+  "overview.section.renameHelp": "双击重命名",
+  "overview.chartType": "图表类型",
+  "overview.fullScreen": "全屏",
+  "overview.collapse": "收起",
+  "overview.expand": "展开"
 }
