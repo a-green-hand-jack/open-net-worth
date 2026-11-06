@@ -1,6 +1,7 @@
 """Safety checks for opt-in synthetic trading provider acceptance."""
 
 import ast
+import asyncio
 import os
 import subprocess
 import sys
@@ -30,6 +31,28 @@ def test_provider_scenarios_reference_available_trading_services():
                     assert hasattr(module, node.attr), (
                         f"{path.name}: missing {node.value.id}.{node.attr}"
                     )
+
+
+def test_provider_scenario_setup_reaches_stubbed_cycle_without_login(
+    db_isolated, tmp_path, monkeypatch
+):
+    from tests.cli_live import test_trading_live as scenario
+
+    class CycleReached(Exception):
+        pass
+
+    async def fake_cycle(*args, **kwargs):
+        raise CycleReached
+
+    monkeypatch.setenv("CODEX_HOME", str(tmp_path))
+    monkeypatch.delenv("ONW_TRADING_LIVE_RECEIPT_DIR", raising=False)
+    monkeypatch.setattr(scenario, "run_lucius_cycle", fake_cycle)
+    with pytest.raises(CycleReached):
+        asyncio.run(
+            scenario.test_real_lucius_authors_strategy_and_books_synthetic_fill(
+                db_isolated, "codex_cli:synthetic", None
+            )
+        )
 
 
 @pytest.fixture
