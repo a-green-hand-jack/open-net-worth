@@ -4418,6 +4418,7 @@ export function ImportModal({
                     line:
                       (r.note ? r.note + ' ' : '') +
                       existingTxnLine(r, accounts, catMapProp, d.currency, {
+                        intl,
                         anchorAccountId: d.destId || accountId,
                       }),
                     hint: heldHint(d, r.id),
@@ -4525,7 +4526,7 @@ export function ImportModal({
                   : undefined
                 // A transfer keeps its own identity in the category cell and NEVER reads
                 // "Uncategorized" (owner, 2026-07-17) — same treatment as the pair/plain rows.
-                const transferIdentity = transferLine(r, accounts, catMapProp)
+                const transferIdentity = transferLine(r, accounts, catMapProp, { intl })
                 const catLabel =
                   transferIdentity ??
                   (r.category ? catMapProp[r.category]?.label || r.category : 'Uncategorized')
@@ -4809,7 +4810,7 @@ export function ImportModal({
                 // A transfer row reads "Transfer" (degraded — a boundary row matched nothing, so
                 // there is no statement side to name its counter-leg from), never "Uncategorized".
                 const catLabel =
-                  transferLine(r, accounts, catMapProp) ??
+                  transferLine(r, accounts, catMapProp, { intl }) ??
                   (r.category ? catMapProp[r.category]?.label || r.category : 'Uncategorized')
                 return [acctName, catLabel, r.on_statements?.label, r.near_cutoff?.label]
                   .filter(Boolean)
@@ -4997,9 +4998,13 @@ export function ImportModal({
                 // no `d.routed` of its own — only the MATCHED entry knows it's a transfer at all —
                 // so fall back to naming the counterpart from the existing summary's own account fields.
                 const stmtTransfer =
-                  transferLine(d, accounts, catMapProp, { compact: true }) ||
+                  transferLine(d, accounts, catMapProp, { compact: true, intl }) ||
                   (ex.kind === 'transfer'
-                    ? transferLine(ex, accounts, catMapProp, { compact: true, ...transferCtx })
+                    ? transferLine(ex, accounts, catMapProp, {
+                        compact: true,
+                        ...transferCtx,
+                        intl,
+                      })
                     : null)
                 const proj = afterImportProjection({
                   intl,
@@ -5391,6 +5396,7 @@ export function ImportModal({
                               {existingTxnLine(ex, accounts, catMapProp, d.currency, {
                                 ...transferCtx,
                                 omitFacts: true,
+                                intl,
                               })}
                             </div>
                             {openFailed && (
@@ -5640,10 +5646,11 @@ export function ImportModal({
                 // back to naming the counterpart from the existing summary's own account fields.
                 const resolvedForCategory = resolveExisting(d)
                 const transferCategoryLine =
-                  transferLine(d, accounts, catMapProp, { compact: true }) ||
+                  transferLine(d, accounts, catMapProp, { compact: true, intl }) ||
                   (resolvedForCategory?.summary.kind === 'transfer'
                     ? transferLine(resolvedForCategory.summary, accounts, catMapProp, {
                         compact: true,
+                        intl,
                         anchorAccountId: d.destId || accountId,
                         counterHint: d.routed?.to_account_id,
                       })
@@ -6056,7 +6063,7 @@ export function ImportModal({
                                       : 'left out'}
                                 </span>
                                 {existing &&
-                                  ` • ${existingTxnLine(existing, accounts, catMapProp, d.currency, { anchorAccountId: d.destId || accountId, counterHint: d.routed?.to_account_id })}`}
+                                  ` • ${existingTxnLine(existing, accounts, catMapProp, d.currency, { anchorAccountId: d.destId || accountId, counterHint: d.routed?.to_account_id, intl })}`}
                                 {outcome && (
                                   <span className="imp-rowmatch-outcome"> • {outcome}</span>
                                 )}
@@ -6464,7 +6471,7 @@ export function ImportModal({
                 const existingOriginal = resolved
                   ? originalCharge(resolved.summary, existingCurrency)
                   : null
-                const queueTransfer = transferLine(d, accounts, catMapProp, { compact: true })
+                const queueTransfer = transferLine(d, accounts, catMapProp, { compact: true, intl })
                 const queueCategory =
                   queueTransfer ||
                   (d.category ? catMapProp[d.category]?.label || d.category : 'Uncategorized')
@@ -6599,6 +6606,7 @@ export function ImportModal({
                             {existingTxnLine(resolved.summary, accounts, catMapProp, d.currency, {
                               anchorAccountId: d.destId || accountId,
                               omitFacts: true,
+                              intl,
                             })}
                           </div>
                           <div className="imp3-cmp-facts">

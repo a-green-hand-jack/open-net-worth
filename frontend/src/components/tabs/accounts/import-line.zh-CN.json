@@ -1,0 +1,8 @@
+{
+  "accounts.importLine.agent": "通过智能体",
+  "accounts.importLine.imported": "来自先前导入",
+  "accounts.importLine.lucius": "通过 Lucius",
+  "accounts.importLine.manual": "由您添加",
+  "accounts.importLine.transfer": "转账",
+  "accounts.importLine.uncategorized": "未分类"
+}

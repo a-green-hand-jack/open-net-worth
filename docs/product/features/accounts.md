@@ -220,6 +220,8 @@ Built-in import review flags and matched transaction kinds follow the interface 
 unknown server-provided labels remain unchanged.
 The projected import outcome uses the interface language for built-in status badges and counts;
 transaction facts and user-supplied category names are unchanged.
+Transfer and source descriptions in import review follow the interface language while retaining
+the account names and direction.
 
 Account, category, payee and date picker controls follow the interface language. Account names,
 payees and category group names retain the text you entered.

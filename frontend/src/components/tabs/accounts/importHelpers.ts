@@ -736,11 +736,25 @@ export const FLAG_LABEL: Record<string, string> = {
  * `_existing_summary` → core.txn_sources.display_source), so every raw feed variant
  * (csv_import/qif_import/api/bank syncs/reconcile/...) has already collapsed onto the handful
  * this switches on. */
-export function existingSourcePhrase(source?: string | null): string {
-  if (source === 'ai') return 'via Lucius'
-  if (source === 'agent') return 'via agent'
-  if (source === 'import') return 'from an earlier import'
-  return 'added by you'
+const importLineMessages = defineMessages({
+  lucius: { id: 'accounts.importLine.lucius', defaultMessage: 'via Lucius' },
+  agent: { id: 'accounts.importLine.agent', defaultMessage: 'via agent' },
+  imported: { id: 'accounts.importLine.imported', defaultMessage: 'from an earlier import' },
+  manual: { id: 'accounts.importLine.manual', defaultMessage: 'added by you' },
+  transfer: { id: 'accounts.importLine.transfer', defaultMessage: 'Transfer' },
+  uncategorized: { id: 'accounts.importLine.uncategorized', defaultMessage: 'Uncategorized' },
+})
+
+export function existingSourcePhrase(source?: string | null, intl?: IntlShape): string {
+  const key =
+    source === 'ai'
+      ? 'lucius'
+      : source === 'agent'
+        ? 'agent'
+        : source === 'import'
+          ? 'imported'
+          : 'manual'
+  return intl ? intl.formatMessage(importLineMessages[key]) : importLineMessages[key].defaultMessage
 }
 
 // ── Transfer identity (owner complaint 2026-07-17) ────────────────────────────────────
@@ -791,8 +805,14 @@ export function transferLine(
   subject: TransferLineSubject,
   accounts: Array<{ id: string; name: string }>,
   catMap: Record<string, { label: string }>,
-  opts: { anchorAccountId?: string; counterHint?: string; compact?: boolean } = {},
+  opts: {
+    anchorAccountId?: string
+    counterHint?: string
+    compact?: boolean
+    intl?: IntlShape
+  } = {},
 ): string | null {
+  const transfer = opts.intl ? opts.intl.formatMessage(importLineMessages.transfer) : 'Transfer'
   const withCat = (head: string) =>
     subject.category ? `${head} • ${catMap[subject.category]?.label || subject.category}` : head
   const r = subject.routed
@@ -802,11 +822,11 @@ export function transferLine(
       const counter = out
         ? accountName(r.to_account_id, r.to_account_name, accounts)
         : accountName(r.from_account_id, r.from_account_name, accounts)
-      return withCat(counter ? `Transfer ${out ? '→' : '←'} ${counter}` : 'Transfer')
+      return withCat(counter ? `${transfer} ${out ? '→' : '←'} ${counter}` : transfer)
     }
     const from = accountName(r.from_account_id, r.from_account_name, accounts)
     const to = accountName(r.to_account_id, r.to_account_name, accounts)
-    return withCat(from && to ? `Transfer • ${from} → ${to}` : 'Transfer')
+    return withCat(from && to ? `${transfer} • ${from} → ${to}` : transfer)
   }
   if (subject.kind !== 'transfer') return null
   const from = accountName(subject.account_id, null, accounts)
@@ -826,9 +846,9 @@ export function transferLine(
     // — which is always nameable. Same "never fabricate an arrow" honesty as the legs form.
     const anchorIsFrom = !!opts.anchorAccountId && subject.account_id === opts.anchorAccountId
     const counter = anchorIsFrom ? to : from
-    return withCat(counter ? `Transfer ${anchorIsFrom ? '→' : '←'} ${counter}` : 'Transfer')
+    return withCat(counter ? `${transfer} ${anchorIsFrom ? '→' : '←'} ${counter}` : transfer)
   }
-  return withCat(from && to ? `Transfer • ${from} → ${to}` : 'Transfer')
+  return withCat(from && to ? `${transfer} • ${from} → ${to}` : transfer)
 }
 
 /** The existing transaction's own quiet, one-line summary rendered under a match headline
@@ -859,7 +879,12 @@ export function existingTxnLine(
   accounts: Array<{ id: string; name: string }>,
   catMap: Record<string, { label: string }>,
   fallbackCurrency: string,
-  transferCtx?: { anchorAccountId?: string; counterHint?: string; omitFacts?: boolean },
+  transferCtx?: {
+    anchorAccountId?: string
+    counterHint?: string
+    omitFacts?: boolean
+    intl?: IntlShape
+  },
 ): string {
   const parts: string[] = []
   // Cmp's own callers already show a date + amount footer (imp3-cmp-facts) right below this
@@ -876,10 +901,14 @@ export function existingTxnLine(
   } else {
     if (acct) parts.push(acct.name)
     parts.push(
-      existing.category ? catMap[existing.category]?.label || existing.category : 'Uncategorized',
+      existing.category
+        ? catMap[existing.category]?.label || existing.category
+        : transferCtx?.intl
+          ? transferCtx.intl.formatMessage(importLineMessages.uncategorized)
+          : 'Uncategorized',
     )
   }
-  parts.push(existingSourcePhrase(existing.source))
+  parts.push(existingSourcePhrase(existing.source, transferCtx?.intl))
   // Show the leg on the STATEMENT's own account, not the raw from-leg magnitude: a
   // ₫1,600,000 credit linked to a TransferQuick SGD→VinaBank transfer must read ₫1,600,000,
   // never the from-leg "S$79.30" (reported case, 2026-07-18). anchorPerspectiveAmount picks
@@ -1338,6 +1367,7 @@ export function afterImportProjection(args: {
   const exTransfer = transferLine(existing, accounts, catMap, {
     anchorAccountId,
     counterHint: draft.routed?.to_account_id,
+    intl,
   })
   const existingAmount =
     existing.kind === 'transfer'
@@ -1368,7 +1398,7 @@ export function afterImportProjection(args: {
       tag: 'new',
       title: draft.payee || draft.description,
       date: { value: draft.date.slice(5) },
-      category: transferLine(draft, accounts, catMap) ?? catLabel(draft.category),
+      category: transferLine(draft, accounts, catMap, { intl }) ?? catLabel(draft.category),
       amount: { value: fmt(draft.amount) },
       ...(oa != null && oc && oc !== draft.currency
         ? { original: { value: fCur(oa, oc, { cents: true }), added: false } }
