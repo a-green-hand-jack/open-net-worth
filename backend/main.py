@@ -198,6 +198,7 @@ from backend.api.sql_query import router as sql_query_router
 from backend.api.statement_parse_api import router as statement_parse_router
 from backend.api.terminal import router as terminal_router
 from backend.api.tool_permissions import router as tool_permissions_router
+from backend.api.trading_grants_api import router as trading_grants_router
 from backend.api.upload import router as upload_router
 from backend.api.vault import router as vault_router
 from backend.api.voice import router as voice_router
@@ -206,6 +207,7 @@ from backend.api.ynab_api import router as ynab_router
 from backend.api.yodlee_api import router as yodlee_router
 from backend.core.redact import redact_secrets
 from backend.mcp.server import router as mcp_router
+from backend.mcp.trading_gateway import router as trading_gateway_router
 
 
 def _headless_user_messages(prompt: str) -> list[dict]:
@@ -1172,6 +1174,8 @@ app.include_router(artifacts_router)
 app.include_router(vault_router)
 app.include_router(assets_router)
 app.include_router(automations_router)
+app.include_router(trading_grants_router)
+app.include_router(trading_gateway_router)
 app.include_router(ibkr_router)
 app.include_router(yodlee_router)
 app.include_router(lunch_money_router)
