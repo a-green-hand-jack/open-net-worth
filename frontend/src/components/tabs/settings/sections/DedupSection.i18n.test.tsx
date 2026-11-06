@@ -51,3 +51,15 @@ it('translates policy labels while keeping saved keys and user payee text', asyn
   fireEvent.change(select, { target: { value: 'review_all' } })
   await waitFor(() => expect(save).toHaveBeenCalledWith({ policy: 'review_all' }))
 })
+
+it('keeps English labels and persisted policy keys in English', () => {
+  render(
+    <IntlProvider locale="en">
+      <DedupSection toast={vi.fn()} />
+    </IntlProvider>,
+  )
+  const select = screen.getByRole('combobox', { name: 'Auto-merge policy' })
+  expect(select).toHaveProperty('value', 'auto_transfers')
+  expect(screen.getByText(/Dana Store/).textContent).toContain('Dana Store')
+  expect(screen.getByRole('option', { name: /Balanced/ })).toBeTruthy()
+})
