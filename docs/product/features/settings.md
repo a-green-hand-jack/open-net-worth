@@ -48,7 +48,7 @@ Previously installed built-in starters are recognized when their name and descri
 The starter-skill browser translates verified display text while preserving skill identifiers.
 Skill list controls follow the interface language and search retains original names and descriptions.
 The skill creation menu follows the interface language as well.
-The account institution manager, its unlink confirmation, archived account controls, background statement notices and import-result confirmations follow the interface language; saved names and statement filenames remain unchanged.
+The account institution manager, its unlink confirmation, archived account controls, background statement notices, import-result confirmations and category creation controls follow the interface language; saved names and statement filenames remain unchanged.
 
 ## Common tasks
 

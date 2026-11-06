@@ -1,0 +1,19 @@
+{
+  "category.create.expense": "支出",
+  "category.create.income": "收入",
+  "category.create.transfer": "转账",
+  "category.create.investment": "投资",
+  "category.create.expenseExample": "例如：宠物护理",
+  "category.create.incomeExample": "例如：奖金",
+  "category.create.transferExample": "例如：报销",
+  "category.create.investmentExample": "例如：股息",
+  "category.create.expenseNote": "这是<b>资金流出（−）</b>，用于标记支出。",
+  "category.create.incomeNote": "这是<b>资金流入（+）</b>，用于标记收入。",
+  "category.create.transferNote": "这是<b>转账</b>标签，用于标记账户之间的资金转移。",
+  "category.create.investmentNote": "这是<b>投资</b>标签，用于标记买入、卖出和股息。",
+  "category.create.title": "添加分类",
+  "category.create.cancel": "取消",
+  "category.create.save": "保存",
+  "category.create.type": "类型",
+  "category.create.name": "分类名称"
+}
