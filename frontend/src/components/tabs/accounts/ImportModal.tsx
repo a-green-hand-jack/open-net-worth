@@ -3800,7 +3800,13 @@ export function ImportModal({
                     {FORMAT_LABEL[detectFormat(resumeFilename || '')]}
                   </span>
                   <div>
-                    <div className="imp3-file-nm">{resumeFilename || 'Statement'}</div>
+                    <div className="imp3-file-nm">
+                      {resumeFilename ||
+                        intl.formatMessage({
+                          id: 'accounts.importChoose.statement',
+                          defaultMessage: 'Statement',
+                        })}
+                    </div>
                     {reopenSub && <div className="imp3-file-sub">{reopenSub}</div>}
                   </div>
                 </div>
@@ -3819,7 +3825,10 @@ export function ImportModal({
                       setUrlOpen(!file)
                     }}
                   >
-                    Change
+                    {intl.formatMessage({
+                      id: 'accounts.importChoose.change',
+                      defaultMessage: 'Change',
+                    })}
                   </button>
                 </div>
               )}
@@ -3830,7 +3839,12 @@ export function ImportModal({
               {peekState === 'pending' && !reopenChoose && (
                 <div className="imp3-known pending" role="status" aria-live="polite">
                   <span className="imp3-known-spin" aria-hidden="true" />
-                  <div className="imp3-known-t">Checking if this source is remembered…</div>
+                  <div className="imp3-known-t">
+                    {intl.formatMessage({
+                      id: 'accounts.importChoose.checkingSource',
+                      defaultMessage: 'Checking if this source is remembered…',
+                    })}
+                  </div>
                 </div>
               )}
               {sourceKnown && !reopenChoose && (
@@ -3843,18 +3857,31 @@ export function ImportModal({
                     Date") that reads as noise here — and on the Decide step's LuciusNote too
                     (2026-07-27 fix: dropped there as well, not just here). */}
                   <div className="imp3-known-t">
-                    <b>I know this source.</b> Layout is remembered.
+                    {intl.formatMessage(
+                      {
+                        id: 'accounts.importChoose.known',
+                        defaultMessage: '<b>I know this source.</b> Layout is remembered.',
+                      },
+                      { b: (chunks) => <b>{chunks}</b> },
+                    )}
                   </div>
                   <label
                     className="imp3-known-cb"
-                    title="Forget everything remembered about this source for this run: re-detect the format from scratch AND re-read the file instead of reusing the cached parse."
+                    title={intl.formatMessage({
+                      id: 'accounts.importChoose.freshTitle',
+                      defaultMessage:
+                        'Forget everything remembered about this source for this run: re-detect the format from scratch AND re-read the file instead of reusing the cached parse.',
+                    })}
                   >
                     <input
                       type="checkbox"
                       checked={fresh}
                       onChange={(e) => setFresh(e.target.checked)}
                     />{' '}
-                    Re-read from scratch
+                    {intl.formatMessage({
+                      id: 'accounts.importChoose.fresh',
+                      defaultMessage: 'Re-read from scratch',
+                    })}
                   </label>
                 </div>
               )}
@@ -3865,21 +3892,37 @@ export function ImportModal({
               {peekState === 'unavailable' && !reopenChoose && (
                 <label
                   className="imp3-remember"
-                  title="Forget everything remembered about this source for this run: re-detect the format from scratch AND re-read the file instead of reusing the cached parse."
+                  title={intl.formatMessage({
+                    id: 'accounts.importChoose.freshTitle',
+                    defaultMessage:
+                      'Forget everything remembered about this source for this run: re-detect the format from scratch AND re-read the file instead of reusing the cached parse.',
+                  })}
                 >
                   <input
                     type="checkbox"
                     checked={fresh}
                     onChange={(e) => setFresh(e.target.checked)}
                   />{' '}
-                  Re-read from scratch
+                  {intl.formatMessage({
+                    id: 'accounts.importChoose.fresh',
+                    defaultMessage: 'Re-read from scratch',
+                  })}
                 </label>
               )}
               <div className="imp3-cfg">
                 <div className="imp3-cfg-row">
                   <span className="imp3-cfg-l">
-                    Into accounts
-                    <em>a statement can cover several — each row routes to the right one</em>
+                    {intl.formatMessage({
+                      id: 'accounts.importChoose.into',
+                      defaultMessage: 'Into accounts',
+                    })}
+                    <em>
+                      {intl.formatMessage({
+                        id: 'accounts.importChoose.intoHint',
+                        defaultMessage:
+                          'a statement can cover several — each row routes to the right one',
+                      })}
+                    </em>
                   </span>
                   <div className="imp3-acctchips">
                     {acctIds.map((id) => {
@@ -3890,7 +3933,13 @@ export function ImportModal({
                           {a.name}
                           <button
                             type="button"
-                            aria-label={`Remove ${a.name}`}
+                            aria-label={intl.formatMessage(
+                              {
+                                id: 'accounts.importChoose.removeAccount',
+                                defaultMessage: 'Remove {name}',
+                              },
+                              { name: a.name },
+                            )}
                             onClick={() => removeAccount(id)}
                           >
                             <X size={11} aria-hidden="true" />
@@ -3907,7 +3956,11 @@ export function ImportModal({
                         >
                           {acctIds.length ? (
                             <>
-                              <Plus size={12} aria-hidden="true" /> Add account
+                              <Plus size={12} aria-hidden="true" />{' '}
+                              {intl.formatMessage({
+                                id: 'accounts.importChoose.addAccount',
+                                defaultMessage: 'Add account',
+                              })}
                             </>
                           ) : (
                             intl.formatMessage({
@@ -3950,9 +4003,16 @@ export function ImportModal({
                   layout), and carrying it would mean allowlisting a generic global token. */}
                 <div className="imp3-cfg-row">
                   <span className="imp3-cfg-l">
-                    Tell Lucius
+                    {intl.formatMessage({
+                      id: 'accounts.importChoose.tellLucius',
+                      defaultMessage: 'Tell Lucius',
+                    })}
                     <em>
-                      bank quirks, context, corrections — these make the read noticeably better
+                      {intl.formatMessage({
+                        id: 'accounts.importChoose.instructionHint',
+                        defaultMessage:
+                          'bank quirks, context, corrections — these make the read noticeably better',
+                      })}
                     </em>
                   </span>
                   <div className="imp3-cfg-note">
@@ -3960,10 +4020,15 @@ export function ImportModal({
                       ref={instrTextareaRef}
                       rows={3}
                       maxLength={1000}
-                      aria-label="Tell Lucius"
-                      placeholder={
-                        'e.g. Rows with MOMO.0352 are transfers to my wallet, never expenses.\nDates are DD/MM. Amounts in the ‘Foreign’ column are the original currency, not SGD.'
-                      }
+                      aria-label={intl.formatMessage({
+                        id: 'accounts.importChoose.tellLucius',
+                        defaultMessage: 'Tell Lucius',
+                      })}
+                      placeholder={intl.formatMessage({
+                        id: 'accounts.importChoose.instructionsExample',
+                        defaultMessage:
+                          'e.g. Rows with MOMO.0352 are transfers to my wallet, never expenses.\nDates are DD/MM. Amounts in the ‘Foreign’ column are the original currency, not SGD.',
+                      })}
                       value={instructions}
                       onChange={(e) => {
                         instrTyped.current = true
@@ -3980,20 +4045,31 @@ export function ImportModal({
                       instructions.trim() !== savedInstructions.trim() &&
                       !fresh && (
                         <div className="imp3-cache-hint">
-                          <Spark /> Instructions changed — Lucius processes the file again with
-                          these.
+                          <Spark />{' '}
+                          {intl.formatMessage({
+                            id: 'accounts.importChoose.changed',
+                            defaultMessage:
+                              'Instructions changed — Lucius processes the file again with these.',
+                          })}
                         </div>
                       )}
                     <label
                       className="imp3-remember"
-                      title="Checked: saved on this source's format profile and auto-applied to every future import of it. Unchecked: applies to this import only."
+                      title={intl.formatMessage({
+                        id: 'accounts.importChoose.rememberTitle',
+                        defaultMessage:
+                          "Checked: saved on this source's format profile and auto-applied to every future import of it. Unchecked: applies to this import only.",
+                      })}
                     >
                       <input
                         type="checkbox"
                         checked={rememberInstr}
                         onChange={(e) => setRememberInstr(e.target.checked)}
                       />{' '}
-                      Remember for this source
+                      {intl.formatMessage({
+                        id: 'accounts.importChoose.remember',
+                        defaultMessage: 'Remember for this source',
+                      })}
                     </label>
                   </div>
                 </div>
@@ -4014,10 +4090,21 @@ export function ImportModal({
                     disabled={!acctIds.length || rereading}
                     onClick={() => void readAgain()}
                   >
-                    {rereading ? 'Starting…' : 'Read again'}
+                    {rereading
+                      ? intl.formatMessage({
+                          id: 'accounts.importChoose.starting',
+                          defaultMessage: 'Starting…',
+                        })
+                      : intl.formatMessage({
+                          id: 'accounts.importChoose.readAgain',
+                          defaultMessage: 'Read again',
+                        })}
                   </Button>
                   <Button variant="primary" disabled={!preview} onClick={() => setStep('preview')}>
-                    Back to review
+                    {intl.formatMessage({
+                      id: 'accounts.importChoose.backReview',
+                      defaultMessage: 'Back to review',
+                    })}
                   </Button>
                 </div>
               ) : (

@@ -214,7 +214,8 @@ aliases, categories and renaming rules remain unchanged.
 Receipt controls use the interface language while retaining original filenames.
 Statement import progress uses the selected language for built-in stages and status messages;
 unrecognized progress labels from the server remain unchanged.
-The statement upload entry, initial account selector and read action also follow the interface language.
+The statement upload entry, account selectors, source options and reading instructions also
+follow the interface language; your account names and instruction text remain unchanged.
 
 Account, category, payee and date picker controls follow the interface language. Account names,
 payees and category group names retain the text you entered.
