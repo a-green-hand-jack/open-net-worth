@@ -1,0 +1,22 @@
+{
+  "overview.pace.meta": "{month}{day}日 · 第 {day}/{total} 天",
+  "overview.pace.elapsed": "本月已过 {percent}%",
+  "overview.pace.unmatched": "没有名为{names}的预算信封，现显示本月支出最高的项目。可在小组件设置中选择类别。",
+  "overview.pace.empty": "本月没有预算信封发生支出。",
+  "overview.pace.spentAria": "{name}：已支出预算的 {percent}%",
+  "overview.pace.average": "平均",
+  "overview.pace.perDay": "{amount}/天",
+  "overview.pace.left": "剩余",
+  "overview.pace.amountLeft": "剩余 {amount}",
+  "overview.debt.empty": "账本中没有负债，无需偿还。",
+  "overview.debt.viewAccounts": "在账户中查看",
+  "overview.debt.help": "当前各账户的欠款。",
+  "overview.more": "另有 {count} 项",
+  "overview.budget.error": "无法加载预算，请稍后重试。",
+  "overview.budget.empty": "在计划中为信封分配资金后，可在此查看进度。",
+  "overview.budget.daysLeft": "{count, plural, other {本月剩余 # 天}}",
+  "overview.budget.edit": "编辑预算",
+  "overview.budget.tip": "{name}\n已支出 {spent}，分配 {assigned}",
+  "overview.budget.spentAria": "{name}：已支出 {spent}，分配 {assigned}",
+  "overview.budget.value": "已支出 {spent}，分配 {assigned}"
+}

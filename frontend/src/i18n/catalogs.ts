@@ -34,6 +34,7 @@ import widgetPickerZh from '../components/tabs/overview/widget-picker.zh-CN.json
 import overviewBriefingZh from '../components/tabs/overview/briefing.zh-CN.json'
 import overviewMoneyFlowZh from '../components/tabs/overview/widgets/money-flow.zh-CN.json'
 import overviewTransactionsZh from '../components/tabs/overview/widgets/transactions.zh-CN.json'
+import overviewBudgetZh from '../components/tabs/overview/widgets/budget.zh-CN.json'
 
 export const catalogs: Record<Locale, Record<string, string> | undefined> = {
   en: undefined,
@@ -73,6 +74,7 @@ export const catalogs: Record<Locale, Record<string, string> | undefined> = {
     ...overviewBriefingZh,
     ...overviewMoneyFlowZh,
     ...overviewTransactionsZh,
+    ...overviewBudgetZh,
     'auth.signingBackIn': '正在重新登录…',
     'auth.rateLimit': '尝试次数过多。请在 {minutes, plural, other {# 分钟}}后重试。',
     'settings.section.language': '界面语言',

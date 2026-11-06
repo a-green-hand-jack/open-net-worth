@@ -1,6 +1,8 @@
 // @vitest-environment jsdom
 import { cleanup, render, screen } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
+import { IntlProvider } from 'react-intl'
+import { catalogs } from '../../../../i18n/catalogs'
 
 const mockSummary = {
   days_in_month: 30,
@@ -76,6 +78,19 @@ describe('SpendingPaceWidget', () => {
     // Verify rows are static (not buttons or interactive drawers)
     expect(screen.queryByRole('button')).toBeNull()
     expect(screen.queryByText(/Projected spend/)).toBeNull()
+  })
+
+  it('localizes the month and progress while preserving category names and server figures', () => {
+    const { container } = render(
+      <IntlProvider locale="zh-CN" messages={catalogs['zh-CN']}>
+        <SpendingPaceWidget instance={instance} def={def} onPatch={vi.fn()} />
+      </IntlProvider>,
+    )
+    expect(screen.getByText('Groceries')).toBeTruthy()
+    expect(screen.getByLabelText('Groceries：已支出预算的 53%')).toBeTruthy()
+    expect(screen.getByText(/本月已过 40%/)).toBeTruthy()
+    expect(container.textContent).toContain('9月12日')
+    expect(container.textContent).toContain(fBase(999))
   })
 
   it('renders the server-computed pace fields verbatim, never recomputed client-side', () => {
