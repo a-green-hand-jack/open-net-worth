@@ -48,6 +48,9 @@ With no floor set, the warning fires only when cash is projected to go below zer
 
 ## Read the overview
 
+The commitment detail overview uses your interface language for its built-in labels and actions.
+Names and descriptions you entered remain as written.
+
 - The headline is **Cash stays above your $X safety floor** (with no floor set, **Cash stays
   above zero**), or **Short $X** (whole dollars, and "at
   today's exchange rates" when your book spans more than one currency) — the deepest your cash is

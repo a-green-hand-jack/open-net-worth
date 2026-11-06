@@ -66,6 +66,7 @@ import accountHeaderZh from '../components/tabs/accounts/header.zh-CN.json'
 import accountBulkZh from '../components/tabs/accounts/bulk.zh-CN.json'
 import accountSidebarZh from '../components/tabs/accounts/sidebar.zh-CN.json'
 import accountRegisterZh from '../components/tabs/accounts/register.zh-CN.json'
+import commitmentOverviewZh from '../components/tabs/commitments/overview.zh-CN.json'
 import accountFilterZh from '../components/tabs/accounts/filter.zh-CN.json'
 import accountRowsZh from '../components/tabs/accounts/rows.zh-CN.json'
 import accountSplitViewZh from '../components/tabs/accounts/split-view.zh-CN.json'
@@ -139,6 +140,7 @@ export const catalogs: Record<Locale, Record<string, string> | undefined> = {
     ...accountBulkZh,
     ...accountSidebarZh,
     ...accountRegisterZh,
+    ...commitmentOverviewZh,
     ...accountFilterZh,
     ...accountRowsZh,
     ...accountSplitViewZh,

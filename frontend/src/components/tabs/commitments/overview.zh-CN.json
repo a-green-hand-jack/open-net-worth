@@ -1,0 +1,23 @@
+{
+  "commitment.overview.nextContributions": "接下来的缴款",
+  "commitment.overview.nextPayments": "接下来的付款",
+  "commitment.overview.fullContributions": "查看全部缴款",
+  "commitment.overview.fullSchedule": "查看完整计划",
+  "commitment.overview.allContributions": "所有缴款已完成。",
+  "commitment.overview.allPayments": "所有付款已完成。",
+  "commitment.overview.status.paid": "已付款",
+  "commitment.overview.status.due": "到期",
+  "commitment.overview.status.overdue": "已逾期",
+  "commitment.overview.status.upcoming": "即将到期",
+  "commitment.overview.funding": "资金来源",
+  "commitment.overview.unfunded": "尚缺 <money>{amount}</money>",
+  "commitment.overview.fullyFunded": "资金已备齐",
+  "commitment.overview.sources": "{count, plural, other {# 个来源}}",
+  "commitment.overview.noContributionFunding": "尚无资金来源——可以询问 Lucius 如何支付这些缴款。",
+  "commitment.overview.noPaymentFunding": "尚无资金来源——可以询问 Lucius 如何支付这些分期付款。",
+  "commitment.overview.comingUp": "接下来",
+  "commitment.overview.allActions": "查看全部操作",
+  "commitment.overview.noActions": "没有待处理的操作。",
+  "commitment.overview.markDone": "标记为已完成",
+  "commitment.overview.notHappening": "不会发生"
+}

@@ -11,15 +11,16 @@ import type { PositionMeta } from './fundingValue'
 import type { DetailMutations } from './detailTypes'
 import { CheckIcon, XIcon } from './icons'
 import { ArrowRight } from '../../../ui/icons'
+import { useAppIntl } from '../../../i18n/useAppIntl'
 
-const STATUS_LABEL: Record<string, string> = {
-  paid: 'Paid',
-  due: 'Due',
-  overdue: 'Overdue',
-  upcoming: 'Upcoming',
+const STATUS_LABEL = {
+  paid: { id: 'commitment.overview.status.paid', defaultMessage: 'Paid' },
+  due: { id: 'commitment.overview.status.due', defaultMessage: 'Due' },
+  overdue: { id: 'commitment.overview.status.overdue', defaultMessage: 'Overdue' },
+  upcoming: { id: 'commitment.overview.status.upcoming', defaultMessage: 'Upcoming' },
 }
 
-function dispStatus(dueDate: string, status: string): string {
+function dispStatus(dueDate: string, status: string): keyof typeof STATUS_LABEL {
   if (status === 'paid') return 'paid'
   const d = daysUntil(dueDate)
   if (d < 0) return 'overdue'
@@ -37,6 +38,7 @@ interface OverviewProps {
 }
 
 export function OverviewTab({ commitment: c, fx, envelope, positions, goTo, m }: OverviewProps) {
+  const { formatMessage: t } = useAppIntl()
   const tracker = isTracker(c)
   const unpaid = [...c.installments]
     .filter((i) => i.status !== 'paid')
@@ -52,17 +54,37 @@ export function OverviewTab({ commitment: c, fx, envelope, positions, goTo, m }:
     <>
       <div className="c2-exp-sec">
         <div className="c2-exp-sec-h">
-          <span className="c2-exp-sec-t">{tracker ? 'Next contributions' : 'Next payments'}</span>
+          <span className="c2-exp-sec-t">
+            {tracker
+              ? t({
+                  id: 'commitment.overview.nextContributions',
+                  defaultMessage: 'Next contributions',
+                })
+              : t({ id: 'commitment.overview.nextPayments', defaultMessage: 'Next payments' })}
+          </span>
           <span className="c2-exp-sec-note">
             <button className="c2-link" onClick={() => goTo('schedule')}>
-              Full {tracker ? 'contributions' : 'schedule'}{' '}
+              {tracker
+                ? t({
+                    id: 'commitment.overview.fullContributions',
+                    defaultMessage: 'Full contributions',
+                  })
+                : t({
+                    id: 'commitment.overview.fullSchedule',
+                    defaultMessage: 'Full schedule',
+                  })}{' '}
               <ArrowRight size={13} aria-hidden="true" />
             </button>
           </span>
         </div>
         {unpaid.length === 0 && (
           <div className="c2-fund-empty">
-            All {tracker ? 'contributions made' : 'payments made'}.
+            {tracker
+              ? t({
+                  id: 'commitment.overview.allContributions',
+                  defaultMessage: 'All contributions made.',
+                })
+              : t({ id: 'commitment.overview.allPayments', defaultMessage: 'All payments made.' })}
           </div>
         )}
         {unpaid.map((i) => {
@@ -91,7 +113,7 @@ export function OverviewTab({ commitment: c, fx, envelope, positions, goTo, m }:
                 {i.label}
                 {i.description ? <span className="c3-ov-desc"> • {i.description}</span> : null}
               </span>
-              <span className={'c2-si-badge ' + s}>{STATUS_LABEL[s]}</span>
+              <span className={'c2-si-badge ' + s}>{t(STATUS_LABEL[s])}</span>
               <span className="c3-ov-amt money">{fDual(i.amount, c.currency, fx)}</span>
             </EntityRow>
           )
@@ -100,28 +122,54 @@ export function OverviewTab({ commitment: c, fx, envelope, positions, goTo, m }:
 
       <div className="c2-exp-sec">
         <div className="c2-exp-sec-h">
-          <span className="c2-exp-sec-t">Funding</span>
+          <span className="c2-exp-sec-t">
+            {t({ id: 'commitment.overview.funding', defaultMessage: 'Funding' })}
+          </span>
           <span className="c2-exp-sec-note">
             {!tracker &&
               (gap > 0 ? (
                 <span className="c2-exp-sec-note bad" style={{ marginRight: 10 }}>
-                  <span className="money">{fBase(gap)}</span> unfunded
+                  {t(
+                    {
+                      id: 'commitment.overview.unfunded',
+                      defaultMessage: '<money>{amount}</money> unfunded',
+                    },
+                    {
+                      amount: fBase(gap),
+                      money: (chunks) => <span className="money">{chunks}</span>,
+                    },
+                  )}
                 </span>
               ) : (
                 <span className="c2-exp-sec-note good" style={{ marginRight: 10 }}>
-                  Fully funded
+                  {t({ id: 'commitment.overview.fullyFunded', defaultMessage: 'Fully funded' })}
                 </span>
               ))}
             <button className="c2-link" onClick={() => goTo('funding')}>
-              {(c.funding_plan || []).length} source{(c.funding_plan || []).length === 1 ? '' : 's'}{' '}
+              {t(
+                {
+                  id: 'commitment.overview.sources',
+                  defaultMessage: '{count, plural, one {# source} other {# sources}}',
+                },
+                { count: (c.funding_plan || []).length },
+              )}{' '}
               <ArrowRight size={13} aria-hidden="true" />
             </button>
           </span>
         </div>
         {(c.funding_plan || []).length === 0 ? (
           <div className="c2-fund-empty">
-            No funding sources yet — ask Lucius how you'll cover these{' '}
-            {tracker ? 'contributions' : 'installments'}.
+            {tracker
+              ? t({
+                  id: 'commitment.overview.noContributionFunding',
+                  defaultMessage:
+                    "No funding sources yet — ask Lucius how you'll cover these contributions.",
+                })
+              : t({
+                  id: 'commitment.overview.noPaymentFunding',
+                  defaultMessage:
+                    "No funding sources yet — ask Lucius how you'll cover these installments.",
+                })}
           </div>
         ) : !tracker ? (
           <FundingCoverageBar
@@ -141,14 +189,21 @@ export function OverviewTab({ commitment: c, fx, envelope, positions, goTo, m }:
 
       <div className="c2-exp-sec">
         <div className="c2-exp-sec-h">
-          <span className="c2-exp-sec-t">Coming up</span>
+          <span className="c2-exp-sec-t">
+            {t({ id: 'commitment.overview.comingUp', defaultMessage: 'Coming up' })}
+          </span>
           <span className="c2-exp-sec-note">
             <button className="c2-link" onClick={() => goTo('actions')}>
-              All actions <ArrowRight size={13} aria-hidden="true" />
+              {t({ id: 'commitment.overview.allActions', defaultMessage: 'All actions' })}{' '}
+              <ArrowRight size={13} aria-hidden="true" />
             </button>
           </span>
         </div>
-        {acts.length === 0 && <div className="c2-fund-empty">No pending actions.</div>}
+        {acts.length === 0 && (
+          <div className="c2-fund-empty">
+            {t({ id: 'commitment.overview.noActions', defaultMessage: 'No pending actions.' })}
+          </div>
+        )}
         {acts.map((a) => {
           const od = !!a.due_date && daysUntil(a.due_date) < 0
           return (
@@ -171,7 +226,9 @@ export function OverviewTab({ commitment: c, fx, envelope, positions, goTo, m }:
               sublabel={`${c.name} • ${a.due_date}`}
             >
               <span className={'c3-ov-date' + (od ? ' od' : '')}>
-                {od ? 'Overdue • ' : ''}
+                {od
+                  ? `${t({ id: 'commitment.overview.status.overdue', defaultMessage: 'Overdue' })} • `
+                  : ''}
                 {a.due_date ? fmtDay(a.due_date) : '—'}
               </span>
               <span className="c3-ov-label">{a.label}</span>
@@ -184,16 +241,25 @@ export function OverviewTab({ commitment: c, fx, envelope, positions, goTo, m }:
               <span className="c3-ov-acts">
                 <button
                   className="c2-need-icon-btn pay"
-                  aria-label="Mark done"
-                  title="Mark done"
+                  aria-label={t({
+                    id: 'commitment.overview.markDone',
+                    defaultMessage: 'Mark done',
+                  })}
+                  title={t({ id: 'commitment.overview.markDone', defaultMessage: 'Mark done' })}
                   onClick={() => void m.updateAction(a.id, { status: 'done' })}
                 >
                   <CheckIcon />
                 </button>
                 <button
                   className="c2-need-icon-btn miss"
-                  aria-label="Not happening"
-                  title="Not happening"
+                  aria-label={t({
+                    id: 'commitment.overview.notHappening',
+                    defaultMessage: 'Not happening',
+                  })}
+                  title={t({
+                    id: 'commitment.overview.notHappening',
+                    defaultMessage: 'Not happening',
+                  })}
                   onClick={() => void m.setActionMissed(a.id, a.funding_id, true)}
                 >
                   <XIcon />
