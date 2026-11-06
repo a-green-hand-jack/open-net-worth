@@ -44,7 +44,7 @@ import { fFixed } from '../../../../utils/format'
 //   inv-divfc   — GET /api/income/calendar?days=366 (kind=dividend only), bucketed
 //                 by payment month into the next 12 calendar months.
 
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState, useSyncExternalStore } from 'react'
 import type { ComponentType } from 'react'
 import { useAppIntl } from '../../../../i18n/useAppIntl'
 import type { IntlShape } from 'react-intl'
@@ -648,9 +648,18 @@ const HoldingsMap: ComponentType<WidgetContentProps> = ({
 
 // ── Allocation drift ─────────────────────────────────────────────────────────
 
+function subscribeAmountPrivacy(notify: () => void) {
+  const observer = new MutationObserver(notify)
+  observer.observe(document.body, { attributes: true, attributeFilter: ['class'] })
+  return () => observer.disconnect()
+}
+
+const amountsHidden = () => document.body.classList.contains('hide-amounts')
+
 const AllocationDrift: ComponentType<WidgetContentProps> = ({ instance, def }) => {
   const intl = useAppIntl()
   const { formatMessage } = intl
+  const hidden = useSyncExternalStore(subscribeAmountPrivacy, amountsHidden, () => false)
   // Actual-vs-target shares, the drift in percentage points, AND the trade that would close
   // each gap are all computed server-side against the profile's target allocation — the same
   // `threshold_pp` (rebalance.DRIFT_FLAG_PP) the Investments tab's Rebalance panel uses.
@@ -742,7 +751,7 @@ const AllocationDrift: ComponentType<WidgetContentProps> = ({ instance, def }) =
                 style={{ background: ASSET_CLASS_COLOR[r.key] ?? 'var(--accent)' }}
               />
               <span className="ov-drift-label">{assetClassLabel(intl, r.key)}</span>
-              <span className="ov-drift-delta">
+              <span className="ov-drift-delta money">
                 {r.drift_pp > 0 ? '+' : ''}
                 {fFixed(r.drift_pp, 1)}pp
               </span>
@@ -754,7 +763,10 @@ const AllocationDrift: ComponentType<WidgetContentProps> = ({ instance, def }) =
                   id: 'overview.drift.actualTarget',
                   defaultMessage: 'Actual {actual}% • target {target}%',
                 },
-                { actual: fFixed(r.current_pct, 1), target: fFixed(r.target_pct, 1) },
+                {
+                  actual: hidden ? '***' : fFixed(r.current_pct, 1),
+                  target: hidden ? '***' : fFixed(r.target_pct, 1),
+                },
               )}
             >
               <div className="ov-drift-center" />
@@ -767,13 +779,13 @@ const AllocationDrift: ComponentType<WidgetContentProps> = ({ instance, def }) =
               <span>
                 {formatMessage(
                   { id: 'overview.drift.now', defaultMessage: '{percent}% now' },
-                  { percent: fFixed(r.current_pct, 1) },
+                  { percent: <span className="money">{fFixed(r.current_pct, 1)}</span> },
                 )}
               </span>
               <span className="ov-drift-tgt">
                 {formatMessage(
                   { id: 'overview.drift.target', defaultMessage: '{percent}% target' },
-                  { percent: fFixed(r.target_pct, 1) },
+                  { percent: <span className="money">{fFixed(r.target_pct, 1)}</span> },
                 )}
               </span>
             </div>
@@ -962,6 +974,7 @@ const Performance: ComponentType<WidgetContentProps> = ({ instance, def, onPatch
                 as="span"
                 size="base"
                 weight={600}
+                className="money"
                 tone={
                   data.twr && (data.annualized ? data.twr.annualized : data.twr.period_return) >= 0
                     ? 'good'
@@ -997,6 +1010,7 @@ const Performance: ComponentType<WidgetContentProps> = ({ instance, def, onPatch
                   as="span"
                   size="base"
                   weight={600}
+                  className="money"
                   tone={data.comparison.excess_return >= 0 ? 'good' : 'bad'}
                 >
                   {fReturnPct(data.comparison.excess_return)}

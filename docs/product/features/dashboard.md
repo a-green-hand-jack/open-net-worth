@@ -80,6 +80,7 @@ New built-in view names and blank section names follow your display language. Na
 and older saved names without a known origin, stay as written.
 If a saved name no longer matches its default, it stays as written even if an old default marker remains.
 The foreign-exchange widget hides held and owed amounts when amounts are hidden.
+Allocation drift figures and its hover details, plus personal return figures, also follow this setting.
 
 **Widget menu** — outside Customize mode, each widget's **⋯** menu offers **Edit…** (the same
 settings as **Edit** in Customize — title, chart type, categories and so on), **Display…** (accent
