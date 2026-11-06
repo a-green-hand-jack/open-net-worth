@@ -601,7 +601,7 @@ export function SearchFilter({
   const intl = useAppIntl()
   const { formatMessage } = intl
   const localizeFilter = useFilterLabels()
-  const normalizeFilterInput = useFilterInputNormalization()
+  const normalizeFilterInput = useFilterInputNormalization(suggest.categories)
   const [draft, setDraft] = useState('')
   const [open, setOpen] = useState(false)
   const [hi, setHi] = useState(-1)
