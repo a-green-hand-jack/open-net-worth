@@ -5,6 +5,8 @@
 
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
+import { IntlProvider } from 'react-intl'
+import { catalogs } from '../../../i18n/catalogs'
 
 const authFetch = vi.hoisted(() => vi.fn())
 vi.mock('../../../api/client', () => ({ authFetch }))
@@ -24,6 +26,24 @@ afterEach(() => {
 })
 
 describe('BriefingFocusControl', () => {
+  it('shows Chinese controls while saving the instruction exactly as entered', async () => {
+    authFetch.mockImplementation(() => jsonOk(STORED))
+    const onSaved = vi.fn()
+    render(
+      <IntlProvider locale="zh-CN" messages={catalogs['zh-CN']}>
+        <BriefingFocusControl onSaved={onSaved} />
+      </IntlProvider>,
+    )
+    const box = await screen.findByDisplayValue('Keep it short.')
+    fireEvent.change(box, { target: { value: 'Keep this custom instruction.' } })
+    fireEvent.click(screen.getByRole('button', { name: /重新生成/ }))
+    await waitFor(() => expect(onSaved).toHaveBeenCalled())
+    const put = authFetch.mock.calls.find((call) => call[1]?.method === 'PUT')!
+    expect(JSON.parse(put[1].body).briefing_preferences.custom_focus).toBe(
+      'Keep this custom instruction.',
+    )
+  })
+
   it('saves the instruction with the other preferences intact and regenerates the briefing', async () => {
     authFetch.mockImplementation(() => jsonOk(STORED))
     const regenerated = vi.fn()

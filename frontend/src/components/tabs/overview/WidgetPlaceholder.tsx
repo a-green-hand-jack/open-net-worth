@@ -7,6 +7,7 @@
 import type { ReactNode } from 'react'
 import { Skeleton, Text } from '../../ui'
 import { useFitContentWhen } from './gridItemContext'
+import { useAppIntl } from '../../../i18n/useAppIntl'
 
 /** `title` is for a message about the widget ITSELF ("This widget hit an error."); a widget's
  * own empty state passes only `detail` — the card already shows its name above. */
@@ -33,8 +34,13 @@ export function WidgetPlaceholder({ title, detail }: { title?: string; detail?: 
 /** What a data widget shows until its read resolves — never its empty message, which would
  * claim "nothing due" / "all clear" about data it has not seen yet. */
 export function WidgetSkeleton({ rows = 3 }: { rows?: number }) {
+  const { formatMessage } = useAppIntl()
   return (
-    <div className="ov-widget-skeleton" aria-busy="true" aria-label="Loading">
+    <div
+      className="ov-widget-skeleton"
+      aria-busy="true"
+      aria-label={formatMessage({ id: 'overview.loadingShort', defaultMessage: 'Loading' })}
+    >
       {Array.from({ length: rows }, (_, i) => (
         <Skeleton key={i} height={14} width={i === rows - 1 ? '60%' : '100%'} />
       ))}

@@ -31,6 +31,7 @@ import browseStartersZh from '../components/skills/browse-starters.zh-CN.json'
 import skillsTreeZh from '../components/skills/skills-tree.zh-CN.json'
 import createMenuZh from '../components/skills/create-menu.zh-CN.json'
 import widgetPickerZh from '../components/tabs/overview/widget-picker.zh-CN.json'
+import overviewBriefingZh from '../components/tabs/overview/briefing.zh-CN.json'
 
 export const catalogs: Record<Locale, Record<string, string> | undefined> = {
   en: undefined,
@@ -67,6 +68,7 @@ export const catalogs: Record<Locale, Record<string, string> | undefined> = {
     ...skillsTreeZh,
     ...createMenuZh,
     ...widgetPickerZh,
+    ...overviewBriefingZh,
     'auth.signingBackIn': '正在重新登录…',
     'auth.rateLimit': '尝试次数过多。请在 {minutes, plural, other {# 分钟}}后重试。',
     'settings.section.language': '界面语言',
