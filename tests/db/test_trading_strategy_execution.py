@@ -8,11 +8,11 @@ import subprocess
 
 import pytest
 
-from backend.core.errors import ValidationError
+from backend.core.errors import ConflictError, ValidationError
 from backend.db.trading_store import TradingStore
 from backend.sandbox import trading as sandbox
 from backend.services import tool_permissions, trading_scripts
-from backend.services.trading import delegation, execution, lifecycle
+from backend.services.trading import delegation, execution, lifecycle, performance
 
 
 @pytest.fixture
@@ -76,6 +76,36 @@ print(json.dumps({"summary":"Synthetic decision","orders":[{"account_id":account
     assert execution.list_fills(run)["total"] == 0
     call(lifecycle.apply_run_action(run, {"action": "advance"}))
     assert execution.list_fills(run)["total"] == 1
+
+
+def test_strategy_retry_preserves_order_authority_and_rejects_changed_intent(run, monkeypatch):
+    tool_permissions.set_tool_permission("core", "submit_trading_order", "always_allow")
+    account = performance.get_account(run)["items"][0]
+    intent = {
+        "account_id": account["id"],
+        "instrument": {
+            "symbol": "ACME",
+            "venue": "simulation",
+            "asset_class": "stock",
+            "currency": "USD",
+        },
+        "side": "buy",
+        "quantity": "1",
+        "request_id": "synthetic-retry",
+    }
+    receipt = {"ok": True, "result": {"summary": "Synthetic retry analysis", "orders": [intent]}}
+    monkeypatch.setattr(trading_scripts, "run_trading_script", lambda *_args, **_kwargs: receipt)
+    first = call(trading_scripts.execute_strategy(run, "print('synthetic')"))["orders"][0]
+    second = call(trading_scripts.execute_strategy(run, "print('synthetic')"))["orders"][0]
+    assert first["decision_id"]
+    assert (second["id"], second["decision_id"]) == (first["id"], first["decision_id"])
+    assert execution.list_orders(run)["total"] == 1
+    assert performance.get_account(run)["items"][0]["available_cash"] == "900"
+    receipt["result"]["orders"][0] = {**intent, "quantity": "2"}
+    with pytest.raises(ConflictError, match="different order"):
+        call(trading_scripts.execute_strategy(run, "print('changed')"))
+    assert execution.list_orders(run)["total"] == 1
+    assert performance.get_account(run)["items"][0]["available_cash"] == "900"
 
 
 def test_secret_shaped_strategy_is_not_persisted_or_executed(run, monkeypatch):
