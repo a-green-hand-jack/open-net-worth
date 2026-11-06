@@ -13,7 +13,14 @@ from backend.core.errors import ConflictError, ValidationError
 from backend.db.account_store import AccountStore
 from backend.db.trading_store import TradingStore, trading_transaction
 from backend.db.transaction_store import TransactionStore
-from backend.services.trading import execution, lifecycle, market, performance, workspaces
+from backend.services.trading import (
+    execution,
+    lifecycle,
+    market,
+    performance,
+    statements,
+    workspaces,
+)
 from backend.services.trading.accounting import execution_ledger
 
 T0 = "2026-01-05T14:30:00+00:00"
@@ -297,6 +304,55 @@ def test_backtest_partial_fills_stay_within_order_notional_cap(db_isolated):
     expected_reservation = initial_reservation * (Fraction(3) - filled_quantity) / 3
     assert reservation >= expected_reservation
     assert len(Decimal(saved_order["reserved_cash"]).as_tuple().digits) <= 128
+
+
+def test_capped_partial_buy_then_partial_sell_reconstructs_ledger(db_isolated):
+    workspace = workspaces.create_workspace(
+        {"name": "Synthetic", "mandate": {"max_order_notional": "300"}}
+    )
+    t3 = "2026-01-05T14:33:00+00:00"
+    run = workspaces.create_run(
+        workspace["id"],
+        {
+            "mode": "backtest",
+            "start_at": T0,
+            "end_at": END,
+            "accounts": [{"capital": "1000"}],
+            "observations": [
+                {"instrument": INSTRUMENT, "timestamp": T0, "price": "100", "volume": "10"},
+                {"instrument": INSTRUMENT, "timestamp": T1, "price": "110", "volume": "2"},
+                {"instrument": INSTRUMENT, "timestamp": T2, "price": "120", "volume": "10"},
+                {"instrument": INSTRUMENT, "timestamp": t3, "price": "150", "volume": "10"},
+            ],
+        },
+    )
+    call(lifecycle.apply_run_action(run["id"], {"action": "start"}))
+    account_id = performance.get_account(run["id"])["items"][0]["id"]
+    call(execution.submit_order(run["id"], order(account_id)))
+    call(lifecycle.apply_run_action(run["id"], {"action": "advance"}))
+    call(lifecycle.apply_run_action(run["id"], {"action": "advance"}))
+    sell = {**order(account_id, "synthetic-sell", "1"), "side": "sell"}
+    call(execution.submit_order(run["id"], sell))
+    call(lifecycle.apply_run_action(run["id"], {"action": "advance"}))
+    fills = execution.list_fills(run["id"])["items"]
+    account = TradingStore("accounts").required(account_id)
+    assert sum(fill["side"] == "sell" for fill in fills) == 1
+    assert sum(fill["side"] == "buy" for fill in fills) >= 2
+    ledger = execution_ledger(account, fills)
+    assert ledger["reconciled"] is True
+    assert ledger["realized_pnl"] is not None
+    statement = statements.get_statement(run["id"])["accounts"][0]
+    assert statement["cash_reconciled"] is True
+    assert Decimal(statement["realized_pnl"]) == ledger["realized_pnl"]
+    assert Fraction(Decimal(account["cash"])) == Fraction(1000) + sum(
+        (
+            Fraction(Decimal(f["quantity"]))
+            * Fraction(Decimal(f["price"]))
+            * (1 if f["side"] == "sell" else -1)
+            for f in fills
+        ),
+        Fraction(0),
+    )
 
 
 @pytest.mark.parametrize("fee_bps", ["0", "25"])
