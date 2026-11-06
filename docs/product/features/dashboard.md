@@ -243,8 +243,8 @@ newer widget.
 **Net worth looks wrong** — see [Net worth looks wrong](../troubleshooting/net-worth-looks-wrong.md).
 
 The widget picker uses your interface language for its controls and built-in widget names and
-descriptions. View controls and widget display and alert dialogs also follow your interface language;
-view names, custom widget names, and content remain unchanged.
+descriptions. View and widget controls, and widget display and alert dialogs, also follow your
+interface language; view names, custom widget names, and content remain unchanged.
 
 ## Related pages
 
